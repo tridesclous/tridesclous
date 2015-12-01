@@ -44,17 +44,6 @@ class DataManager:
             
         
     
-    def __repr__(self):
-        t = """DataManager <{}>
-Workdir: {}""".format(id(self), self.data_filename)
-        if self.info is None:
-            t  += "\nNot initialized"
-            return t
-        t += """
-sampling_rate: {}
-nb_channel: {}
-nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
-        return t
     
     @property
     def sampling_rate(self):
@@ -71,6 +60,35 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
         if self.segments is not None:
             return len(self.segments)
     
+    def summary(self, level=1):
+        t = """DataManager <{}>
+Workdir: {}""".format(id(self), self.data_filename)
+        if self.info is None:
+            t  += "\nNot initialized"
+            return t
+        t += """
+sampling_rate: {}
+nb_channel: {}
+nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
+        if level==0:
+            return t
+        
+        if level==1:
+            t += "\n"
+            for seg_num in self.segments.index:
+                t+= self.summary_segment(seg_num)
+        return t
+    
+    def summary_segment(self, seg_num):
+        t_start, t_stop = self.segments.loc[seg_num, 't_start'], self.segments.loc[seg_num, 't_stop']
+        t = """Segment {}
+    duration :{}s.
+    times range {} - {}
+""".format(seg_num, t_stop-t_start, t_start, t_stop)
+        return t
+    
+    def __repr__(self):
+        return self.summary(level=0)
     
     def initialize(self, sampling_rate = None, nb_channel = None):
         """
