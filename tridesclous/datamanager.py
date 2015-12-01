@@ -41,9 +41,6 @@ class DataManager:
             self.segments = self.store['segments']
         else:
             self.segments = None
-            
-        
-    
     
     @property
     def sampling_rate(self):
