@@ -35,8 +35,8 @@ def test_spikesorter():
     #data from locust
     signals = download_locust()
     
-    #~ for seg_num in range(3):
-        #~ data.append_signals(signals, seg_num = seg_num,t_start = 0.+5*seg_num, sampling_rate =  15000., already_hp_filtered = True)
+    for seg_num in range(3):
+        data.append_signals(signals, seg_num = seg_num,t_start = 0.+5*seg_num, sampling_rate =  15000., already_hp_filtered = True)
     
     #~ print(data)
     #~ print(data.segments)

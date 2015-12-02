@@ -1,6 +1,7 @@
 from tridesclous import DataManager
 
-from tridesclous import normalize_signals, derivative_signals, rectify_signals, detect_peak_method_span
+from tridesclous import (normalize_signals, derivative_signals, rectify_signals,
+                detect_peak_method_span, PeakDetector, extract_waveforms)
 
 from matplotlib import pyplot
 
@@ -48,13 +49,38 @@ def test_detect_peak_method_span():
     peaks_value = normed_sigs.loc[peaks_index]
     peaks_value[3.14:3.22].plot(marker = 'o', linestyle = 'None', ax = ax, color = 'k')
     ax.set_ylim(-20, 10)
+
+
+def test_peakdetector():
+    data = DataManager(dirname = 'test')
+    sigs = data.get_signals(seg_num=0)
+    
+    peakdetector = PeakDetector(sigs)
+    peakdetector.detect_peaks(threshold=-4, peak_sign = '-', n_span = 2)
+    print(peakdetector.peak_pos.size)
+    peakdetector.detect_peaks(threshold=-5, peak_sign = '-', n_span = 5)
+    print(peakdetector.peak_pos.size)
+
+
+def test_extract_waveform():
+    data = DataManager(dirname = 'test')
+    sigs = data.get_signals(seg_num=0)
+    
+    peakdetector = PeakDetector(sigs)
+    peakdetector.detect_peaks(threshold=-4, peak_sign = '-', n_span = 2)
+    #~ print(peakdetector.peak_pos)
+    waveforms = extract_waveforms(sigs, peakdetector.peak_pos, 15,15)
+    #~ print(waveforms.columns)
+    #~ print(waveforms.index)
     
 
     
 if __name__ == '__main__':
-    test_normalize_signals()
-    test_derivative_signals()
-    test_rectify_signals()
-    test_detect_peak_method_span()
+    #~ test_normalize_signals()
+    #~ test_derivative_signals()
+    #~ test_rectify_signals()
+    #~ test_detect_peak_method_span()
+    #~ test_peakdetector()
+    test_extract_waveform()
     
     pyplot.show()
