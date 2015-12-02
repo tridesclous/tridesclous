@@ -4,7 +4,7 @@ import numpy as np
 import json
 
 
-class DataManager:
+class DataIO:
     """
     This class handle data for each step of spike sorting: raw data, filtered data, peaks position,
     waveform, ....
@@ -193,5 +193,5 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
             query = 'index>=t_start & index<t_stop'
         
         return self.store.select(path, query)
-
+    
     

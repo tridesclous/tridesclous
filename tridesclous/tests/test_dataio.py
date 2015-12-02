@@ -4,7 +4,7 @@ import os, tempfile
 import numpy as np
 
 
-from tridesclous import DataManager
+from tridesclous import DataIO
 from urllib.request import urlretrieve
 
 def download_locust():
@@ -27,22 +27,22 @@ def download_locust():
 
 
 
-def test_spikesorter():
-    if os.path.exists('test/data.h5'):
-        os.remove('test/data.h5')
-    data = DataManager(dirname = 'test')
+def test_dataio():
+    if os.path.exists('datatest/data.h5'):
+        os.remove('datatest/data.h5')
+    dataio = DataIO(dirname = 'datatest')
     #~ print(data)
     #data from locust
     signals = download_locust()
     
     for seg_num in range(3):
-        data.append_signals(signals, seg_num = seg_num,t_start = 0.+5*seg_num, sampling_rate =  15000., already_hp_filtered = True)
+        dataio.append_signals(signals, seg_num = seg_num,t_start = 0.+5*seg_num, sampling_rate =  15000., already_hp_filtered = True)
     
     #~ print(data)
     #~ print(data.segments)
     #~ print(data.store)
-    print(data.summary(level=0))
-    print(data.summary(level=1))
+    print(dataio.summary(level=0))
+    print(dataio.summary(level=1))
     
     #~ assert data.get_signals(seg_num=0).shape == (431548, 4)
     #~ assert data.get_signals(seg_num=0, t_start=3.).shape==(386548, 4)
@@ -55,7 +55,7 @@ def test_spikesorter():
     
     
 if __name__=='__main__':
-    test_spikesorter()
+    test_dataio()
     
     
     

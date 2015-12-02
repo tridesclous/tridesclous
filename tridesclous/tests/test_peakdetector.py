@@ -1,4 +1,4 @@
-from tridesclous import DataManager
+from tridesclous import DataIO
 
 from tridesclous import (normalize_signals, derivative_signals, rectify_signals,
                 detect_peak_method_span, PeakDetector, extract_waveforms)
@@ -7,21 +7,21 @@ from matplotlib import pyplot
 
 
 def test_normalize_signals():
-    data = DataManager(dirname = 'test')
-    sigs = data.get_signals(seg_num=0)
+    dataio = DataIO(dirname = 'datatest')
+    sigs = dataio.get_signals(seg_num=0)
     normed_sigs = normalize_signals(sigs)
     normed_sigs[3.14:3.22].plot()
     
 
 def test_derivative_signals():
-    data = DataManager(dirname = 'test')
-    sigs = data.get_signals(seg_num=0)
+    dataio = DataIO(dirname = 'datatest')
+    sigs = dataio.get_signals(seg_num=0)
     deriv_sigs = derivative_signals(sigs)
     deriv_sigs[3.14:3.22].plot()
 
 def test_rectify_signals():
-    data = DataManager(dirname = 'test')
-    sigs = data.get_signals(seg_num=0)
+    dataio = DataIO(dirname = 'datatest')
+    sigs = dataio.get_signals(seg_num=0)
     retified_sigs = rectify_signals(normalize_signals(sigs), threshold = -4)
     
     fig, ax = pyplot.subplots()
@@ -29,8 +29,8 @@ def test_rectify_signals():
     ax.set_ylim(-20, 10)
 
 def test_detect_peak_method_span():
-    data = DataManager(dirname = 'test')
-    sigs = data.get_signals(seg_num=0)
+    dataio = DataIO(dirname = 'datatest')
+    sigs = dataio.get_signals(seg_num=0)
     normed_sigs = normalize_signals(sigs)
     retified_sigs = rectify_signals(normed_sigs, threshold = -4)    
     peaks_pos = detect_peak_method_span(retified_sigs,  peak_sign='-', n_span = 5)
@@ -52,8 +52,8 @@ def test_detect_peak_method_span():
 
 
 def test_peakdetector():
-    data = DataManager(dirname = 'test')
-    sigs = data.get_signals(seg_num=0)
+    dataio = DataIO(dirname = 'datatest')
+    sigs = dataio.get_signals(seg_num=0)
     
     peakdetector = PeakDetector(sigs)
     peakdetector.detect_peaks(threshold=-4, peak_sign = '-', n_span = 2)
@@ -62,16 +62,7 @@ def test_peakdetector():
     print(peakdetector.peak_pos.size)
 
 
-def test_extract_waveform():
-    data = DataManager(dirname = 'test')
-    sigs = data.get_signals(seg_num=0)
-    
-    peakdetector = PeakDetector(sigs)
-    peakdetector.detect_peaks(threshold=-4, peak_sign = '-', n_span = 2)
-    #~ print(peakdetector.peak_pos)
-    waveforms = extract_waveforms(sigs, peakdetector.peak_pos, 15,15)
-    #~ print(waveforms.columns)
-    #~ print(waveforms.index)
+
     
 
     
@@ -80,7 +71,6 @@ if __name__ == '__main__':
     #~ test_derivative_signals()
     #~ test_rectify_signals()
     #~ test_detect_peak_method_span()
-    #~ test_peakdetector()
-    test_extract_waveform()
+    test_peakdetector()
     
     pyplot.show()
