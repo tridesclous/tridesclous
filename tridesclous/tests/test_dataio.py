@@ -22,8 +22,9 @@ def download_locust():
     ch_names = ['ch09','ch11','ch13','ch16']
     sigs = np.array([hdf['Continuous_1']['trial_01'][name][...] for name in ch_names]).transpose()
     sigs = (sigs.astype('float32') - 2**15.) / 2**15
+    sampling_rate = 15000.
     
-    return sigs
+    return sigs, sampling_rate, ch_names
 
 
 
@@ -33,10 +34,13 @@ def test_dataio():
     dataio = DataIO(dirname = 'datatest')
     #~ print(data)
     #data from locust
-    signals = download_locust()
+    sigs, sampling_rate, ch_names = download_locust()
+    
+    
     
     for seg_num in range(3):
-        dataio.append_signals(signals, seg_num = seg_num,t_start = 0.+5*seg_num, sampling_rate =  15000., already_hp_filtered = True)
+        dataio.append_signals(sigs, seg_num = seg_num,t_start = 0.+5*seg_num, sampling_rate =  sampling_rate,
+                    already_hp_filtered = True, channels = ch_names)
     
     #~ print(data)
     #~ print(data.segments)

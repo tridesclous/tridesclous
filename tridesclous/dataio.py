@@ -87,7 +87,7 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
     def __repr__(self):
         return self.summary(level=0)
     
-    def initialize(self, sampling_rate = None, nb_channel = None):
+    def initialize(self, sampling_rate = None, channels = None):
         """
         Initialise the Datamanager.
         
@@ -95,15 +95,17 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
         -----------------
         sampling_rate: float
             The sampling rate in Hz
-        nb_channel: int
-            nb of channel
+        channels: list of str
+            Channel labels
         """
         assert sampling_rate is not None, 'You must provide a sampling rate'
+        assert channels is not None, 'You provide a list of channels'
         
         if self.info is None:
             self.info = pd.Series()
         self.info['sampling_rate'] = sampling_rate
-        self.info['nb_channel'] = nb_channel
+        self.info['channels'] = np.array(channels, dtype = 'S')
+        self.info['nb_channel'] = len(channels)
         
         if self.segments is None:
             self.segments = pd.DataFrame(columns = ['t_start', 't_stop'], dtype = 'float64')
@@ -115,7 +117,7 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
         self.store['segments'] = self.segments
         self.store.flush()
         
-    def append_signals(self, signals, seg_num=0, sampling_rate = None, t_start = 0., already_hp_filtered = False, ):
+    def append_signals(self, signals, seg_num=0, sampling_rate = None, t_start = 0., already_hp_filtered = False, channels = None):
         """
         Append signals segment in the store.
         If the segment do not exist it is created in the store.
@@ -129,19 +131,21 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
             The segment num.
         t_start: float 
             Time stamp of the first sample.
+        channels : list of str
+            Channels labels
         
         """
         if signals.ndim==1:
             signals = signals[:, None]
         
         if self.info is None:
-            self.initialize(sampling_rate = sampling_rate, nb_channel = signals.shape[1])
+            self.initialize(sampling_rate = sampling_rate, channels = channels)
 
         assert signals.shape[1]==self.info['nb_channel'], 'Wrong shape {} ({} chans)'.format(signals.shape, self.info['nb_channel'])
         assert sampling_rate == self.info['sampling_rate'], 'Wrong sampling_rate {} {}'.format(sampling_rate, self.info['sampling_rate'])
         
         times = np.arange(signals.shape[0], dtype = 'float64')/self.sampling_rate + t_start
-        df = pd.DataFrame(signals, index = times)
+        df = pd.DataFrame(signals, index = times, columns = self.info['channels'])
         
         path = 'segment_{}'.format(seg_num)
         if already_hp_filtered:

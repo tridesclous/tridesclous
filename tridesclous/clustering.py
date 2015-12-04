@@ -6,13 +6,28 @@ import sklearn.cluster
 import sklearn.mixture
 
 
+def find_clusters(features, n_clusters,  method='kmeans', **kargs):
+    if method == 'kmeans':
+        km = sklearn.cluster.KMeans(n_clusters=n_clusters,**kargs)
+        labels_ = km.fit_predict(features.values)
+    elif method == 'gmm':
+        gmm = self._cluster_instance = sklearn.mixture.GMM(n_clusters=n_clusters,**kargs)
+        labels_ =gmm.fit_predict(features.values)
+    
+    labels = pd.Series(labels_, index = features.index, name = 'label')
+    return labels
+
+#~ def order_clusters(features, labels):
+    
+    
+    
+
 class Clustering:
     """
     
     
     
     """
-    
     def __init__(self, waveforms):
         self.waveforms = waveforms
         
@@ -26,13 +41,17 @@ class Clustering:
             return self.features
     
     def find_clusters(self, n_clusters,method='kmeans', **kargs):
-        if method == 'kmeans':
-            km = self._cluster_instance = sklearn.cluster.KMeans(n_clusters=n_clusters,**kargs)
-            labels = km.fit_predict(self.features.values)
-            self.labels = pd.Series(labels, index = self.waveforms.index, name = 'label')
-        elif method == 'gmm':
-            gmm = self._cluster_instance = sklearn.mixture.GMM(n_clusters=n_clusters,**kargs)
-            labels =gmm.fit_predict(self.features.values)
-            self.labels = pd.Series(labels, index = self.waveforms.index, name = 'label')
-        
+        self.labels = find_clusters(self.features, n_clusters, method='kmeans', **kargs)
         return self.labels
+    
+    def merge_cluster(self, label1, label2):
+        self.labels[self.labels==label2] = label1
+        return self.labels
+    
+    def split_cluster(self, label, n, method='kmeans', **kargs):
+        mask = self.labels==label
+        new_label = find_clusters(self.features, n, method='kmeans', **kargs)
+        new_label += max(self.labels)+1
+        self.labels[mask] = new_label
+        return self.labels
+

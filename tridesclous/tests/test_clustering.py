@@ -41,13 +41,14 @@ def test_clustering():
     labels = clustering.find_clusters(7)
     df = pd.concat([features, labels], axis=1)
     
-    #~ hue_kws = {'cmap':['Blues_d','Greens_d']}
     g = sns.PairGrid(df, diag_sharey=False,hue='label', vars = features.columns)
     g.map_lower(sns.kdeplot)
     g.map_upper(pyplot.scatter)
     g.map_diag(sns.kdeplot, lw=3)
 
     #~ print(labels)
+    clustering.merge_cluster(1,2)
+    clustering.split_cluster(1, 2)
     
     
     
