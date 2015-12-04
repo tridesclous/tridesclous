@@ -123,16 +123,15 @@ def test_waveform_extractor():
     medL, madL = median_mad(long_wf)
     medS, madS = median_mad(short_wf)
     
-    fig, ax = pyplot.subplots()
+    fig, axs = pyplot.subplots(nrows = 2)
     all_med = pd.concat([medL, medS], axis=1)
     all_med.columns = ['long', 'short']
-    all_med.plot(ax=ax)
+    all_med.plot(ax=axs[0])
 
-    fig, ax = pyplot.subplots()
     all_mad = pd.concat([madL, madS], axis=1)
     all_mad.columns = ['long', 'short']
-    all_mad.plot(ax=ax)
-    ax.axhline(1.1)
+    all_mad.plot(ax=axs[1])
+    axs[1].axhline(1.1)
     
 
 
