@@ -44,22 +44,26 @@ def extract_peak_waveforms(signals, peak_pos, n_left, n_right):
         Vector cthat contains peak position in index.
     n_left, n_right: int, int
         Nb of sample arround the peak to extract.
-        The waveform length is = 1 + n_left + n_right.
+        The waveform length is = 1 - n_left + n_right.
+        n_left is negative, n_right is positve
     
     Output
     ----------
     waveforms: pandas.dataFrame
         Waveforms extract. 
         index = peak_pos (cleaned)
-        columns = multindex 2 level = channel X sample_pos in [-n_left:n_right]
+        columns = multindex 2 level = channel X sample_pos in [n_left:n_right]
     
     """
-    peak_pos_clean = peak_pos[(peak_pos>n_left+1) & (peak_pos<signals.shape[0] -n_right - 1)]
-    sample_index =  np.arange(-n_left, n_right+1, dtype = 'int64')
+    assert n_left<0
+    assert n_right>0
+    
+    peak_pos_clean = peak_pos[(peak_pos>-n_left+1) & (peak_pos<signals.shape[0] -n_right - 1)]
+    sample_index =  np.arange(n_left, n_right+1, dtype = 'int64')
     columns = pd.MultiIndex.from_product([signals.columns,sample_index], 
                                                     names = ['channel', 'sample'])
     
-    chunks = cut_chunks(signals.values, peak_pos_clean-n_left, 1 + n_left + n_right)
+    chunks = cut_chunks(signals.values, peak_pos_clean+n_left, 1 - n_left + n_right)
     chunks= chunks.reshape(chunks.shape[0], -1)
     waveforms = pd.DataFrame(chunks, index = peak_pos_clean, columns = columns)
     
@@ -67,19 +71,19 @@ def extract_peak_waveforms(signals, peak_pos, n_left, n_right):
     #~ waveforms = pd.DataFrame(index = peak_pos_clean, columns = columns)
     #~ for p in peak_pos_clean:
         #~ for chan in signals.columns:
-            #~ waveforms.loc[p, (chan, slice(None))] = signals.loc[:,chan].iloc[p-n_left:p+n_right+1].values
+            #~ waveforms.loc[p, (chan, slice(None))] = signals.loc[:,chan].iloc[p+n_left:p+n_right+1].values
     
     # this solution is even more slower
     #~ waveforms2 = pd.DataFrame(index = peak_pos_clean, columns = columns)
     #~ for p in peak_pos_clean:
-        #~ wf = signals.iloc[p-n_left:p+n_right+1,:]
+        #~ wf = signals.iloc[p+n_left:p+n_right+1,:]
         #~ wf.index = sample_index
         #~ waveforms2.loc[p, :] = wf.stack().swaplevel(0,1)
     
     
     return waveforms
 
-def extract_noise_waveforms(signals, peak_pos, n_left, n_right, size=1000, safety_factor=2):
+def extract_noise_waveforms(signals, peak_pos, n_left, n_right, size=1000, safety_factor=2): 
     """
     Extract waveform in between peaks (in the 'noise' ).
     Similar to extract_peak_waveforms.
@@ -95,7 +99,8 @@ def extract_noise_waveforms(signals, peak_pos, n_left, n_right, size=1000, safet
         Vector cthat contains peak position in index.
     n_left, n_right: int, int
         Nb of sample arround the peak to extract.
-        The waveform length is = 1 + n_left + n_right.
+        The waveform length is = 1 - n_left + n_right.
+        n_left is negative, n_right is positve
     size: int
         Nb of events.
     
@@ -104,22 +109,25 @@ def extract_noise_waveforms(signals, peak_pos, n_left, n_right, size=1000, safet
     waveforms: pandas.dataFrame
         Waveforms extract. 
         index = peak_pos (cleaned)
-        columns = multindex 2 level = channel X sample_pos in [-n_left:n_right]
+        columns = multindex 2 level = channel X sample_pos in [n_left:n_right]
 
     """
+    assert n_left<0
+    assert n_right>0
+    
     limit1 = peak_pos - n_left
     limit2 = peak_pos + n_right + 1
     
-    positions = np.random.randint(low = n_left, high = signals.shape[0]-n_right-1, size = size)
+    positions = np.random.randint(low = -n_left, high = signals.shape[0]-n_right-1, size = size)
     for i, pos in enumerate(positions):
-        while  np.any((pos+n_right + 1>=limit1) & (pos<=limit2)|(pos>=limit1) & (pos-n_left<=limit2)):
-            pos = np.random.randint(low = n_left, high = signals.shape[0]-n_right-1)
+        while  np.any((pos+n_right + 1 + safety_factor>=limit1) & (pos<=limit2)|(pos>=limit1) & (pos+n_left-safety_factor<=limit2)):
+            pos = np.random.randint(low = -n_left, high = signals.shape[0]-n_right-1)
             positions[i] = pos
     
-    sample_index =  np.arange(-n_left, n_right+1, dtype = 'int64')
+    sample_index =  np.arange(n_left, n_right+1, dtype = 'int64')
     columns = pd.MultiIndex.from_product([signals.columns,sample_index], 
                                                     names = ['channel', 'sample'])
-    chunks = cut_chunks(signals.values, positions-n_left, 1 + n_left + n_right)
+    chunks = cut_chunks(signals.values, positions+n_left, 1 - n_left + n_right)
     chunks= chunks.reshape(chunks.shape[0], -1)
     waveforms = pd.DataFrame(chunks, index = positions, columns = columns)
     
@@ -172,7 +180,7 @@ def good_events(waveforms,  upper_thr=6.,lower_thr=-8., med = None, mad = None):
 def find_good_limits(normed_mad, mad_threshold = 1.1):
     """
     Find goods limits for the waveform.
-    Where the MAD is above noise level.
+    Where the MAD is above noise level (=1.)
     
     The technics constists in finding continuous samples above 10% of backgroud noise.
     
@@ -185,9 +193,9 @@ def find_good_limits(normed_mad, mad_threshold = 1.1):
     
     Returns
     ----------
-    n_left, n_right: int
+    limit1, limi2: int
         Left and rigth limits
-    
+        Both are positive. They are relative to chunk (not peak).
     """
     # any channel above MAD mad_threshold
     above = np.any(normed_mad>=mad_threshold, axis=0)
@@ -199,8 +207,53 @@ def find_good_limits(normed_mad, mad_threshold = 1.1):
     down = down[down>min(up)]
     
     best = np.argmax(down-up)
-    print
     
     return up[best], down[best]
 
 
+
+
+class WaveformExtractor:
+    def __init__(self, peakdetector, n_left=30, n_right=45):
+        """
+        
+        """
+        assert hasattr(peakdetector, 'peak_pos'), 'peakdetector must execute first PeakDetector.detect_peaks(...)'
+        
+        self.peakdetector = peakdetector
+        self.n_left = n_left
+        self.n_right = n_right
+
+        #work on normed signals
+        self.signals = self.peakdetector.normed_sigs
+        self.nb_channel = self.signals.shape[1]
+
+        
+        #Initial waveform extraction with bigger chunk
+        self.long_waveforms = extract_peak_waveforms(self.signals, self.peakdetector.peak_pos, n_left, n_right)
+        self.med = self.long_waveforms.median(axis=0)
+        self.mad = np.median(np.abs(self.long_waveforms-self.med),axis=0)*1.4826
+    
+    def good_events(self, upper_thr=6.,lower_thr=-8.,):
+        self.keep = good_events(self.long_waveforms,  upper_thr=upper_thr,lower_thr=lower_thr, med = self.med, mad = self.mad)
+        return self.keep
+    
+    def extract_noise(self, n_left, n_right, size=1000, safety_factor=2):
+        # take some noise
+        self.noises = extract_noise_waveforms(self.signals, self.peakdetector .peak_pos, n_left, n_right, size=size, safety_factor=safety_factor)
+        return self.noises
+    
+    def find_good_limits(self, mad_threshold = 1.1):
+        l1, l2 = find_good_limits(self.mad.reshape(self.nb_channel,-1), mad_threshold = mad_threshold)
+        self.limit_left = self.long_waveforms.columns.levels[1][l1]
+        self.limit_right = self.long_waveforms.columns.levels[1][l2]
+        return self.limit_left, self.limit_right
+    
+    def get_ajusted_waveforms(self):
+        print(self.limit_left, self.limit_right)
+        sub = np.arange(self.limit_left, self.limit_right)
+        short_waveforms = self.long_waveforms.loc[:, (slice(None), sub)]
+        #reconstruct the real sub indexing
+        # see http://pandas.pydata.org/pandas-docs/stable/advanced.html   (Basic indexing on axis with MultiIndex)
+        short_waveforms.columns = pd.MultiIndex.from_tuples(short_waveforms.columns.values)
+        return short_waveforms
