@@ -15,14 +15,14 @@ def test_extract_peak_waveforms():
     
     peakdetector = PeakDetector(sigs)
     peak_pos = peakdetector.detect_peaks(threshold=-4, peak_sign = '-', n_span = 2)
+    peak_index = sigs.index[peak_pos]
     
-    
-    waveforms = extract_peak_waveforms(sigs, peak_pos, -30,50)
+    waveforms = extract_peak_waveforms(sigs, peak_pos,peak_index,  -30,50)
     print(waveforms.shape)
     fig, ax = pyplot.subplots()
     waveforms.median(axis=0).plot(ax =ax)
     
-    normed_waveforms = extract_peak_waveforms(peakdetector.normed_sigs, peak_pos, -15,50)
+    normed_waveforms = extract_peak_waveforms(peakdetector.normed_sigs, peak_pos, peak_index,  -15,50)
     fig, ax = pyplot.subplots()
     normed_waveforms.median(axis=0).plot(ax =ax)
     
@@ -54,7 +54,7 @@ def test_good_events():
     #~ peak_pos = peak_pos[:100]
     #~ print(peak_pos)
     
-    waveforms = extract_peak_waveforms(sigs, peak_pos, -30,50)
+    waveforms = extract_peak_waveforms(sigs, peak_pos, peak_pos,  -30,50)
     keep = good_events(waveforms,upper_thr=5.,lower_thr=-5.)
     #~ print(keep)
     goods_wf = waveforms[keep]
@@ -84,9 +84,9 @@ def test_find_good_limits():
     
     peakdetector = PeakDetector(sigs)
     peak_pos = peakdetector.detect_peaks(threshold=-4, peak_sign = '-', n_span = 5)
+    peak_index = sigs.index[peak_pos]
     
-    
-    normed_waveforms = extract_peak_waveforms(peakdetector.normed_sigs, peak_pos, -25,50)
+    normed_waveforms = extract_peak_waveforms(peakdetector.normed_sigs, peak_pos, peak_index, -25,50)
     
     normed_med = normed_waveforms.median(axis=0)
     normed_mad = np.median(np.abs(normed_waveforms-normed_med),axis=0)*1.4826

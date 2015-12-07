@@ -1,7 +1,7 @@
 from tridesclous import DataIO
 
 from tridesclous import (normalize_signals, derivative_signals, rectify_signals,
-                detect_peak_method_span, PeakDetector, extract_waveforms)
+                detect_peak_method_span, PeakDetector, extract_peak_waveforms)
 
 from matplotlib import pyplot
 
@@ -55,7 +55,7 @@ def test_peakdetector():
     dataio = DataIO(dirname = 'datatest')
     sigs = dataio.get_signals(seg_num=0)
     
-    peakdetector = PeakDetector(sigs)
+    peakdetector = PeakDetector(sigs, seg_num=0)
     peakdetector.detect_peaks(threshold=-4, peak_sign = '-', n_span = 2)
     print(peakdetector.peak_pos.size)
     peakdetector.detect_peaks(threshold=-5, peak_sign = '-', n_span = 5)
@@ -71,6 +71,7 @@ if __name__ == '__main__':
     #~ test_derivative_signals()
     #~ test_rectify_signals()
     #~ test_detect_peak_method_span()
+    
     test_peakdetector()
     
     pyplot.show()

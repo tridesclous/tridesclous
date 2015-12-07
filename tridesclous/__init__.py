@@ -4,6 +4,8 @@ from .tools import *
 from .peakdetector import *
 from .waveformextractor import *
 from .clustering import Clustering
+from .spikesorter import SpikeSorter
+
 from .mpl_plot import *
 
 try:

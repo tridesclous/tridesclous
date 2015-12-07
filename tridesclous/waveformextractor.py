@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+from .tools import median_mad
 
 def cut_chunks(signals, indexes, width):
     """
@@ -30,7 +31,7 @@ def cut_chunks(signals, indexes, width):
     return chunks
 
 
-def extract_peak_waveforms(signals, peak_pos, n_left, n_right):
+def extract_peak_waveforms(signals, peak_pos, peak_index, n_left, n_right):
     """
     Extract waveforms around peak given signals and peak position (in sample).
     Note that peak_pos near border are eliminated, 
@@ -42,6 +43,11 @@ def extract_peak_waveforms(signals, peak_pos, n_left, n_right):
         Signals
     peak_pos : np.ndarray
         Vector cthat contains peak position in index.
+    peak_index : pandas.Index
+        Index of peak for output can be depending of the needs:
+            * multiindex 2 levels = (seg_num, peak_time) 
+            * or peak_time
+            * or peak_pos
     n_left, n_right: int, int
         Nb of sample arround the peak to extract.
         The waveform length is = 1 - n_left + n_right.
@@ -51,21 +57,23 @@ def extract_peak_waveforms(signals, peak_pos, n_left, n_right):
     ----------
     waveforms: pandas.dataFrame
         Waveforms extract. 
-        index = peak_pos (cleaned)
-        columns = multindex 2 level = channel X sample_pos in [n_left:n_right]
+        index = peak_index
+        columns = multindex 2 level = (channel,sample_pos in [n_left:n_right])
     
     """
     assert n_left<0
     assert n_right>0
     
-    peak_pos_clean = peak_pos[(peak_pos>-n_left+1) & (peak_pos<signals.shape[0] -n_right - 1)]
+    keep = (peak_pos>-n_left+1) & (peak_pos<signals.shape[0] -n_right - 1)
+    peak_pos_clean = peak_pos[keep]
     sample_index =  np.arange(n_left, n_right+1, dtype = 'int64')
     columns = pd.MultiIndex.from_product([signals.columns,sample_index], 
                                                     names = ['channel', 'sample'])
     
     chunks = cut_chunks(signals.values, peak_pos_clean+n_left, 1 - n_left + n_right)
     chunks= chunks.reshape(chunks.shape[0], -1)
-    waveforms = pd.DataFrame(chunks, index = peak_pos_clean, columns = columns)
+    
+    waveforms = pd.DataFrame(chunks, index = peak_index[keep], columns = columns)
     
     # this solution is slower
     #~ waveforms = pd.DataFrame(index = peak_pos_clean, columns = columns)
@@ -223,6 +231,7 @@ class WaveformExtractor:
         self.peakdetector = peakdetector
         self.n_left = n_left
         self.n_right = n_right
+        self.seg_num = self.peakdetector.seg_num
 
         #work on normed signals
         self.signals = self.peakdetector.normed_sigs
@@ -230,9 +239,11 @@ class WaveformExtractor:
 
         
         #Initial waveform extraction with bigger chunk
-        self.long_waveforms = extract_peak_waveforms(self.signals, self.peakdetector.peak_pos, n_left, n_right)
-        self.med = self.long_waveforms.median(axis=0)
-        self.mad = np.median(np.abs(self.long_waveforms-self.med),axis=0)*1.4826
+        self.long_waveforms = extract_peak_waveforms(self.signals, self.peakdetector.peak_pos,self.peakdetector.peak_index, n_left, n_right)
+        self.med, self.mad = median_mad(self.long_waveforms, axis=0)
+        
+        #~ self.med = self.long_waveforms.median(axis=0)
+        #~ self.mad = np.median(np.abs(self.long_waveforms-self.med),axis=0)*1.4826
     
     def good_events(self, upper_thr=6.,lower_thr=-8.,):
         self.keep = good_events(self.long_waveforms,  upper_thr=upper_thr,lower_thr=lower_thr, med = self.med, mad = self.mad)
@@ -244,7 +255,7 @@ class WaveformExtractor:
         return self.noises
     
     def find_good_limits(self, mad_threshold = 1.1):
-        l1, l2 = find_good_limits(self.mad.reshape(self.nb_channel,-1), mad_threshold = mad_threshold)
+        l1, l2 = find_good_limits(self.mad.values.reshape(self.nb_channel,-1), mad_threshold = mad_threshold)
         self.limit_left = self.long_waveforms.columns.levels[1][l1]
         self.limit_right = self.long_waveforms.columns.levels[1][l2]
         return self.limit_left, self.limit_right
@@ -257,3 +268,6 @@ class WaveformExtractor:
         # see http://pandas.pydata.org/pandas-docs/stable/advanced.html   (Basic indexing on axis with MultiIndex)
         short_waveforms.columns = pd.MultiIndex.from_tuples(short_waveforms.columns.values)
         return short_waveforms
+
+
+

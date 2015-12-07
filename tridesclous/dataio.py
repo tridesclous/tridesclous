@@ -17,6 +17,10 @@ class DataIO:
     ''segment_0/unfiltered_signals' : non filetred signals of segment 0
     ''segment_0/signals' : filetred signals of segment 0
     
+    Usage:
+    
+    dataio = DataIO(dirname = 'test', complib = 'blosc', complevel= 9)
+    
     
     """
     def __init__(self, dirname = 'test', complib = 'blosc', complevel= 9):
@@ -58,7 +62,7 @@ class DataIO:
             return len(self.segments)
     
     def summary(self, level=1):
-        t = """DataManager <{}>
+        t = """DataIO <{}>
 Workdir: {}""".format(id(self), self.data_filename)
         if self.info is None:
             t  += "\nNot initialized"
@@ -74,14 +78,20 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
             t += "\n"
             for seg_num in self.segments.index:
                 t+= self.summary_segment(seg_num)
+                
         return t
     
     def summary_segment(self, seg_num):
         t_start, t_stop = self.segments.loc[seg_num, 't_start'], self.segments.loc[seg_num, 't_stop']
         t = """Segment {}
-    duration :{}s.
-    times range {} - {}
+    duration : {}s.
+    times range : {} - {}
 """.format(seg_num, t_stop-t_start, t_start, t_stop)
+
+        path = 'segment_{}/peaks'.format(seg_num)
+        if path in self.store:
+            t+= "    nb_peaks : {}\n".format(self.store[path].shape[0])
+        
         return t
     
     def __repr__(self):
@@ -113,6 +123,8 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
         self.flush_info()
 
     def flush_info(self):
+        print('flush_info')
+        print(self.info)
         self.store['info'] = self.info
         self.store['segments'] = self.segments
         self.store.flush()
@@ -198,4 +210,31 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
         
         return self.store.select(path, query)
     
+    def append_peaks(self, peaks, seg_num=0, append = False):
+        """
+        Append detected peaks in the store.
+        
+        Arguments
+        -----------------
+        peaks: pd.DataFrame
+            DataFrame of peaks:
+                * index : MultiIndex (seg_num, peak_times)
+                * columns : 'peak_index', 'labels'
+                *
+        seg_num: int
+            The segment num.
+        append: bool, default True
+            If True append to existing peaks for the segment.
+            If False overwrite.
+        """
+        
+        path = 'segment_{}/peaks'.format(seg_num)
+        peaks.to_hdf(self.store, path, format = 'table', append=append)
+        
+    
+    def get_peaks(self, seg_num=0):
+        path = 'segment_{}/peaks'.format(seg_num)
+        return self.store[path]
+        
+        
     

@@ -7,7 +7,7 @@ import numpy as np
 from tridesclous import DataIO
 from urllib.request import urlretrieve
 
-def download_locust():
+def download_locust(trial_names = ['trial_01']):
     name = 'locust20010201.hdf5'
     distantfile = 'https://zenodo.org/record/21589/files/'+name
     localdir = os.path.dirname(os.path.abspath(__file__))
@@ -20,11 +20,16 @@ def download_locust():
         urlretrieve(distantfile, localfile)
     hdf = h5py.File(localfile,'r')
     ch_names = ['ch09','ch11','ch13','ch16']
-    sigs = np.array([hdf['Continuous_1']['trial_01'][name][...] for name in ch_names]).transpose()
-    sigs = (sigs.astype('float32') - 2**15.) / 2**15
+    
+    sigs_by_trials = []
+    for trial_name in trial_names:
+        sigs = np.array([hdf['Continuous_1'][trial_name][name][...] for name in ch_names]).transpose()
+        sigs = (sigs.astype('float32') - 2**15.) / 2**15
+        sigs_by_trials.append(sigs)
+    
     sampling_rate = 15000.
     
-    return sigs, sampling_rate, ch_names
+    return sigs_by_trials, sampling_rate, ch_names
 
 
 
@@ -34,11 +39,11 @@ def test_dataio():
     dataio = DataIO(dirname = 'datatest')
     #~ print(data)
     #data from locust
-    sigs, sampling_rate, ch_names = download_locust()
-    
+    sigs_by_trials, sampling_rate, ch_names = download_locust(trial_names = ['trial_01', 'trial_02', 'trial_03'])
     
     
     for seg_num in range(3):
+        sigs = sigs_by_trials[seg_num]
         dataio.append_signals(sigs, seg_num = seg_num,t_start = 0.+5*seg_num, sampling_rate =  sampling_rate,
                     already_hp_filtered = True, channels = ch_names)
     
