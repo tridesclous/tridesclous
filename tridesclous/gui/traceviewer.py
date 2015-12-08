@@ -6,6 +6,7 @@ import pandas as pd
 
 from ..spikesorter import SpikeSorter
 from .tools import TimeSeeker
+from ..tools import median_mad
 
 
 
@@ -65,44 +66,21 @@ class TraceViewer(QtGui.QWidget):
         self.time_by_seg = pd.Series(self.dataio.segments['t_start'].copy(), name = 'time', index = self.dataio.segments.index)
         
         self.change_segment(0)
+        self.refresh()
     
-    def initialize_plot(self):
-        self.viewBox = MyViewBox()
-        self.plot = pg.PlotItem(viewBox=self.viewBox)
-        self.graphicsview.setCentralItem(self.plot)
-        self.plot.hideButtons()
-        
-        self.curves = []
-        self.channel_labels = []
-        self.threshold_lines =[]
-        for c in range(self.dataio.nb_channel):
-            color = '#7FFF00'  # TODO
-            curve = pg.PlotCurveItem(pen=color)
-            self.plot.addItem(curve)
-            self.curves.append(curve)
-            label = pg.TextItem(str(self.dataio.info['channels'][c]), color=color, anchor=(0.5, 0.5), border=None, fill=pg.mkColor((128,128,128, 200)))
-            self.plot.addItem(label)
-            self.channel_labels.append(label)
-            
-            tc = pg.InfiniteLine(angle = 0, movable = False, pen = 'g')
-            tc.setPos(0.)
-            self.threshold_lines.append(tc)
-            self.plot.addItem(tc)
-            tc.hide()
-
     def createToolBar(self):
         tb = self.toolbar = QtGui.QToolBar()
         
         #Segment selection
-        but = QtGui.QPushButton('<')
-        but.clicked.connect(self.prev_segment)
-        tb.addWidget(but)
+        #~ but = QtGui.QPushButton('<')
+        #~ but.clicked.connect(self.prev_segment)
+        #~ tb.addWidget(but)
         self.combo = QtGui.QComboBox()
         tb.addWidget(self.combo)
         self.combo.addItems([ 'Segment {}'.format(seg_num) for seg_num in self.dataio.segments.index ])
-        but = QtGui.QPushButton('>')
-        but.clicked.connect(self.next_segment)
-        tb.addWidget(but)
+        #~ but = QtGui.QPushButton('>')
+        #~ but.clicked.connect(self.next_segment)
+        #~ tb.addWidget(but)
         self._seg_pos = 0
         self.seg_num = self.dataio.segments.index[self._seg_pos]
         self.combo.currentIndexChanged.connect(self.on_combo_changed)
@@ -116,13 +94,54 @@ class TraceViewer(QtGui.QWidget):
         # winsize
         self.xsize = .5
         tb.addWidget(QtGui.QLabel(u'X size (s)'))
-        #~ self.spinbox_xsize = pg.SpinBox(value = self.xsize, bounds = [0.001, 10.], suffix = 's', siPrefix = True, step = 0.1, dec = True)
-        self.spinbox_xsize = pg.SpinBox(value = self.xsize, bounds = [0.001, 10.]) # step = 0.1, dec = True)
+        self.spinbox_xsize = pg.SpinBox(value = self.xsize, bounds = [0.001, 10.], suffix = 's', siPrefix = True, step = 0.1, dec = True)
+        #~ self.spinbox_xsize = pg.SpinBox(value = self.xsize, bounds = [0.001, 10.]) # step = 0.1, dec = True)
         self.spinbox_xsize.sigValueChanged.connect(self.xsize_changed)
         tb.addWidget(self.spinbox_xsize)
         tb.addSeparator()
         self.spinbox_xsize.sigValueChanged.connect(self.refresh)
+        
+        #
+        but = QtGui.QPushButton('auto scale')
+        but.clicked.connect(self.auto_scale)
+        tb.addWidget(but)        
+        
 
+    def initialize_plot(self):
+        self.viewBox = MyViewBox()
+        self.plot = pg.PlotItem(viewBox=self.viewBox)
+        self.graphicsview.setCentralItem(self.plot)
+        self.plot.hideButtons()
+        self.plot.showAxis('left', False)
+        
+        self.viewBox.gain_zoom.connect(self.gain_zoom)
+        self.viewBox.xsize_zoom.connect(self.xsize_zoom)
+        
+        
+        self.curves = []
+        self.channel_labels = []
+        self.threshold_lines =[]
+        self.scatters = []
+        for c in range(self.dataio.nb_channel):
+            color = '#7FFF00'  # TODO
+            curve = pg.PlotCurveItem(pen=color)
+            self.plot.addItem(curve)
+            self.curves.append(curve)
+            label = pg.TextItem(str(self.dataio.info['channels'][c]), color=color, anchor=(0, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
+            self.plot.addItem(label)
+            self.channel_labels.append(label)
+            
+            tc = pg.InfiniteLine(angle = 0, movable = False, pen = 'g')
+            tc.setPos(0.)
+            self.threshold_lines.append(tc)
+            self.plot.addItem(tc)
+            tc.hide()
+            
+            self.scatters.append({})
+        
+        self.gains = None
+        self.offsets = None
+        
 
     def prev_segment(self):
         self.change_segment(self._seg_pos - 1)
@@ -147,9 +166,11 @@ class TraceViewer(QtGui.QWidget):
             #TODO filtered or not
             self.sigs = self.dataio.get_signals(seg_num = self.seg_num, t_start = lims['t_start'], 
                             t_stop = lims['t_stop'], filtered = True)
+            
         elif self.mode == 'file':
             self.sigs = None
-
+        self.seg_peaks = self.dataio.get_peaks(seg_num=self.seg_num).xs(self.seg_num, level=0)
+        
         if self.isVisible():
             self.refresh()
 
@@ -158,6 +179,7 @@ class TraceViewer(QtGui.QWidget):
         s =  self.combo.currentIndex()
         for otherviewer in self.shared_view_with:
             otherviewer.combo.setCurrentIndex(s)
+        self.change_segment(s)
     
     def xsize_changed(self):
         self.xsize = self.spinbox_xsize.value()
@@ -167,7 +189,7 @@ class TraceViewer(QtGui.QWidget):
             self.refresh()
             
     
-    def seek(self, t, cascade = True):
+    def seek(self, t, cascade=True):
         if cascade:
             for otherviewer in self.shared_view_with:
                 otherviewer.seek(t, cascade = False)
@@ -178,6 +200,10 @@ class TraceViewer(QtGui.QWidget):
         t1,t2 = t-self.xsize/3. , t+self.xsize*2/3.
         #~ print(t1, t2)
         
+        if self.gains is None:
+            self.estimate_auto_scale()
+
+        
         #signal chunk
         if self.mode == 'memory':
             chunk = self.sigs.loc[t1:t2]
@@ -185,23 +211,64 @@ class TraceViewer(QtGui.QWidget):
             chunk = self.dataio.get_signals(seg_num = self.seg_num, t_start = t1, t_stop = t2, filtered = True)
         
         for c in range(self.dataio.nb_channel):
-            self.curves[c].setData(chunk.index.values, chunk.iloc[:, c].values)
+            self.curves[c].setData(chunk.index.values, chunk.iloc[:, c].values*self.gains[c]+self.offsets[c])
+            self.channel_labels[c].setPos(t1, self.dataio.nb_channel-c-1)
 
         #TODO spikes by clusters
+        inwin = self.seg_peaks.loc[t1:t2,:]
+        visible_labels = np.unique(inwin['label'].values)
+        for c in range(self.dataio.nb_channel):
+            for k, scatter in self.scatters[c].items():
+                if k not in visible_labels:
+                    scatter.setData([], [])
+        for k in visible_labels:
+            for c in range(self.dataio.nb_channel):
+                sel = inwin['label']==k
+                p = chunk.loc[sel.index]
+                if k not in self.scatters[c]:
+                    color = QtGui.QColor( 'magenta')
+                    color.setAlpha(160)
+                    self.scatters[c][k] = pg.ScatterPlotItem(pen=None, brush=color, size=15, pxMode = True)
+                    self.plot.addItem(self.scatters[c][k])
+                
+                self.scatters[c][k].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
+                
         
         self.plot.setXRange( t1, t2, padding = 0.0)
-        #~ self.plot.setYRange( *self.ylims , padding = 0.0)
+        self.plot.setYRange(-.5, self.dataio.nb_channel-.5, padding = 0.0)
         
-        
-        
-        
-        
-        
-        
-        
-    
     def refresh(self):
         self.seek(self.time_by_seg[self.seg_num], cascade = False)
+    
 
+    def xsize_zoom(self, xmove):
+        factor = xmove/100.
+        newsize = self.xsize*(factor+1.)
+        limits = self.spinbox_xsize.opts['bounds']
+        if newsize>0. and newsize<limits[1]:
+            self.spinbox_xsize.setValue(newsize)
+    
+    def auto_scale(self):
+        self.estimate_auto_scale()
+        self.refresh()
+    
+    def estimate_auto_scale(self):
+        if self.mode == 'memory':
+            self.med, self.mad = median_mad(self.sigs, axis = 0)
+        elif self.mode == 'file':
+            lims = self.dataio.segments.loc[self.seg_num]
+            chunk = self.dataio.get_signals(seg_num = self.seg_num, t_start = lims['t_start'], t_stop = lims['t_start']+60., filtered = True)
+            self.med, self.mad = median_mad(chunk, axis = 0)
+        
+        self.med, self.mad = self.med.values, self.mad.values
+        n = self.dataio.nb_channel
+        factor = 15
+        self.gains = np.ones(n, dtype=float) * 1./(factor*max(self.mad))
+        self.offsets = np.arange(n)[::-1] - self.med*self.gains
+    
+    def gain_zoom(self, factor):
+        self.offsets = self.offsets + self.med*self.gains - self.med*self.gains*factor
+        self.gains = self.gains*factor
+        self.refresh()
 
     
