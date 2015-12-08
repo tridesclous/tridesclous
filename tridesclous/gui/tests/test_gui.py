@@ -8,6 +8,7 @@ def get_spikesorter():
     print(spikesorter.summary(level=1))
     spikesorter.project(method = 'pca', n_components = 5)
     spikesorter.find_clusters(7)
+    spikesorter.refresh_colors(reset=True, palette = 'husl')
     return spikesorter
 
 
@@ -74,5 +75,5 @@ if __name__ == '__main__':
     #~ test_traceviewer()
     #~ test_traceviewer_linked()
     #~ test_peaklist()
-    test_ndviewer()
-    #~ test_mainwindow()
+    #~ test_ndviewer()
+    test_mainwindow()

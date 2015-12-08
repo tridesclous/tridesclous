@@ -247,9 +247,10 @@ class TraceViewer(QtGui.QWidget):
                     scatter.setData([], [])
             # plotted selected
             if 'sel' not in self.scatters[c]:
-                color = QtGui.QColor( 'magenta')
-                color.setAlpha(180)
-                self.scatters[c]['sel'] = pg.ScatterPlotItem(pen=None, brush=color, size=20, pxMode = True)
+                brush = QtGui.QColor( 'magenta')
+                brush.setAlpha(180)
+                pen = QtGui.QColor( 'yellow')
+                self.scatters[c]['sel'] = pg.ScatterPlotItem(pen=pen, brush=brush, size=20, pxMode = True)
                 self.plot.addItem(self.scatters[c]['sel'])
             sel = inwin[inwin['selected']]
             p = chunk.loc[sel.index]
@@ -257,18 +258,16 @@ class TraceViewer(QtGui.QWidget):
         
         for k in visible_labels:
             for c in range(self.dataio.nb_channel):
-                sel = inwin['label']==k
+                sel = inwin[inwin['label']==k]
                 p = chunk.loc[sel.index]
                 
+                color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
                 if k not in self.scatters[c]:
-                    #TODO color
-                    color = QtGui.QColor( 'cyan')
                     self.scatters[c][k] = pg.ScatterPlotItem(pen=None, brush=color, size=10, pxMode = True)
                     self.plot.addItem(self.scatters[c][k])
                     self.scatters[c][k].sigClicked.connect(self.item_clicked)
-                
+                self.scatters[c][k].setBrush(color)
                 self.scatters[c][k].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
-                
         
         self.plot.setXRange( t1, t2, padding = 0.0)
         self.plot.setYRange(-.5, self.dataio.nb_channel-.5, padding = 0.0)

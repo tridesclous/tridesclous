@@ -81,14 +81,13 @@ class PeakModel(QtCore.QAbstractItemModel):
     
     def refresh_colors(self):
         #TODO colors
-        pass
         self.icons = { }
-        for label in np.unique(self.spikesorter.all_peaks['label']):
+        #~ for k in np.unique(self.spikesorter.all_peaks['label']):
+        for k in self.spikesorter.qcolors:
+            color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
             pix = QtGui.QPixmap(10,10 )
-            r, g, b = (1,1,0)
-            #~ r,g,b = self.spikesorter.cluster_colors[c]
-            pix.fill(QtGui.QColor( r*255,g*255,b*255  ))
-            self.icons[label] = QtGui.QIcon(pix)
+            pix.fill(color)
+            self.icons[k] = QtGui.QIcon(pix)
         
         #~ self.icons[-1] = QIcon(':/user-trash.png')
         

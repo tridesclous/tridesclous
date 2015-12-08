@@ -14,7 +14,7 @@ from ..tools import median_mad
 
 class MyViewBox(pg.ViewBox):
     doubleclicked = QtCore.pyqtSignal()
-    #~ gain_zoom = QtCore.pyqtSignal(float)
+    gain_zoom = QtCore.pyqtSignal(float)
     #~ xsize_zoom = QtCore.pyqtSignal(float)
     def __init__(self, *args, **kwds):
         pg.ViewBox.__init__(self, *args, **kwds)
@@ -27,11 +27,11 @@ class MyViewBox(pg.ViewBox):
     def mouseDragEvent(self, ev):
         ev.ignore()
     def wheelEvent(self, ev):
-        #~ if ev.modifiers() == QtCore.Qt.ControlModifier:
-            #~ z = 10 if ev.delta()>0 else 1/10.
-        #~ else:
-            #~ z = 1.3 if ev.delta()>0 else 1/1.3
-        #~ self.gain_zoom.emit(z)
+        if ev.modifiers() == QtCore.Qt.ControlModifier:
+            z = 10 if ev.delta()>0 else 1/10.
+        else:
+            z = 1.3 if ev.delta()>0 else 1/1.3
+        self.gain_zoom.emit(z)
         ev.accept()
     def mouseDragEvent(self, ev):
         ev.accept()
@@ -106,27 +106,30 @@ class NDScatter(QtGui.QWidget):
     
     def initialize(self):
         self.viewBox = MyViewBox()
+        self.viewBox.gain_zoom.connect(self.gain_zoom)
         self.plot = pg.PlotItem(viewBox=self.viewBox)
         self.graphicsview.setCentralItem(self.plot)
         self.plot.hideButtons()
         
         self.scatters = {}
-        color = QtGui.QColor( 'magenta')
-        color.setAlpha(220)
-        self.scatters['sel'] = pg.ScatterPlotItem(pen=None, brush=color, size=8, pxMode = True)
+        brush = QtGui.QColor( 'magenta')
+        brush.setAlpha(180)
+        pen = QtGui.QColor( 'yellow')
+        self.scatters['sel'] = pg.ScatterPlotItem(pen=pen, brush=brush, size=11, pxMode = True)
         self.plot.addItem(self.scatters['sel'])
         self.scatters['sel'].setZValue(1000)
         
         #~ m = np.max(np.abs(self.data.values))
         med, mad = median_mad(self.data)
         m = 4.*np.max(mad.values)
+        self.limit = m
         self.plot.setXRange(-m, m)
         self.plot.setYRange(-m, m)
         
         ndim = self.data.shape[1]
         self.projection = np.zeros( (ndim, 2))
-        self.projection[0,0] = 1./np.sqrt(2)
-        self.projection[1,1] = 1./np.sqrt(2)
+        self.projection[0,0] = 1.
+        self.projection[1,1] = 1.
         
         self.plot2 = pg.PlotItem(viewBox=MyViewBox(lockAspect=True))
         self.graphicsview2.setCentralItem(self.plot2)
@@ -170,8 +173,7 @@ class NDScatter(QtGui.QWidget):
             #~ print(projected)
             
             if k not in self.scatters:
-                #TODO color
-                color = QtGui.QColor( 'cyan')
+                color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
                 self.scatters[k] = pg.ScatterPlotItem(pen=None, brush=color, size=2, pxMode = True)
                 self.plot.addItem(self.scatters[k])
                 self.scatters[k].sigClicked.connect(self.item_clicked)
@@ -222,6 +224,10 @@ class NDScatter(QtGui.QWidget):
     def on_peak_selection_changed(self):
         self.refresh()
     
+    def gain_zoom(self, factor):
+        self.limit *= factor
+        self.plot.setXRange(-self.limit, self.limit)
+        self.plot.setYRange(-self.limit, self.limit)
     
     def item_clicked(self):
         pass

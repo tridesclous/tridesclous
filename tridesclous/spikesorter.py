@@ -9,6 +9,12 @@ from .clustering import Clustering
 
 from collections import OrderedDict
 
+try:
+    from pyqtgraph.Qt import QtCore, QtGui
+    HAVE_QT = True
+except ImportError:
+    HAVE_QT = False
+
 class SpikeSorter:
     def __init__(self, dataio = None, **kargs):
         """
@@ -105,12 +111,19 @@ class SpikeSorter:
         self.clustering.find_clusters(*args, **kargs)
         self.all_peaks['label'] = self.clustering.labels
     
-    def refresh_colors(self, reset = True):
+    def refresh_colors(self, reset = True, palette = 'husl'):
         if reset:
             self.colors = {}
         
-        all_labels = np.unique(all_peaks['label'].values)
         
+        all_labels = np.unique(self.all_peaks['label'].values)
+        color_table = sns.color_palette(palette, all_labels.size)
+        for i, k in enumerate(all_labels):
+            if k not in self.colors:
+                self.colors[k] = color_table[i]
         
-        
-
+        if HAVE_QT:
+            self.qcolors = {}
+            for k, color in self.colors.items():
+                r, g, b = color
+                self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
