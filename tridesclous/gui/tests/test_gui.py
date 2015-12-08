@@ -2,11 +2,19 @@ from tridesclous import *
 import  pyqtgraph as pg
 
 
+def get_spikesorter():
+    spikesorter = SpikeSorter(dirname = '../../tests/datatest')
+    spikesorter.detect_peaks_extract_waveforms(seg_nums = 'all',  threshold=-4, peak_sign = '-', n_span = 2,  n_left=-30, n_right=50)
+    print(spikesorter.summary(level=1))
+    spikesorter.project(method = 'pca', n_components = 5)
+    spikesorter.find_clusters(7)
+    return spikesorter
+
 
 def test_traceviewer():
     app = pg.mkQApp()
     
-    spikesorter = SpikeSorter(dirname = '../../tests/datatest')
+    spikesorter = get_spikesorter()
     
     traceviewer = TraceViewer(spikesorter=spikesorter, mode = 'memory', )
     traceviewer.show()
@@ -17,10 +25,7 @@ def test_traceviewer():
 
 def test_traceviewer_linked():
     app = pg.mkQApp()
-    
-    
-    #~ print(spikesorter.dataio.segments)
-    spikesorter = SpikeSorter(dirname = '../../tests/datatest')
+    spikesorter = get_spikesorter()
     
     traceviewer0 = TraceViewer(spikesorter=spikesorter, mode = 'memory', )
     traceviewer0.show()
@@ -36,7 +41,7 @@ def test_traceviewer_linked():
 
 def test_peaklist():
     app = pg.mkQApp()
-    spikesorter = SpikeSorter(dirname = '../../tests/datatest')
+    spikesorter = get_spikesorter()
     
     peaklist = PeakList(spikesorter = spikesorter)
     peaklist.show()
@@ -44,14 +49,23 @@ def test_peaklist():
     
     app.exec_()
 
+def test_ndviewer():
+    app = pg.mkQApp()
+    spikesorter = get_spikesorter()
+    
+    ndscatter = NDScatter(spikesorter)
+    ndscatter.show()
+    
+    app.exec_()
+    
+
 
 def test_mainwindow():
     app = pg.mkQApp()
+    spikesorter = get_spikesorter()
     
-    spikesorter = SpikeSorter(dirname = '../../tests/datatest')
-    
-    peaklist = SpikeSortingWindow(spikesorter)
-    peaklist.show()
+    win = SpikeSortingWindow(spikesorter)
+    win.show()
     
     app.exec_()
     
@@ -60,4 +74,5 @@ if __name__ == '__main__':
     #~ test_traceviewer()
     #~ test_traceviewer_linked()
     #~ test_peaklist()
+    #~ test_ndviewer()
     test_mainwindow()

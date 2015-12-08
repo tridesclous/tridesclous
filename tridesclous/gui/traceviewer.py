@@ -37,6 +37,9 @@ class MyViewBox(pg.ViewBox):
 
 
 class TraceViewer(QtGui.QWidget):
+    
+    peak_selection_changed = QtCore.pyqtSignal()
+    
     def __init__(self, spikesorter = None, shared_view_with = [], 
                     mode = 'memory', parent=None):
         QtGui.QWidget.__init__(self, parent)
@@ -51,7 +54,7 @@ class TraceViewer(QtGui.QWidget):
         # Can share view with other trace viewer : simultanetly view filter + full band
         self.shared_view_with = shared_view_with
 
-        self.createToolBar()
+        self.create_toolbar()
         self.layout.addWidget(self.toolbar)
         
         # create graphic view and plot item
@@ -77,7 +80,7 @@ class TraceViewer(QtGui.QWidget):
         self.change_segment(0)
         self.refresh()
     
-    def createToolBar(self):
+    def create_toolbar(self):
         tb = self.toolbar = QtGui.QToolBar()
         
         #Segment selection
@@ -116,9 +119,10 @@ class TraceViewer(QtGui.QWidget):
         tb.addWidget(but)
         but = QtGui.QPushButton('settings')
         but.clicked.connect(self.open_settings)
-        tb.addWidget(but)        
-
-        
+        tb.addWidget(but)
+        self.select_button = QtGui.QPushButton('select', checkable = True)
+        tb.addWidget(self.select_button)
+    
 
     def initialize_plot(self):
         self.viewBox = MyViewBox()
@@ -185,11 +189,13 @@ class TraceViewer(QtGui.QWidget):
             #TODO filtered or not
             self.sigs = self.dataio.get_signals(seg_num = self.seg_num, t_start = lims['t_start'], 
                             t_stop = lims['t_stop'], filtered = True)
-            
         elif self.mode == 'file':
             self.sigs = None
-        self.seg_peaks = self.dataio.get_peaks(seg_num=self.seg_num).xs(self.seg_num, level=0)
-        
+
+        if self.spikesorter.all_peaks is None:
+            self.spikesorter.load_all_peaks()
+        self.seg_peaks = self.spikesorter.all_peaks.xs(self.seg_num)
+            
         if self.isVisible():
             self.refresh()
 
@@ -206,7 +212,6 @@ class TraceViewer(QtGui.QWidget):
             otherviewer.spinbox_xsize.setValue(self.xsize)
         if self.isVisible():
             self.refresh()
-            
     
     def seek(self, t, cascade=True):
         if cascade:
@@ -232,23 +237,35 @@ class TraceViewer(QtGui.QWidget):
         for c in range(self.dataio.nb_channel):
             self.curves[c].setData(chunk.index.values, chunk.iloc[:, c].values*self.gains[c]+self.offsets[c])
             self.channel_labels[c].setPos(t1, self.dataio.nb_channel-c-1)
-
-        #TODO spikes by clusters
+        
         inwin = self.seg_peaks.loc[t1:t2,:]
         visible_labels = np.unique(inwin['label'].values)
         for c in range(self.dataio.nb_channel):
+            #reset scatters
             for k, scatter in self.scatters[c].items():
                 if k not in visible_labels:
                     scatter.setData([], [])
+            # plotted selected
+            if 'sel' not in self.scatters[c]:
+                color = QtGui.QColor( 'magenta')
+                color.setAlpha(180)
+                self.scatters[c]['sel'] = pg.ScatterPlotItem(pen=None, brush=color, size=20, pxMode = True)
+                self.plot.addItem(self.scatters[c]['sel'])
+            sel = inwin[inwin['selected']]
+            p = chunk.loc[sel.index]
+            self.scatters[c]['sel'].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
+        
         for k in visible_labels:
             for c in range(self.dataio.nb_channel):
                 sel = inwin['label']==k
                 p = chunk.loc[sel.index]
+                
                 if k not in self.scatters[c]:
-                    color = QtGui.QColor( 'magenta')
-                    color.setAlpha(160)
-                    self.scatters[c][k] = pg.ScatterPlotItem(pen=None, brush=color, size=15, pxMode = True)
+                    #TODO color
+                    color = QtGui.QColor( 'cyan')
+                    self.scatters[c][k] = pg.ScatterPlotItem(pen=None, brush=color, size=10, pxMode = True)
                     self.plot.addItem(self.scatters[c][k])
+                    self.scatters[c][k].sigClicked.connect(self.item_clicked)
                 
                 self.scatters[c][k].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
                 
@@ -258,7 +275,6 @@ class TraceViewer(QtGui.QWidget):
         
     def refresh(self):
         self.seek(self.time_by_seg[self.seg_num], cascade = False)
-    
 
     def xsize_zoom(self, xmove):
         factor = xmove/100.
@@ -294,12 +310,21 @@ class TraceViewer(QtGui.QWidget):
         selected_peaks = self.spikesorter.all_peaks[self.spikesorter.all_peaks['selected']]
         if self.params['auto_zoom_on_select'] and selected_peaks.shape[0]==1:
             seg_num, time= selected_peaks.index[0]
-            
             if seg_num != self.seg_num:
                 seg_pos = self.dataio.segments.index.tolist().index(seg_num)
                 self.combo.setCurrentIndex(seg_pos)
             self.spinbox_xsize.setValue(self.params['zoom_size'])
             self.seek(time)
-
+        else:
+            self.refresh()
+        
+    def item_clicked(self, plot, points):
+        if self.select_button.isChecked()and len(points)==1:
+            x = points[0].pos().x()
+            self.spikesorter.all_peaks['selected'] = False
+            self.spikesorter.all_peaks.loc[(self.seg_num, x), 'selected'] = True
+            
+            self.peak_selection_changed.emit()
+            self.refresh()
 
     

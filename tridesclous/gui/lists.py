@@ -138,5 +138,29 @@ class PeakList(QtGui.QWidget):
 
     def open_context_menu(self):
         pass
+    
+    def on_peak_selection_changed(self):
+        self.tree.selectionModel().selectionChanged.disconnect(self.on_tree_selection)
+        
+        selected_peaks = self.spikesorter.all_peaks[self.spikesorter.all_peaks['selected']]
+        if selected_peaks.shape[0]>100:#otherwise this is verry slow
+            selected_peaks = selected_peaks.iloc[:10,:]
+        rows = [self.spikesorter.all_peaks.index.get_loc(ind) for ind in selected_peaks.index]
+        
+        # change selection
+        self.tree.selectionModel().clearSelection()
+        flags = QtGui.QItemSelectionModel.Select #| QItemSelectionModel.Rows
+        itemsSelection = QtGui.QItemSelection()
+        for r in rows:
+            for c in range(2):
+                index = self.tree.model().index(r,c,QtCore.QModelIndex())
+                ir = QtGui.QItemSelectionRange( index )
+                itemsSelection.append(ir)
+        self.tree.selectionModel().select(itemsSelection , flags)
 
+        # set selection visible
+        if len(rows)>=1:
+            index = self.tree.model().index(rows[0],0,QtCore.QModelIndex())
+            self.tree.scrollTo(index)
 
+        self.tree.selectionModel().selectionChanged.connect(self.on_tree_selection)        
