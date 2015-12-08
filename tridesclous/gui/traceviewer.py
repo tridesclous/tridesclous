@@ -4,7 +4,6 @@ from pyqtgraph.Qt import QtCore, QtGui
 import numpy as np
 import pandas as pd
 
-from ..spikesorter import SpikeSorter
 from .tools import TimeSeeker
 from ..tools import median_mad
 
@@ -43,7 +42,6 @@ class TraceViewer(QtGui.QWidget):
         QtGui.QWidget.__init__(self, parent)
         
         self.spikesorter = spikesorter
-        assert isinstance(self.spikesorter, SpikeSorter)
         self.dataio = self.spikesorter.dataio
         self.mode = mode
         
@@ -64,6 +62,17 @@ class TraceViewer(QtGui.QWidget):
         
         #handle time by segments
         self.time_by_seg = pd.Series(self.dataio.segments['t_start'].copy(), name = 'time', index = self.dataio.segments.index)
+        
+        
+        _params = [{'name': 'auto_zoom_on_select', 'type': 'bool', 'value': True },
+                           {'name': 'zoom_size', 'type': 'float', 'value':  0.08, 'step' : 0.001 },
+                          {'name': 'plot_threshold', 'type': 'bool', 'value':  True },]        
+        self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
+        self.tree_params = pg.parametertree.ParameterTree(parent  = self)
+        self.tree_params.header().hide()
+        self.tree_params.setParameters(self.params, showTop=True)
+        self.tree_params.setWindowTitle(u'Options for signal viewer')
+        self.tree_params.setWindowFlags(QtCore.Qt.Window)        
         
         self.change_segment(0)
         self.refresh()
@@ -104,7 +113,11 @@ class TraceViewer(QtGui.QWidget):
         #
         but = QtGui.QPushButton('auto scale')
         but.clicked.connect(self.auto_scale)
+        tb.addWidget(but)
+        but = QtGui.QPushButton('settings')
+        but.clicked.connect(self.open_settings)
         tb.addWidget(but)        
+
         
 
     def initialize_plot(self):
@@ -141,6 +154,12 @@ class TraceViewer(QtGui.QWidget):
         
         self.gains = None
         self.offsets = None
+
+    def open_settings(self):
+        if not self.tree_params.isVisible():
+            self.tree_params.show()
+        else:
+            self.tree_params.hide()
         
 
     def prev_segment(self):
@@ -270,5 +289,17 @@ class TraceViewer(QtGui.QWidget):
         self.offsets = self.offsets + self.med*self.gains - self.med*self.gains*factor
         self.gains = self.gains*factor
         self.refresh()
+    
+    def on_peak_selection_changed(self):
+        selected_peaks = self.spikesorter.all_peaks[self.spikesorter.all_peaks['selected']]
+        if self.params['auto_zoom_on_select'] and selected_peaks.shape[0]==1:
+            seg_num, time= selected_peaks.index[0]
+            
+            if seg_num != self.seg_num:
+                seg_pos = self.dataio.segments.index.tolist().index(seg_num)
+                self.combo.setCurrentIndex(seg_pos)
+            self.spinbox_xsize.setValue(self.params['zoom_size'])
+            self.seek(time)
+
 
     

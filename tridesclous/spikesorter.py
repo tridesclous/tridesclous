@@ -4,6 +4,8 @@ import pandas as pd
 from .dataio import DataIO
 from .peakdetector import PeakDetector
 
+from collections import OrderedDict
+
 class SpikeSorter:
     def __init__(self, dataio = None, **kargs):
         """
@@ -33,6 +35,8 @@ class SpikeSorter:
             self.dataio = DataIO(**kargs)        
         else:
             self.dataio = dataio
+        
+        self.all_peaks = None
 
     def summary(self, level=1):
         t = self.dataio.summary(level=level)
@@ -52,4 +56,15 @@ class SpikeSorter:
             
             peaks = pd.DataFrame(np.zeros(peakdetector.peak_index.size, dtype = 'int32'), columns = ['label'], index = peakdetector.peak_index)
             self.dataio.append_peaks(peaks,seg_num = seg_num, append = False)
-            
+    
+    def load_all_peaks(self):
+        self.all_peaks = []
+        for seg_num in self.dataio.segments.index:
+            peaks = self.dataio.get_peaks(seg_num)
+            if peaks is not None:
+                self.all_peaks.append(peaks)
+        self.all_peaks = pd.concat(self.all_peaks, axis=0)
+        
+        #create a colum to handle selection on UI
+        self.all_peaks['selected'] = False
+
