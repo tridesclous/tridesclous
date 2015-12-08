@@ -261,7 +261,6 @@ class WaveformExtractor:
         return self.limit_left, self.limit_right
     
     def get_ajusted_waveforms(self):
-        print(self.limit_left, self.limit_right)
         sub = np.arange(self.limit_left, self.limit_right)
         short_waveforms = self.long_waveforms.loc[:, (slice(None), sub)]
         #reconstruct the real sub indexing

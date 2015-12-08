@@ -18,7 +18,7 @@ class MyViewBox(pg.ViewBox):
     #~ xsize_zoom = QtCore.pyqtSignal(float)
     def __init__(self, *args, **kwds):
         pg.ViewBox.__init__(self, *args, **kwds)
-        #~ self.disableAutoRange()
+        self.disableAutoRange()
     def mouseClickEvent(self, ev):
         ev.accept()
     def mouseDoubleClickEvent(self, ev):
@@ -55,10 +55,10 @@ class NDScatter(QtGui.QWidget):
         
         self.graphicsview = pg.GraphicsView()
         self.layout.addWidget(self.graphicsview)
-        self.viewBox = MyViewBox()
-        self.plot = pg.PlotItem(viewBox=self.viewBox)
-        self.graphicsview.setCentralItem(self.plot)
-        self.plot.hideButtons()
+
+        self.toolbar.addStretch()
+        self.graphicsview2 = pg.GraphicsView()
+        self.toolbar.addWidget(self.graphicsview2)
 
         _params = [{'name': 'refresh_interval', 'type': 'float', 'value': 100 },
                            {'name': 'nb_step', 'type': 'int', 'value':  10, 'limits' : [5, 100] },]
@@ -70,7 +70,7 @@ class NDScatter(QtGui.QWidget):
         self.tree_params.setWindowFlags(QtCore.Qt.Window)
 
         
-        self.timer_tour = QtCore.QTimer(interval = 50)
+        self.timer_tour = QtCore.QTimer(interval = 100)
         self.timer_tour.timeout.connect(self.new_tour_step)
         self.initialize()
         self.refresh()
@@ -105,6 +105,11 @@ class NDScatter(QtGui.QWidget):
         return self.spikesorter.all_peaks
     
     def initialize(self):
+        self.viewBox = MyViewBox()
+        self.plot = pg.PlotItem(viewBox=self.viewBox)
+        self.graphicsview.setCentralItem(self.plot)
+        self.plot.hideButtons()
+        
         self.scatters = {}
         color = QtGui.QColor( 'magenta')
         color.setAlpha(220)
@@ -112,16 +117,36 @@ class NDScatter(QtGui.QWidget):
         self.plot.addItem(self.scatters['sel'])
         self.scatters['sel'].setZValue(1000)
         
+        #~ m = np.max(np.abs(self.data.values))
+        med, mad = median_mad(self.data)
+        m = 4.*np.max(mad.values)
+        self.plot.setXRange(-m, m)
+        self.plot.setYRange(-m, m)
+        
         ndim = self.data.shape[1]
         self.projection = np.zeros( (ndim, 2))
-        self.projection[0,0] = .25
-        self.projection[1,1] = .25
+        self.projection[0,0] = 1./np.sqrt(2)
+        self.projection[1,1] = 1./np.sqrt(2)
         
+        self.plot2 = pg.PlotItem(viewBox=MyViewBox(lockAspect=True))
+        self.graphicsview2.setCentralItem(self.plot2)
+        self.plot2.hideButtons()
+        angles = np.arange(0,360, .1)
+        self.circle = pg.PlotCurveItem(x=np.cos(angles), y=np.sin(angles), pen=(255,255,255))
+        self.plot2.addItem(self.circle)
+        self.direction_lines = pg.PlotCurveItem(x=[], y=[], pen=(255,255,255))
+        self.direction_data = np.zeros( (ndim*2, 2))
+        self.plot2.addItem(self.direction_lines)
+        self.plot2.setXRange(-1, 1)
+        self.plot2.setYRange(-1, 1)
+        
+        self.graphicsview2.setMaximumSize(200, 200)
+
     
     def get_one_random_projection(self):
         ndim = self.data.shape[1]
         projection = np.random.rand(ndim,2)*2-1.
-        m = np.sqrt(np.sum(self.projection**2, axis=0))
+        m = np.sqrt(np.sum(projection**2, axis=0))
         projection /= m
         return projection
     
@@ -156,10 +181,17 @@ class NDScatter(QtGui.QWidget):
         data = self.data[self.metadata['selected']]
         projected = np.dot(data, self.projection )
         self.scatters['sel'].setData(projected[:,0], projected[:,1])
+        
+        self.direction_data[::, :] =0
+        self.direction_data[::2, :] = self.projection
+        self.direction_lines.setData(self.direction_data[:,0], self.direction_data[:,1])
+        
+        
     
     def start_stop_tour(self, checked):
         if checked:
             self.tour_step = 0
+            self.timer_tour.setInterval(self.params['refresh_interval'])
             self.timer_tour.start()
         else:
             self.timer_tour.stop()

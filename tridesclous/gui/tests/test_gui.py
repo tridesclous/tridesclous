@@ -74,5 +74,5 @@ if __name__ == '__main__':
     #~ test_traceviewer()
     #~ test_traceviewer_linked()
     #~ test_peaklist()
-    #~ test_ndviewer()
-    test_mainwindow()
+    test_ndviewer()
+    #~ test_mainwindow()

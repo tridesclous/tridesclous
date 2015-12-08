@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import seaborn as sns
 
 from .dataio import DataIO
 from .peakdetector import PeakDetector
@@ -39,6 +40,7 @@ class SpikeSorter:
             self.dataio = dataio
         
         self.all_peaks = None
+        self.colors = {}
 
     def summary(self, level=1):
         t = self.dataio.summary(level=level)
@@ -102,4 +104,13 @@ class SpikeSorter:
     def find_clusters(self, *args, **kargs):
         self.clustering.find_clusters(*args, **kargs)
         self.all_peaks['label'] = self.clustering.labels
+    
+    def refresh_colors(self, reset = True):
+        if reset:
+            self.colors = {}
+        
+        all_labels = np.unique(all_peaks['label'].values)
+        
+        
+        
 
