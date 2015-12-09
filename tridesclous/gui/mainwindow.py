@@ -2,7 +2,7 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 
 from .traceviewer import TraceViewer
-from .lists import PeakList
+from .lists import PeakList, ClusterList
 from .ndscatter import NDScatter
 
 import itertools
@@ -15,6 +15,7 @@ class SpikeSortingWindow(QtGui.QMainWindow):
         
         self.traceviewer = TraceViewer(spikesorter = spikesorter)
         self.peaklist = PeakList(spikesorter = spikesorter)
+        self.clusterlist = ClusterList(spikesorter = spikesorter)
         self.ndscatter = NDScatter(spikesorter = spikesorter)
         
         all = [self.traceviewer, self.peaklist, self.ndscatter]
@@ -33,4 +34,7 @@ class SpikeSortingWindow(QtGui.QMainWindow):
         docks['ndscatter'] = QtGui.QDockWidget('peaklist',self)
         docks['ndscatter'].setWidget(self.ndscatter)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, docks['ndscatter'])
-        
+
+        docks['clusterlist'] = QtGui.QDockWidget('clusterlist',self)
+        docks['clusterlist'].setWidget(self.clusterlist)
+        self.splitDockWidget(docks['peaklist'], docks['clusterlist'], QtCore.Qt.Horizontal)

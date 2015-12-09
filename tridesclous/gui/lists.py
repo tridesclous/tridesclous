@@ -163,3 +163,80 @@ class PeakList(QtGui.QWidget):
             self.tree.scrollTo(index)
 
         self.tree.selectionModel().selectionChanged.connect(self.on_tree_selection)        
+
+
+
+class ClusterList(QtGui.QWidget):
+    
+    peak_selection_changed = QtCore.pyqtSignal()
+    
+    def __init__(self, spikesorter = None, parent=None):
+        QtGui.QWidget.__init__(self, parent)
+        
+        self.spikesorter = spikesorter
+        self.dataio = self.spikesorter.dataio
+        
+        self.layout = QtGui.QVBoxLayout()
+        self.setLayout(self.layout)
+
+        self.table = QtGui.QTableWidget()
+        self.layout.addWidget(self.table)
+        self.table.itemChanged.connect(self.on_item_changed)
+        
+        self.refresh()
+
+    def refresh(self):
+        self.table.itemChanged.disconnect(self.on_item_changed)
+        sps = self.spikesorter
+        self.table.clear()
+        labels = ['label', 'nb_peaks', 'show/hide' ]
+        self.table.setColumnCount(len(labels))
+        self.table.setHorizontalHeaderLabels(labels)
+        #~ self.table.setMinimumWidth(100)
+        #~ self.table.setColumnWidth(0,60)
+        self.table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self.open_context_menu)
+        self.table.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+        self.table.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
+        
+        self.table.setRowCount(self.spikesorter.cluster_labels.size)
+        
+        for i, k in enumerate(self.spikesorter.cluster_labels):
+            color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
+            pix = QtGui.QPixmap(10,10)
+            pix.fill(color)
+            icon = QtGui.QIcon(pix)
+            
+            name = '{}'.format(k)
+            item = QtGui.QTableWidgetItem(name)
+            item.setFlags(QtCore.Qt.ItemIsEnabled|QtCore.Qt.ItemIsSelectable)
+            self.table.setItem(i,0, item)
+            item.setIcon(icon)
+            
+            item = QtGui.QTableWidgetItem('{}'.format(self.spikesorter.cluster_count[k]))
+            item.setFlags(QtCore.Qt.ItemIsEnabled|QtCore.Qt.ItemIsSelectable)
+            self.table.setItem(i,1, item)
+            
+            item = QtGui.QTableWidgetItem('')
+            item.setFlags(QtCore.Qt.ItemIsEnabled|QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsUserCheckable)
+            #~ item.setCheckState({ False: QtCore.Qt.Unchecked, True : QtCore.Qt.Checked}[sps.active_cluster[c]])#TODO
+            item.setCheckState({ False: QtCore.Qt.Unchecked, True : QtCore.Qt.Checked}[True])
+            self.table.setItem(i,2, item)
+            
+        self.table.itemChanged.connect(self.on_item_changed)        
+    
+    def peak_selection_changed(self):
+        self.refresh()
+    
+    def on_item_changed(self, item):
+        if item.column() != 2: return
+        sel = {QtCore.Qt.Unchecked : False, QtCore.Qt.Checked : True}[item.checkState()]
+        k = self.spikesorter.cluster_labels[item.row()]
+        #TODO : change visibility of one cluster
+        #~ sps.active_cluster[c] = sel
+        #~ self.clusters_activation_changed.emit()
+
+    def open_context_menu(self):
+        pass
+
+

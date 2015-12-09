@@ -115,10 +115,10 @@ class SpikeSorter:
         if reset:
             self.colors = {}
         
-        
-        all_labels = np.unique(self.all_peaks['label'].values)
-        color_table = sns.color_palette(palette, all_labels.size)
-        for i, k in enumerate(all_labels):
+        self.cluster_labels = np.unique(self.all_peaks['label'].values)
+        self.cluster_count = self.all_peaks.groupby(['label'])['label'].count()
+        color_table = sns.color_palette(palette, self.cluster_labels.size)
+        for i, k in enumerate(self.cluster_labels):
             if k not in self.colors:
                 self.colors[k] = color_table[i]
         

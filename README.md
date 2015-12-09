@@ -9,7 +9,9 @@ You can also use it for your data!!
 It is a complete rewrite of our old tools (SpikeOmatic, OpenElectrophy, ...)
 with up-to-date (in 2015) python modules to simplify our codes.
 
-tridesclous should make easy to leave a mark of your spike sorting process in a jupyter notebook.
+tridesclous:
+    * should make easy to leave a mark of your spike sorting process in a jupyter notebook.
+    * offer a simple UI written in Qt for interactive exploration.
 
 
 Dependencies:
@@ -36,3 +38,6 @@ git pull
 
 
 Authors: Christophe Pouzat and Samuel Garcia
+
+
+![snapshot](snapshot.png)

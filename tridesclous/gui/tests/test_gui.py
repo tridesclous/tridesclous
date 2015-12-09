@@ -9,6 +9,9 @@ def get_spikesorter():
     spikesorter.project(method = 'pca', n_components = 5)
     spikesorter.find_clusters(7)
     spikesorter.refresh_colors(reset=True, palette = 'husl')
+    print(spikesorter.cluster_labels)
+    print(spikesorter.cluster_count)
+    
     return spikesorter
 
 
@@ -50,6 +53,16 @@ def test_peaklist():
     
     app.exec_()
 
+def test_clusterlist():
+    app = pg.mkQApp()
+    spikesorter = get_spikesorter()
+    
+    clusterlist = ClusterList(spikesorter = spikesorter)
+    clusterlist.show()
+    clusterlist.resize(800,400)
+
+    app.exec_()
+
 def test_ndviewer():
     app = pg.mkQApp()
     spikesorter = get_spikesorter()
@@ -58,7 +71,7 @@ def test_ndviewer():
     ndscatter.show()
     
     app.exec_()
-    
+
 
 
 def test_mainwindow():
@@ -75,5 +88,6 @@ if __name__ == '__main__':
     #~ test_traceviewer()
     #~ test_traceviewer_linked()
     #~ test_peaklist()
+    #~ test_clusterlist()
     #~ test_ndviewer()
     test_mainwindow()

@@ -1,5 +1,5 @@
 from .traceviewer import TraceViewer
-from .lists import PeakList
+from .lists import PeakList, ClusterList
 from .ndscatter import NDScatter
 
 
