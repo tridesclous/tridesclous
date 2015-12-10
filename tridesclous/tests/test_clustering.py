@@ -53,6 +53,17 @@ def test_clustering():
     
     
     
+    catalogue = clustering.construct_catalogue()
+    colors = sns.color_palette('husl', len(catalogue))
+    fix, axs = pyplot.subplots(nrows = 3)
+    for i,k in enumerate(catalogue):
+        axs[0].plot(catalogue[k]['center'], color = colors[i])
+        axs[1].plot(catalogue[k]['centerD'], color = colors[i])
+        axs[2].plot(catalogue[k]['centerDD'], color = colors[i])
+        
+    
+    
+    
 if __name__=='__main__':
 
     test_clustering()

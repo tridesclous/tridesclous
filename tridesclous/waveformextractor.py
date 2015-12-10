@@ -260,8 +260,12 @@ class WaveformExtractor:
         self.limit_right = self.long_waveforms.columns.levels[1][l2]
         return self.limit_left, self.limit_right
     
-    def get_ajusted_waveforms(self):
-        sub = np.arange(self.limit_left, self.limit_right)
+    def get_ajusted_waveforms(self, margin=2):
+        """
+        Get ajusted waveform : between limit_left-margin and limit_right+margin.
+        The margin of 2 sample is to get first and second derivative waveform to construct the catalogue.
+        """
+        sub = np.arange(self.limit_left-2, self.limit_right+2)
         short_waveforms = self.long_waveforms.loc[:, (slice(None), sub)]
         #reconstruct the real sub indexing
         # see http://pandas.pydata.org/pandas-docs/stable/advanced.html   (Basic indexing on axis with MultiIndex)

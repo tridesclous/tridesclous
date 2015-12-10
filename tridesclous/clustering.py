@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import scipy.signal
 import sklearn
 import sklearn.decomposition
 import sklearn.cluster
@@ -24,9 +25,10 @@ def find_clusters(features, n_clusters,  method='kmeans', **kargs):
 
 class Clustering:
     """
-    
-    
-    
+    Clustering class :
+        * project waveform with PCA
+        * do clustering (kmean or gmm)
+        * propose method for merge and split cluster.
     """
     def __init__(self, waveforms):
         self.waveforms = waveforms
@@ -35,10 +37,10 @@ class Clustering:
     def project(self, method = 'pca', n_components = 5):
         if method=='pca':
             self._pca = sklearn.decomposition.PCA(n_components = n_components)
-            
             self.features = pd.DataFrame(self._pca.fit_transform(self.waveforms.values), index = self.waveforms.index,
                         columns = ['pca{}'.format(i) for i in range(n_components)])
-            return self.features
+        
+        return self.features
     
     def find_clusters(self, n_clusters,method='kmeans', **kargs):
         self.labels = find_clusters(self.features, n_clusters, method='kmeans', **kargs)
@@ -54,4 +56,40 @@ class Clustering:
         new_label += max(self.labels)+1
         self.labels[mask] = new_label
         return self.labels
+    
+
+    def construct_catalogue(self):
+        """
+        
+        """
+        self.cluster_labels = np.unique(self.labels)
+        
+        self.catalogue = {}
+        nb_channel = self.waveforms.columns.levels[0].size
+        for k in self.cluster_labels:
+            # take peak of this cluster
+            # and reshaape (nb_peak, nb_channel, nb_csample)
+            wf = self.waveforms[self.labels==k].values
+            wf = wf.reshape(wf.shape[0], nb_channel, -1)
+            
+            #compute first and second derivative on dim=2
+            kernel = np.array([1,0,-1])/2.
+            kernel = kernel[None, None, :]
+            wfD = np_array = scipy.signal.fftconvolve(wf,kernel,'same') # first derivative
+            wfDD = np_array = scipy.signal.fftconvolve(wfD,kernel,'same') # second derivative
+            
+            # medians
+            center = np.median(wf, axis=0)
+            centerD = np.median(wfD, axis=0)
+            centerDD = np.median(wfDD, axis=0)
+            
+            #eliminate margin because of border effect of derivative and reshape
+            center = center[:, 2:-2].reshape(-1)
+            centerD = centerD[:, 2:-2].reshape(-1)
+            centerDD = centerDD[:, 2:-2].reshape(-1)
+            
+            self.catalogue[k] = {'center' : center, 'centerD' : centerD, 'centerDD': centerDD}
+        
+        return self.catalogue
+
 
