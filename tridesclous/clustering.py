@@ -35,6 +35,8 @@ class Clustering:
         
     
     def project(self, method = 'pca', n_components = 5):
+        #TODO remove peak than are out to avoid PCA polution.
+        
         if method=='pca':
             self._pca = sklearn.decomposition.PCA(n_components = n_components)
             self.features = pd.DataFrame(self._pca.fit_transform(self.waveforms.values), index = self.waveforms.index,
@@ -75,8 +77,17 @@ class Clustering:
             #compute first and second derivative on dim=2
             kernel = np.array([1,0,-1])/2.
             kernel = kernel[None, None, :]
-            wfD = np_array = scipy.signal.fftconvolve(wf,kernel,'same') # first derivative
-            wfDD = np_array = scipy.signal.fftconvolve(wfD,kernel,'same') # second derivative
+            wfD =  scipy.signal.fftconvolve(wf,kernel,'same') # first derivative
+            wfDD =  scipy.signal.fftconvolve(wfD,kernel,'same') # second derivative
+            #~ wfD = np.empty(wf.shape)
+            #~ wfDD = np.empty(wf.shape)
+            #~ for i in range(wf.shape[0]):
+                #~ for j in range(nb_channel):
+                    #~ wfD[i,j,:] = scipy.signal.fftconvolve(wf[i,j,:],kernel,'same') # first derivative
+                    #~ wfDD[i,j,:] = scipy.signal.fftconvolve(wfD[i,j,:],kernel,'same')
+                
+            
+            
             
             # medians
             center = np.median(wf, axis=0)
