@@ -23,10 +23,13 @@ Dependencies:
   * scipy
   * matplotlib
   * seaborn
-  * tables
+  * pytables
   * PyQt4 (for UI only)
   * pyqtgraph (for UI only)
+  * jupyter (for UI only)
 
+For test:
+  * pytest
 
 This is in construction so for easy install/update do:
 ```
