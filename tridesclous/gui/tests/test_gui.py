@@ -9,9 +9,9 @@ def get_spikesorter():
     spikesorter.project(method = 'pca', n_components = 5)
     spikesorter.find_clusters(7)
     spikesorter.refresh_colors(reset=True, palette = 'husl')
-    print(spikesorter.cluster_labels)
-    print(spikesorter.cluster_count)
-    
+    #~ print(spikesorter.cluster_labels)
+    #~ print(spikesorter.cluster_count)
+    print(spikesorter.summary(level=1))
     return spikesorter
 
 
@@ -112,6 +112,6 @@ if __name__ == '__main__':
     #~ test_peaklist()
     #~ test_clusterlist()
     #~ test_ndviewer()
-    #~ test_mainwindow()
     
-    test_from_classes()
+    test_mainwindow()
+    #~ test_from_classes()

@@ -225,7 +225,7 @@ class NDScatter(QtGui.QWidget):
         self.refresh()
     
     def gain_zoom(self, factor):
-        self.limit *= factor
+        self.limit /= factor
         self.plot.setXRange(-self.limit, self.limit)
         self.plot.setYRange(-self.limit, self.limit)
     

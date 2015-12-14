@@ -65,7 +65,6 @@ class Clustering_:
         
         """
         
-        
         self.catalogue = {}
         nb_channel = self.waveforms.columns.levels[0].size
         for k in self.cluster_labels:

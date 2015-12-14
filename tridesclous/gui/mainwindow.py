@@ -43,6 +43,7 @@ class SpikeSortingWindow(QtGui.QMainWindow):
         docks['clusterlist'].setWidget(self.clusterlist)
         self.splitDockWidget(docks['peaklist'], docks['clusterlist'], QtCore.Qt.Horizontal)
         
+        self.spikesorter.refresh_colors()
 
     
     @classmethod

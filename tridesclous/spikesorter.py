@@ -52,6 +52,10 @@ class SpikeSorter:
     
     def summary(self, level=1):
         t = self.dataio.summary(level=level)
+        t += 'Peak Cluster\n'
+        if hasattr(self, 'cluster_count'):
+            for ind in self.cluster_count.index:
+                t += '  #{}: {}\n'.format(ind, self.cluster_count[ind])
         return t
 
     def __repr__(self):
@@ -71,9 +75,7 @@ class SpikeSorter:
             #peak
             peakdetector = PeakDetector(sigs, seg_num=seg_num)
             peakdetector.detect_peaks(threshold=threshold, peak_sign = peak_sign, n_span = n_span)
-            peaks = pd.DataFrame(np.zeros(peakdetector.peak_index.size, dtype = 'int32'), columns = ['label'], index = peakdetector.peak_index)
-            self.dataio.append_peaks(peaks,seg_num = seg_num, append = False)
-            self.all_peaks.append(peaks)
+            
             
             #waveform
             waveformextractor = WaveformExtractor(peakdetector, n_left=n_left, n_right=n_right)
@@ -86,32 +88,38 @@ class SpikeSorter:
                 waveformextractor.limit_right = limit_right
             short_wf = waveformextractor.get_ajusted_waveforms()
             self.all_waveforms.append(short_wf)
-            
+
+            peaks = pd.DataFrame(columns = ['label'], index = short_wf.index, dtype ='int32')
+            peaks[:] = -1
+            #~ self.dataio.append_peaks(peaks,seg_num = seg_num, append = False)
+            self.all_peaks.append(peaks)            
+
         self.all_peaks = pd.concat(self.all_peaks, axis=0)
         self.all_waveforms = pd.concat(self.all_waveforms, axis=0)
 
         #create a colum to handle selection on UI
         self.all_peaks['selected'] = False
-        
         self.clustering = Clustering(self.all_waveforms)
     
-    def load_all_peaks(self):
-        self.all_peaks = []
-        for seg_num in self.dataio.segments.index:
-            peaks = self.dataio.get_peaks(seg_num)
-            if peaks is not None:
-                self.all_peaks.append(peaks)
-        self.all_peaks = pd.concat(self.all_peaks, axis=0)
-        
+    #~ def load_all_peaks(self):
+        #~ self.all_peaks = []
+        #~ for seg_num in self.dataio.segments.index:
+            #~ peaks = self.dataio.get_peaks(seg_num)
+            #~ if peaks is not None:
+                #~ self.all_peaks.append(peaks)
+        #~ self.all_peaks = pd.concat(self.all_peaks, axis=0)
         #create a colum to handle selection on UI
-        self.all_peaks['selected'] = False
+        #~ self.all_peaks['selected'] = False
 
     def project(self, *args, **kargs):
         self.clustering.project(*args, **kargs)
     
     def find_clusters(self, *args, **kargs):
         self.clustering.find_clusters(*args, **kargs)
-        self.all_peaks['label'] = self.clustering.labels
+        assert self.clustering.labels.size==self.all_waveforms.shape[0], 'label size problem {} {}'.format(self.clustering.labels.size, self.all_waveforms.shape[0])
+        self.all_peaks.ix[:, 'label'] = self.clustering.labels
+        self.cluster_labels = np.unique(self.all_peaks['label'].values)
+        self.cluster_count = self.all_peaks.groupby(['label'])['label'].count()
     
     def refresh_colors(self, reset = True, palette = 'husl'):
         if reset:
