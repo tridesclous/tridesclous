@@ -120,18 +120,7 @@ def test_waveform_extractor():
     
     assert long_wf.shape[1]>short_wf.shape[1]
     
-    medL, madL = median_mad(long_wf)
-    medS, madS = median_mad(short_wf)
-    
-    fig, axs = pyplot.subplots(nrows = 2)
-    all_med = pd.concat([medL, medS], axis=1)
-    all_med.columns = ['long', 'short']
-    all_med.plot(ax=axs[0])
-
-    all_mad = pd.concat([madL, madS], axis=1)
-    all_mad.columns = ['long', 'short']
-    all_mad.plot(ax=axs[1])
-    axs[1].axhline(1.1)
+    waveformextractor.plot_good_limit()
     
 
 

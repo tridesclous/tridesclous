@@ -1,6 +1,10 @@
+import numpy as np
+import pandas as pd
+
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 
+from ..spikesorter import SpikeSorter
 from .traceviewer import TraceViewer
 from .lists import PeakList, ClusterList
 from .ndscatter import NDScatter
@@ -38,3 +42,21 @@ class SpikeSortingWindow(QtGui.QMainWindow):
         docks['clusterlist'] = QtGui.QDockWidget('clusterlist',self)
         docks['clusterlist'].setWidget(self.clusterlist)
         self.splitDockWidget(docks['peaklist'], docks['clusterlist'], QtCore.Qt.Horizontal)
+        
+
+    
+    @classmethod
+    def from_classes(cls, dataio, peakdetector, waveformextractor, clustering):
+        spikesorter = SpikeSorter(dataio = dataio)
+        
+        spikesorter.all_peaks = pd.DataFrame(np.zeros(peakdetector.peak_index.size, dtype = 'int32'), columns = ['label'], index = peakdetector.peak_index)
+        spikesorter.all_peaks['label'] = clustering.labels
+        spikesorter.all_peaks['selected'] = False
+        spikesorter.all_waveforms  = waveformextractor.get_ajusted_waveforms()
+        spikesorter.clustering = clustering
+        
+        spikesorter.refresh_colors()
+        
+        return SpikeSortingWindow(spikesorter)
+        
+        

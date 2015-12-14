@@ -102,7 +102,7 @@ def detect_peak_method_span(rectified_signals, peak_sign='-', n_span = 2):
 
 
 
-class PeakDetector:
+class PeakDetector_:
     """
     This is helper to estimated noise and threshold and detect peak on signals.
     It take as entry a DataFrame with signals given by DataManager.get_signals(...).    
@@ -131,6 +131,12 @@ class PeakDetector:
         self.peak_index = pd.MultiIndex.from_arrays([np.ones(self.peak_pos.size)*self.seg_num, self.sigs.index[self.peak_pos]])
         
         return self.peak_pos
+
+
+
+from .mpl_plot import PeakDetectorPlot
+class PeakDetector(PeakDetector_, PeakDetectorPlot):
+    pass
 
 
 

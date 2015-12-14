@@ -1,3 +1,4 @@
+from tridesclous import DataIO, PeakDetector, WaveformExtractor, Clustering, Peeler
 from tridesclous import SpikeSorter
 
 
@@ -9,10 +10,8 @@ def test_spikesorter():
     print(spikesorter.summary(level=1))
     spikesorter.project(method = 'pca', n_components = 5)
     spikesorter.find_clusters(7)
-    
-    
-    
-    
+
+
     
 if __name__ == '__main__':
     test_spikesorter()
