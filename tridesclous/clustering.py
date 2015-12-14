@@ -6,7 +6,6 @@ import sklearn.decomposition
 import sklearn.cluster
 import sklearn.mixture
 
-
 def find_clusters(features, n_clusters,  method='kmeans', **kargs):
     if method == 'kmeans':
         km = sklearn.cluster.KMeans(n_clusters=n_clusters,**kargs)
@@ -23,7 +22,7 @@ def find_clusters(features, n_clusters,  method='kmeans', **kargs):
     
     
 
-class Clustering:
+class Clustering_:
     """
     Clustering class :
         * project waveform with PCA
@@ -46,6 +45,7 @@ class Clustering:
     
     def find_clusters(self, n_clusters,method='kmeans', **kargs):
         self.labels = find_clusters(self.features, n_clusters, method='kmeans', **kargs)
+        self.cluster_labels = np.unique(self.labels)
         return self.labels
     
     def merge_cluster(self, label1, label2):
@@ -64,7 +64,7 @@ class Clustering:
         """
         
         """
-        self.cluster_labels = np.unique(self.labels)
+        
         
         self.catalogue = {}
         nb_channel = self.waveforms.columns.levels[0].size
@@ -79,28 +79,30 @@ class Clustering:
             kernel = kernel[None, None, :]
             wfD =  scipy.signal.fftconvolve(wf,kernel,'same') # first derivative
             wfDD =  scipy.signal.fftconvolve(wfD,kernel,'same') # second derivative
-            #~ wfD = np.empty(wf.shape)
-            #~ wfDD = np.empty(wf.shape)
-            #~ for i in range(wf.shape[0]):
-                #~ for j in range(nb_channel):
-                    #~ wfD[i,j,:] = scipy.signal.fftconvolve(wf[i,j,:],kernel,'same') # first derivative
-                    #~ wfDD[i,j,:] = scipy.signal.fftconvolve(wfD[i,j,:],kernel,'same')
-                
-            
-            
             
             # medians
             center = np.median(wf, axis=0)
             centerD = np.median(wfD, axis=0)
             centerDD = np.median(wfDD, axis=0)
+            mad = np.median(np.abs(wf-center),axis=0)*1.4826
             
             #eliminate margin because of border effect of derivative and reshape
             center = center[:, 2:-2].reshape(-1)
             centerD = centerD[:, 2:-2].reshape(-1)
             centerDD = centerDD[:, 2:-2].reshape(-1)
+            mad = mad[:, 2:-2].reshape(-1)
             
-            self.catalogue[k] = {'center' : center, 'centerD' : centerD, 'centerDD': centerDD}
+            self.catalogue[k] = {'center' : center, 'centerD' : centerD, 'centerDD': centerDD,
+                                            'mad': mad}
         
         return self.catalogue
+
+
+
+from .mpl_plot import ClusteringPlot
+class Clustering(Clustering_, ClusteringPlot):
+    pass
+
+
 
 

@@ -221,7 +221,7 @@ def find_good_limits(normed_mad, mad_threshold = 1.1):
 
 
 
-class WaveformExtractor:
+class WaveformExtractor_:
     def __init__(self, peakdetector, n_left=30, n_right=45):
         """
         
@@ -271,6 +271,11 @@ class WaveformExtractor:
         # see http://pandas.pydata.org/pandas-docs/stable/advanced.html   (Basic indexing on axis with MultiIndex)
         short_waveforms.columns = pd.MultiIndex.from_tuples(short_waveforms.columns.values)
         return short_waveforms
+
+
+from .mpl_plot import WaveformExtractorPlot
+class WaveformExtractor(WaveformExtractor_, WaveformExtractorPlot):
+    pass
 
 
 

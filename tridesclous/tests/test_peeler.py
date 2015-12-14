@@ -75,6 +75,8 @@ def test_peeler():
     clustering.find_clusters(7)
     catalogue = clustering.construct_catalogue()
     
+    clustering.plot_catalogue()
+    
     #peeler
     signals = peakdetector.normed_sigs
     peeler = Peeler(signals, catalogue,  limit_left, limit_right,
@@ -82,14 +84,24 @@ def test_peeler():
     
     prediction0, residuals0 = peeler.peel()
     prediction1, residuals1 = peeler.peel()
-    fig, axs = pyplot.subplots(nrows = 5, sharex = True, sharey = True)
+    fig, axs = pyplot.subplots(nrows = 6, sharex = True)#, sharey = True)
     axs[0].plot(signals)
     axs[1].plot(prediction0) 
     axs[2].plot(residuals0)
     axs[3].plot(prediction1)
     axs[4].plot(residuals1)
     
-
+    #~ fig, ax = pyplot.subplots(nrows = 1)
+    colors = sns.color_palette('husl', len(catalogue))
+    
+    spiketrains = peeler.get_spiketrains()
+    i = 0
+    for k , pos in spiketrains.items():
+        print('k', k)
+        axs[5].plot(pos, np.ones(pos.size)*k, ls = 'None', marker = '|',  markeredgecolor = colors[i], markersize = 10, markeredgewidth = 2)
+        i += 1
+    axs[5].set_ylim(0, len(catalogue))
+    #markerfacecolor = colors[i],
     
 if __name__=='__main__':
     

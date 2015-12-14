@@ -9,7 +9,7 @@ from .peakdetector import PeakDetector
 
 
 
-class Peeler:
+class Peeler_:
     """
     Class that 'peel' spike on signal given a catalogue (centre + first and second derivative).
     
@@ -83,7 +83,6 @@ class Peeler:
         wf1 = self.catalogue[k]['centerD']
         wf2 = self.catalogue[k]['centerDD']
         
-        wf0_norm2 = wf0.dot(wf0)
         wf1_norm2 = wf1.dot(wf1)
         wf2_norm2 = wf2.dot(wf2)
         wf1_dot_wf2 = wf1.dot(wf2)
@@ -95,20 +94,25 @@ class Peeler:
         h1_norm2 = np.sum((h-jitter0*wf1)**2)
         
         if h0_norm2 > h1_norm2:
+            #order 1 is better than order 0
             h_dot_wf2 = np.dot(h,wf2)
             rss_first = -2*h_dot_wf1 + 2*jitter0*(wf1_norm2 - h_dot_wf2) + 3*jitter0**2*wf1_dot_wf2 + jitter0**3*wf2_norm2
             rss_second = 2*(wf1_norm2 - h_dot_wf2) + 6*jitter0*wf1_dot_wf2 + 3*jitter0**2*wf2_norm2
             jitter1 = jitter0 - rss_first/rss_second
             h2_norm2 = np.sum((h-jitter1*wf1-jitter1**2/2*wf2)**2)
             if h1_norm2 <= h2_norm2:
+                #when order 2 is worse than order 1
                 jitter1 = jitter0
         else:
-            jitter1 = 0    
+            jitter1 = 0.
         
-        if np.sum(wf**2) > np.sum((h-jitter1*wf1-jitter1**2/2*wf2)**2):
+        if np.sum(wf**2) > np.sum((wf0+jitter1*wf1+jitter1**2/2*wf2)**2):
+            #prediction should be smaller than original (which have noise)
             return k, jitter1
         else:
+            #otherwise the prediction is bad
             return -1, 0.
+
     
     def classify_and_align(self, waveforms, peak_pos, residuals):
         """
@@ -122,21 +126,20 @@ class Peeler:
             wf = waveforms[i,:]
             
             label, jitter1 = self.estimate_one_jitter(wf)
-            #~ print(label, jitter1)
             
             # if more than one sample of jitter
             # then we take a new wf at the good place and do estimate again
-            #~ while np.abs(jitter1) > 0.5:
             if np.abs(jitter1) > 0.5:
-                print('')
+                #~ print('')
                 #~ peak_pos[i] -= int(np.round(jitter1))
-                print(label, jitter1, peak_pos[i])
+                #~ print(label, jitter1, peak_pos[i])
                 peak_pos[i] -= int(np.round(jitter1))
                 chunk = cut_chunks(residuals.values, np.array([ peak_pos[i]+self.n_left], dtype = int),
                                 -self.n_left + self.n_right )
                 wf = waveforms[i,:] = chunk[0,:].reshape(-1)
                 label, jitter1 = self.estimate_one_jitter(wf)
-                print(label, jitter1, peak_pos[i])
+                #~ print(label, jitter1, peak_pos[i])
+                
             
             jitters[i] = jitter1
             labels[i] = label
@@ -165,7 +168,7 @@ class Peeler:
         
    
     def peel(self):
-        print('peel level=', self.level)
+        print('Apply level=', self.level)
         
         #copy previous residuals for that level
         if self.level==0:
@@ -194,3 +197,21 @@ class Peeler:
         self.level += 1
         
         return prediction, self.residuals[self.level-1]
+
+    def get_spiketrain(self, k):
+        all_pos = []
+        for l, labels in self.spike_labels.items():
+            all_pos.append(self.spike_pos[l][labels==k])
+        all_pos = np.concatenate(all_pos, axis = 0)
+        return np.sort(all_pos)
+    
+    def get_spiketrains(self):
+        return { k:self.get_spiketrain(k) for k in self.cluster_labels }
+    
+
+from .mpl_plot import PeelerPlot
+class Peeler(Peeler_, PeelerPlot):
+    pass
+
+
+
