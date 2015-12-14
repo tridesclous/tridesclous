@@ -23,16 +23,18 @@ class SpikeSorter:
             * PeakDetector
             * WaveformExtractor
             * Clustering
-        
-        usage:
-        spikesorter = SpikeSorter(dataio=DataIO(..))
-        or
-        spikesorter = SpikeSorter(dirname = 'test', complib = 'blosc', complevel= 9)
-        
+
         SpikeSorter handle the multi segment the strategy is:
             * take care of PeakDetector one segment per segment
             * take care of WaveformExtractor one segment per segment
             * take care of Clustering all segment at the same time.
+        
+        Usage:
+            spikesorter = SpikeSorter(dataio=DataIO(..))
+            or
+            spikesorter = SpikeSorter(dirname = 'test', complib = 'blosc', complevel= 9)
+                
+        
         
         Aruments
         --------------
@@ -47,7 +49,7 @@ class SpikeSorter:
         
         self.all_peaks = None
         self.colors = {}
-
+    
     def summary(self, level=1):
         t = self.dataio.summary(level=level)
         return t

@@ -82,6 +82,28 @@ def test_mainwindow():
     win.show()
     
     app.exec_()
+
+
+def test_from_classes():
+    app = pg.mkQApp()
+    
+    dataio = DataIO(dirname = '../../tests/datatest')
+    sigs = dataio.get_signals(seg_num=0)
+    peakdetector = PeakDetector(sigs)
+    peak_pos = peakdetector.detect_peaks(threshold=-4, peak_sign = '-', n_span = 5)
+    waveformextractor = WaveformExtractor(peakdetector, n_left=-30, n_right=50)
+    limit_left, limit_right = waveformextractor.find_good_limits(mad_threshold = 1.1)
+    short_wf = waveformextractor.get_ajusted_waveforms(margin=2)
+    clustering = Clustering(short_wf)
+    features = clustering.project(method = 'pca', n_components = 5)
+    clustering.find_clusters(7)
+    catalogue = clustering.construct_catalogue()
+    
+    
+    win = SpikeSortingWindow.from_classes(dataio, peakdetector, waveformextractor, clustering)
+    win.show()
+    
+    app.exec_()    
     
     
 if __name__ == '__main__':
@@ -90,4 +112,6 @@ if __name__ == '__main__':
     #~ test_peaklist()
     #~ test_clusterlist()
     #~ test_ndviewer()
-    test_mainwindow()
+    #~ test_mainwindow()
+    
+    test_from_classes()
