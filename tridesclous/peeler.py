@@ -73,6 +73,7 @@ class Peeler:
           * jitter1 : jitter estimation at order 1
           * h0_norm2: error at order0
           * h1_norm2: error at order1
+          * h2_norm2: error at order2
         """
 
         cluster_idx = np.argmin(np.sum((self.all_center-wf)**2, axis = 1))
@@ -127,12 +128,15 @@ class Peeler:
             # then we take a new wf at the good place and do estimate again
             #~ while np.abs(jitter1) > 0.5:
             if np.abs(jitter1) > 0.5:
+                print('')
                 #~ peak_pos[i] -= int(np.round(jitter1))
-                peak_pos[i] += int(np.round(jitter1))
+                print(label, jitter1, peak_pos[i])
+                peak_pos[i] -= int(np.round(jitter1))
                 chunk = cut_chunks(residuals.values, np.array([ peak_pos[i]+self.n_left], dtype = int),
                                 -self.n_left + self.n_right )
                 wf = waveforms[i,:] = chunk[0,:].reshape(-1)
                 label, jitter1 = self.estimate_one_jitter(wf)
+                print(label, jitter1, peak_pos[i])
             
             jitters[i] = jitter1
             labels[i] = label
