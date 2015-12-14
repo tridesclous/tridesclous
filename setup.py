@@ -11,7 +11,11 @@ setup(
     packages = ['tridesclous', ],
     install_requires=[
                     'numpy',
+                    'pandas',
+                    'sklearn',
                     'matplotlib',
+                    'seaborn',
+                    'tables',
                     ],
     author = "C. Pouzat, S.Garcia",
     author_email = "",
