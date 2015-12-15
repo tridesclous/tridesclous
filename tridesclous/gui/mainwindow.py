@@ -22,12 +22,22 @@ class SpikeSortingWindow(QtGui.QMainWindow):
         self.clusterlist = ClusterList(spikesorter = spikesorter)
         self.ndscatter = NDScatter(spikesorter = spikesorter)
         
-        all = [self.traceviewer, self.peaklist, self.ndscatter]
+        all = [self.traceviewer, self.peaklist, self.clusterlist, self.ndscatter]
         
         for w1, w2 in itertools.combinations(all,2):
             w1.peak_selection_changed.connect(w2.on_peak_selection_changed)
             w2.peak_selection_changed.connect(w1.on_peak_selection_changed)
+            
+            w1.peak_cluster_changed.connect(w2.on_peak_cluster_changed)
+            w2.peak_cluster_changed.connect(w1.on_peak_cluster_changed)
+
+            w1.colors_changed.connect(w2.on_colors_changed)
+            w2.colors_changed.connect(w1.on_colors_changed)
+
+            w1.cluster_visibility_changed.connect(w2.on_cluster_visibility_changed)
+            w2.cluster_visibility_changed.connect(w1.on_cluster_visibility_changed)
         
+
         docks = {}
         docks['traceviewer'] = QtGui.QDockWidget('traceviewer',self)
         docks['traceviewer'].setWidget(self.traceviewer)

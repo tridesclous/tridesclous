@@ -113,5 +113,5 @@ if __name__ == '__main__':
     #~ test_clusterlist()
     #~ test_ndviewer()
     
-    #~ test_mainwindow()
-    test_from_classes()
+    test_mainwindow()
+    #~ test_from_classes()

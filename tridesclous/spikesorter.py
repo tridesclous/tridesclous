@@ -118,19 +118,33 @@ class SpikeSorter:
         self.clustering.find_clusters(*args, **kargs)
         assert self.clustering.labels.size==self.all_waveforms.shape[0], 'label size problem {} {}'.format(self.clustering.labels.size, self.all_waveforms.shape[0])
         self.all_peaks.ix[:, 'label'] = self.clustering.labels
+        
+        self.on_new_cluster()
+    
+    def on_new_cluster(self):
         self.cluster_labels = np.unique(self.all_peaks['label'].values)
         self.cluster_count = self.all_peaks.groupby(['label'])['label'].count()
+        
+        if not hasattr(self, 'cluster_visible'):
+            self.cluster_visible = pd.Series(index = self.cluster_labels, name = 'visible')
+            self.cluster_visible[:] = True
+        for k in self.cluster_labels:
+            if k not in self.cluster_visible:
+                self.cluster_visible.loc[k] = True
     
     def refresh_colors(self, reset = True, palette = 'husl'):
         if reset:
             self.colors = {}
         
-        self.cluster_labels = np.unique(self.all_peaks['label'].values)
-        self.cluster_count = self.all_peaks.groupby(['label'])['label'].count()
-        color_table = sns.color_palette(palette, self.cluster_labels.size)
+        self.on_new_cluster()
+        
+        n = self.cluster_labels.size
+        color_table = sns.color_palette(palette, n)
         for i, k in enumerate(self.cluster_labels):
             if k not in self.colors:
                 self.colors[k] = color_table[i]
+        
+        self.colors[-1] = (.4, .4, .4)
         
         if HAVE_QT:
             self.qcolors = {}

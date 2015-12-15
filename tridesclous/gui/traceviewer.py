@@ -4,6 +4,7 @@ from pyqtgraph.Qt import QtCore, QtGui
 import numpy as np
 import pandas as pd
 
+from .base import WidgetBase
 from .tools import TimeSeeker
 from ..tools import median_mad
 
@@ -36,14 +37,12 @@ class MyViewBox(pg.ViewBox):
         self.xsize_zoom.emit((ev.pos()-ev.lastPos()).x())
 
 
-class TraceViewer(QtGui.QWidget):
-    
-    peak_selection_changed = QtCore.pyqtSignal()
+class TraceViewer(WidgetBase):
     
     def __init__(self, spikesorter = None, shared_view_with = [], 
                     mode = 'memory', parent=None):
-        QtGui.QWidget.__init__(self, parent)
-        
+        WidgetBase.__init__(self, parent)
+    
         self.spikesorter = spikesorter
         self.dataio = self.spikesorter.dataio
         self.mode = mode
@@ -316,7 +315,10 @@ class TraceViewer(QtGui.QWidget):
             self.seek(time)
         else:
             self.refresh()
-        
+
+    def on_peak_cluster_changed(self):
+        self.refresh()
+
     def item_clicked(self, plot, points):
         if self.select_button.isChecked()and len(points)==1:
             x = points[0].pos().x()

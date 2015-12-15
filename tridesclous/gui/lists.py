@@ -4,6 +4,8 @@ from pyqtgraph.Qt import QtCore, QtGui
 import numpy as np
 import pandas as pd
 
+from .base import WidgetBase
+
 
 
 class PeakModel(QtCore.QAbstractItemModel):
@@ -94,12 +96,9 @@ class PeakModel(QtCore.QAbstractItemModel):
         self.layoutChanged.emit()
         
         
-class PeakList(QtGui.QWidget):
-    
-    peak_selection_changed = QtCore.pyqtSignal()
-    
+class PeakList(WidgetBase):
     def __init__(self, spikesorter = None, parent=None):
-        QtGui.QWidget.__init__(self, parent)
+        WidgetBase.__init__(self, parent)
         
         self.spikesorter = spikesorter
         self.dataio = self.spikesorter.dataio
@@ -135,9 +134,6 @@ class PeakList(QtGui.QWidget):
                 self.spikesorter.all_peaks.loc[ind, 'selected'] = True
         self.peak_selection_changed.emit()
 
-    def open_context_menu(self):
-        pass
-    
     def on_peak_selection_changed(self):
         self.tree.selectionModel().selectionChanged.disconnect(self.on_tree_selection)
         
@@ -164,14 +160,25 @@ class PeakList(QtGui.QWidget):
 
         self.tree.selectionModel().selectionChanged.connect(self.on_tree_selection)        
 
-
-
-class ClusterList(QtGui.QWidget):
+    def open_context_menu(self):
+        menu = QtGui.QMenu()
+        act = menu.addAction('Move selection to trash')
+        act.triggered.connect(self.move_selection_to_trash)
+        #~ menu.popup(self.cursor().pos())
+        menu.exec_(self.cursor().pos())
     
-    peak_selection_changed = QtCore.pyqtSignal()
+    def move_selection_to_trash(self):
+        take = self.spikesorter.all_peaks.loc[:, 'selected']
+        self.spikesorter.all_peaks.loc[take, 'label'] = -1
+        self.spikesorter.refresh_colors(reset = False)
+        self.refresh()
+        self.peak_cluster_changed.emit()
+
+
+class ClusterList(WidgetBase):
     
     def __init__(self, spikesorter = None, parent=None):
-        QtGui.QWidget.__init__(self, parent)
+        WidgetBase.__init__(self, parent)
         
         self.spikesorter = spikesorter
         self.dataio = self.spikesorter.dataio
@@ -219,24 +226,92 @@ class ClusterList(QtGui.QWidget):
             
             item = QtGui.QTableWidgetItem('')
             item.setFlags(QtCore.Qt.ItemIsEnabled|QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsUserCheckable)
-            #~ item.setCheckState({ False: QtCore.Qt.Unchecked, True : QtCore.Qt.Checked}[sps.active_cluster[c]])#TODO
-            item.setCheckState({ False: QtCore.Qt.Unchecked, True : QtCore.Qt.Checked}[True])
+            item.setCheckState({ False: QtCore.Qt.Unchecked, True : QtCore.Qt.Checked}[self.spikesorter.cluster_visible[k]])
             self.table.setItem(i,2, item)
             
         self.table.itemChanged.connect(self.on_item_changed)        
-    
-    def peak_selection_changed(self):
-        self.refresh()
-    
+
     def on_item_changed(self, item):
         if item.column() != 2: return
         sel = {QtCore.Qt.Unchecked : False, QtCore.Qt.Checked : True}[item.checkState()]
         k = self.spikesorter.cluster_labels[item.row()]
-        #TODO : change visibility of one cluster
-        #~ sps.active_cluster[c] = sel
-        #~ self.clusters_activation_changed.emit()
+        self.spikesorter.cluster_visible[k] = item.checkState()
+        self.cluster_visibility_changed.emit()
+    
+    def selected_cluster(self):
+        selected = []
+        for index in self.table.selectedIndexes():
+            if index.column() !=0: continue
+            selected.append(self.spikesorter.cluster_labels[index.row()])
+        return selected
 
     def open_context_menu(self):
-        pass
+        n = len(self.selected_cluster())
+        menu = QtGui.QMenu()
 
+        if n>=0: 
+            act = menu.addAction('Reset colors')
+            act.triggered.connect(self.reset_colors)
+            act = menu.addAction('Sort by ascending waveform power')
+            act.triggered.connect(self.sort_clusters)
+            act = menu.addAction('Show all')
+            act.triggered.connect(self.show_all)
+            act = menu.addAction('Hide all')
+            act.triggered.connect(self.hide_all)
+            
+        if n>=1:
+            act = menu.addAction('Move selection to trash')
+            act.triggered.connect(self.move_selection_to_trash)
+            act = menu.addAction('Merge selection')
+            act.triggered.connect(self.merge_selection)
+            act = menu.addAction('Select peaks of clusters')
+            act.triggered.connect(self.select_peaks_of_clusters)
+        
+        self.menu = menu
+        menu.popup(self.cursor().pos())
+        #~ menu.exec_(self.cursor().pos())
+        
+    
+    def reset_colors(self):
+        self.spikesorter.refresh_colors(reset = True)
+        self.refresh()
+        self.colors_changed.emit()
+    
+    def sort_clusters(self):
+        pass
+        
+    def show_all(self):
+        self.spikesorter.cluster_visible[:] = True
+        self.refresh()
+        self.cluster_visibility_changed.emit()
+    
+    def hide_all(self):
+        self.spikesorter.cluster_visible[:] = False
+        self.refresh()
+        self.cluster_visibility_changed.emit()
+    
+    def move_selection_to_trash(self):
+        for k in self.selected_cluster():
+            take = self.spikesorter.all_peaks.loc[:, 'label'] == k
+            self.spikesorter.all_peaks.loc[take, 'label'] = -1
+        self.spikesorter.refresh_colors(reset = False)
+        self.refresh()
+        self.peak_cluster_changed.emit()
+    
+    def merge_selection(self):
+        new_label = max(self.spikesorter.cluster_labels)+1
+        for k in self.selected_cluster():
+            take = self.spikesorter.all_peaks.loc[:, 'label'] == k
+            self.spikesorter.all_peaks.loc[take, 'label'] = new_label
+        self.spikesorter.refresh_colors(reset = False)
+        self.refresh()
+        self.peak_cluster_changed.emit()
+    
+    def select_peaks_of_clusters(self):
+        self.spikesorter.all_peaks.loc[:, 'selected'] = False
+        for k in self.selected_cluster():
+            take = self.spikesorter.all_peaks.loc[:, 'label'] == k
+            self.spikesorter.all_peaks.loc[take, 'selected'] = True
+        self.refresh()
+        self.peak_selection_changed.emit()
 
