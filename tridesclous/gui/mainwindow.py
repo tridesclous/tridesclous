@@ -35,7 +35,7 @@ class SpikeSortingWindow(QtGui.QMainWindow):
         docks['peaklist'] = QtGui.QDockWidget('peaklist',self)
         docks['peaklist'].setWidget(self.peaklist)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, docks['peaklist'])
-        docks['ndscatter'] = QtGui.QDockWidget('peaklist',self)
+        docks['ndscatter'] = QtGui.QDockWidget('ndscatter',self)
         docks['ndscatter'].setWidget(self.ndscatter)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, docks['ndscatter'])
 

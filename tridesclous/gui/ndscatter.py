@@ -147,6 +147,11 @@ class NDScatter(QtGui.QWidget):
         self.plot2.addItem(self.direction_lines)
         self.plot2.setXRange(-1, 1)
         self.plot2.setYRange(-1, 1)
+        self.proj_labels = []
+        for i in range(ndim):
+            label = pg.TextItem(self.data.columns[i], color=(1,1,1), anchor=(0.5, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
+            self.proj_labels.append(label)
+            self.plot2.addItem(label)
         
         self.graphicsview2.setMaximumSize(200, 200)
         
@@ -209,7 +214,8 @@ class NDScatter(QtGui.QWidget):
         self.direction_data[::2, :] = self.projection
         self.direction_lines.setData(self.direction_data[:,0], self.direction_data[:,1])
         
-        
+        for i, label in enumerate(self.proj_labels):
+            label.setPos(self.projection[i,0], self.projection[i,1])
     
     def start_stop_tour(self, checked):
         if checked:
