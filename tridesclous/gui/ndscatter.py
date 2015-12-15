@@ -7,6 +7,8 @@ from pyqtgraph.Qt import QtCore, QtGui
 import numpy as np
 import pandas as pd
 
+import itertools
+
 from .tools import TimeSeeker
 from ..tools import median_mad
 
@@ -79,6 +81,9 @@ class NDScatter(QtGui.QWidget):
         
         tb = self.toolbar = QtGui.QVBoxLayout()
         self.layout.addLayout(tb)
+        but = QtGui.QPushButton('next face')
+        tb.addWidget(but)
+        but.clicked.connect(self.next_face)
         but = QtGui.QPushButton('Random')
         tb.addWidget(but)
         but.clicked.connect(self.random_projection)
@@ -142,10 +147,31 @@ class NDScatter(QtGui.QWidget):
         self.plot2.addItem(self.direction_lines)
         self.plot2.setXRange(-1, 1)
         self.plot2.setYRange(-1, 1)
+        self.proj_labels = []
+        for i in range(ndim):
+            label = pg.TextItem(self.data.columns[i], color=(1,1,1), anchor=(0.5, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
+            self.proj_labels.append(label)
+            self.plot2.addItem(label)
         
         self.graphicsview2.setMaximumSize(200, 200)
-
+        
+        #~ self.hyper_faces = list(itertools.product(range(ndim), range(ndim)))
+        self.hyper_faces = list(itertools.permutations(range(ndim), 2))
+        self.n_face = -1
+        
     
+    def next_face(self):
+        self.n_face += 1
+        self.n_face = self.n_face%len(self.hyper_faces)
+        ndim = self.data.shape[1]
+        self.projection = np.zeros( (ndim, 2))
+        i, j = self.hyper_faces[self.n_face]
+        self.projection[i,0] = 1.
+        self.projection[j,1] = 1.
+        if self.timer_tour.isActive():
+            self.tour_step == 0
+        self.refresh()
+        
     def get_one_random_projection(self):
         ndim = self.data.shape[1]
         projection = np.random.rand(ndim,2)*2-1.
@@ -188,7 +214,8 @@ class NDScatter(QtGui.QWidget):
         self.direction_data[::2, :] = self.projection
         self.direction_lines.setData(self.direction_data[:,0], self.direction_data[:,1])
         
-        
+        for i, label in enumerate(self.proj_labels):
+            label.setPos(self.projection[i,0], self.projection[i,1])
     
     def start_stop_tour(self, checked):
         if checked:

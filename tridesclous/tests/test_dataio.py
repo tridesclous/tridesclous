@@ -42,7 +42,9 @@ def test_dataio():
     sigs_by_trials, sampling_rate, ch_names = download_locust(trial_names = ['trial_01', 'trial_02', 'trial_03'])
     
     
-    for seg_num in range(3):
+    #~ for seg_num in range(3):
+    for seg_num in range(1):
+    
         sigs = sigs_by_trials[seg_num]
         dataio.append_signals(sigs, seg_num = seg_num,t_start = 0.+5*seg_num, sampling_rate =  sampling_rate,
                     already_hp_filtered = True, channels = ch_names)
