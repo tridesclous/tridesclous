@@ -3,6 +3,12 @@ import pandas as pd
 import numpy as np
 import json
 
+try:
+    import neo
+    HAVE_NEO = True
+except ImportError:
+    HAVE_NEO = False
+
 
 class DataIO:
     """
@@ -152,6 +158,9 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
         
         if self.info is None:
             self.initialize(sampling_rate = sampling_rate, channels = channels)
+        else:
+            print(sampling_rate, self.info['sampling_rate'])
+            assert sampling_rate==self.info['sampling_rate']
 
         assert signals.shape[1]==self.info['nb_channel'], 'Wrong shape {} ({} chans)'.format(signals.shape, self.info['nb_channel'])
         assert sampling_rate == self.info['sampling_rate'], 'Wrong sampling_rate {} {}'.format(sampling_rate, self.info['sampling_rate'])
@@ -181,7 +190,60 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
         self.flush_info()
         
         self.store.create_table_index(path, optlevel=9, kind='full')
-
+    
+    def append_signals_from_neo(self, blocks, channel_indexes = None, already_hp_filtered = False):
+        """
+        Append signals from a list of neo.Block.
+        So all format readable by neo can be used.
+        
+        This loop over all neo.Segment inside neo.Block and append
+        AnalogSignal into the datasets.
+        
+        
+        Arguments
+        ---------------
+        blocks: list of neo.Block (or neo.Block
+            data to append
+        channel_indexes: list or None
+            list of channel if None all channel are taken.
+        
+        """
+        assert HAVE_NEO, 'neo must be installed'
+        if isinstance(blocks, neo.Block):
+            blocks = [blocks]
+        
+        seg_num=0
+        for block in blocks:
+            for seg in block.segments:
+                if channel_indexes is not None:
+                    analogsignals = []
+                    for anasig in seg.analogsignals:
+                        if anasig in channel_indexes:
+                            analogsignals.append(anasig)
+                else:
+                    analogsignals = seg.analogsignals
+                
+                if analogsignals[0].name is not None:
+                    channels = [anasig.name for anasig in analogsignals]
+                else:
+                    channels = [ 'ch{}'.format(anasig.channel_index) for anasig in analogsignals]
+                
+                all_sr = [float(anasig.sampling_rate.rescale('Hz').magnitude) for anasig in analogsignals]
+                all_t_start = [float(anasig.t_start.rescale('S').magnitude) for anasig in analogsignals]
+                assert np.unique(all_sr).size == 1, 'Analogsignal do not have the same sampling_rate'
+                assert np.unique(all_t_start).size == 1, 'Analogsignal do not have the same t_start'
+                
+                sigs = np.concatenate([anasig.magnitude[:, None] for anasig in analogsignals], axis = 1)
+                
+                sampling_rate = np.unique(all_sr)
+                t_start = np.unique(all_t_start)
+                print(sigs.shape)
+                print(channels)
+                self.append_signals(sigs, seg_num=seg_num, sampling_rate = sampling_rate, t_start = t_start,
+                        already_hp_filtered = already_hp_filtered, channels = channels)
+                
+                seg_num += 1
+    
     def get_signals(self, seg_num=0, t_start = None, t_stop = None, filtered = True):
         """
         Get a chunk of signals in the dataset.

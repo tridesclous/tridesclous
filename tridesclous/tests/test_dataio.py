@@ -61,12 +61,33 @@ def test_dataio():
     #~ assert data.get_signals(seg_num=0, t_start=3., t_stop = 5.).shape == (30000, 4)
     
     
+def test_dataio_with_neo():
+    if os.path.exists('datatest_neo/data.h5'):
+        os.remove('datatest_neo/data.h5')
+    dataio = DataIO(dirname = 'datatest_neo')
+    
+    import neo
+    import quantities as pq
+    blocks = neo.RawBinarySignalIO('Tem10c11.IOT').read(sampling_rate = 10.*pq.kHz,
+                    t_start = 0. *pq.S, unit = pq.V, nbchannel = 16, bytesoffset = 0,
+                    dtype = 'int16', rangemin = -10, rangemax = 10)
+    
+    dataio.append_signals_from_neo(blocks, channel_indexes = None, already_hp_filtered = True)
+    
+
+    
+    
+    
+    
+    
     
     
     
     
 if __name__=='__main__':
-    test_dataio()
+    #~ test_dataio()
+    test_dataio_with_neo()
+    
     
     
     
