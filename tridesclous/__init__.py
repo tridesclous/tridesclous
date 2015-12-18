@@ -5,6 +5,7 @@ from .peakdetector import *
 from .waveformextractor import *
 from .clustering import Clustering
 from .peeler import Peeler
+from .filter import SignalFilter
 
 from .spikesorter import SpikeSorter
 

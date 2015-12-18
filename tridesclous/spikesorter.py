@@ -3,6 +3,7 @@ import pandas as pd
 import seaborn as sns
 
 from .dataio import DataIO
+from .filter import SignalFilter
 from .peakdetector import PeakDetector
 from .waveformextractor import WaveformExtractor
 from .clustering import Clustering
@@ -61,6 +62,19 @@ class SpikeSorter:
     def __repr__(self):
         return self.summary(level=0)
     
+    def apply_filter(self, highpass_freq = 300., seg_nums = 'all'):
+
+        if seg_nums == 'all':
+            seg_nums = self.dataio.unfiltered_segments.index
+
+        for seg_num in seg_nums:
+            sigs = self.dataio.get_signals(seg_num=seg_num, filtered = False)
+            filter =  SignalFilter(sigs, highpass_freq = highpass_freq)
+            filtered_sigs = filter.get_filtered_data()
+            self.dataio.append_signals(filtered_sigs,  seg_num=seg_num, already_hp_filtered = True)
+            
+        
+    
     def detect_peaks_extract_waveforms(self, seg_nums = 'all',  
                 threshold=-4, peak_sign = '-', n_span = 2,
                 n_left=-30, n_right=50):
@@ -75,7 +89,7 @@ class SpikeSorter:
             #peak
             peakdetector = PeakDetector(sigs, seg_num=seg_num)
             peakdetector.detect_peaks(threshold=threshold, peak_sign = peak_sign, n_span = n_span)
-            
+            print(peakdetector.peak_pos)
             
             #waveform
             waveformextractor = WaveformExtractor(peakdetector, n_left=n_left, n_right=n_right)
@@ -101,15 +115,18 @@ class SpikeSorter:
         self.all_peaks['selected'] = False
         self.clustering = Clustering(self.all_waveforms)
     
-    #~ def load_all_peaks(self):
-        #~ self.all_peaks = []
-        #~ for seg_num in self.dataio.segments.index:
-            #~ peaks = self.dataio.get_peaks(seg_num)
-            #~ if peaks is not None:
-                #~ self.all_peaks.append(peaks)
-        #~ self.all_peaks = pd.concat(self.all_peaks, axis=0)
-        #create a colum to handle selection on UI
-        #~ self.all_peaks['selected'] = False
+    def load_all_peaks(self):
+        all = []
+        for seg_num in self.dataio.segments.index:
+            peaks = self.dataio.get_peaks(seg_num)
+            if peaks is not None:
+                all.append(peaks)
+        if len(all) == 0:
+            self.all_peaks = None
+        else:
+            self.all_peaks = pd.concat(all, axis=0)
+            #create a colum to handle selection on UI
+            self.all_peaks['selected'] = False
 
     def project(self, *args, **kargs):
         self.clustering.project(*args, **kargs)

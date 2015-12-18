@@ -42,11 +42,9 @@ def test_dataio():
     sigs_by_trials, sampling_rate, ch_names = download_locust(trial_names = ['trial_01', 'trial_02', 'trial_03'])
     
     
-    #~ for seg_num in range(3):
-    for seg_num in range(1):
-    
+    for seg_num in range(3):
         sigs = sigs_by_trials[seg_num]
-        dataio.append_signals(sigs, seg_num = seg_num,t_start = 0.+5*seg_num, sampling_rate =  sampling_rate,
+        dataio.append_signals_from_numpy(sigs, seg_num = seg_num,t_start = 0.+5*seg_num, sampling_rate =  sampling_rate,
                     already_hp_filtered = True, channels = ch_names)
     
     #~ print(data)
@@ -72,8 +70,10 @@ def test_dataio_with_neo():
                     t_start = 0. *pq.S, unit = pq.V, nbchannel = 16, bytesoffset = 0,
                     dtype = 'int16', rangemin = -10, rangemax = 10)
     
-    dataio.append_signals_from_neo(blocks, channel_indexes = None, already_hp_filtered = True)
-    
+    channel_indexes = np.arange(14)
+    dataio.append_signals_from_neo(blocks, channel_indexes = channel_indexes, 
+                                already_hp_filtered = False)
+    print(dataio.summary(level=1))
 
     
     

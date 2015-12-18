@@ -193,7 +193,11 @@ class TraceViewer(WidgetBase):
 
         if self.spikesorter.all_peaks is None:
             self.spikesorter.load_all_peaks()
-        self.seg_peaks = self.spikesorter.all_peaks.xs(self.seg_num)
+        
+        if self.spikesorter.all_peaks is not None:
+            self.seg_peaks = self.spikesorter.all_peaks.xs(self.seg_num)
+        else:
+            self.seg_peaks = None
             
         if self.isVisible():
             self.refresh()
@@ -237,36 +241,37 @@ class TraceViewer(WidgetBase):
             self.curves[c].setData(chunk.index.values, chunk.iloc[:, c].values*self.gains[c]+self.offsets[c])
             self.channel_labels[c].setPos(t1, self.dataio.nb_channel-c-1)
         
-        inwin = self.seg_peaks.loc[t1:t2,:]
-        visible_labels = np.unique(inwin['label'].values)
-        for c in range(self.dataio.nb_channel):
-            #reset scatters
-            for k, scatter in self.scatters[c].items():
-                if k not in visible_labels:
-                    scatter.setData([], [])
-            # plotted selected
-            if 'sel' not in self.scatters[c]:
-                brush = QtGui.QColor( 'magenta')
-                brush.setAlpha(180)
-                pen = QtGui.QColor( 'yellow')
-                self.scatters[c]['sel'] = pg.ScatterPlotItem(pen=pen, brush=brush, size=20, pxMode = True)
-                self.plot.addItem(self.scatters[c]['sel'])
-            sel = inwin[inwin['selected']]
-            p = chunk.loc[sel.index]
-            self.scatters[c]['sel'].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
-        
-        for k in visible_labels:
+        if self.seg_peaks is not None:
+            inwin = self.seg_peaks.loc[t1:t2,:]
+            visible_labels = np.unique(inwin['label'].values)
             for c in range(self.dataio.nb_channel):
-                sel = inwin[inwin['label']==k]
+                #reset scatters
+                for k, scatter in self.scatters[c].items():
+                    if k not in visible_labels:
+                        scatter.setData([], [])
+                # plotted selected
+                if 'sel' not in self.scatters[c]:
+                    brush = QtGui.QColor( 'magenta')
+                    brush.setAlpha(180)
+                    pen = QtGui.QColor( 'yellow')
+                    self.scatters[c]['sel'] = pg.ScatterPlotItem(pen=pen, brush=brush, size=20, pxMode = True)
+                    self.plot.addItem(self.scatters[c]['sel'])
+                sel = inwin[inwin['selected']]
                 p = chunk.loc[sel.index]
-                
-                color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
-                if k not in self.scatters[c]:
-                    self.scatters[c][k] = pg.ScatterPlotItem(pen=None, brush=color, size=10, pxMode = True)
-                    self.plot.addItem(self.scatters[c][k])
-                    self.scatters[c][k].sigClicked.connect(self.item_clicked)
-                self.scatters[c][k].setBrush(color)
-                self.scatters[c][k].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
+                self.scatters[c]['sel'].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
+            
+            for k in visible_labels:
+                for c in range(self.dataio.nb_channel):
+                    sel = inwin[inwin['label']==k]
+                    p = chunk.loc[sel.index]
+                    
+                    color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
+                    if k not in self.scatters[c]:
+                        self.scatters[c][k] = pg.ScatterPlotItem(pen=None, brush=color, size=10, pxMode = True)
+                        self.plot.addItem(self.scatters[c][k])
+                        self.scatters[c][k].sigClicked.connect(self.item_clicked)
+                    self.scatters[c][k].setBrush(color)
+                    self.scatters[c][k].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
         
         self.plot.setXRange( t1, t2, padding = 0.0)
         self.plot.setYRange(-.5, self.dataio.nb_channel-.5, padding = 0.0)
