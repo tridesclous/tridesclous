@@ -211,8 +211,15 @@ def find_good_limits(normed_mad, mad_threshold = 1.1):
     
     up, = np.where(np.diff(above.astype(int))==1)
     down, = np.where(np.diff(above.astype(int))==-1)
+    
+    if len(up)==0 or len(down)==0:
+        return None, None
+    
     up = up[up<max(down)]
     down = down[down>min(up)]
+    
+    if len(up)==0 or len(down)==0:
+        return None, None
     
     best = np.argmax(down-up)
     
@@ -256,6 +263,8 @@ class WaveformExtractor_:
     
     def find_good_limits(self, mad_threshold = 1.1):
         l1, l2 = find_good_limits(self.mad.values.reshape(self.nb_channel,-1), mad_threshold = mad_threshold)
+        if l1 is None:
+            return None, None
         self.limit_left = self.long_waveforms.columns.levels[1][l1]
         self.limit_right = self.long_waveforms.columns.levels[1][l2]
         return self.limit_left, self.limit_right

@@ -16,10 +16,9 @@ def test_spikesorter():
     sigs_by_trials, sampling_rate, ch_names = download_locust(trial_names = ['trial_01', 'trial_02', 'trial_03'])
     for seg_num in range(3):
         sigs = sigs_by_trials[seg_num]
-        spikesorter.dataio.append_signals_from_numpy(sigs, seg_num = seg_num,t_start = 0.+5*seg_num, sampling_rate =  sampling_rate,
+        spikesorter.dataio.append_signals_from_numpy(sigs, seg_num = seg_num,
+                    t_start = 0.+5*seg_num, sampling_rate =  sampling_rate,
                     already_hp_filtered = True, channels = ch_names)
-    
-    
     
     print('### after data import ###')
     print(spikesorter)
@@ -45,7 +44,7 @@ def test_spikesorter_neo():
     filenames = ['tem16a00.IOT', 'tem16a01.IOT', 'tem16a02.IOT', ]
     
     for filename in filenames:
-        blocks = neo.RawBinarySignalIO('Tem10c11.IOT').read(sampling_rate = 10.*pq.kHz,
+        blocks = neo.RawBinarySignalIO(filename).read(sampling_rate = 10.*pq.kHz,
                     t_start = 0. *pq.S, unit = pq.V, nbchannel = 16, bytesoffset = 0,
                     dtype = 'int16', rangemin = -10, rangemax = 10)
     
@@ -75,5 +74,5 @@ def test_spikesorter_neo():
 
     
 if __name__ == '__main__':
-    #~ test_spikesorter()
-    test_spikesorter_neo()
+    test_spikesorter()
+    #~ test_spikesorter_neo()

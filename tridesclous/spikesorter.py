@@ -89,7 +89,6 @@ class SpikeSorter:
             #peak
             peakdetector = PeakDetector(sigs, seg_num=seg_num)
             peakdetector.detect_peaks(threshold=threshold, peak_sign = peak_sign, n_span = n_span)
-            print(peakdetector.peak_pos)
             
             #waveform
             waveformextractor = WaveformExtractor(peakdetector, n_left=n_left, n_right=n_right)

@@ -103,7 +103,7 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
 """.format(seg_num, t_stop-t_start, t_start, t_stop)
 
         path = 'segment_{}/peaks'.format(seg_num)
-        if path in self.store:
+        if path in self.store and self.store[path] is not None:
             t+= "    nb_peaks : {}\n".format(self.store[path].shape[0])
         
         return t
