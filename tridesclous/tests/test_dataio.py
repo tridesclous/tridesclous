@@ -45,7 +45,7 @@ def test_dataio():
     for seg_num in range(3):
         sigs = sigs_by_trials[seg_num]
         dataio.append_signals_from_numpy(sigs, seg_num = seg_num,t_start = 0.+5*seg_num, sampling_rate =  sampling_rate,
-                    already_hp_filtered = True, channels = ch_names)
+                    signal_type = 'filtered', channels = ch_names)
     
     #~ print(data)
     #~ print(data.segments)
@@ -66,13 +66,14 @@ def test_dataio_with_neo():
     
     import neo
     import quantities as pq
-    blocks = neo.RawBinarySignalIO('Tem10c11.IOT').read(sampling_rate = 10.*pq.kHz,
-                    t_start = 0. *pq.S, unit = pq.V, nbchannel = 16, bytesoffset = 0,
-                    dtype = 'int16', rangemin = -10, rangemax = 10)
     
-    channel_indexes = np.arange(14)
-    dataio.append_signals_from_neo(blocks, channel_indexes = channel_indexes, 
-                                already_hp_filtered = False)
+    filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT', ]
+    for filename in filenames:
+        blocks = neo.RawBinarySignalIO(filename).read(sampling_rate = 10.*pq.kHz,
+                        t_start = 0. *pq.S, unit = pq.V, nbchannel = 16, bytesoffset = 0,
+                        dtype = 'int16', rangemin = -10, rangemax = 10)
+        channel_indexes = np.arange(14)
+        dataio.append_signals_from_neo(blocks, channel_indexes = channel_indexes, signal_type = 'unfiltered')
     print(dataio.summary(level=1))
 
     
@@ -85,8 +86,8 @@ def test_dataio_with_neo():
     
     
 if __name__=='__main__':
-    #~ test_dataio()
-    test_dataio_with_neo()
+    test_dataio()
+    #~ test_dataio_with_neo()
     
     
     

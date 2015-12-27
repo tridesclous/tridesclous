@@ -7,7 +7,7 @@ import pandas as pd
 from .base import WidgetBase
 from .tools import TimeSeeker
 from ..tools import median_mad
-
+from ..dataio import _signal_types
 
 
 
@@ -40,12 +40,13 @@ class MyViewBox(pg.ViewBox):
 class TraceViewer(WidgetBase):
     
     def __init__(self, spikesorter = None, shared_view_with = [], 
-                    mode = 'memory', parent=None):
+                    mode = 'memory', signal_type = 'filtered', parent=None):
         WidgetBase.__init__(self, parent)
     
         self.spikesorter = spikesorter
         self.dataio = self.spikesorter.dataio
         self.mode = mode
+        self.signal_type = signal_type
         
         self.layout = QtGui.QVBoxLayout()
         self.setLayout(self.layout)
@@ -63,8 +64,8 @@ class TraceViewer(WidgetBase):
             
         
         #handle time by segments
-        self.time_by_seg = pd.Series(self.dataio.segments['t_start'].copy(), name = 'time', index = self.dataio.segments.index)
-        
+        self.time_by_seg = pd.Series(self.dataio.segments_range.loc[:, (signal_type,'t_start')].copy(), name = 'time',
+                                            index = self.dataio.segments_range.index)
         
         _params = [{'name': 'auto_zoom_on_select', 'type': 'bool', 'value': True },
                            {'name': 'zoom_size', 'type': 'float', 'value':  0.08, 'step' : 0.001 },
@@ -86,16 +87,21 @@ class TraceViewer(WidgetBase):
         #~ but = QtGui.QPushButton('<')
         #~ but.clicked.connect(self.prev_segment)
         #~ tb.addWidget(but)
-        self.combo = QtGui.QComboBox()
-        tb.addWidget(self.combo)
-        self.combo.addItems([ 'Segment {}'.format(seg_num) for seg_num in self.dataio.segments.index ])
+        self.combo_seg = QtGui.QComboBox()
+        tb.addWidget(self.combo_seg)
+        self.combo_seg.addItems([ 'Segment {}'.format(seg_num) for seg_num in self.dataio.segments_range.index ])
         #~ but = QtGui.QPushButton('>')
         #~ but.clicked.connect(self.next_segment)
         #~ tb.addWidget(but)
         self._seg_pos = 0
-        self.seg_num = self.dataio.segments.index[self._seg_pos]
-        self.combo.currentIndexChanged.connect(self.on_combo_changed)
+        self.seg_num = self.dataio.segments_range.index[self._seg_pos]
+        self.combo_seg.currentIndexChanged.connect(self.on_combo_seg_changed)
         tb.addSeparator()
+        
+        self.combo_type = QtGui.QComboBox()
+        tb.addWidget(self.combo_type)
+        self.combo_type.addItems([ signal_type for signal_type in _signal_types ])
+        self.combo_type.currentIndexChanged.connect(self.on_combo_type_changed)
 
         # time slider
         self.timeseeker = TimeSeeker()
@@ -174,20 +180,19 @@ class TraceViewer(WidgetBase):
     def change_segment(self, seg_pos):
         self._seg_pos  =  seg_pos
         if self._seg_pos<0:
-            self._seg_pos = self.dataio.segments.shape[0]-1
-        if self._seg_pos == self.dataio.segments.shape[0]:
+            self._seg_pos = self.dataio.segments_range.shape[0]-1
+        if self._seg_pos == self.dataio.segments_range.shape[0]:
             self._seg_pos = 0
-        self.seg_num = self.dataio.segments.index[self._seg_pos]
-        self.combo.setCurrentIndex(self._seg_pos)
+        self.seg_num = self.dataio.segments_range.index[self._seg_pos]
+        self.combo_seg.setCurrentIndex(self._seg_pos)
         
-        lims = self.dataio.segments.loc[self.seg_num] 
+        lims = self.dataio.segments_range.xs(self.signal_type, axis=1).loc[self.seg_num]
         self.timeseeker.set_start_stop(lims['t_start'], lims['t_stop'], seek = False)
         self.timeseeker.seek(self.time_by_seg[self.seg_num], emit = False)
         
         if self.mode == 'memory':
-            #TODO filtered or not
             self.sigs = self.dataio.get_signals(seg_num = self.seg_num, t_start = lims['t_start'], 
-                            t_stop = lims['t_stop'], filtered = True)
+                            t_stop = lims['t_stop'], signal_type = self.signal_type)
         elif self.mode == 'file':
             self.sigs = None
 
@@ -203,11 +208,17 @@ class TraceViewer(WidgetBase):
             self.refresh()
 
     
-    def on_combo_changed(self):
-        s =  self.combo.currentIndex()
+    def on_combo_seg_changed(self):
+        s =  self.combo_seg.currentIndex()
         for otherviewer in self.shared_view_with:
             otherviewer.combo.setCurrentIndex(s)
         self.change_segment(s)
+    
+    def on_combo_type_changed(self):
+        s =  self.combo_type.currentIndex()
+        self.signal_type = _signal_types[s]
+        self.change_segment(self._seg_pos)
+        
     
     def xsize_changed(self):
         self.xsize = self.spinbox_xsize.value()
@@ -235,7 +246,7 @@ class TraceViewer(WidgetBase):
         if self.mode == 'memory':
             chunk = self.sigs.loc[t1:t2]
         elif self.mode == 'file':
-            chunk = self.dataio.get_signals(seg_num = self.seg_num, t_start = t1, t_stop = t2, filtered = True)
+            chunk = self.dataio.get_signals(seg_num = self.seg_num, t_start = t1, t_stop = t2, signal_type = self.signal_type)
         
         for c in range(self.dataio.nb_channel):
             self.curves[c].setData(chunk.index.values, chunk.iloc[:, c].values*self.gains[c]+self.offsets[c])
@@ -243,12 +254,14 @@ class TraceViewer(WidgetBase):
         
         if self.seg_peaks is not None:
             inwin = self.seg_peaks.loc[t1:t2,:]
-            visible_labels = np.unique(inwin['label'].values)
+            #~ visible_labels = np.unique(inwin['label'].values)
+            
             for c in range(self.dataio.nb_channel):
                 #reset scatters
-                for k, scatter in self.scatters[c].items():
-                    if k not in visible_labels:
-                        scatter.setData([], [])
+                for k in self.spikesorter.cluster_labels:
+                    if not self.spikesorter.cluster_visible[k]:
+                        self.scatters[c][k].setData([], [])
+                
                 # plotted selected
                 if 'sel' not in self.scatters[c]:
                     brush = QtGui.QColor( 'magenta')
@@ -260,11 +273,12 @@ class TraceViewer(WidgetBase):
                 p = chunk.loc[sel.index]
                 self.scatters[c]['sel'].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
             
-            for k in visible_labels:
+            for k in self.spikesorter.cluster_labels:
+                if not self.spikesorter.cluster_visible[k]:
+                    continue
+                sel = inwin[inwin['label']==k]
                 for c in range(self.dataio.nb_channel):
-                    sel = inwin[inwin['label']==k]
                     p = chunk.loc[sel.index]
-                    
                     color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
                     if k not in self.scatters[c]:
                         self.scatters[c][k] = pg.ScatterPlotItem(pen=None, brush=color, size=10, pxMode = True)
@@ -295,7 +309,7 @@ class TraceViewer(WidgetBase):
             self.med, self.mad = median_mad(self.sigs, axis = 0)
         elif self.mode == 'file':
             lims = self.dataio.segments.loc[self.seg_num]
-            chunk = self.dataio.get_signals(seg_num = self.seg_num, t_start = lims['t_start'], t_stop = lims['t_start']+60., filtered = True)
+            chunk = self.dataio.get_signals(seg_num = self.seg_num, t_start = lims['t_start'], t_stop = lims['t_start']+60., signal_type = self.signal_type)
             self.med, self.mad = median_mad(chunk, axis = 0)
         
         self.med, self.mad = self.med.values, self.mad.values
@@ -314,8 +328,8 @@ class TraceViewer(WidgetBase):
         if self.params['auto_zoom_on_select'] and selected_peaks.shape[0]==1:
             seg_num, time= selected_peaks.index[0]
             if seg_num != self.seg_num:
-                seg_pos = self.dataio.segments.index.tolist().index(seg_num)
-                self.combo.setCurrentIndex(seg_pos)
+                seg_pos = self.dataio.segments_range.index.tolist().index(seg_num)
+                self.combo_seg.setCurrentIndex(seg_pos)
             self.spinbox_xsize.setValue(self.params['zoom_size'])
             self.seek(time)
         else:

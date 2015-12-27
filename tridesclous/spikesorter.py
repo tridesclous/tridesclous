@@ -8,6 +8,8 @@ from .peakdetector import PeakDetector
 from .waveformextractor import WaveformExtractor
 from .clustering import Clustering
 
+from .tools import median_mad
+
 from collections import OrderedDict
 
 try:
@@ -65,13 +67,13 @@ class SpikeSorter:
     def apply_filter(self, highpass_freq = 300., seg_nums = 'all'):
 
         if seg_nums == 'all':
-            seg_nums = self.dataio.unfiltered_segments.index
+            seg_nums = self.dataio.segments_range.index
 
         for seg_num in seg_nums:
-            sigs = self.dataio.get_signals(seg_num=seg_num, filtered = False)
+            sigs = self.dataio.get_signals(seg_num=seg_num, signal_type = 'unfiltered')
             filter =  SignalFilter(sigs, highpass_freq = highpass_freq)
             filtered_sigs = filter.get_filtered_data()
-            self.dataio.append_signals(filtered_sigs,  seg_num=seg_num, already_hp_filtered = True)
+            self.dataio.append_signals(filtered_sigs,  seg_num=seg_num, signal_type = 'filtered')
             
         
     
@@ -79,12 +81,12 @@ class SpikeSorter:
                 threshold=-4, peak_sign = '-', n_span = 2,
                 n_left=-30, n_right=50):
         if seg_nums == 'all':
-            seg_nums = self.dataio.segments.index
+            seg_nums = self.dataio.segments_range.index
         
         self.all_peaks = []
         self.all_waveforms = []
         for seg_num in seg_nums:
-            sigs = self.dataio.get_signals(seg_num=seg_num)
+            sigs = self.dataio.get_signals(seg_num=seg_num, signal_type = 'filtered')
             
             #peak
             peakdetector = PeakDetector(sigs, seg_num=seg_num)
@@ -99,6 +101,7 @@ class SpikeSorter:
             else:
                 waveformextractor.limit_left = limit_left
                 waveformextractor.limit_right = limit_right
+            
             short_wf = waveformextractor.get_ajusted_waveforms()
             self.all_waveforms.append(short_wf)
 
