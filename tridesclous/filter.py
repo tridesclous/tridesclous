@@ -19,7 +19,7 @@ class SignalFilter:
     
     def construct_coefficents(self):
         
-        self.coefficients = scipy.signal.iirfilter(7, self.highpass_freq/self.sampling_rate*2, analog=False,
+        self.coefficients = scipy.signal.iirfilter(5, self.highpass_freq/self.sampling_rate*2, analog=False,
                                 btype = 'highpass', ftype = 'butter', output = 'sos')
         self.zi = scipy.signal.sosfilt_zi(self.coefficients)
         self.zi = np.repeat(self.zi[:,:,None], self.signals.shape[1], axis=2)
@@ -27,8 +27,14 @@ class SignalFilter:
                                 
     
     def get_filtered_data(self):
-        data = self.signals.values
-        data_filtered, self.zi = scipy.signal.sosfilt(self.coefficients, data, zi = self.zi, axis = 0)
+        #~ data = self.signals.values
+        #~ data_filtered, self.zi = scipy.signal.sosfilt(self.coefficients, data, zi = self.zi, axis = 0)
+        
+        data_filtered = self.signals.values.copy()
+        for s in range(self.coefficients.shape[0]):
+            b = self.coefficients[s, :3]
+            a = self.coefficients[s, 3:]
+            data_filtered = scipy.signal.filtfilt(b, a, data_filtered, axis = 0)
         
         return pd.DataFrame(data_filtered, index = self.signals.index, columns = self.signals.columns)
         
