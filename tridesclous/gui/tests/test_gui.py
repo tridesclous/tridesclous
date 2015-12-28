@@ -75,6 +75,18 @@ def test_ndviewer():
     
     app.exec_()
 
+def test_catalogueviewer():
+    app = pg.mkQApp()
+    spikesorter = get_spikesorter()
+    
+    catalogueviewer = CatalogueViewer(spikesorter)
+    catalogueviewer.show()
+    
+    app.exec_()
+
+
+
+
 
 
 def test_mainwindow():
@@ -115,6 +127,7 @@ if __name__ == '__main__':
     #~ test_peaklist()
     #~ test_clusterlist()
     #~ test_ndviewer()
+    #~ test_catalogueviewer()
     
     test_mainwindow()
     #~ test_from_classes()

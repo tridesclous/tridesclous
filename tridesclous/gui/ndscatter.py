@@ -183,13 +183,14 @@ class NDScatter(WidgetBase):
             #~ if k not in visible_labels:
             scatter.setData([], [])
         
-        visible_labels = np.unique(self.spikesorter.peak_labels.values)
-        for k in visible_labels:
+        for k in self.spikesorter.cluster_labels:
+            color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
             if k not in self.scatters:
-                color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
                 self.scatters[k] = pg.ScatterPlotItem(pen=None, brush=color, size=2, pxMode = True)
                 self.plot.addItem(self.scatters[k])
                 self.scatters[k].sigClicked.connect(self.item_clicked)
+            else:
+                self.scatters[k].setBrush(color)
             
             if self.spikesorter.cluster_visible.loc[k]:
                 data = self.data[self.spikesorter.peak_labels==k].values

@@ -123,8 +123,9 @@ class PeakList(WidgetBase):
     def on_tree_selection(self):
         self.spikesorter.peak_selection[:] = False
         for index in self.tree.selectedIndexes():
-            if index.column() == 0: 
-                self.spikesorter.peak_selection.iloc[index.row()] = True
+            if index.column() == 0:
+                #~ self.spikesorter.peak_selection.iloc[index.row()] = True # this is buggy ??????
+                self.spikesorter.peak_selection.values[index.row()] = True
         self.peak_selection_changed.emit()
 
     def on_peak_selection_changed(self):
@@ -162,6 +163,7 @@ class PeakList(WidgetBase):
     
     def move_selection_to_trash(self):
         self.spikesorter.peak_labels[self.spikesorter.peak_selection] = -1
+        self.spikesorter.on_new_cluster()
         self.spikesorter.refresh_colors(reset = False)
         self.refresh()
         self.peak_cluster_changed.emit()
@@ -287,6 +289,7 @@ class ClusterList(WidgetBase):
     
     def order_cluster(self):
         self.spikesorter.order_cluster()
+        self.spikesorter.on_new_cluster()
         self.spikesorter.refresh_colors(reset = True)
         self.refresh()
         self.peak_cluster_changed.emit()
@@ -295,6 +298,7 @@ class ClusterList(WidgetBase):
         for k in self.selected_cluster():
             take = self.spikesorter.peak_labels == k
             self.spikesorter.peak_labels[take] = -1
+        self.spikesorter.on_new_cluster()
         self.spikesorter.refresh_colors(reset = False)
         self.refresh()
         self.peak_cluster_changed.emit()
@@ -304,6 +308,7 @@ class ClusterList(WidgetBase):
         for k in self.selected_cluster():
             take = self.spikesorter.peak_labels == k
             self.spikesorter.peak_labels[take] = new_label
+        self.spikesorter.on_new_cluster()
         self.spikesorter.refresh_colors(reset = False)
         self.refresh()
         self.peak_cluster_changed.emit()

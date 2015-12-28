@@ -19,7 +19,7 @@ def add_vspan(ax, n_left, n_right, nb_channel):
     width = n_right - n_left
     for i in range(nb_channel):
         if i%2==1:
-            ax.axvspan(width*i, width*(i+1), alpha = .1, color = 'k')
+            ax.axvspan(width*i, width*(i+1)-1, alpha = .1, color = 'k')
         ax.axvline(-n_left + width*i, alpha = .05, color = 'k')
         
 
@@ -100,7 +100,9 @@ class ClusteringPlot:
 
         nb_channel = self.waveforms.columns.levels[0].size
         samples = self.waveforms.columns.levels[1]
-        n_left, n_right = min(samples)+2, max(samples)-2
+        n_left, n_right = min(samples)+2, max(samples)-1
+        #~ print(wf0.shape)
+        #~ print(n_left, n_right, n_right - n_left, wf0.shape[0]/nb_channel)
         add_vspan(ax, n_left, n_right, nb_channel)
         
         ax.legend()
@@ -122,7 +124,7 @@ class ClusteringPlot:
         
         nb_channel = self.waveforms.columns.levels[0].size
         samples = self.waveforms.columns.levels[1]
-        n_left, n_right = min(samples)+2, max(samples)-2
+        n_left, n_right = min(samples)+2, max(samples)-1
         for ax in axs:
             add_vspan(ax, n_left, n_right, nb_channel)
 

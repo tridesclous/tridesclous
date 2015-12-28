@@ -150,7 +150,10 @@ class SpikeSorter:
         
         self.clustering.reset()
         self.cluster_count = self.peak_labels.groupby(self.peak_labels).count()
-        
+        self._check_visibility()
+        self.clustering.construct_catalogue()
+    
+    def _check_visibility(self):
         if not hasattr(self, 'cluster_visible'):
             self.cluster_visible = pd.Series(index = self.cluster_labels, name = 'visible')
             self.cluster_visible[:] = True
@@ -164,7 +167,8 @@ class SpikeSorter:
         if reset:
             self.colors = {}
         
-        self.on_new_cluster()
+        #~ self.on_new_cluster()
+        self._check_visibility()
         
         n = self.cluster_labels.size
         color_table = sns.color_palette(palette, n)
