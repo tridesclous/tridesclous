@@ -79,5 +79,5 @@ def test_spikesorter_neo():
 
     
 if __name__ == '__main__':
-    #~ test_spikesorter()
-    test_spikesorter_neo()
+    test_spikesorter()
+    #~ test_spikesorter_neo()

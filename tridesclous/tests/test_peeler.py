@@ -56,6 +56,8 @@ def plot_interpolation():
 
 def test_peeler():
     dataio = DataIO(dirname = 'datatest')
+    #~ dataio = DataIO(dirname = 'datatest_neo')
+    
     sigs = dataio.get_signals(seg_num=0)
     
     #peak
@@ -71,25 +73,35 @@ def test_peeler():
     
     #clustering
     clustering = Clustering(short_wf)
-    features = clustering.project(method = 'pca', n_components = 5)
-    clustering.find_clusters(7)
+    features = clustering.project(method = 'pca', n_components = 4)
+    clustering.find_clusters(8, order_clusters = True)
     catalogue = clustering.construct_catalogue()
+    #~ clustering.plot_catalogue(sameax = False)
+    #~ clustering.plot_catalogue(sameax = True)
     
-    clustering.plot_catalogue()
+    #~ clustering.merge_cluster(1, 2)
+    catalogue = clustering.construct_catalogue()
+    clustering.plot_catalogue(sameax = False)
+    #~ clustering.plot_catalogue(sameax = True)
+    
     
     #peeler
     signals = peakdetector.normed_sigs
     peeler = Peeler(signals, catalogue,  limit_left, limit_right,
-                            threshold=-4, peak_sign = '-', n_span = 5)
+                            threshold=-5., peak_sign = '-', n_span = 5)
     
     prediction0, residuals0 = peeler.peel()
     prediction1, residuals1 = peeler.peel()
+    
     fig, axs = pyplot.subplots(nrows = 6, sharex = True)#, sharey = True)
     axs[0].plot(signals)
     axs[1].plot(prediction0) 
     axs[2].plot(residuals0)
     axs[3].plot(prediction1)
     axs[4].plot(residuals1)
+    
+    for i in range(5):
+        axs[i].set_ylim(-25, 10)
     
     colors = sns.color_palette('husl', len(catalogue))
     spiketrains = peeler.get_spiketrains()

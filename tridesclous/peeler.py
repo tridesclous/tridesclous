@@ -6,7 +6,7 @@ from .peakdetector import PeakDetector
 
 
 
-
+from .tools import median_mad
 
 
 class Peeler_:
@@ -106,6 +106,10 @@ class Peeler_:
         else:
             jitter1 = 0.
         
+        #TODO : remove this:
+        return k, jitter1
+        
+        #TODO : trouver un critere moins stricte
         if np.sum(wf**2) > np.sum((wf0+jitter1*wf1+jitter1**2/2*wf2)**2):
             #prediction should be smaller than original (which have noise)
             return k, jitter1
@@ -119,29 +123,26 @@ class Peeler_:
         
         """
 
-        jitters = np.empty(waveforms.shape[0])
-        labels = np.empty(waveforms.shape[0])
+        jitters = np.empty(waveforms.shape[0], dtype = 'float64')
+        labels = np.empty(waveforms.shape[0], dtype = int)
         for i in range(waveforms.shape[0]):
-            #~ print('i', i, waveforms.shape[0])
             wf = waveforms[i,:]
-            
-            label, jitter1 = self.estimate_one_jitter(wf)
+            label, jitter = self.estimate_one_jitter(wf)
             
             # if more than one sample of jitter
             # then we take a new wf at the good place and do estimate again
-            if np.abs(jitter1) > 0.5:
-                #~ print('')
-                #~ peak_pos[i] -= int(np.round(jitter1))
-                #~ print(label, jitter1, peak_pos[i])
-                peak_pos[i] -= int(np.round(jitter1))
-                chunk = cut_chunks(residuals.values, np.array([ peak_pos[i]+self.n_left], dtype = int),
+            # take it if better
+            if np.abs(jitter) > 0.5 and label !=-1:
+                prev_label, prev_jitter = label, jitter
+                peak_pos[i] -= int(np.round(jitter))
+                chunk = cut_chunks(residuals.values, np.array([ peak_pos[i]+self.n_left], dtype = 'int32'),
                                 -self.n_left + self.n_right )
                 wf = waveforms[i,:] = chunk[0,:].reshape(-1)
-                label, jitter1 = self.estimate_one_jitter(wf)
-                #~ print(label, jitter1, peak_pos[i])
-                
+                new_label, new_jitter = self.estimate_one_jitter(wf)
+                if np.abs(new_jitter)<np.abs(prev_jitter):
+                    label, jitter1 = new_label, new_jitter
             
-            jitters[i] = jitter1
+            jitters[i] = jitter
             labels[i] = label
         
         keep = labels!=-1
@@ -152,20 +153,19 @@ class Peeler_:
         return spike_pos, jitters, labels
 
     def predict(self, spike_pos, jitters, labels ):
-        prediction = np.zeros_like(self.signals)
+        prediction = np.zeros_like(self.signals.values)
         length = self.n_right - self.n_left
         for i in range(spike_pos.size):
             k = labels[i]
+            if k<0: continue
             wf0 = self.catalogue[k]['center']
             wf1 = self.catalogue[k]['centerD']
             wf2 = self.catalogue[k]['centerDD']
             pred = wf0 + jitters[i]*wf1 + jitters[i]**2/2*wf2
             pos = spike_pos[i] + self.n_left
             prediction[pos:pos+length, :] = pred.reshape(self.nb_channel, -1).transpose()
-        
-        
+            
         return prediction
-        
    
     def peel(self):
         print('Apply level=', self.level)
@@ -173,27 +173,29 @@ class Peeler_:
         #copy previous residuals for that level
         if self.level==0:
             self.residuals[self.level] = self.signals.copy()
+            #~ self.residuals[self.level] = self.signals -  np.zeros_like(self.signals.values)
         else:
             self.residuals[self.level] = self.residuals[self.level-1].copy()
         
         # detect peak and take waveform on residuals
-        peakdetector = PeakDetector(self.residuals[self.level])
+        peakdetector = PeakDetector(self.residuals[self.level], already_normed = True)
         peak_pos = peakdetector.detect_peaks(threshold=self.threshold, peak_sign = self.peak_sign, n_span = self.n_span)
+        keep = (peak_pos>-self.n_left+1) & (peak_pos<self.signals.shape[0] -self.n_right - 1)
+        peakdetector.peak_pos = peak_pos[keep]
         
         #waveforms
         waveformextractor = WaveformExtractor(peakdetector, n_left=self.n_left, n_right=self.n_right)
         # in peeler n_left and n_rigth are th "good limit"
         waveforms = waveformextractor.long_waveforms.values
         
-        spike_pos, jitters, labels = self.classify_and_align(waveforms, peak_pos, self.residuals[self.level])
-
+        spike_pos, jitters, labels = self.classify_and_align(waveforms, peakdetector.peak_pos, self.residuals[self.level])
+        
         self.spike_labels[self.level] = labels
         self.spike_jitters[self.level] = jitters
         self.spike_pos[self.level] = spike_pos
         
         prediction = self.predict(spike_pos, jitters, labels)
         self.residuals[self.level] -= prediction
-        
         self.level += 1
         
         return prediction, self.residuals[self.level-1]

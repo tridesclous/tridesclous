@@ -64,7 +64,6 @@ class SpikeSortingWindow(QtGui.QMainWindow):
         docks['ndscatter'].setWidget(self.ndscatter)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, docks['ndscatter'])
         
-        
 
         
         
@@ -75,12 +74,13 @@ class SpikeSortingWindow(QtGui.QMainWindow):
     def from_classes(cls, dataio, peakdetector, waveformextractor, clustering):
         spikesorter = SpikeSorter(dataio = dataio)
         
-        spikesorter.all_peaks = pd.DataFrame(np.zeros(peakdetector.peak_index.size, dtype = 'int32'), columns = ['label'], index = peakdetector.peak_index)
-        spikesorter.all_peaks['label'] = clustering.labels
-        spikesorter.all_peaks['selected'] = False
+        spikesorter.threshold = peakdetector.threshold
+        spikesorter.peak_selection = pd.Series(name = 'selected', index = clustering.labels.index, dtype = bool)
+        spikesorter.peak_selection[:] = False
         spikesorter.all_waveforms  = waveformextractor.get_ajusted_waveforms()
         spikesorter.clustering = clustering
         
+        spikesorter.on_new_cluster()
         spikesorter.refresh_colors()
         
         return SpikeSortingWindow(spikesorter)

@@ -83,6 +83,8 @@ class SpikeSorter:
         if seg_nums == 'all':
             seg_nums = self.dataio.segments_range.index
         
+        self.threshold = threshold
+        
         self.all_waveforms = []
         for seg_num in seg_nums:
             sigs = self.dataio.get_signals(seg_num=seg_num, signal_type = 'filtered')
@@ -141,8 +143,8 @@ class SpikeSorter:
         self.clustering.find_clusters(*args, **kargs)
         self.on_new_cluster()
     
-    def order_cluster(self):
-        self.clustering.order_cluster()
+    def order_clusters(self):
+        self.clustering.order_clusters()
         self.on_new_cluster()
     
     def on_new_cluster(self):
@@ -151,11 +153,11 @@ class SpikeSorter:
         self.clustering.reset()
         self.cluster_count = self.peak_labels.groupby(self.peak_labels).count()
         self._check_visibility()
-        self.clustering.construct_catalogue()
+        self.construct_catalogue()
     
     def _check_visibility(self):
         if not hasattr(self, 'cluster_visible'):
-            self.cluster_visible = pd.Series(index = self.cluster_labels, name = 'visible')
+            self.cluster_visible = pd.Series(index = self.cluster_labels, name = 'visible', dtype = bool)
             self.cluster_visible[:] = True
         for k in self.cluster_labels:
             if k not in self.cluster_visible:
@@ -167,7 +169,6 @@ class SpikeSorter:
         if reset:
             self.colors = {}
         
-        #~ self.on_new_cluster()
         self._check_visibility()
         
         n = self.cluster_labels.size

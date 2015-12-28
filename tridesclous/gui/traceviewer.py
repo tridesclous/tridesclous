@@ -69,13 +69,15 @@ class TraceViewer(WidgetBase):
         
         _params = [{'name': 'auto_zoom_on_select', 'type': 'bool', 'value': True },
                            {'name': 'zoom_size', 'type': 'float', 'value':  0.08, 'step' : 0.001 },
-                          {'name': 'plot_threshold', 'type': 'bool', 'value':  True },]        
+                          {'name': 'plot_threshold', 'type': 'bool', 'value':  True },
+                          ]
         self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
+        self.params.param('plot_threshold').sigValueChanged.connect(self.refresh)
         self.tree_params = pg.parametertree.ParameterTree(parent  = self)
         self.tree_params.header().hide()
         self.tree_params.setParameters(self.params, showTop=True)
         self.tree_params.setWindowTitle(u'Options for signal viewer')
-        self.tree_params.setWindowFlags(QtCore.Qt.Window)        
+        self.tree_params.setWindowFlags(QtCore.Qt.Window)
         
         self.change_segment(0)
         self.refresh()
@@ -153,7 +155,7 @@ class TraceViewer(WidgetBase):
             self.plot.addItem(label)
             self.channel_labels.append(label)
             
-            tc = pg.InfiniteLine(angle = 0, movable = False, pen = 'g')
+            tc = pg.InfiniteLine(angle = 0., movable = False, pen = pg.mkPen('w'))
             tc.setPos(0.)
             self.threshold_lines.append(tc)
             self.plot.addItem(tc)
@@ -258,6 +260,11 @@ class TraceViewer(WidgetBase):
                     if not self.spikesorter.cluster_visible[k]:
                         self.scatters[c][k].setData([], [])
                 
+                for k in list(self.scatters[c].keys()):
+                    if not k in self.spikesorter.cluster_labels:
+                        scatter = self.scatters[c].pop(k)
+                        self.plot.removeItem(scatter)
+                
                 # plotted selected
                 if 'sel' not in self.scatters[c]:
                     brush = QtGui.QColor( 'magenta')
@@ -282,8 +289,21 @@ class TraceViewer(WidgetBase):
                         self.scatters[c][k] = pg.ScatterPlotItem(pen=None, brush=color, size=10, pxMode = True)
                         self.plot.addItem(self.scatters[c][k])
                         self.scatters[c][k].sigClicked.connect(self.item_clicked)
-                    self.scatters[c][k].setBrush(color)
-                    self.scatters[c][k].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
+                    
+                    if self.spikesorter.clustering.catalogue[k]['channel_peak_max'] == c:
+                        self.scatters[c][k].setBrush(color)
+                        self.scatters[c][k].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
+                    else:
+                        self.scatters[c][k].setData([], [])
+        
+        
+        n = self.dataio.nb_channel
+        for c in range(n):
+            if self.params['plot_threshold']:
+                self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*self.spikesorter.threshold)
+                self.threshold_lines[c].show()
+            else:
+                self.threshold_lines[c].hide()
         
         self.plot.setXRange( t1, t2, padding = 0.0)
         self.plot.setYRange(-.5, self.dataio.nb_channel-.5, padding = 0.0)
@@ -311,14 +331,19 @@ class TraceViewer(WidgetBase):
             self.med, self.mad = median_mad(chunk, axis = 0)
         
         self.med, self.mad = self.med.values, self.mad.values
-        n = self.dataio.nb_channel
-        factor = 15
-        self.gains = np.ones(n, dtype=float) * 1./(factor*max(self.mad))
-        self.offsets = np.arange(n)[::-1] - self.med*self.gains
+        #~ n = self.dataio.nb_channel
+        self.factor = 1.
+        #~ self.gains = np.ones(n, dtype=float) * 1./(self.factor*max(self.mad))
+        #~ self.offsets = np.arange(n)[::-1] - self.med*self.gains
+        self.gain_zoom(15.)
     
-    def gain_zoom(self, factor):
-        self.offsets = self.offsets + self.med*self.gains - self.med*self.gains*factor
-        self.gains = self.gains*factor
+    def gain_zoom(self, factor_ratio):
+        self.factor *= factor_ratio
+        #~ self.offsets = self.offsets + self.med*self.gains - self.med*self.gains*factor
+        #~ self.gains = self.gains*factor
+        n = self.dataio.nb_channel
+        self.gains = np.ones(n, dtype=float) * 1./(self.factor*max(self.mad))
+        self.offsets = np.arange(n)[::-1] - self.med*self.gains
         self.refresh()
     
     def on_peak_selection_changed(self):

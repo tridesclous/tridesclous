@@ -32,13 +32,19 @@ class Clustering_:
         self.labels = pd.Series(index = waveforms.index,  dtype ='int32', name = 'label')
         self.labels[:]= 0
     
-    def project(self, method = 'pca', n_components = 5):
+    def project(self, method = 'pca', n_components = 5, selection = None):
         #TODO remove peak than are out to avoid PCA polution.
-        
+        wf = self.waveforms.values
         if method=='pca':
             self._pca = sklearn.decomposition.PCA(n_components = n_components)
-            self.features = pd.DataFrame(self._pca.fit_transform(self.waveforms.values), index = self.waveforms.index,
-                        columns = ['pca{}'.format(i) for i in range(n_components)])
+            if selection is None:
+                feat = self._pca.fit_transform(wf)
+            else:
+                self._pca.fit(wf[selection])
+                feat = self._pca.transform(wf)
+            
+            self.features = pd.DataFrame(feat, index = self.waveforms.index, columns = ['pca{}'.format(i) for i in range(n_components)])
+            
         return self.features
     
     def reset(self):
@@ -87,9 +93,10 @@ class Clustering_:
         
         #reassign labels
         N = int(max(cluster_labels)*10)
-        self.labels += N
+        self.labels[self.labels>=0] += N
         for new, old in enumerate(sorted_labels+N):
-            self.labels[self.labels==old] = new
+            #~ self.labels[self.labels==old] = new
+            self.labels[self.labels==old] = cluster_labels[new]
         self.reset()
     
     def construct_catalogue(self):
@@ -118,13 +125,17 @@ class Clustering_:
             mad = np.median(np.abs(wf-center),axis=0)*1.4826
             
             #eliminate margin because of border effect of derivative and reshape
-            center = center[:, 2:-2].reshape(-1)
-            centerD = centerD[:, 2:-2].reshape(-1)
-            centerDD = centerDD[:, 2:-2].reshape(-1)
-            mad = mad[:, 2:-2].reshape(-1)
+            center = center[:, 2:-2]
+            centerD = centerD[:, 2:-2]
+            centerDD = centerDD[:, 2:-2]
             
-            self.catalogue[k] = {'center' : center, 'centerD' : centerD, 'centerDD': centerDD,
-                                            'mad': mad}
+            self.catalogue[k] = {'center' : center.reshape(-1), 'centerD' : centerD.reshape(-1), 'centerDD': centerDD.reshape(-1) }
+            
+            #this is for plotting pupose
+            mad = mad[:, 2:-2].reshape(-1)
+            self.catalogue[k]['mad'] = mad
+            self.catalogue[k]['channel_peak_max'] = np.argmax(np.max(center, axis=1))
+
         
         return self.catalogue
 

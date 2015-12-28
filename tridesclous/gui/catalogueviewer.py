@@ -33,7 +33,7 @@ class CatalogueViewer(WidgetBase):
         self.plot = pg.PlotItem(viewBox=self.viewBox)
         self.graphicsview.setCentralItem(self.plot)
         self.plot.hideButtons()
-        self.plot.showAxis('left', False)
+        self.plot.showAxis('left', True)
         
         #~ self.viewBox.gain_zoom.connect(self.gain_zoom)
         #~ self.viewBox.xsize_zoom.connect(self.xsize_zoom)    

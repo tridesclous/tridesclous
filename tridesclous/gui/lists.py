@@ -253,10 +253,13 @@ class ClusterList(WidgetBase):
             act = menu.addAction('Hide all')
             act.triggered.connect(self.hide_all)
             act = menu.addAction('Order cluster by power')
-            act.triggered.connect(self.order_cluster)
-            
+            act.triggered.connect(self.order_clusters)
             
         if n>=1:
+            act = menu.addAction('PCA projection with all')
+            act.triggered.connect(self.pca_project_all)
+            act = menu.addAction('PCA projection with selection')
+            act.triggered.connect(self.pca_project_selection)
             act = menu.addAction('Move selection to trash')
             act.triggered.connect(self.move_selection_to_trash)
             act = menu.addAction('Merge selection')
@@ -287,11 +290,24 @@ class ClusterList(WidgetBase):
         self.refresh()
         self.cluster_visibility_changed.emit()
     
-    def order_cluster(self):
-        self.spikesorter.order_cluster()
+    def order_clusters(self):
+        self.spikesorter.order_clusters()
         self.spikesorter.on_new_cluster()
         self.spikesorter.refresh_colors(reset = True)
         self.refresh()
+        self.peak_cluster_changed.emit()
+    
+    def pca_project_all(self):
+        self.spikesorter.clustering.project(method = 'pca', n_components = self.spikesorter.clustering._pca.n_components)
+        self.refresh()
+        self.peak_cluster_changed.emit()
+    
+    def pca_project_selection(self):
+        selection = np.zeros(self.spikesorter.peak_labels.shape[0], dtype = bool)
+        for k in self.selected_cluster():
+            selection |= self.spikesorter.peak_labels == k
+        self.spikesorter.clustering.project(method = 'pca', n_components = self.spikesorter.clustering._pca.n_components,
+                                        selection = selection)
         self.peak_cluster_changed.emit()
     
     def move_selection_to_trash(self):

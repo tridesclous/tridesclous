@@ -107,13 +107,15 @@ class PeakDetector_:
     This is helper to estimated noise and threshold and detect peak on signals.
     It take as entry a DataFrame with signals given by DataManager.get_signals(...).    
     """
-    def __init__(self, signals, seg_num = 0):
+    def __init__(self, signals, seg_num = 0, already_normed = False):
         self.sigs = signals
         self.seg_num = seg_num
         
-        self.estimate_noise()
-        self.normed_sigs = normalize_signals(self.sigs, med = self.med, mad = self.mad)
-        #self.rectified_sigs = rectify_signals(self.normed_sigs, threshold, copy = True)
+        if already_normed:
+            self.normed_sigs = signals
+        else:
+            self.estimate_noise()
+            self.normed_sigs = normalize_signals(self.sigs, med = self.med, mad = self.mad)
     
     def estimate_noise(self):
         """
@@ -123,7 +125,7 @@ class PeakDetector_:
         self.mad = np.median(np.abs(self.sigs-self.med),axis=0)*1.4826
     
     def detect_peaks(self, threshold = -5, peak_sign = '-', n_span = 2):
-        self.threhold = threshold
+        self.threshold = threshold
         self.rectified_sigs = rectify_signals(self.normed_sigs, threshold, copy = True)
         
         self.peak_pos = detect_peak_method_span(self.rectified_sigs, peak_sign=peak_sign, n_span = n_span)
