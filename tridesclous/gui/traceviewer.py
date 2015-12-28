@@ -196,11 +196,8 @@ class TraceViewer(WidgetBase):
         elif self.mode == 'file':
             self.sigs = None
 
-        if self.spikesorter.all_peaks is None:
-            self.spikesorter.load_all_peaks()
-        
-        if self.spikesorter.all_peaks is not None:
-            self.seg_peaks = self.spikesorter.all_peaks.xs(self.seg_num)
+        if self.spikesorter.peak_labels is not None:
+            self.seg_peaks = self.spikesorter.peak_labels.xs(self.seg_num)
         else:
             self.seg_peaks = None
             
@@ -253,8 +250,7 @@ class TraceViewer(WidgetBase):
             self.channel_labels[c].setPos(t1, self.dataio.nb_channel-c-1)
         
         if self.seg_peaks is not None:
-            inwin = self.seg_peaks.loc[t1:t2,:]
-            #~ visible_labels = np.unique(inwin['label'].values)
+            inwin = self.seg_peaks.loc[t1:t2]
             
             for c in range(self.dataio.nb_channel):
                 #reset scatters
@@ -269,14 +265,16 @@ class TraceViewer(WidgetBase):
                     pen = QtGui.QColor( 'yellow')
                     self.scatters[c]['sel'] = pg.ScatterPlotItem(pen=pen, brush=brush, size=20, pxMode = True)
                     self.plot.addItem(self.scatters[c]['sel'])
-                sel = inwin[inwin['selected']]
+                seg_selection = self.spikesorter.peak_selection.xs(self.seg_num)
+                sel = seg_selection.loc[inwin.index]
+                sel = sel[sel]
                 p = chunk.loc[sel.index]
                 self.scatters[c]['sel'].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
             
             for k in self.spikesorter.cluster_labels:
                 if not self.spikesorter.cluster_visible[k]:
                     continue
-                sel = inwin[inwin['label']==k]
+                sel = inwin[inwin==k]
                 for c in range(self.dataio.nb_channel):
                     p = chunk.loc[sel.index]
                     color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
@@ -324,7 +322,7 @@ class TraceViewer(WidgetBase):
         self.refresh()
     
     def on_peak_selection_changed(self):
-        selected_peaks = self.spikesorter.all_peaks[self.spikesorter.all_peaks['selected']]
+        selected_peaks = self.spikesorter.peak_selection[self.spikesorter.peak_selection]
         if self.params['auto_zoom_on_select'] and selected_peaks.shape[0]==1:
             seg_num, time= selected_peaks.index[0]
             if seg_num != self.seg_num:
@@ -341,8 +339,8 @@ class TraceViewer(WidgetBase):
     def item_clicked(self, plot, points):
         if self.select_button.isChecked()and len(points)==1:
             x = points[0].pos().x()
-            self.spikesorter.all_peaks['selected'] = False
-            self.spikesorter.all_peaks.loc[(self.seg_num, x), 'selected'] = True
+            self.spikesorter.peak_selection[:] = False
+            self.spikesorter.peak_selection.loc[(self.seg_num, x)] = True
             
             self.peak_selection_changed.emit()
             self.refresh()

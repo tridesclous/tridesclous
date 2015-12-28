@@ -30,13 +30,14 @@ def test_clustering():
     #PCA
     features = clustering.project(method = 'pca', n_components = 5)
     
-    clustering.plot_projection(plot_density = True)
+    #~ clustering.plot_projection(plot_density = True)
     
     #Kmean
     labels = clustering.find_clusters(7)
-    clustering.plot_projection(plot_density = True)
     
-    #ùake catalogue
+    #~ clustering.plot_projection(plot_density = True)
+    
+    #make catalogue
     catalogue = clustering.construct_catalogue()
     clustering.plot_derivatives()
     clustering.plot_catalogue()

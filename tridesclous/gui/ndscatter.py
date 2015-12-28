@@ -101,10 +101,6 @@ class NDScatter(WidgetBase):
     @property
     def data(self):
         return self.spikesorter.clustering.features
-        
-    @property
-    def metadata(self):
-        return self.spikesorter.all_peaks
     
     def initialize(self):
         self.viewBox = MyViewBox()
@@ -187,7 +183,7 @@ class NDScatter(WidgetBase):
             #~ if k not in visible_labels:
             scatter.setData([], [])
         
-        visible_labels = np.unique(self.metadata['label'].values)
+        visible_labels = np.unique(self.spikesorter.peak_labels.values)
         for k in visible_labels:
             if k not in self.scatters:
                 color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
@@ -196,13 +192,13 @@ class NDScatter(WidgetBase):
                 self.scatters[k].sigClicked.connect(self.item_clicked)
             
             if self.spikesorter.cluster_visible.loc[k]:
-                data = self.data[self.metadata['label']==k].values
+                data = self.data[self.spikesorter.peak_labels==k].values
                 projected = np.dot(data, self.projection )
                 self.scatters[k].setData(projected[:,0], projected[:,1])
             else:
                 self.scatters[k].setData([], [])
         
-        data = self.data[self.metadata['selected']]
+        data = self.data[self.spikesorter.peak_selection]
         projected = np.dot(data, self.projection )
         self.scatters['sel'].setData(projected[:,0], projected[:,1])
         

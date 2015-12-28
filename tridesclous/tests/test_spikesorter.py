@@ -73,11 +73,8 @@ def test_spikesorter_neo():
     spikesorter.find_clusters(7)
     print('### after clustering ###')
     print(spikesorter.summary(level=1))
-
-    spikesorter.clustering.construct_catalogue()
-    spikesorter.clustering.plot_catalogue()
-    pyplot.show()
-
+    
+    spikesorter.construct_catalogue()
 
 
     
