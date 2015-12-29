@@ -3,6 +3,14 @@ import pandas as pd
 import numpy as np
 import json
 
+try:
+    import neo
+    HAVE_NEO = True
+except ImportError:
+    HAVE_NEO = False
+
+
+_signal_types = ['filtered', 'unfiltered']
 
 class DataIO:
     """
@@ -41,11 +49,12 @@ class DataIO:
         else:
             self.info = None
         
-        if 'segments' in self.store:
-            self.segments = self.store['segments']
+        if 'segments_range' in self.store:
+            self.segments_range = self.store['segments_range']
         else:
-            self.segments = None
-    
+            columns = pd.MultiIndex.from_product([_signal_types, ['t_start', 't_stop']])
+            self.segments_range = pd.DataFrame(columns = columns, dtype = 'float64')
+        
     @property
     def sampling_rate(self):
         if self.info is not None:
@@ -55,11 +64,11 @@ class DataIO:
     def nb_channel(self):
         if self.info is not None:
             return int(self.info['nb_channel'])
-
+    
     @property
     def nb_segments(self):
-        if self.segments is not None:
-            return len(self.segments)
+        if self.segments_range is not None:
+            return len(self.segments_range)
     
     def summary(self, level=1):
         t = """DataIO <{}>
@@ -76,20 +85,22 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
         
         if level==1:
             t += "\n"
-            for seg_num in self.segments.index:
-                t+= self.summary_segment(seg_num)
+            for seg_num in self.segments_range.index:
+                t += 'Segment {}\n'.format(seg_num)
+                for signal_type in _signal_types:
+                    t+= self.summary_segment(seg_num, signal_type = signal_type)
                 
         return t
     
-    def summary_segment(self, seg_num):
-        t_start, t_stop = self.segments.loc[seg_num, 't_start'], self.segments.loc[seg_num, 't_stop']
-        t = """Segment {}
+    def summary_segment(self, seg_num, signal_type = 'filtered'):
+        t_start, t_stop = self.segments_range.loc[seg_num, (signal_type,'t_start')], self.segments_range.loc[seg_num, (signal_type,'t_stop')]
+        t = """  {}
     duration : {}s.
     times range : {} - {}
-""".format(seg_num, t_stop-t_start, t_start, t_stop)
+""".format(signal_type, t_stop-t_start, t_start, t_stop)
 
         path = 'segment_{}/peaks'.format(seg_num)
-        if path in self.store:
+        if path in self.store and self.store[path] is not None:
             t+= "    nb_peaks : {}\n".format(self.store[path].shape[0])
         
         return t
@@ -117,23 +128,58 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
         self.info['channels'] = np.array(channels, dtype = 'S')
         self.info['nb_channel'] = len(channels)
         
-        if self.segments is None:
-            self.segments = pd.DataFrame(columns = ['t_start', 't_stop'], dtype = 'float64')
-        
         self.flush_info()
 
     def flush_info(self):
-        print('flush_info')
-        print(self.info)
         self.store['info'] = self.info
-        self.store['segments'] = self.segments
+        self.store['segments_range'] = self.segments_range
         self.store.flush()
-        
-    def append_signals(self, signals, seg_num=0, sampling_rate = None, t_start = 0., already_hp_filtered = False, channels = None):
+    
+    def append_signals(self, signals,  seg_num=0, signal_type = 'filtered'):
         """
-        Append signals segment in the store.
+        Append signals in the store. The input is pd.dataFrame
         If the segment do not exist it is created in the store.
         Else the signals chunk is append to the previsous one.
+        
+        
+        """
+        assert isinstance(signals, pd.DataFrame), 'Signals must a DataFrame'
+        
+        path = 'segment_{}/{}_signals'.format(seg_num, signal_type)
+        
+        times = signals.index.values
+
+        
+        if seg_num in self.segments_range.index:
+            #this check overlap if trying to write an already exisiting chunk
+            # theorically this should work but the index will unefficient when self.store.select
+            t_start = self.segments_range.loc[seg_num, (signal_type, 't_start')]
+            t_stop = self.segments_range.loc[seg_num, (signal_type, 't_stop')]
+            assert np.all(~((times>=t_start) & (times<=t_stop))), 'data already in store for seg_num {}'.format(seg_num)
+
+        
+        if self.info is None:
+            sampling_rate = 1./np.median(np.diff(times[:1000]))
+            self.initialize(sampling_rate = sampling_rate, channels = signals.columns.values)
+
+
+        signals.to_hdf(self.store, path, format = 'table', append=True)
+        
+        if seg_num in self.segments_range.index:
+            self.segments_range.loc[seg_num, (signal_type, 't_start')] = min( times[0], self.segments_range.loc[seg_num, (signal_type, 't_start')])
+            self.segments_range.loc[seg_num,  (signal_type, 't_stop')] =  max(times[-1], self.segments_range.loc[seg_num,  (signal_type, 't_stop')])
+        else:
+            self.segments_range.loc[seg_num,  (signal_type, 't_start')] = times[0]
+            self.segments_range.loc[seg_num,  (signal_type, 't_stop')] = times[-1]
+        self.flush_info()
+        
+        self.store.create_table_index(path, optlevel=9, kind='full')
+        
+        
+    
+    def append_signals_from_numpy(self, signals, seg_num=0, sampling_rate = None, t_start = 0., signal_type = 'filtered', channels = None):
+        """
+        Append numpy.ndarray signals segment in the store.
         
         Arguments
         -----------------
@@ -152,6 +198,8 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
         
         if self.info is None:
             self.initialize(sampling_rate = sampling_rate, channels = channels)
+        else:
+            assert sampling_rate==self.info['sampling_rate']
 
         assert signals.shape[1]==self.info['nb_channel'], 'Wrong shape {} ({} chans)'.format(signals.shape, self.info['nb_channel'])
         assert sampling_rate == self.info['sampling_rate'], 'Wrong sampling_rate {} {}'.format(sampling_rate, self.info['sampling_rate'])
@@ -159,30 +207,65 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
         times = np.arange(signals.shape[0], dtype = 'float64')/self.sampling_rate + t_start
         df = pd.DataFrame(signals, index = times, columns = self.info['channels'])
         
-        path = 'segment_{}'.format(seg_num)
-        if already_hp_filtered:
-            path += '/signals'
+        self.append_signals(df,  seg_num=seg_num, signal_type = signal_type)
+    
+    def append_signals_from_neo(self, blocks, channel_indexes = None, signal_type = 'filtered'):
+        """
+        Append signals from a list of neo.Block.
+        So all format readable by neo can be used.
+        
+        This loop over all neo.Segment inside neo.Block and append
+        AnalogSignal into the datasets.
+        
+        
+        Arguments
+        ---------------
+        blocks: list of neo.Block (or neo.Block
+            data to append
+        channel_indexes: list or None
+            list of channel if None all channel are taken.
+        
+        """
+        assert HAVE_NEO, 'neo must be installed'
+        if isinstance(blocks, neo.Block):
+            blocks = [blocks]
+        
+        if self.segments_range.index.size==0:
+            seg_num=0
         else:
-            path += '/unfiltered_signals'
+            seg_num= np.max(self.segments_range.index.values)+1
         
-        if seg_num in self.segments.index:
-            #this check overlap if trying to write an already exisiting chunk
-            # theorically this should work but the index will unefficient when self.store.select
-            assert np.all(~((times>=self.segments.loc[seg_num, 't_start']) & (times<=self.segments.loc[seg_num, 't_stop']))), 'data already in store for seg_num {}'.format(seg_num)
-            
-        df.to_hdf(self.store, path, format = 'table', append=True)
-        
-        if seg_num in self.segments.index:
-            self.segments.loc[seg_num, 't_start'] = min(self.segments.loc[seg_num, 't_start'], times[0])
-            self.segments.loc[seg_num, 't_stop'] =  max(times[-1], self.segments.loc[seg_num, 't_stop'])
-        else:
-            self.segments.loc[seg_num, 't_start'] = times[0]
-            self.segments.loc[seg_num, 't_stop'] = times[-1]
-        self.flush_info()
-        
-        self.store.create_table_index(path, optlevel=9, kind='full')
-
-    def get_signals(self, seg_num=0, t_start = None, t_stop = None, filtered = True):
+        for block in blocks:
+            for seg in block.segments:
+                if channel_indexes is not None:
+                    analogsignals = []
+                    for anasig in seg.analogsignals:
+                        if anasig.channel_index in channel_indexes:
+                            analogsignals.append(anasig)
+                else:
+                    analogsignals = seg.analogsignals
+                
+                if analogsignals[0].name is not None:
+                    channels = [anasig.name for anasig in analogsignals]
+                else:
+                    channels = [ 'ch{}'.format(anasig.channel_index) for anasig in analogsignals]
+                
+                all_sr = [float(anasig.sampling_rate.rescale('Hz').magnitude) for anasig in analogsignals]
+                all_t_start = [float(anasig.t_start.rescale('S').magnitude) for anasig in analogsignals]
+                assert np.unique(all_sr).size == 1, 'Analogsignal do not have the same sampling_rate'
+                assert np.unique(all_t_start).size == 1, 'Analogsignal do not have the same t_start'
+                
+                sigs = np.concatenate([anasig.magnitude[:, None] for anasig in analogsignals], axis = 1)
+                
+                sampling_rate = np.unique(all_sr)
+                t_start = np.unique(all_t_start)
+                
+                self.append_signals_from_numpy(sigs, seg_num=seg_num, sampling_rate = sampling_rate, t_start = t_start,
+                        signal_type = signal_type, channels = channels)
+                
+                seg_num += 1
+    
+    def get_signals(self, seg_num=0, t_start = None, t_stop = None, signal_type = 'filtered'):
         """
         Get a chunk of signals in the dataset.
         This internally use self.store.select from pandas.
@@ -193,11 +276,7 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
         seg_num: int
         
         """
-        path = 'segment_{}'.format(seg_num)
-        if filtered:
-            path += '/signals'
-        else:
-            path += '/unfiltered_signals'
+        path = 'segment_{}/{}_signals'.format(seg_num, signal_type)
         
         if t_start is None and t_stop is None:
             query = None
@@ -234,7 +313,7 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
     
     def get_peaks(self, seg_num=0):
         path = 'segment_{}/peaks'.format(seg_num)
-        return self.store[path]
-        
+        if path in self.store:
+            return self.store[path]
         
     

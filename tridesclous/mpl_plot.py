@@ -5,6 +5,8 @@ import pandas as pd
 
 from .tools import median_mad
 
+sns.set(style="white")
+
 """
 Function for plotting signals, signals+peak, waveform, ... with matplotlib.
 
@@ -19,7 +21,7 @@ def add_vspan(ax, n_left, n_right, nb_channel):
     width = n_right - n_left
     for i in range(nb_channel):
         if i%2==1:
-            ax.axvspan(width*i, width*(i+1), alpha = .1, color = 'k')
+            ax.axvspan(width*i, width*(i+1)-1, alpha = .1, color = 'k')
         ax.axvline(-n_left + width*i, alpha = .05, color = 'k')
         
 
@@ -66,7 +68,7 @@ class WaveformExtractorPlot:
 class ClusteringPlot:
     def plot_projection(self, colors = None, palette = 'husl', plot_density = False):
         if not hasattr(self, 'cluster_labels'):
-            sns.set(style="white")
+            
             g = sns.PairGrid(self.features, diag_sharey=False)
             g.map_upper(pyplot.scatter)
             g.map_diag(sns.kdeplot, lw=3)
@@ -87,23 +89,35 @@ class ClusteringPlot:
                 g.map_lower(sns.kdeplot)
         
     
-    def plot_catalogue(self, colors = None, palette = 'husl'):
+    def plot_catalogue(self, colors = None, palette = 'husl', sameax = True):
         if colors is None:
             colors = sns.color_palette(palette, len(self.catalogue))
-
-        fix, ax = pyplot.subplots()
+        
+        if sameax:
+            fix, ax = pyplot.subplots()
+        else:
+            fix, axs = pyplot.subplots(nrows = len(self.catalogue), sharey = True, sharex = True)
+            
         for i,k in enumerate(self.catalogue):
             wf0 = self.catalogue[k]['center']
             mad = self.catalogue[k]['mad']
+            if not sameax:
+                ax = axs[i]
             ax.plot(wf0, color = colors[i], label = '#{}'.format(k))
             ax.fill_between(np.arange(wf0.size), wf0-mad, wf0+mad, color = colors[i], alpha = .4)
 
         nb_channel = self.waveforms.columns.levels[0].size
         samples = self.waveforms.columns.levels[1]
-        n_left, n_right = min(samples)+2, max(samples)-2
-        add_vspan(ax, n_left, n_right, nb_channel)
+        n_left, n_right = min(samples)+2, max(samples)-1
+        #~ print(wf0.shape)
+        #~ print(n_left, n_right, n_right - n_left, wf0.shape[0]/nb_channel)
+        if sameax:
+            axs = [ax]
         
-        ax.legend()
+        for ax in axs:
+            add_vspan(ax, n_left, n_right, nb_channel)
+            ax.legend()
+        
     
     def plot_derivatives(self,  colors = None, palette = 'husl'):
         if colors is None:
@@ -122,7 +136,7 @@ class ClusteringPlot:
         
         nb_channel = self.waveforms.columns.levels[0].size
         samples = self.waveforms.columns.levels[1]
-        n_left, n_right = min(samples)+2, max(samples)-2
+        n_left, n_right = min(samples)+2, max(samples)-1
         for ax in axs:
             add_vspan(ax, n_left, n_right, nb_channel)
 

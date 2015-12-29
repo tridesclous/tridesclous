@@ -9,7 +9,7 @@ import pandas as pd
 
 import itertools
 
-from .tools import TimeSeeker
+from .base import WidgetBase
 from ..tools import median_mad
 
 
@@ -41,12 +41,9 @@ class MyViewBox(pg.ViewBox):
 
 
 
-class NDScatter(QtGui.QWidget):
-    
-    peak_selection_changed = QtCore.pyqtSignal()
-    
+class NDScatter(WidgetBase):
     def __init__(self, spikesorter = None, parent=None):
-        QtGui.QWidget.__init__(self, parent)
+        WidgetBase.__init__(self, parent)
         
         self.spikesorter = spikesorter
         
@@ -104,10 +101,6 @@ class NDScatter(QtGui.QWidget):
     @property
     def data(self):
         return self.spikesorter.clustering.features
-        
-    @property
-    def metadata(self):
-        return self.spikesorter.all_peaks
     
     def initialize(self):
         self.viewBox = MyViewBox()
@@ -190,23 +183,23 @@ class NDScatter(QtGui.QWidget):
             #~ if k not in visible_labels:
             scatter.setData([], [])
         
-        visible_labels = np.unique(self.metadata['label'].values)
-        for k in visible_labels:
-            data = self.data[self.metadata['label']==k].values
-            projected = np.dot(data, self.projection )
-            #~ print(data.shape)
-            #~ print(projected.shape)
-            #~ print(projected)
-            
+        for k in self.spikesorter.cluster_labels:
+            color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
             if k not in self.scatters:
-                color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
                 self.scatters[k] = pg.ScatterPlotItem(pen=None, brush=color, size=2, pxMode = True)
                 self.plot.addItem(self.scatters[k])
                 self.scatters[k].sigClicked.connect(self.item_clicked)
+            else:
+                self.scatters[k].setBrush(color)
             
-            self.scatters[k].setData(projected[:,0], projected[:,1])
+            if self.spikesorter.cluster_visible.loc[k]:
+                data = self.data[self.spikesorter.peak_labels==k].values
+                projected = np.dot(data, self.projection )
+                self.scatters[k].setData(projected[:,0], projected[:,1])
+            else:
+                self.scatters[k].setData([], [])
         
-        data = self.data[self.metadata['selected']]
+        data = self.data[self.spikesorter.peak_selection]
         projected = np.dot(data, self.projection )
         self.scatters['sel'].setData(projected[:,0], projected[:,1])
         
@@ -246,11 +239,7 @@ class NDScatter(QtGui.QWidget):
             self.tour_step = 0
             
         self.refresh()
-    
 
-    def on_peak_selection_changed(self):
-        self.refresh()
-    
     def gain_zoom(self, factor):
         self.limit /= factor
         self.plot.setXRange(-self.limit, self.limit)

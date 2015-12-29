@@ -1,17 +1,20 @@
 from tridesclous import *
 import  pyqtgraph as pg
-
+from matplotlib import pyplot
 
 def get_spikesorter():
     spikesorter = SpikeSorter(dirname = '../../tests/datatest')
-    spikesorter.detect_peaks_extract_waveforms(seg_nums = 'all',  threshold=-5, peak_sign = '-', n_span = 2,  n_left=-30, n_right=50)
-    print(spikesorter.summary(level=1))
+    #~ spikesorter = SpikeSorter(dirname = '../../tests/datatest_neo')
+    #~ print(spikesorter.summary(level=1))
+    spikesorter.detect_peaks_extract_waveforms(seg_nums = 'all',  threshold=-5.,
+                            peak_sign = '-', n_span = 2,  n_left=-30, n_right=50)
+    #~ print(spikesorter.summary(level=1))
     spikesorter.project(method = 'pca', n_components = 5)
-    spikesorter.find_clusters(6)
+    spikesorter.find_clusters(12)
     spikesorter.refresh_colors(reset=True, palette = 'husl')
-    #~ print(spikesorter.cluster_labels)
-    #~ print(spikesorter.cluster_count)
-    print(spikesorter.summary(level=1))
+    #~ print(spikesorter.summary(level=1))
+    spikesorter.construct_catalogue()
+
     return spikesorter
 
 
@@ -20,7 +23,7 @@ def test_traceviewer():
     
     spikesorter = get_spikesorter()
     
-    traceviewer = TraceViewer(spikesorter=spikesorter, mode = 'memory', )
+    traceviewer = TraceViewer(spikesorter=spikesorter, mode = 'memory', signal_type = 'filtered')
     traceviewer.show()
     traceviewer.resize(800,600)
     
@@ -31,11 +34,11 @@ def test_traceviewer_linked():
     app = pg.mkQApp()
     spikesorter = get_spikesorter()
     
-    traceviewer0 = TraceViewer(spikesorter=spikesorter, mode = 'memory', )
+    traceviewer0 = TraceViewer(spikesorter=spikesorter, mode = 'memory', signal_type = 'filtered')
     traceviewer0.show()
     traceviewer0.resize(800,600)
 
-    traceviewer1 = TraceViewer(spikesorter=spikesorter, shared_view_with = [traceviewer0])
+    traceviewer1 = TraceViewer(spikesorter=spikesorter, shared_view_with = [traceviewer0], signal_type = 'unfiltered')
     traceviewer1.show()
     traceviewer1.resize(800,600)
     traceviewer0.shared_view_with.append(traceviewer1)
@@ -72,19 +75,31 @@ def test_ndviewer():
     
     app.exec_()
 
-
-
-def test_mainwindow():
+def test_waveformviewer():
     app = pg.mkQApp()
     spikesorter = get_spikesorter()
     
-    win = SpikeSortingWindow(spikesorter)
+    waveformviewer = WaveformViewer(spikesorter)
+    waveformviewer.show()
+    
+    app.exec_()
+
+
+
+
+
+
+def test_cataloguewindow():
+    app = pg.mkQApp()
+    spikesorter = get_spikesorter()
+    
+    win = CatalogueWindow(spikesorter)
     win.show()
     
     app.exec_()
 
 
-def test_from_classes():
+def test_cataloguewindow_from_classes():
     app = pg.mkQApp()
     
     dataio = DataIO(dirname = '../../tests/datatest')
@@ -100,7 +115,7 @@ def test_from_classes():
     catalogue = clustering.construct_catalogue()
     
     
-    win = SpikeSortingWindow.from_classes(dataio, peakdetector, waveformextractor, clustering)
+    win = CatalogueWindow.from_classes(peakdetector, waveformextractor, clustering, dataio = dataio)
     win.show()
     
     app.exec_()    
@@ -112,6 +127,7 @@ if __name__ == '__main__':
     #~ test_peaklist()
     #~ test_clusterlist()
     #~ test_ndviewer()
+    #~ test_waveformviewer()
     
-    #~ test_mainwindow()
-    test_from_classes()
+    test_cataloguewindow()
+    #~ test_cataloguewindow_from_classes()

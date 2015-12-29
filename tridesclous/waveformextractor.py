@@ -211,8 +211,15 @@ def find_good_limits(normed_mad, mad_threshold = 1.1):
     
     up, = np.where(np.diff(above.astype(int))==1)
     down, = np.where(np.diff(above.astype(int))==-1)
+    
+    if len(up)==0 or len(down)==0:
+        return None, None
+    
     up = up[up<max(down)]
     down = down[down>min(up)]
+    
+    if len(up)==0 or len(down)==0:
+        return None, None
     
     best = np.argmax(down-up)
     
@@ -222,7 +229,7 @@ def find_good_limits(normed_mad, mad_threshold = 1.1):
 
 
 class WaveformExtractor_:
-    def __init__(self, peakdetector, n_left=30, n_right=45):
+    def __init__(self, peakdetector, n_left=-30, n_right=45):
         """
         
         """
@@ -256,8 +263,11 @@ class WaveformExtractor_:
     
     def find_good_limits(self, mad_threshold = 1.1):
         l1, l2 = find_good_limits(self.mad.values.reshape(self.nb_channel,-1), mad_threshold = mad_threshold)
-        self.limit_left = self.long_waveforms.columns.levels[1][l1]
-        self.limit_right = self.long_waveforms.columns.levels[1][l2]
+        if l1 is None:
+            self.limit_left, self.limit_right = None, None
+        else:
+            self.limit_left = self.long_waveforms.columns.levels[1][l1]
+            self.limit_right = self.long_waveforms.columns.levels[1][l2]
         return self.limit_left, self.limit_right
     
     def get_ajusted_waveforms(self, margin=2):
@@ -265,12 +275,16 @@ class WaveformExtractor_:
         Get ajusted waveform : between limit_left-margin and limit_right+margin.
         The margin of 2 sample is to get first and second derivative waveform to construct the catalogue.
         """
-        sub = np.arange(self.limit_left-2, self.limit_right+2)
-        short_waveforms = self.long_waveforms.loc[:, (slice(None), sub)]
-        #reconstruct the real sub indexing
-        # see http://pandas.pydata.org/pandas-docs/stable/advanced.html   (Basic indexing on axis with MultiIndex)
-        short_waveforms.columns = pd.MultiIndex.from_tuples(short_waveforms.columns.values)
-        return short_waveforms
+        if self.limit_left is None:
+            return self.long_waveforms
+        else:
+            sub = np.arange(self.limit_left-2, self.limit_right+2)
+            self.long_waveforms.sortlevel(level=0, axis=1, inplace = True)
+            short_waveforms = self.long_waveforms.loc[:, (slice(None), sub)]
+            #reconstruct the real sub indexing
+            # see http://pandas.pydata.org/pandas-docs/stable/advanced.html   (Basic indexing on axis with MultiIndex)
+            short_waveforms.columns = pd.MultiIndex.from_tuples(short_waveforms.columns.values)
+            return short_waveforms
 
 
 from .mpl_plot import WaveformExtractorPlot
