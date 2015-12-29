@@ -75,12 +75,12 @@ def test_ndviewer():
     
     app.exec_()
 
-def test_catalogueviewer():
+def test_waveformviewer():
     app = pg.mkQApp()
     spikesorter = get_spikesorter()
     
-    catalogueviewer = CatalogueViewer(spikesorter)
-    catalogueviewer.show()
+    waveformviewer = WaveformViewer(spikesorter)
+    waveformviewer.show()
     
     app.exec_()
 
@@ -89,17 +89,17 @@ def test_catalogueviewer():
 
 
 
-def test_mainwindow():
+def test_cataloguewindow():
     app = pg.mkQApp()
     spikesorter = get_spikesorter()
     
-    win = SpikeSortingWindow(spikesorter)
+    win = CatalogueWindow(spikesorter)
     win.show()
     
     app.exec_()
 
 
-def test_from_classes():
+def test_cataloguewindow_from_classes():
     app = pg.mkQApp()
     
     dataio = DataIO(dirname = '../../tests/datatest')
@@ -115,19 +115,19 @@ def test_from_classes():
     catalogue = clustering.construct_catalogue()
     
     
-    win = SpikeSortingWindow.from_classes(dataio, peakdetector, waveformextractor, clustering)
+    win = CatalogueWindow.from_classes(peakdetector, waveformextractor, clustering, dataio = dataio)
     win.show()
     
     app.exec_()    
     
     
 if __name__ == '__main__':
-    test_traceviewer()
+    #~ test_traceviewer()
     #~ test_traceviewer_linked()
     #~ test_peaklist()
     #~ test_clusterlist()
     #~ test_ndviewer()
-    #~ test_catalogueviewer()
+    #~ test_waveformviewer()
     
-    #~ test_mainwindow()
-    #~ test_from_classes()
+    test_cataloguewindow()
+    #~ test_cataloguewindow_from_classes()

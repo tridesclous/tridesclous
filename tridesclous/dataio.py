@@ -156,7 +156,13 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
             t_start = self.segments_range.loc[seg_num, (signal_type, 't_start')]
             t_stop = self.segments_range.loc[seg_num, (signal_type, 't_stop')]
             assert np.all(~((times>=t_start) & (times<=t_stop))), 'data already in store for seg_num {}'.format(seg_num)
-            
+
+        
+        if self.info is None:
+            sampling_rate = 1./np.median(np.diff(times[:1000]))
+            self.initialize(sampling_rate = sampling_rate, channels = signals.columns.values)
+
+
         signals.to_hdf(self.store, path, format = 'table', append=True)
         
         if seg_num in self.segments_range.index:

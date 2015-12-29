@@ -10,7 +10,7 @@ from .base import WidgetBase
 class MyViewBox(pg.ViewBox):
     pass
 
-class CatalogueViewer(WidgetBase):
+class WaveformViewer(WidgetBase):
     
     def __init__(self, spikesorter = None, parent=None):
         WidgetBase.__init__(self, parent)
@@ -30,6 +30,7 @@ class CatalogueViewer(WidgetBase):
     
     def initialize_plot(self):
         self.viewBox = MyViewBox()
+        #~ self.viewBox.disableAutoRange()
         self.plot = pg.PlotItem(viewBox=self.viewBox)
         self.graphicsview.setCentralItem(self.plot)
         self.plot.hideButtons()
