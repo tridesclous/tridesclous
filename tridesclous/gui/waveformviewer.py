@@ -29,12 +29,25 @@ class WaveformViewer(WidgetBase):
         
     
     def initialize_plot(self):
-        self.viewBox = MyViewBox()
+        self.viewBox1 = MyViewBox()
         #~ self.viewBox.disableAutoRange()
-        self.plot = pg.PlotItem(viewBox=self.viewBox)
-        self.graphicsview.setCentralItem(self.plot)
-        self.plot.hideButtons()
-        self.plot.showAxis('left', True)
+
+        grid = pg.GraphicsLayout(border=(100,100,100))
+        self.graphicsview.setCentralItem(grid)
+        
+        self.plot1 = grid.addPlot(row=0, col=0, rowspan=2, viewBox=self.viewBox1)
+        self.plot1.hideButtons()
+        self.plot1.showAxis('left', True)
+        
+        grid.nextRow()
+        grid.nextRow()
+        self.viewBox2 = MyViewBox()
+        self.plot2 = grid.addPlot(row=2, col=0, rowspan=1, viewBox=self.viewBox2)
+        self.plot2.hideButtons()
+        self.plot2.showAxis('left', True)
+        
+        self.viewBox2.setXLink(self.viewBox1)
+        
         
         #~ self.viewBox.gain_zoom.connect(self.gain_zoom)
         #~ self.viewBox.xsize_zoom.connect(self.xsize_zoom)    
@@ -44,23 +57,29 @@ class WaveformViewer(WidgetBase):
         return self.spikesorter.clustering.catalogue
     
     def refresh(self):
-        self.plot.clear()
+        self.plot1.clear()
+        self.plot2.clear()
         
         #lines
-        nb_channel = self.spikesorter.dataio.nb_channel
-        samples = self.spikesorter.all_waveforms.columns.levels[1]
-        n_left, n_right = min(samples)+2, max(samples)-1
-        white = pg.mkColor(255, 255, 255, 20)
-        width = n_right - n_left
-        for i in range(nb_channel):
-            if i%2==1:
-                region = pg.LinearRegionItem([width*i, width*(i+1)-1], movable = False, brush = white)
-                self.plot.addItem(region, ignoreBounds=True)
-                for l in region.lines:
-                    l.setPen(white)
-                
-            vline = pg.InfiniteLine(pos = -n_left + width*i, angle=90, movable=False, pen = pg.mkPen('w'))
-            self.plot.addItem(vline)
+        def addSpan(plot):
+        
+            nb_channel = self.spikesorter.dataio.nb_channel
+            samples = self.spikesorter.all_waveforms.columns.levels[1]
+            n_left, n_right = min(samples)+2, max(samples)-1
+            white = pg.mkColor(255, 255, 255, 20)
+            width = n_right - n_left
+            for i in range(nb_channel):
+                if i%2==1:
+                    region = pg.LinearRegionItem([width*i, width*(i+1)-1], movable = False, brush = white)
+                    plot.addItem(region, ignoreBounds=True)
+                    for l in region.lines:
+                        l.setPen(white)
+                    
+                vline = pg.InfiniteLine(pos = -n_left + width*i, angle=90, movable=False, pen = pg.mkPen('w'))
+                plot.addItem(vline)
+        
+        addSpan(self.plot1)
+        addSpan(self.plot2)
         
         #waveforms
         for i,k in enumerate(self.catalogue):
@@ -71,17 +90,19 @@ class WaveformViewer(WidgetBase):
             
             color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
             curve = pg.PlotCurveItem(np.arange(wf0.size), wf0, pen=pg.mkPen(color, width=2))
-            self.plot.addItem(curve)
+            self.plot1.addItem(curve)
             
             color2 = QtGui.QColor(color)
             color2.setAlpha(self.alpha)
             curve1 = pg.PlotCurveItem(np.arange(wf0.size), wf0+mad, pen=color2)
             curve2 = pg.PlotCurveItem(np.arange(wf0.size), wf0-mad, pen=color2)
-            self.plot.addItem(curve1)
-            self.plot.addItem(curve2)
+            self.plot1.addItem(curve1)
+            self.plot1.addItem(curve2)
             fill = pg.FillBetweenItem(curve1=curve1, curve2=curve2, brush=color2)
-            self.plot.addItem(fill)
-
+            self.plot1.addItem(fill)
+            
+            curve = pg.PlotCurveItem(np.arange(wf0.size), mad, pen=color)
+            self.plot2.addItem(curve)
 
         
 
