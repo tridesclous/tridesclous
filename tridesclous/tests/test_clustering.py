@@ -29,6 +29,8 @@ def test_clustering():
     
     #PCA
     features = clustering.project(method = 'pca', n_components = 5)
+    clustering.plot_explained_variance_ratio()
+    clustering.plot_waveform_variance()
     
     #~ clustering.plot_projection(plot_density = True)
     
