@@ -7,12 +7,12 @@ import sklearn.cluster
 import sklearn.mixture
 from collections import OrderedDict
 
-def find_clusters(features, n_clusters,  method='kmeans', **kargs):
+def find_clusters(features, n_clusters, method='kmeans', **kargs):
     if method == 'kmeans':
         km = sklearn.cluster.KMeans(n_clusters=n_clusters,**kargs)
         labels_ = km.fit_predict(features.values)
     elif method == 'gmm':
-        gmm = self._cluster_instance = sklearn.mixture.GMM(n_clusters=n_clusters,**kargs)
+        gmm = sklearn.mixture.GMM(n_components=n_clusters,**kargs)
         labels_ =gmm.fit_predict(features.values)
     
     labels = pd.Series(labels_, index = features.index, name = 'label')
@@ -67,7 +67,7 @@ class Clustering_:
     
     def split_cluster(self, label, n, method='kmeans', order_clusters = True, **kargs):
         mask = self.labels==label
-        new_label = find_clusters(self.features[mask], n, method='kmeans', **kargs)
+        new_label = find_clusters(self.features[mask], n, method=method, **kargs)
         new_label += max(self.cluster_labels)+1
         self.labels[mask] = new_label
         self.reset()

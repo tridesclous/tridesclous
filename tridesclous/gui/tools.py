@@ -67,12 +67,54 @@ class TimeSeeker(QtGui.QWidget) :
         if emit:
             self.time_changed.emit(float(self.t))
 
+def get_dict_from_group_param(param, cascade = False):
+    assert param.type() == 'group'
+    d = {}
+    for p in param.children():
+        if p.type() == 'group':
+            if cascade:
+                d[p.name()] = get_dict_from_group_param(p, cascade = True)
+            continue
+        else:
+            d[p.name()] = p.value()
+    return d
 
+class ParamDialog(QtGui.QDialog):
+    def __init__(self,   params, title = '', parent = None):
+        QtGui.QDialog.__init__(self, parent = parent)
+        
+        self.setWindowTitle(title)
+        self.setModal(True)
+        
+        self.params = pg.parametertree.Parameter.create( name=title, type='group', children = params)
+        
+        layout = QtGui.QVBoxLayout()
+        self.setLayout(layout)
+
+        self.tree_params = pg.parametertree.ParameterTree(parent  = self)
+        self.tree_params.header().hide()
+        self.tree_params.setParameters(self.params, showTop=True)
+        #~ self.tree_params.setWindowFlags(QtCore.Qt.Window)
+        layout.addWidget(self.tree_params)
+
+        but = QtGui.QPushButton('OK')
+        layout.addWidget(but)
+        but.clicked.connect(self.accept)
+
+    def get(self):
+        return get_dict_from_group_param(self.params)
+    
 
 if __name__=='__main__':
     app = pg.mkQApp()
-    timeseeker =TimeSeeker()
-    timeseeker.show()
-    app.exec_()
+    #~ timeseeker =TimeSeeker()
+    #~ timeseeker.show()
+    #~ app.exec_()
+    params = [{'name' : 'a', 'value' : 1., 'type' : 'float'}]
+    dialog = ParamDialog(params, title = 'yep')
+    dialog.exec_()
+    print(dialog.get())
+    
+    
 
 

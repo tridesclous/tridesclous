@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from .base import WidgetBase
-
+from .tools import ParamDialog
 
 
 class PeakModel(QtCore.QAbstractItemModel):
@@ -264,8 +264,12 @@ class ClusterList(WidgetBase):
             act.triggered.connect(self.move_selection_to_trash)
             act = menu.addAction('Merge selection')
             act.triggered.connect(self.merge_selection)
-            act = menu.addAction('Select peaks of clusters')
+            act = menu.addAction('Select')
             act.triggered.connect(self.select_peaks_of_clusters)
+        
+        if n == 1:
+            act = menu.addAction('Split selection')
+            act.triggered.connect(self.split_selection)
         
         self.menu = menu
         menu.popup(self.cursor().pos())
@@ -328,6 +332,42 @@ class ClusterList(WidgetBase):
         self.spikesorter.refresh_colors(reset = False)
         self.refresh()
         self.peak_cluster_changed.emit()
+    
+    def split_selection(self):
+        k = self.selected_cluster()[0]
+        
+        _params = [{'name' : 'method', 'type' : 'list', 'values' : ['kmeans', 'gmm']}]
+        dialog1 = ParamDialog(_params, title = 'Which method ?', parent = self)
+        if not dialog1.exec_():
+            return
+
+        method = dialog1.params['method']
+        
+        if  method=='kmeans':
+            _params =  [{'name' : 'n', 'type' : 'int', 'value' : 2}]
+            dialog2 = ParamDialog(_params, title = 'kmeans parameters', parent = self)
+            if not dialog2.exec_():
+                return
+            kargs = dialog2.get()
+        
+        elif method=='gmm':
+            _params =  [{'name' : 'n', 'type' : 'int', 'value' : 2},
+                                {'name' : 'covariance_type', 'type' : 'list', 'values' : ['full']},
+                                {'name' : 'n_init', 'type' : 'int', 'value' : 10},
+                                ]
+            dialog2 = ParamDialog(_params, title = 'kmeans parameters', parent = self)
+            if not dialog2.exec_():
+                return
+            kargs = dialog2.get()
+        
+        n = kargs.pop('n')
+        self.spikesorter.clustering.split_cluster(k, n, method=method, order_clusters = True, **kargs)
+
+        self.spikesorter.on_new_cluster()
+        self.spikesorter.refresh_colors(reset = False)
+        self.refresh()
+        self.peak_cluster_changed.emit()
+
     
     def select_peaks_of_clusters(self):
         self.spikesorter.peak_selection[:] = False
