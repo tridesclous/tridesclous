@@ -47,6 +47,13 @@ def test_clustering():
 
     clustering.merge_cluster(1,2)
     clustering.split_cluster(1, 2)
+    
+    dataio.save_catalogue(catalogue)
+    clustering.catalogue = dataio.get_catalogue()
+    clustering.plot_catalogue()
+    
+    
+    
 
     
     

@@ -105,8 +105,10 @@ def test_peeler():
     
     colors = sns.color_palette('husl', len(catalogue))
     spiketrains = peeler.get_spiketrains()
+    print(spiketrains)
     i = 0
-    for k , pos in spiketrains.items():
+    for k  in peeler.cluster_labels:
+        pos = spiketrains[spiketrains['label']==k].index
         axs[5].plot(pos, np.ones(pos.size)*k, ls = 'None', marker = '|',  markeredgecolor = colors[i], markersize = 10, markeredgewidth = 2)
         i += 1
     axs[5].set_ylim(0, len(catalogue))

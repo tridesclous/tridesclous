@@ -34,13 +34,14 @@ class Peeler_:
     
     
     """
-    def __init__(self, signals, catalogue,  n_left, n_right,
+    def __init__(self, signals, catalogue,  n_left, n_right, #seg_num = 0,
                             threshold=-4, peak_sign = '-', n_span = 2):
 
         self.signals = signals
         self.catalogue = catalogue
         self.n_left = n_left
         self.n_right = n_right
+        #~ self.seg_num = seg_num
         self.threshold = threshold
         self.peak_sign = peak_sign
         self.n_span = n_span
@@ -199,17 +200,20 @@ class Peeler_:
         self.level += 1
         
         return prediction, self.residuals[self.level-1]
-
-    def get_spiketrain(self, k):
-        all_pos = []
-        for l, labels in self.spike_labels.items():
-            all_pos.append(self.spike_pos[l][labels==k])
-        all_pos = np.concatenate(all_pos, axis = 0)
-        return np.sort(all_pos)
+    
     
     def get_spiketrains(self):
-        return { k:self.get_spiketrain(k) for k in self.cluster_labels }
-    
+        all = []
+        for level in self.spike_labels:
+            spiketrain = pd.DataFrame(index = self.spike_pos[level])
+            spiketrain['label'] = self.spike_labels[level]
+            spiketrain['jitter'] = self.spike_jitters[level]
+            spiketrain['level'] = level
+            all.append(spiketrain)
+        all = pd.concat(all, axis=0)
+        
+        all.sort_index(inplace=True, ascending = True, axis=0)
+        return all
 
 from .mpl_plot import PeelerPlot
 class Peeler(Peeler_, PeelerPlot):

@@ -289,31 +289,55 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
         
         return self.store.select(path, query)
     
-    def append_peaks(self, peaks, seg_num=0, append = False):
-        """
-        Append detected peaks in the store.
+    #~ def append_peaks(self, peaks, seg_num=0, append = False):
+        #~ """
+        #~ Append detected peaks in the store.
         
-        Arguments
-        -----------------
-        peaks: pd.DataFrame
-            DataFrame of peaks:
-                * index : MultiIndex (seg_num, peak_times)
-                * columns : 'peak_index', 'labels'
-                *
-        seg_num: int
-            The segment num.
-        append: bool, default True
-            If True append to existing peaks for the segment.
-            If False overwrite.
-        """
+        #~ Arguments
+        #~ -----------------
+        #~ peaks: pd.DataFrame
+            #~ DataFrame of peaks:
+                #~ * index : MultiIndex (seg_num, peak_times)
+                #~ * columns : 'peak_index', 'labels'
+                #~ *
+        #~ seg_num: int
+            #~ The segment num.
+        #~ append: bool, default True
+            #~ If True append to existing peaks for the segment.
+            #~ If False overwrite.
+        #~ """
         
-        path = 'segment_{}/peaks'.format(seg_num)
-        peaks.to_hdf(self.store, path, format = 'table', append=append)
+        #~ path = 'segment_{}/peaks'.format(seg_num)
+        #~ peaks.to_hdf(self.store, path, format = 'table', append=append)
         
     
-    def get_peaks(self, seg_num=0):
-        path = 'segment_{}/peaks'.format(seg_num)
+    #~ def get_peaks(self, seg_num=0):
+        #~ path = 'segment_{}/peaks'.format(seg_num)
+        #~ if path in self.store:
+            #~ return self.store[path]
+    
+    def save_catalogue(self, catalogue):
+        assert len(catalogue)>0, 'empty catalogue'
+        index = list(catalogue.keys())
+        columns = list(catalogue[index[0]].keys())
+        catalogue2 = pd.DataFrame(index = index, columns = columns)
+        
+        for k in index:
+            for col in columns:
+                catalogue2.loc[k, col] = catalogue[k][col]
+        
+        path = 'catalogue'
+        catalogue2.to_hdf(self.store, path, append = False)
+        
+        
+    def get_catalogue(self):
+        path = 'catalogue'
         if path in self.store:
-            return self.store[path]
-        
-    
+            catalogue = {}
+            catalogue2 = self.store['catalogue']
+            for k in catalogue2.index:
+                catalogue[k] = {}
+                for col in catalogue2.columns:
+                    catalogue[k][col] = catalogue2.loc[k, col]
+            return catalogue
+

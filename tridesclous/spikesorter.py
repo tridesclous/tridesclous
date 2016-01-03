@@ -185,9 +185,9 @@ class SpikeSorter:
                 r, g, b = color
                 self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
     
-    def construct_catalogue(self):
+    def construct_catalogue(self, save = True):
         self.clustering.construct_catalogue()
-    
-    
-    
-    
+        if save:
+            self.dataio.save_catalogue(self.clustering.catalogue)
+
+
