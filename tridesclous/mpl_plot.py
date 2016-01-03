@@ -66,6 +66,31 @@ class WaveformExtractorPlot:
 
 
 class ClusteringPlot:
+    def plot_explained_variance_ratio(self):
+        fix, ax = pyplot.subplots()
+        ax.plot(np.cumsum(self._pca.explained_variance_ratio_))
+        ax.set_ylim(0,1)
+    
+    def plot_waveform_variance(self, factor = 5.):
+        med, mad = median_mad(self.waveforms)
+        
+        n = self._pca.n_components
+        fix, axs = pyplot.subplots(nrows = n)
+        for i in range(n):
+            ax = axs[i]
+            comp= self._pca.components_[i,:]
+            ax.plot(med, color = 'm', lw = 2)
+            ax.fill_between(np.arange(med.size),med+factor*comp,med-factor*comp, alpha = .2, color = 'm')
+            ax.set_ylabel('pca{} {:.1f}%'.format(i, self._pca.explained_variance_ratio_[i]*100.))
+
+
+            nb_channel = self.waveforms.columns.levels[0].size
+            samples = self.waveforms.columns.levels[1]
+            n_left, n_right = min(samples), max(samples)+1
+            
+            add_vspan(ax, n_left, n_right, nb_channel)
+    
+    
     def plot_projection(self, colors = None, palette = 'husl', plot_density = False):
         if not hasattr(self, 'cluster_labels'):
             
@@ -142,6 +167,19 @@ class ClusteringPlot:
 
 
 class PeelerPlot:
-    pass
+    def plot_spiketrains(self, colors = None, ax =None):
+        if colors is None:
+            colors = sns.color_palette('husl', len(self.catalogue))
+        spiketrains = self.get_spiketrains()
+        if ax is None:
+            fig, ax = pyplot.subplots()
+        i = 0
+        for k  in self.cluster_labels:
+            pos = spiketrains[spiketrains['label']==k].index
+            ax.plot(pos, np.ones(pos.size)*k, ls = 'None', marker = '|',  markeredgecolor = colors[i], markersize = 10, markeredgewidth = 2)
+            i += 1
+        ax.set_ylim(0, len(self.catalogue))
+        
+    
 
 

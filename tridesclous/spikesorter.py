@@ -4,9 +4,10 @@ import seaborn as sns
 
 from .dataio import DataIO
 from .filter import SignalFilter
-from .peakdetector import PeakDetector
+from .peakdetector import PeakDetector, normalize_signals
 from .waveformextractor import WaveformExtractor
 from .clustering import Clustering
+from .peeler import Peeler
 
 from .tools import median_mad
 
@@ -84,6 +85,8 @@ class SpikeSorter:
             seg_nums = self.dataio.segments_range.index
         
         self.threshold = threshold
+        self.peak_sign = peak_sign
+        self.n_span = n_span
         
         self.all_waveforms = []
         for seg_num in seg_nums:
@@ -98,10 +101,10 @@ class SpikeSorter:
             if seg_num==seg_nums[0]:
                 #the first segment impose limits to othes
                 # this shoudl be FIXED later on
-                limit_left, limit_right = waveformextractor.find_good_limits(mad_threshold = 1.1)
+                self.limit_left, self.limit_right = waveformextractor.find_good_limits(mad_threshold = 1.1)
             else:
-                waveformextractor.limit_left = limit_left
-                waveformextractor.limit_right = limit_right
+                waveformextractor.limit_left = self.limit_left
+                waveformextractor.limit_right = self.limit_right
             
             short_wf = waveformextractor.get_ajusted_waveforms()
             self.all_waveforms.append(short_wf)
@@ -185,9 +188,30 @@ class SpikeSorter:
                 r, g, b = color
                 self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
     
-    def construct_catalogue(self):
+    def construct_catalogue(self, save = True):
         self.clustering.construct_catalogue()
+        if save:
+            self.dataio.save_catalogue(self.clustering.catalogue)
     
-    
-    
-    
+    def appy_peeler(self, seg_nums = 'all',  levels = [0, 1]):
+        if seg_nums == 'all':
+            seg_nums = self.dataio.segments_range.index
+        
+        catalogue = self.dataio.get_catalogue()
+        for seg_num in seg_nums:
+            sigs = self.dataio.get_signals(seg_num=seg_num, signal_type = 'filtered')
+            
+            normed_sigs = normalize_signals(sigs)
+            peeler = Peeler(normed_sigs, catalogue,  self.limit_left, self.limit_right,
+                            threshold=self.threshold, peak_sign=self.peak_sign, n_span=self.n_span)
+            
+            for level in levels:
+                peeler.peel()
+            
+            spiketrains = peeler.get_spiketrains()
+            self.dataio.save_spiketrains(spiketrains, seg_num = seg_num)
+
+
+
+
+

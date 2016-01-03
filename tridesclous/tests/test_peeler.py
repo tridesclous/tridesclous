@@ -19,7 +19,7 @@ def plot_interpolation():
     waveformextractor = WaveformExtractor(peakdetector, n_left=-30, n_right=50)
     limit_left, limit_right = waveformextractor.find_good_limits(mad_threshold = 1.1)
     #~ print(limit_left, limit_right)
-    short_wf = waveformextractor.get_ajusted_waveforms(margin=2)
+    short_wf = waveformextractor.get_ajusted_waveforms()
     #~ print(short_wf.shape)
     
     #clustering
@@ -68,7 +68,7 @@ def test_peeler():
     waveformextractor = WaveformExtractor(peakdetector, n_left=-30, n_right=50)
     limit_left, limit_right = waveformextractor.find_good_limits(mad_threshold = 1.1)
     #~ print(limit_left, limit_right)
-    short_wf = waveformextractor.get_ajusted_waveforms(margin=2)
+    short_wf = waveformextractor.get_ajusted_waveforms()
     #~ print(short_wf.shape)
     
     #clustering
@@ -93,6 +93,9 @@ def test_peeler():
     prediction0, residuals0 = peeler.peel()
     prediction1, residuals1 = peeler.peel()
     
+    spiketrains = peeler.get_spiketrains()
+    print(spiketrains)
+    
     fig, axs = pyplot.subplots(nrows = 6, sharex = True)#, sharey = True)
     axs[0].plot(signals)
     axs[1].plot(prediction0) 
@@ -103,14 +106,7 @@ def test_peeler():
     for i in range(5):
         axs[i].set_ylim(-25, 10)
     
-    colors = sns.color_palette('husl', len(catalogue))
-    spiketrains = peeler.get_spiketrains()
-    i = 0
-    for k , pos in spiketrains.items():
-        axs[5].plot(pos, np.ones(pos.size)*k, ls = 'None', marker = '|',  markeredgecolor = colors[i], markersize = 10, markeredgewidth = 2)
-        i += 1
-    axs[5].set_ylim(0, len(catalogue))
-    #markerfacecolor = colors[i],
+    peeler.plot_spiketrains(ax = axs[5])
     
 if __name__=='__main__':
     
@@ -119,3 +115,6 @@ if __name__=='__main__':
     test_peeler()
     
     pyplot.show()
+
+
+
