@@ -32,6 +32,14 @@ def test_spikesorter():
     spikesorter.find_clusters(7)
     print('### after clustering ###')
     print(spikesorter.summary(level=1))
+    
+    spikesorter.construct_catalogue()
+
+    spikesorter.appy_peeler()
+
+    for seg_num in range(3):
+        spiketrains = spikesorter.dataio.get_spiketrains(seg_num=seg_num)
+        print(spiketrains)
 
 
 
@@ -75,6 +83,14 @@ def test_spikesorter_neo():
     print(spikesorter.summary(level=1))
     
     spikesorter.construct_catalogue()
+    
+    
+    spikesorter.appy_peeler()
+    
+    for seg_num in range(3):
+        spiketrains = spikesorter.dataio.get_spiketrains(seg_num=seg_num)
+        print(spiketrains)
+    
 
 
     

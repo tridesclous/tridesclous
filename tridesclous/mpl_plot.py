@@ -167,6 +167,19 @@ class ClusteringPlot:
 
 
 class PeelerPlot:
-    pass
+    def plot_spiketrains(self, colors = None, ax =None):
+        if colors is None:
+            colors = sns.color_palette('husl', len(self.catalogue))
+        spiketrains = self.get_spiketrains()
+        if ax is None:
+            fig, ax = pyplot.subplots()
+        i = 0
+        for k  in self.cluster_labels:
+            pos = spiketrains[spiketrains['label']==k].index
+            ax.plot(pos, np.ones(pos.size)*k, ls = 'None', marker = '|',  markeredgecolor = colors[i], markersize = 10, markeredgewidth = 2)
+            i += 1
+        ax.set_ylim(0, len(self.catalogue))
+        
+    
 
 

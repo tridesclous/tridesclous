@@ -205,10 +205,13 @@ class Peeler_:
     def get_spiketrains(self):
         all = []
         for level in self.spike_labels:
-            spiketrain = pd.DataFrame(index = self.spike_pos[level])
+            pos = self.spike_pos[level]
+            spiketrain = pd.DataFrame(index = pos)
+            spiketrain['time'] = self.signals.index.values[pos]
             spiketrain['label'] = self.spike_labels[level]
             spiketrain['jitter'] = self.spike_jitters[level]
             spiketrain['level'] = level
+            
             all.append(spiketrain)
         all = pd.concat(all, axis=0)
         

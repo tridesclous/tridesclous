@@ -340,4 +340,14 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
                 for col in catalogue2.columns:
                     catalogue[k][col] = catalogue2.loc[k, col]
             return catalogue
+    
+    def save_spiketrains(self, spiketrains, seg_num = 0):
+        path = 'segment_{}/spiketrains'.format(seg_num)
+        spiketrains.to_hdf(self.store, path, format = 'table', append=False)
+
+    def get_spiketrains(self, seg_num = 0):
+        path = 'segment_{}/spiketrains'.format(seg_num)
+        if path in self.store:
+            return self.store[path]
+
 
