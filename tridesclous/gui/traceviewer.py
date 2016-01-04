@@ -64,8 +64,8 @@ class TraceViewer(WidgetBase):
             
         
         #handle time by segments
-        self.time_by_seg = pd.Series(self.dataio.segments_range.loc[:, (signal_type,'t_start')].copy(), name = 'time',
-                                            index = self.dataio.segments_range.index)
+        t_starts = self.dataio.segments_range.loc[:, ('filtered','t_start')].copy()
+        self.time_by_seg = pd.Series(t_starts, name = 'time', index = self.dataio.segments_range.index)
         
         _params = [{'name': 'auto_zoom_on_select', 'type': 'bool', 'value': True },
                            {'name': 'zoom_size', 'type': 'float', 'value':  0.08, 'step' : 0.001 },
@@ -189,8 +189,6 @@ class TraceViewer(WidgetBase):
         self.combo_seg.setCurrentIndex(self._seg_pos)
         
         lims = self.dataio.segments_range.xs(self.signal_type, axis=1).loc[self.seg_num]
-        self.timeseeker.set_start_stop(lims['t_start'], lims['t_stop'], seek = False)
-        self.timeseeker.seek(self.time_by_seg[self.seg_num], emit = False)
         
         if self.mode == 'memory':
             self.sigs = self.dataio.get_signals(seg_num = self.seg_num, t_start = lims['t_start'], 
@@ -202,7 +200,11 @@ class TraceViewer(WidgetBase):
             self.seg_peaks = self.spikesorter.peak_labels.xs(self.seg_num)
         else:
             self.seg_peaks = None
-            
+
+        self.timeseeker.set_start_stop(lims['t_start'], lims['t_stop'], seek = False)
+        #~ self.timeseeker.seek(self.time_by_seg[self.seg_num], emit = False)
+
+
         if self.isVisible():
             self.refresh()
 
@@ -254,6 +256,7 @@ class TraceViewer(WidgetBase):
         if self.seg_peaks is not None:
             inwin = self.seg_peaks.loc[t1:t2]
             
+            
             for c in range(self.dataio.nb_channel):
                 #reset scatters
                 for k in self.spikesorter.cluster_labels:
@@ -272,18 +275,18 @@ class TraceViewer(WidgetBase):
                     pen = QtGui.QColor( 'yellow')
                     self.scatters[c]['sel'] = pg.ScatterPlotItem(pen=pen, brush=brush, size=20, pxMode = True)
                     self.plot.addItem(self.scatters[c]['sel'])
+                
                 seg_selection = self.spikesorter.peak_selection.xs(self.seg_num)
                 sel = seg_selection.loc[inwin.index]
-                sel = sel[sel]
-                p = chunk.loc[sel.index]
+                p = chunk.loc[sel[sel].index]
                 self.scatters[c]['sel'].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
             
             for k in self.spikesorter.cluster_labels:
                 if not self.spikesorter.cluster_visible[k]:
                     continue
                 sel = inwin[inwin==k]
+                p = chunk.loc[sel.index]
                 for c in range(self.dataio.nb_channel):
-                    p = chunk.loc[sel.index]
                     color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
                     if k not in self.scatters[c]:
                         self.scatters[c][k] = pg.ScatterPlotItem(pen=None, brush=color, size=10, pxMode = True)
