@@ -157,6 +157,8 @@ class BaseTraceViewer(WidgetBase):
             
             self.scatters.append({})
         
+        self._initialize_plot()
+        
         self.gains = None
         self.offsets = None
 
@@ -260,15 +262,18 @@ class BaseTraceViewer(WidgetBase):
             
         self.time_by_seg[self.seg_num] = t
         t1,t2 = t-self.xsize/3. , t+self.xsize*2/3.
-        #~ print(t1, t2)
+        t_start = self.dataio.segments_range.loc[self.seg_num, (self.signal_type,'t_start')]
+        sr = self.dataio.sampling_rate
+        ind1 = max(0, int((t1-t_start)*sr))
+        ind2 = int((t2-t_start)*sr)
         
         if self.gains is None:
             self.estimate_auto_scale()
 
-        
         #signal chunk
         if self.mode == 'memory':
-            chunk = self.sigs.loc[t1:t2]
+            #~ chunk = self.sigs.loc[t1:t2]
+            chunk = self.sigs.iloc[ind1:ind2]
         elif self.mode == 'file':
             chunk = self.dataio.get_signals(seg_num = self.seg_num, t_start = t1, t_stop = t2, signal_type = self.signal_type)
         
@@ -276,11 +281,10 @@ class BaseTraceViewer(WidgetBase):
             self.curves[c].setData(chunk.index.values, chunk.iloc[:, c].values*self.gains[c]+self.offsets[c])
             self.channel_labels[c].setPos(t1, self.dataio.nb_channel-c-1)
         
-        #~ if self.seg_peak_labels is not None:
         inwindow_times, inwindow_label, inwindow_selected = self.get_peak_or_spiketrain_in_window(t1, t2)
         
         if inwindow_times is not None:
-        
+            
             for c in range(self.dataio.nb_channel):
                 #reset scatters
                 for k in self.spikesorter.cluster_labels:
@@ -306,8 +310,6 @@ class BaseTraceViewer(WidgetBase):
             for k in self.spikesorter.cluster_labels:
                 if not self.spikesorter.cluster_visible[k]:
                     continue
-                #~ sel = inwin[inwin==k]
-                #~ p = chunk.loc[sel.index]
                 p = chunk.loc[inwindow_times[inwindow_label==k]]
                 for c in range(self.dataio.nb_channel):
                     color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
@@ -321,7 +323,8 @@ class BaseTraceViewer(WidgetBase):
                         self.scatters[c][k].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
                     else:
                         self.scatters[c][k].setData([], [])
-        
+            
+            self._plot_prediction(t1, t2, chunk, ind1)
         
         n = self.dataio.nb_channel
         for c in range(n):
@@ -336,8 +339,10 @@ class BaseTraceViewer(WidgetBase):
 
 
 
-
 class TraceViewer(BaseTraceViewer):
+    def _initialize_plot(self):
+        pass
+    
     def load_peak_or_spiketrain(self):
         if self.spikesorter.peak_labels is not None:
             self.seg_peak_labels = self.spikesorter.peak_labels.xs(self.seg_num)
@@ -355,6 +360,9 @@ class TraceViewer(BaseTraceViewer):
         inwindow_selected = seg_selection.loc[inwindow.index].values
         
         return inwindow_times, inwindow_label, inwindow_selected
+    
+    def _plot_prediction(self,t1, t2, chunk, ind1):
+        pass
     
     def on_peak_selection_changed(self):
         selected_peaks = self.spikesorter.peak_selection[self.spikesorter.peak_selection]
@@ -380,6 +388,21 @@ class TraceViewer(BaseTraceViewer):
 
 
 class PeelerTraceViewer(BaseTraceViewer):
+    def _initialize_plot(self):
+        self.curves_prediction = []
+        self.curves_residuals = []
+        for c in range(self.dataio.nb_channel):
+            color = '#FF00FF'  # TODO
+            curve = pg.PlotCurveItem(pen=color)
+            self.plot.addItem(curve)
+            self.curves_prediction.append(curve)
+
+            color = '#FFFF00'  # TODO
+            curve = pg.PlotCurveItem(pen=color)
+            self.plot.addItem(curve)
+            self.curves_residuals.append(curve)
+
+   
     def load_peak_or_spiketrain(self):
         self.spiketrains = self.dataio.get_spiketrains(self.seg_num)
 
@@ -393,7 +416,42 @@ class PeelerTraceViewer(BaseTraceViewer):
         inwindow_selected = np.zeros(inwindow_label.shape, dtype = bool)
         
         return inwindow_times, inwindow_label, inwindow_selected
-    
+
+    def _plot_prediction(self,t1, t2, chunk, ind1):
+        prediction = np.zeros(chunk.shape)
+        
+        mask = (self.spiketrains['time']>=t1) & (self.spiketrains['time']<=t2)
+        spiketrains = self.spiketrains[mask]
+        spike_pos = spiketrains.index-ind1
+        labels = spiketrains['label'].values
+        jitters = spiketrains['jitter'].values
+
+        length = self.spikesorter.limit_right - self.spikesorter.limit_left
+        catalogue = self.spikesorter.clustering.catalogue
+        for i in range(spike_pos.size):
+            pos = spike_pos[i] + self.spikesorter.limit_left
+            if pos+length>=prediction.shape[0]: continue
+            if pos<0: continue
+            
+            k = labels[i]
+            if k<0: continue
+            wf0 = catalogue[k]['center']
+            wf1 = catalogue[k]['centerD']
+            wf2 = catalogue[k]['centerDD']
+            pred = wf0 + jitters[i]*wf1 + jitters[i]**2/2*wf2
+            
+            prediction[pos:pos+length, :] = pred.reshape(self.dataio.nb_channel, -1).transpose()
+
+        prediction *=self.mad
+        prediction += self.med
+        residuals = chunk.values - prediction
+        
+        for c in range(self.dataio.nb_channel):
+            self.curves_prediction[c].setData(chunk.index.values, prediction[:, c]*self.gains[c]+self.offsets[c])
+            
+            self.curves_residuals[c].setData(chunk.index.values, residuals[:, c]*self.gains[c]+self.offsets[c])
+            
+
     def on_peak_selection_changed(self):
         selected_peaks = self.spikesorter.peak_selection[self.spikesorter.peak_selection]
         if self.params['auto_zoom_on_select'] and selected_peaks.shape[0]==1:

@@ -108,7 +108,7 @@ class Peeler_:
             jitter1 = 0.
         
         #TODO : remove this:
-        return k, jitter1
+        #~ return k, jitter1
         
         #TODO : trouver un critere moins stricte
         if np.sum(wf**2) > np.sum((wf0+jitter1*wf1+jitter1**2/2*wf2)**2):
