@@ -190,7 +190,7 @@ class BaseTraceViewer(WidgetBase):
         elif self.mode == 'file':
             self.sigs = None
         
-        self.load_peak_labels()
+        self.load_peak_or_spiketrain()
 
         self.timeseeker.set_start_stop(lims['t_start'], lims['t_stop'], seek = False)
         #~ self.timeseeker.seek(self.time_by_seg[self.seg_num], emit = False)
@@ -276,10 +276,11 @@ class BaseTraceViewer(WidgetBase):
             self.curves[c].setData(chunk.index.values, chunk.iloc[:, c].values*self.gains[c]+self.offsets[c])
             self.channel_labels[c].setPos(t1, self.dataio.nb_channel-c-1)
         
-        if self.seg_peak_labels is not None:
-            #~ inwin = self.seg_peak_labels.loc[t1:t2]
-            inwindow_times, inwindow_label = self.get_peak_in_window(t1, t2)
-            
+        #~ if self.seg_peak_labels is not None:
+        inwindow_times, inwindow_label, inwindow_selected = self.get_peak_or_spiketrain_in_window(t1, t2)
+        
+        if inwindow_times is not None:
+        
             for c in range(self.dataio.nb_channel):
                 #reset scatters
                 for k in self.spikesorter.cluster_labels:
@@ -299,10 +300,7 @@ class BaseTraceViewer(WidgetBase):
                     self.scatters[c]['sel'] = pg.ScatterPlotItem(pen=pen, brush=brush, size=20, pxMode = True)
                     self.plot.addItem(self.scatters[c]['sel'])
                 
-                seg_selection = self.spikesorter.peak_selection.xs(self.seg_num)
-                #~ sel = seg_selection.loc[inwin.index]
-                sel = seg_selection.loc[inwindow_times]
-                p = chunk.loc[sel[sel].index]
+                p = chunk.loc[inwindow_times[inwindow_selected]]
                 self.scatters[c]['sel'].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
             
             for k in self.spikesorter.cluster_labels:
@@ -340,12 +338,23 @@ class BaseTraceViewer(WidgetBase):
 
 
 class TraceViewer(BaseTraceViewer):
-    def load_peak_labels(self):
+    def load_peak_or_spiketrain(self):
         if self.spikesorter.peak_labels is not None:
             self.seg_peak_labels = self.spikesorter.peak_labels.xs(self.seg_num)
         else:
             self.seg_peak_labels = None
-    
+
+    def get_peak_or_spiketrain_in_window(self, t1, t2):
+        if self.seg_peak_labels is None:
+            return None, None
+        inwindow = self.seg_peak_labels.loc[t1:t2]
+        inwindow_label = inwindow.values
+        inwindow_times = inwindow.index.values
+        
+        seg_selection = self.spikesorter.peak_selection.xs(self.seg_num)
+        inwindow_selected = seg_selection.loc[inwindow.index].values
+        
+        return inwindow_times, inwindow_label, inwindow_selected
     
     def on_peak_selection_changed(self):
         selected_peaks = self.spikesorter.peak_selection[self.spikesorter.peak_selection]
@@ -368,19 +377,22 @@ class TraceViewer(BaseTraceViewer):
             self.peak_selection_changed.emit()
             self.refresh()
     
-    def get_peak_in_window(self, t1, t2):
-        inwindow = self.seg_peak_labels.loc[t1:t2]
-        inwindow_label = inwindow.values
-        inwindow_times = inwindow.index
-        return inwindow_times, inwindow_label
 
 
 class PeelerTraceViewer(BaseTraceViewer):
-    def load_peak_labels(self):
-        if self.spikesorter.peak_labels is not None:
-            self.seg_peak_labels = self.spikesorter.peak_labels.xs(self.seg_num)
-        else:
-            self.seg_peak_labels = None
+    def load_peak_or_spiketrain(self):
+        self.spiketrains = self.dataio.get_spiketrains(self.seg_num)
+
+    def get_peak_or_spiketrain_in_window(self, t1, t2):
+        if self.spiketrains is None:
+            return None, None
+        mask = (self.spiketrains['time']>=t1) & (self.spiketrains['time']<=t2)
+        inwindow_label = self.spiketrains[mask]['label'].values
+        inwindow_times = self.spiketrains[mask]['time'].values
+        
+        inwindow_selected = np.zeros(inwindow_label.shape, dtype = bool)
+        
+        return inwindow_times, inwindow_label, inwindow_selected
     
     def on_peak_selection_changed(self):
         selected_peaks = self.spikesorter.peak_selection[self.spikesorter.peak_selection]
@@ -402,5 +414,4 @@ class PeelerTraceViewer(BaseTraceViewer):
             
             self.peak_selection_changed.emit()
             self.refresh()
-
 

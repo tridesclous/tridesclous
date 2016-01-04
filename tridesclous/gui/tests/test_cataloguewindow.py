@@ -122,12 +122,12 @@ def test_cataloguewindow_from_classes():
     
     
 if __name__ == '__main__':
-    test_traceviewer()
+    #~ test_traceviewer()
     #~ test_traceviewer_linked()
     #~ test_peaklist()
     #~ test_clusterlist()
     #~ test_ndviewer()
     #~ test_waveformviewer()
     
-    #~ test_cataloguewindow()
+    test_cataloguewindow()
     #~ test_cataloguewindow_from_classes()
