@@ -108,7 +108,7 @@ def test_cataloguewindow_from_classes():
     peak_pos = peakdetector.detect_peaks(threshold=-4, peak_sign = '-', n_span = 5)
     waveformextractor = WaveformExtractor(peakdetector, n_left=-30, n_right=50)
     limit_left, limit_right = waveformextractor.find_good_limits(mad_threshold = 1.1)
-    short_wf = waveformextractor.get_ajusted_waveforms(margin=2)
+    short_wf = waveformextractor.get_ajusted_waveforms()
     clustering = Clustering(short_wf)
     features = clustering.project(method = 'pca', n_components = 5)
     clustering.find_clusters(7)
@@ -122,12 +122,12 @@ def test_cataloguewindow_from_classes():
     
     
 if __name__ == '__main__':
-    #~ test_traceviewer()
+    test_traceviewer()
     #~ test_traceviewer_linked()
     #~ test_peaklist()
     #~ test_clusterlist()
     #~ test_ndviewer()
     #~ test_waveformviewer()
     
-    test_cataloguewindow()
+    #~ test_cataloguewindow()
     #~ test_cataloguewindow_from_classes()
