@@ -66,17 +66,16 @@ class SpikeSorter:
     def __repr__(self):
         return self.summary(level=0)
     
-    def apply_filter(self, highpass_freq = 300., seg_nums = 'all'):
+    def apply_filter(self, highpass_freq = 300., box_smooth = 1, seg_nums = 'all'):
 
         if seg_nums == 'all':
             seg_nums = self.dataio.segments_range.index
 
         for seg_num in seg_nums:
             sigs = self.dataio.get_signals(seg_num=seg_num, signal_type = 'unfiltered')
-            filter =  SignalFilter(sigs, highpass_freq = highpass_freq)
+            filter =  SignalFilter(sigs, highpass_freq = highpass_freq, box_smooth = box_smooth)
             filtered_sigs = filter.get_filtered_data()
             self.dataio.append_signals(filtered_sigs,  seg_num=seg_num, signal_type = 'filtered')
-    
     
     def detect_peaks_extract_waveforms(self, seg_nums = 'all',  
                 threshold=-4, peak_sign = '-', n_span = 2,

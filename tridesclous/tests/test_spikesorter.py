@@ -19,10 +19,14 @@ def test_spikesorter():
         sigs = sigs_by_trials[seg_num]
         spikesorter.dataio.append_signals_from_numpy(sigs, seg_num = seg_num,
                     t_start = 0.+5*seg_num, sampling_rate =  sampling_rate,
-                    signal_type = 'filtered', channels = ch_names)
+                    signal_type = 'unfiltered', channels = ch_names)
     
     print('### after data import ###')
     print(spikesorter)
+    
+    print('### after filtering ###')
+    spikesorter.apply_filter(highpass_freq = 0., box_smooth = 3)
+    
     
     spikesorter.detect_peaks_extract_waveforms(seg_nums = 'all',  threshold=-4, peak_sign = '-', n_span = 2,  n_left=-60, n_right=100)
     print('### after peak detection ###')
@@ -34,6 +38,7 @@ def test_spikesorter():
     print(spikesorter.summary(level=1))
     
     spikesorter.construct_catalogue()
+    spikesorter.clustering.plot_catalogue()
 
     spikesorter.appy_peeler()
 
@@ -97,3 +102,5 @@ def test_spikesorter_neo():
 if __name__ == '__main__':
     test_spikesorter()
     #~ test_spikesorter_neo()
+    
+    pyplot.show()
