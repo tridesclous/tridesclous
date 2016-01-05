@@ -123,6 +123,8 @@ class BaseTraceViewer(WidgetBase):
         tb.addWidget(but)
         self.select_button = QtGui.QPushButton('select', checkable = True)
         tb.addWidget(self.select_button)
+        
+        self._create_toolbar()
     
 
     def initialize_plot(self):
@@ -318,7 +320,7 @@ class BaseTraceViewer(WidgetBase):
                         self.plot.addItem(self.scatters[c][k])
                         self.scatters[c][k].sigClicked.connect(self.item_clicked)
                     
-                    if self.spikesorter.clustering.catalogue[k]['channel_peak_max'] == c:
+                    if self.spikesorter.catalogue[k]['channel_peak_max'] == c:
                         self.scatters[c][k].setBrush(color)
                         self.scatters[c][k].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
                     else:
@@ -328,7 +330,7 @@ class BaseTraceViewer(WidgetBase):
         
         n = self.dataio.nb_channel
         for c in range(n):
-            if self.params['plot_threshold']:
+            if self.params['plot_threshold'] and self.spikesorter.threshold is not None:
                 self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*self.spikesorter.threshold)
                 self.threshold_lines[c].show()
             else:
@@ -340,6 +342,9 @@ class BaseTraceViewer(WidgetBase):
 
 
 class TraceViewer(BaseTraceViewer):
+    def _create_toolbar(self):
+        pass
+        
     def _initialize_plot(self):
         pass
     
@@ -388,6 +393,16 @@ class TraceViewer(BaseTraceViewer):
 
 
 class PeelerTraceViewer(BaseTraceViewer):
+    def _create_toolbar(self):
+        self.plot_buttons = {}
+        for name in ['signals', 'prediction', 'residual']:
+            self.plot_buttons[name] = but = QtGui.QPushButton(name,  checkable = True)
+            but.clicked.connect(self.refresh)
+            self.toolbar.addWidget(but)
+            
+            if name in ['signals', 'prediction']:
+                but.setChecked(True)
+    
     def _initialize_plot(self):
         self.curves_prediction = []
         self.curves_residuals = []
@@ -427,7 +442,7 @@ class PeelerTraceViewer(BaseTraceViewer):
         jitters = spiketrains['jitter'].values
 
         length = self.spikesorter.limit_right - self.spikesorter.limit_left
-        catalogue = self.spikesorter.clustering.catalogue
+        catalogue = self.spikesorter.catalogue
         for i in range(spike_pos.size):
             pos = spike_pos[i] + self.spikesorter.limit_left
             if pos+length>=prediction.shape[0]: continue
@@ -441,16 +456,26 @@ class PeelerTraceViewer(BaseTraceViewer):
             pred = wf0 + jitters[i]*wf1 + jitters[i]**2/2*wf2
             
             prediction[pos:pos+length, :] = pred.reshape(self.dataio.nb_channel, -1).transpose()
-
+        
+        # plotting tricks
         prediction *=self.mad
         prediction += self.med
         residuals = chunk.values - prediction
+        residuals += self.med
         
         for c in range(self.dataio.nb_channel):
-            self.curves_prediction[c].setData(chunk.index.values, prediction[:, c]*self.gains[c]+self.offsets[c])
+            if self.plot_buttons['prediction'].isChecked():
+                self.curves_prediction[c].setData(chunk.index.values, prediction[:, c]*self.gains[c]+self.offsets[c])
+            else:
+                self.curves_prediction[c].setData([], [])
             
-            self.curves_residuals[c].setData(chunk.index.values, residuals[:, c]*self.gains[c]+self.offsets[c])
-            
+            if self.plot_buttons['residual'].isChecked():
+                self.curves_residuals[c].setData(chunk.index.values, residuals[:, c]*self.gains[c]+self.offsets[c])
+            else:
+                self.curves_residuals[c].setData([], [])
+                
+            if not self.plot_buttons['signals'].isChecked():
+                self.curves[c].setData([], [])
 
     def on_peak_selection_changed(self):
         selected_peaks = self.spikesorter.peak_selection[self.spikesorter.peak_selection]

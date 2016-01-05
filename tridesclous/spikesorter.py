@@ -52,6 +52,7 @@ class SpikeSorter:
             self.dataio = dataio
         
         self.all_peaks = None
+        self._catalogue = None
         self.colors = {}
         self.qcolors = {}
     
@@ -124,6 +125,22 @@ class SpikeSorter:
     def cluster_labels(self):
         if hasattr(self, 'clustering'):
             return self.clustering.cluster_labels
+        else:
+            if self.catalogue is not None:
+                return np.array(list(self.catalogue.keys()))
+            else:
+                return None
+    
+    @property
+    def catalogue(self):
+        if self._catalogue is None:
+            self.load_catalogue()
+        return self._catalogue
+    
+    def load_catalogue(self):
+        self._catalogue, self.limit_left, self.limit_right = self.dataio.get_catalogue()
+        self.threshold = None
+    
     
     #~ def load_all_peaks(self):
         #~ all = []
@@ -154,10 +171,10 @@ class SpikeSorter:
         
         self.clustering.reset()
         self.cluster_count = self.peak_labels.groupby(self.peak_labels).count()
-        self._check_visibility()
-        self.construct_catalogue()
+        self._check_plot_attributes()
+        self.construct_catalogue(save = False)
     
-    def _check_visibility(self):
+    def _check_plot_attributes(self):
         if not hasattr(self, 'cluster_visible'):
             self.cluster_visible = pd.Series(index = self.cluster_labels, name = 'visible', dtype = bool)
             self.cluster_visible[:] = True
@@ -166,12 +183,12 @@ class SpikeSorter:
                 self.cluster_visible.loc[k] = True
     
     def refresh_colors(self, reset = True, palette = 'husl'):
-        if self.peak_labels is None: return
+        if self.cluster_labels is None: return
         
         if reset:
             self.colors = {}
         
-        self._check_visibility()
+        self._check_plot_attributes()
         
         n = self.cluster_labels.size
         color_table = sns.color_palette(palette, n)
@@ -188,20 +205,22 @@ class SpikeSorter:
                 self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
     
     def construct_catalogue(self, save = True):
-        self.clustering.construct_catalogue()
+        self._catalogue = self.clustering.construct_catalogue()
         if save:
-            self.dataio.save_catalogue(self.clustering.catalogue)
+            self.dataio.save_catalogue(self.clustering.catalogue, self.limit_left, self.limit_right)
+    
+    
     
     def appy_peeler(self, seg_nums = 'all',  levels = [0, 1]):
         if seg_nums == 'all':
             seg_nums = self.dataio.segments_range.index
         
-        catalogue = self.dataio.get_catalogue()
+        
         for seg_num in seg_nums:
             sigs = self.dataio.get_signals(seg_num=seg_num, signal_type = 'filtered')
             
             normed_sigs = normalize_signals(sigs)
-            peeler = Peeler(normed_sigs, catalogue,  self.limit_left, self.limit_right,
+            peeler = Peeler(normed_sigs, self.catalogue,  self.limit_left, self.limit_right,
                             threshold=self.threshold, peak_sign=self.peak_sign, n_span=self.n_span)
             
             for level in levels:

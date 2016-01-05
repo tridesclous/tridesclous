@@ -104,7 +104,7 @@ class Clustering_:
         
         """
         
-        self.catalogue = {}
+        self.catalogue = OrderedDict()
         nb_channel = self.waveforms.columns.levels[0].size
         for k in self.cluster_labels:
             # take peak of this cluster

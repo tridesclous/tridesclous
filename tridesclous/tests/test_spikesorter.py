@@ -37,11 +37,9 @@ def test_spikesorter():
     print('### after clustering ###')
     print(spikesorter.summary(level=1))
     
-    spikesorter.construct_catalogue()
-    spikesorter.clustering.plot_catalogue()
-
+    spikesorter.construct_catalogue(save = True)
     spikesorter.appy_peeler()
-
+    
     for seg_num in range(3):
         spiketrains = spikesorter.dataio.get_spiketrains(seg_num=seg_num)
         print(spiketrains)
@@ -70,7 +68,7 @@ def test_spikesorter_neo():
 
     
     
-    spikesorter.apply_filter(highpass_freq = 150.)
+    spikesorter.apply_filter(highpass_freq = 150., box_smooth= 3)
     print('### after filtering ###')
     print(spikesorter.summary(level=1))
     
@@ -83,12 +81,11 @@ def test_spikesorter_neo():
     
     
     spikesorter.project(method = 'pca', n_components = 5)
-    spikesorter.find_clusters(7)
+    spikesorter.find_clusters(10)
     print('### after clustering ###')
     print(spikesorter.summary(level=1))
     
-    spikesorter.construct_catalogue()
-    
+    spikesorter.construct_catalogue(save = True)
     
     spikesorter.appy_peeler()
     
@@ -100,7 +97,7 @@ def test_spikesorter_neo():
 
     
 if __name__ == '__main__':
-    test_spikesorter()
-    #~ test_spikesorter_neo()
+    #~ test_spikesorter()
+    test_spikesorter_neo()
     
-    pyplot.show()
+    #~ pyplot.show()
