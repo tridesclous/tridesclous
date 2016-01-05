@@ -5,7 +5,7 @@ import seaborn as sns
 from .dataio import DataIO
 from .filter import SignalFilter
 from .peakdetector import PeakDetector, normalize_signals
-from .waveformextractor import WaveformExtractor
+from .waveformextractor import WaveformExtractor, get_good_events
 from .clustering import Clustering
 from .peeler import Peeler
 
@@ -89,6 +89,7 @@ class SpikeSorter:
         self.n_span = n_span
         
         self.all_waveforms = []
+        self.all_good_events = []
         for seg_num in seg_nums:
             sigs = self.dataio.get_signals(seg_num=seg_num, signal_type = 'filtered')
             
@@ -107,12 +108,15 @@ class SpikeSorter:
                 waveformextractor.limit_right = self.limit_right
             
             short_wf = waveformextractor.get_ajusted_waveforms()
+            good_events = get_good_events(short_wf, upper_thr=6.,lower_thr=-8.)
             self.all_waveforms.append(short_wf)
+            self.all_good_events.append(good_events)
 
         self.all_waveforms = pd.concat(self.all_waveforms, axis=0)
-
+        self.all_good_events = np.concatenate(self.all_good_events, axis=0)
+        
         #create a colum to handle selection on UI
-        self.clustering = Clustering(self.all_waveforms)
+        self.clustering = Clustering(self.all_waveforms, good_events = self.all_good_events)
         self.peak_selection = pd.Series(name = 'selected', index = self.all_waveforms.index, dtype = bool)
         self.peak_selection[:] = False
     

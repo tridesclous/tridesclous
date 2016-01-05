@@ -3,8 +3,8 @@ import  pyqtgraph as pg
 from matplotlib import pyplot
 
 def get_spikesorter():
-    #~ spikesorter = SpikeSorter(dirname = '../../tests/datatest')
-    spikesorter = SpikeSorter(dirname = '../../tests/datatest_neo')
+    spikesorter = SpikeSorter(dirname = '../../tests/datatest')
+    #~ spikesorter = SpikeSorter(dirname = '../../tests/datatest_neo')
     print(spikesorter.summary(level=1))
     spikesorter.detect_peaks_extract_waveforms(seg_nums = 'all',  threshold=-5.,
                             peak_sign = '-', n_span = 2,  n_left=-30, n_right=50)

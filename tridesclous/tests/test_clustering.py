@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib import pyplot
 import seaborn as sns
 
-from tridesclous import DataIO, PeakDetector, WaveformExtractor
+from tridesclous import DataIO, PeakDetector, WaveformExtractor, get_good_events
 
 from tridesclous import Clustering
 
@@ -22,10 +22,11 @@ def test_clustering():
     waveformextractor = WaveformExtractor(peakdetector, n_left=-30, n_right=50)
     limit_left, limit_right = waveformextractor.find_good_limits(mad_threshold = 1.1)
     short_wf = waveformextractor.get_ajusted_waveforms()
+    good_events = get_good_events(short_wf, upper_thr=6.,lower_thr=-8.)
     print(short_wf.shape)
     
     #clustering
-    clustering = Clustering(short_wf)
+    clustering = Clustering(short_wf, good_events = good_events)
     
     #PCA
     features = clustering.project(method = 'pca', n_components = 5)
@@ -48,8 +49,8 @@ def test_clustering():
     clustering.merge_cluster(1,2)
     clustering.split_cluster(1, 2)
     
-    dataio.save_catalogue(catalogue)
-    clustering.catalogue = dataio.get_catalogue()
+    dataio.save_catalogue(catalogue, limit_left, limit_right)
+    clustering.catalogue, limit_left, limit_right = dataio.get_catalogue()
     clustering.plot_catalogue()
     
     

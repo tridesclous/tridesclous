@@ -119,7 +119,7 @@ class CatalogueWindow(QtGui.QMainWindow):
         return CatalogueWindow(spikesorter)
 
     def save_catalogue(self):
-        self.spikesorter.dataio.save_catalogue(self.spikesorter.clustering.catalogue)
+        self.spikesorter.dataio.save_catalogue(self.spikesorter.clustering.catalogue, self.spikesorter.limit_left, self.spikesorter.limit_right)
     
     def refresh(self):
         for w in self.all_view:
