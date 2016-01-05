@@ -110,9 +110,9 @@ def test_peeler():
     
 if __name__=='__main__':
     
-    #~ plot_interpolation()
+    plot_interpolation()
     
-    test_peeler()
+    #~ test_peeler()
     
     pyplot.show()
 

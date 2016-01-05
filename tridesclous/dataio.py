@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 import json
+from collections import OrderedDict
 
 try:
     import neo
@@ -316,7 +317,7 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
         #~ if path in self.store:
             #~ return self.store[path]
     
-    def save_catalogue(self, catalogue):
+    def save_catalogue(self, catalogue, limit_left, limit_right):
         assert len(catalogue)>0, 'empty catalogue'
         index = list(catalogue.keys())
         columns = list(catalogue[index[0]].keys())
@@ -329,17 +330,20 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
         path = 'catalogue'
         catalogue2.to_hdf(self.store, path, append = False)
         
+        self.info['limit_left'] = limit_left
+        self.info['limit_right'] = limit_right
+        self.flush_info()
         
     def get_catalogue(self):
         path = 'catalogue'
         if path in self.store:
-            catalogue = {}
+            catalogue = OrderedDict()
             catalogue2 = self.store['catalogue']
             for k in catalogue2.index:
                 catalogue[k] = {}
                 for col in catalogue2.columns:
                     catalogue[k][col] = catalogue2.loc[k, col]
-            return catalogue
+            return catalogue, self.info['limit_left'], self.info['limit_right']
     
     def save_spiketrains(self, spiketrains, seg_num = 0):
         path = 'segment_{}/spiketrains'.format(seg_num)

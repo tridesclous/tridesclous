@@ -142,7 +142,7 @@ def extract_noise_waveforms(signals, peak_pos, n_left, n_right, size=1000, safet
     return waveforms
 
 
-def good_events(waveforms,  upper_thr=6.,lower_thr=-8., med = None, mad = None):
+def get_good_events(waveforms,  upper_thr=6.,lower_thr=-8., med = None, mad = None):
     """
     Are individual events 'close enough' to the median event?
     
@@ -285,7 +285,7 @@ class WaveformExtractor_:
             # see http://pandas.pydata.org/pandas-docs/stable/advanced.html   (Basic indexing on axis with MultiIndex)
             short_waveforms.columns = pd.MultiIndex.from_tuples(short_waveforms.columns.values)
             return short_waveforms
-
+    
 
 from .mpl_plot import WaveformExtractorPlot
 class WaveformExtractor(WaveformExtractor_, WaveformExtractorPlot):

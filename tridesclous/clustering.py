@@ -27,21 +27,27 @@ class Clustering_:
         * do clustering (kmean or gmm)
         * propose method for merge and split cluster.
     """
-    def __init__(self, waveforms):
+    def __init__(self, waveforms, good_events = None):
         self.waveforms = waveforms
+        if good_events is None: 
+            good_events = np.ones(waveforms.shape[0], dtype = bool)
+        #~ self.good_events = pd.Series(good_events, index = waveforms.index, dtype = bool)
+        self.good_events = good_events
         self.labels = pd.Series(index = waveforms.index,  dtype ='int32', name = 'label')
-        self.labels[:]= 0
+        self.labels.loc[:]= 0
     
     def project(self, method = 'pca', n_components = 5, selection = None):
         #TODO remove peak than are out to avoid PCA polution.
         wf = self.waveforms.values
+        if selection is None:
+            selection = self.good_events
+        
         if method=='pca':
             self._pca = sklearn.decomposition.PCA(n_components = n_components)
-            if selection is None:
-                feat = self._pca.fit_transform(wf)
-            else:
-                self._pca.fit(wf[selection])
-                feat = self._pca.transform(wf)
+            
+            #~ feat = self._pca.fit_transform(wf)
+            self._pca.fit(wf[selection])
+            feat = self._pca.transform(wf)
             
             self.features = pd.DataFrame(feat, index = self.waveforms.index, columns = ['pca{}'.format(i) for i in range(n_components)])
             
@@ -51,8 +57,13 @@ class Clustering_:
         self.cluster_labels = np.unique(self.labels.values)
         self.catalogue = {}
     
-    def find_clusters(self, n_clusters,method='kmeans', order_clusters = True, **kargs):
-        self.labels[:] = find_clusters(self.features, n_clusters, method='kmeans', **kargs)
+    def find_clusters(self, n_clusters,method='kmeans', order_clusters = True,**kargs):
+        #~ if selection is None:
+            #~ selection = self.good_events
+        #~ self.labels.loc[self.labels.index[selection]] = find_clusters(self.features[selection], n_clusters, method='kmeans', **kargs)
+        self.labels = find_clusters(self.features, n_clusters, method='kmeans', **kargs)
+        self.labels[~self.good_events] = -1
+        
         self.reset()
         if order_clusters:
             self.order_clusters()
@@ -87,7 +98,8 @@ class Clustering_:
         powers = [ ]
         for k in cluster_labels:
             wf = self.waveforms[self.labels==k].values
-            power = np.sum(np.median(wf, axis=0)**2)
+            #~ power = np.sum(np.median(wf, axis=0)**2)
+            power = np.sum(np.abs(np.median(wf, axis=0)))
             powers.append(power)
         sorted_labels = cluster_labels[np.argsort(powers)[::-1]]
         
@@ -104,7 +116,7 @@ class Clustering_:
         
         """
         
-        self.catalogue = {}
+        self.catalogue = OrderedDict()
         nb_channel = self.waveforms.columns.levels[0].size
         for k in self.cluster_labels:
             # take peak of this cluster

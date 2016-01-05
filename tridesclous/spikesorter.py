@@ -5,7 +5,7 @@ import seaborn as sns
 from .dataio import DataIO
 from .filter import SignalFilter
 from .peakdetector import PeakDetector, normalize_signals
-from .waveformextractor import WaveformExtractor
+from .waveformextractor import WaveformExtractor, get_good_events
 from .clustering import Clustering
 from .peeler import Peeler
 
@@ -52,6 +52,7 @@ class SpikeSorter:
             self.dataio = dataio
         
         self.all_peaks = None
+        self._catalogue = None
         self.colors = {}
         self.qcolors = {}
     
@@ -66,17 +67,16 @@ class SpikeSorter:
     def __repr__(self):
         return self.summary(level=0)
     
-    def apply_filter(self, highpass_freq = 300., seg_nums = 'all'):
+    def apply_filter(self, highpass_freq = 300., box_smooth = 1, seg_nums = 'all'):
 
         if seg_nums == 'all':
             seg_nums = self.dataio.segments_range.index
 
         for seg_num in seg_nums:
             sigs = self.dataio.get_signals(seg_num=seg_num, signal_type = 'unfiltered')
-            filter =  SignalFilter(sigs, highpass_freq = highpass_freq)
+            filter =  SignalFilter(sigs, highpass_freq = highpass_freq, box_smooth = box_smooth)
             filtered_sigs = filter.get_filtered_data()
             self.dataio.append_signals(filtered_sigs,  seg_num=seg_num, signal_type = 'filtered')
-    
     
     def detect_peaks_extract_waveforms(self, seg_nums = 'all',  
                 threshold=-4, peak_sign = '-', n_span = 2,
@@ -89,6 +89,7 @@ class SpikeSorter:
         self.n_span = n_span
         
         self.all_waveforms = []
+        self.all_good_events = []
         for seg_num in seg_nums:
             sigs = self.dataio.get_signals(seg_num=seg_num, signal_type = 'filtered')
             
@@ -107,12 +108,15 @@ class SpikeSorter:
                 waveformextractor.limit_right = self.limit_right
             
             short_wf = waveformextractor.get_ajusted_waveforms()
+            good_events = get_good_events(short_wf, upper_thr=6.,lower_thr=-8.)
             self.all_waveforms.append(short_wf)
+            self.all_good_events.append(good_events)
 
         self.all_waveforms = pd.concat(self.all_waveforms, axis=0)
-
+        self.all_good_events = np.concatenate(self.all_good_events, axis=0)
+        
         #create a colum to handle selection on UI
-        self.clustering = Clustering(self.all_waveforms)
+        self.clustering = Clustering(self.all_waveforms, good_events = self.all_good_events)
         self.peak_selection = pd.Series(name = 'selected', index = self.all_waveforms.index, dtype = bool)
         self.peak_selection[:] = False
     
@@ -125,6 +129,22 @@ class SpikeSorter:
     def cluster_labels(self):
         if hasattr(self, 'clustering'):
             return self.clustering.cluster_labels
+        else:
+            if self.catalogue is not None:
+                return np.array(list(self.catalogue.keys()))
+            else:
+                return None
+    
+    @property
+    def catalogue(self):
+        if self._catalogue is None:
+            self.load_catalogue()
+        return self._catalogue
+    
+    def load_catalogue(self):
+        self._catalogue, self.limit_left, self.limit_right = self.dataio.get_catalogue()
+        self.threshold = None
+    
     
     #~ def load_all_peaks(self):
         #~ all = []
@@ -155,10 +175,10 @@ class SpikeSorter:
         
         self.clustering.reset()
         self.cluster_count = self.peak_labels.groupby(self.peak_labels).count()
-        self._check_visibility()
-        self.construct_catalogue()
+        self._check_plot_attributes()
+        self.construct_catalogue(save = False)
     
-    def _check_visibility(self):
+    def _check_plot_attributes(self):
         if not hasattr(self, 'cluster_visible'):
             self.cluster_visible = pd.Series(index = self.cluster_labels, name = 'visible', dtype = bool)
             self.cluster_visible[:] = True
@@ -167,12 +187,12 @@ class SpikeSorter:
                 self.cluster_visible.loc[k] = True
     
     def refresh_colors(self, reset = True, palette = 'husl'):
-        if self.peak_labels is None: return
+        if self.cluster_labels is None: return
         
         if reset:
             self.colors = {}
         
-        self._check_visibility()
+        self._check_plot_attributes()
         
         n = self.cluster_labels.size
         color_table = sns.color_palette(palette, n)
@@ -189,20 +209,22 @@ class SpikeSorter:
                 self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
     
     def construct_catalogue(self, save = True):
-        self.clustering.construct_catalogue()
+        self._catalogue = self.clustering.construct_catalogue()
         if save:
-            self.dataio.save_catalogue(self.clustering.catalogue)
+            self.dataio.save_catalogue(self.clustering.catalogue, self.limit_left, self.limit_right)
+    
+    
     
     def appy_peeler(self, seg_nums = 'all',  levels = [0, 1]):
         if seg_nums == 'all':
             seg_nums = self.dataio.segments_range.index
         
-        catalogue = self.dataio.get_catalogue()
+        
         for seg_num in seg_nums:
             sigs = self.dataio.get_signals(seg_num=seg_num, signal_type = 'filtered')
             
             normed_sigs = normalize_signals(sigs)
-            peeler = Peeler(normed_sigs, catalogue,  self.limit_left, self.limit_right,
+            peeler = Peeler(normed_sigs, self.catalogue,  self.limit_left, self.limit_right,
                             threshold=self.threshold, peak_sign=self.peak_sign, n_span=self.n_span)
             
             for level in levels:

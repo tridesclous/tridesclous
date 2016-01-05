@@ -100,18 +100,14 @@ class Peeler_:
             rss_first = -2*h_dot_wf1 + 2*jitter0*(wf1_norm2 - h_dot_wf2) + 3*jitter0**2*wf1_dot_wf2 + jitter0**3*wf2_norm2
             rss_second = 2*(wf1_norm2 - h_dot_wf2) + 6*jitter0*wf1_dot_wf2 + 3*jitter0**2*wf2_norm2
             jitter1 = jitter0 - rss_first/rss_second
-            h2_norm2 = np.sum((h-jitter1*wf1-jitter1**2/2*wf2)**2)
-            if h1_norm2 <= h2_norm2:
+            #~ h2_norm2 = np.sum((h-jitter1*wf1-jitter1**2/2*wf2)**2)
+            #~ if h1_norm2 <= h2_norm2:
                 #when order 2 is worse than order 1
-                jitter1 = jitter0
+                #~ jitter1 = jitter0
         else:
             jitter1 = 0.
         
-        #TODO : remove this:
-        return k, jitter1
-        
-        #TODO : trouver un critere moins stricte
-        if np.sum(wf**2) > np.sum((wf0+jitter1*wf1+jitter1**2/2*wf2)**2):
+        if np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2):
             #prediction should be smaller than original (which have noise)
             return k, jitter1
         else:

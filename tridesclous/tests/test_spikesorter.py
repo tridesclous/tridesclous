@@ -19,10 +19,14 @@ def test_spikesorter():
         sigs = sigs_by_trials[seg_num]
         spikesorter.dataio.append_signals_from_numpy(sigs, seg_num = seg_num,
                     t_start = 0.+5*seg_num, sampling_rate =  sampling_rate,
-                    signal_type = 'filtered', channels = ch_names)
+                    signal_type = 'unfiltered', channels = ch_names)
     
     print('### after data import ###')
     print(spikesorter)
+    
+    print('### after filtering ###')
+    spikesorter.apply_filter(highpass_freq = 0., box_smooth = 3)
+    
     
     spikesorter.detect_peaks_extract_waveforms(seg_nums = 'all',  threshold=-4, peak_sign = '-', n_span = 2,  n_left=-60, n_right=100)
     print('### after peak detection ###')
@@ -33,10 +37,9 @@ def test_spikesorter():
     print('### after clustering ###')
     print(spikesorter.summary(level=1))
     
-    spikesorter.construct_catalogue()
-
+    spikesorter.construct_catalogue(save = True)
     spikesorter.appy_peeler()
-
+    
     for seg_num in range(3):
         spiketrains = spikesorter.dataio.get_spiketrains(seg_num=seg_num)
         print(spiketrains)
@@ -65,7 +68,7 @@ def test_spikesorter_neo():
 
     
     
-    spikesorter.apply_filter(highpass_freq = 150.)
+    spikesorter.apply_filter(highpass_freq = 150., box_smooth= 3)
     print('### after filtering ###')
     print(spikesorter.summary(level=1))
     
@@ -78,12 +81,11 @@ def test_spikesorter_neo():
     
     
     spikesorter.project(method = 'pca', n_components = 5)
-    spikesorter.find_clusters(7)
+    spikesorter.find_clusters(10)
     print('### after clustering ###')
     print(spikesorter.summary(level=1))
     
-    spikesorter.construct_catalogue()
-    
+    spikesorter.construct_catalogue(save = True)
     
     spikesorter.appy_peeler()
     
@@ -95,5 +97,7 @@ def test_spikesorter_neo():
 
     
 if __name__ == '__main__':
-    test_spikesorter()
-    #~ test_spikesorter_neo()
+    #~ test_spikesorter()
+    test_spikesorter_neo()
+    
+    #~ pyplot.show()

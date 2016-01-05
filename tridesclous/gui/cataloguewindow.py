@@ -26,9 +26,9 @@ class CatalogueWindow(QtGui.QMainWindow):
         self.ndscatter = NDScatter(spikesorter = spikesorter)
         self.WaveformViewer = WaveformViewer(spikesorter = spikesorter)
         
-        all = [self.traceviewer, self.peaklist, self.clusterlist, self.ndscatter, self.WaveformViewer]
+        self.all_view = [self.traceviewer, self.peaklist, self.clusterlist, self.ndscatter, self.WaveformViewer]
         
-        for w1, w2 in itertools.combinations(all,2):
+        for w1, w2 in itertools.combinations(self.all_view,2):
             w1.peak_selection_changed.connect(w2.on_peak_selection_changed)
             w2.peak_selection_changed.connect(w1.on_peak_selection_changed)
             
@@ -66,8 +66,37 @@ class CatalogueWindow(QtGui.QMainWindow):
         docks['ndscatter'].setWidget(self.ndscatter)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, docks['ndscatter'])
         
+        self.create_actions()
+        self.create_toolbar()
+        
         self.spikesorter.refresh_colors()
+        
+    def create_actions(self):
+        self.act_save = QtGui.QAction(u'Save catalogue', self,checkable = False, icon=QtGui.QIcon.fromTheme("document-save"))
+        self.act_save.triggered.connect(self.save_catalogue)
 
+        self.act_refresh = QtGui.QAction(u'Refresh', self,checkable = False, icon=QtGui.QIcon.fromTheme("view-refresh"))
+        self.act_refresh.triggered.connect(self.refresh)
+
+        self.act_decimate = QtGui.QAction(u'Random decimate', self,checkable = False, icon=QtGui.QIcon.fromTheme("roll"))
+        self.act_decimate.triggered.connect(self.random_decimate)
+
+        self.act_setting = QtGui.QAction(u'Settings', self,checkable = False, icon=QtGui.QIcon.fromTheme("preferences-other"))
+        self.act_setting.triggered.connect(self.open_settings)
+
+    
+    
+    
+    def create_toolbar(self):
+        self.toolbar = QtGui.QToolBar('Tools')
+        self.toolbar.setToolButtonStyle(QtCore.Qt.ToolButtonTextUnderIcon)
+        self.addToolBar(QtCore.Qt.RightToolBarArea, self.toolbar)
+        self.toolbar.setIconSize(QtCore.QSize(60, 40))
+        
+        self.toolbar.addAction(self.act_save)
+        self.toolbar.addAction(self.act_refresh)
+        self.toolbar.addAction(self.act_decimate)
+        self.toolbar.addAction(self.act_setting)
     
     @classmethod
     def from_classes(cls, peakdetector, waveformextractor, clustering, dataio =None):
@@ -89,3 +118,15 @@ class CatalogueWindow(QtGui.QMainWindow):
         
         return CatalogueWindow(spikesorter)
 
+    def save_catalogue(self):
+        self.spikesorter.dataio.save_catalogue(self.spikesorter.clustering.catalogue, self.spikesorter.limit_left, self.spikesorter.limit_right)
+    
+    def refresh(self):
+        for w in self.all_view:
+            w.refresh()
+    
+    def random_decimate(self):
+        pass
+    
+    def open_settings(self):
+        pass

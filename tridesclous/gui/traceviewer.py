@@ -37,7 +37,7 @@ class MyViewBox(pg.ViewBox):
         self.xsize_zoom.emit((ev.pos()-ev.lastPos()).x())
 
 
-class TraceViewer(WidgetBase):
+class BaseTraceViewer(WidgetBase):
     
     def __init__(self, spikesorter = None, shared_view_with = [], 
                     mode = 'memory', signal_type = 'filtered', parent=None):
@@ -64,8 +64,8 @@ class TraceViewer(WidgetBase):
             
         
         #handle time by segments
-        self.time_by_seg = pd.Series(self.dataio.segments_range.loc[:, (signal_type,'t_start')].copy(), name = 'time',
-                                            index = self.dataio.segments_range.index)
+        t_starts = self.dataio.segments_range.loc[:, ('filtered','t_start')].copy()
+        self.time_by_seg = pd.Series(t_starts, name = 'time', index = self.dataio.segments_range.index)
         
         _params = [{'name': 'auto_zoom_on_select', 'type': 'bool', 'value': True },
                            {'name': 'zoom_size', 'type': 'float', 'value':  0.08, 'step' : 0.001 },
@@ -86,15 +86,9 @@ class TraceViewer(WidgetBase):
         tb = self.toolbar = QtGui.QToolBar()
         
         #Segment selection
-        #~ but = QtGui.QPushButton('<')
-        #~ but.clicked.connect(self.prev_segment)
-        #~ tb.addWidget(but)
         self.combo_seg = QtGui.QComboBox()
         tb.addWidget(self.combo_seg)
         self.combo_seg.addItems([ 'Segment {}'.format(seg_num) for seg_num in self.dataio.segments_range.index ])
-        #~ but = QtGui.QPushButton('>')
-        #~ but.clicked.connect(self.next_segment)
-        #~ tb.addWidget(but)
         self._seg_pos = 0
         self.seg_num = self.dataio.segments_range.index[self._seg_pos]
         self.combo_seg.currentIndexChanged.connect(self.on_combo_seg_changed)
@@ -129,6 +123,8 @@ class TraceViewer(WidgetBase):
         tb.addWidget(but)
         self.select_button = QtGui.QPushButton('select', checkable = True)
         tb.addWidget(self.select_button)
+        
+        self._create_toolbar()
     
 
     def initialize_plot(self):
@@ -163,6 +159,8 @@ class TraceViewer(WidgetBase):
             
             self.scatters.append({})
         
+        self._initialize_plot()
+        
         self.gains = None
         self.offsets = None
 
@@ -189,20 +187,18 @@ class TraceViewer(WidgetBase):
         self.combo_seg.setCurrentIndex(self._seg_pos)
         
         lims = self.dataio.segments_range.xs(self.signal_type, axis=1).loc[self.seg_num]
-        self.timeseeker.set_start_stop(lims['t_start'], lims['t_stop'], seek = False)
-        self.timeseeker.seek(self.time_by_seg[self.seg_num], emit = False)
         
         if self.mode == 'memory':
             self.sigs = self.dataio.get_signals(seg_num = self.seg_num, t_start = lims['t_start'], 
                             t_stop = lims['t_stop'], signal_type = self.signal_type)
         elif self.mode == 'file':
             self.sigs = None
+        
+        self.load_peak_or_spiketrain()
 
-        if self.spikesorter.peak_labels is not None:
-            self.seg_peaks = self.spikesorter.peak_labels.xs(self.seg_num)
-        else:
-            self.seg_peaks = None
-            
+        self.timeseeker.set_start_stop(lims['t_start'], lims['t_stop'], seek = False)
+        #~ self.timeseeker.seek(self.time_by_seg[self.seg_num], emit = False)
+
         if self.isVisible():
             self.refresh()
 
@@ -226,88 +222,6 @@ class TraceViewer(WidgetBase):
         if self.isVisible():
             self.refresh()
     
-    def seek(self, t, cascade=True):
-        if cascade:
-            for otherviewer in self.shared_view_with:
-                otherviewer.seek(t, cascade = False)
-        else:
-            self.timeseeker.seek(t, emit = False)
-            
-        self.time_by_seg[self.seg_num] = t
-        t1,t2 = t-self.xsize/3. , t+self.xsize*2/3.
-        #~ print(t1, t2)
-        
-        if self.gains is None:
-            self.estimate_auto_scale()
-
-        
-        #signal chunk
-        if self.mode == 'memory':
-            chunk = self.sigs.loc[t1:t2]
-        elif self.mode == 'file':
-            chunk = self.dataio.get_signals(seg_num = self.seg_num, t_start = t1, t_stop = t2, signal_type = self.signal_type)
-        
-        for c in range(self.dataio.nb_channel):
-            self.curves[c].setData(chunk.index.values, chunk.iloc[:, c].values*self.gains[c]+self.offsets[c])
-            self.channel_labels[c].setPos(t1, self.dataio.nb_channel-c-1)
-        
-        if self.seg_peaks is not None:
-            inwin = self.seg_peaks.loc[t1:t2]
-            
-            for c in range(self.dataio.nb_channel):
-                #reset scatters
-                for k in self.spikesorter.cluster_labels:
-                    if not self.spikesorter.cluster_visible[k]:
-                        self.scatters[c][k].setData([], [])
-                
-                for k in list(self.scatters[c].keys()):
-                    if not k in self.spikesorter.cluster_labels:
-                        scatter = self.scatters[c].pop(k)
-                        self.plot.removeItem(scatter)
-                
-                # plotted selected
-                if 'sel' not in self.scatters[c]:
-                    brush = QtGui.QColor( 'magenta')
-                    brush.setAlpha(180)
-                    pen = QtGui.QColor( 'yellow')
-                    self.scatters[c]['sel'] = pg.ScatterPlotItem(pen=pen, brush=brush, size=20, pxMode = True)
-                    self.plot.addItem(self.scatters[c]['sel'])
-                seg_selection = self.spikesorter.peak_selection.xs(self.seg_num)
-                sel = seg_selection.loc[inwin.index]
-                sel = sel[sel]
-                p = chunk.loc[sel.index]
-                self.scatters[c]['sel'].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
-            
-            for k in self.spikesorter.cluster_labels:
-                if not self.spikesorter.cluster_visible[k]:
-                    continue
-                sel = inwin[inwin==k]
-                for c in range(self.dataio.nb_channel):
-                    p = chunk.loc[sel.index]
-                    color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
-                    if k not in self.scatters[c]:
-                        self.scatters[c][k] = pg.ScatterPlotItem(pen=None, brush=color, size=10, pxMode = True)
-                        self.plot.addItem(self.scatters[c][k])
-                        self.scatters[c][k].sigClicked.connect(self.item_clicked)
-                    
-                    if self.spikesorter.clustering.catalogue[k]['channel_peak_max'] == c:
-                        self.scatters[c][k].setBrush(color)
-                        self.scatters[c][k].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
-                    else:
-                        self.scatters[c][k].setData([], [])
-        
-        
-        n = self.dataio.nb_channel
-        for c in range(n):
-            if self.params['plot_threshold']:
-                self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*self.spikesorter.threshold)
-                self.threshold_lines[c].show()
-            else:
-                self.threshold_lines[c].hide()
-        
-        self.plot.setXRange( t1, t2, padding = 0.0)
-        self.plot.setYRange(-.5, self.dataio.nb_channel-.5, padding = 0.0)
-        
     def refresh(self):
         self.seek(self.time_by_seg[self.seg_num], cascade = False)
 
@@ -331,20 +245,129 @@ class TraceViewer(WidgetBase):
             self.med, self.mad = median_mad(chunk, axis = 0)
         
         self.med, self.mad = self.med.values, self.mad.values
-        #~ n = self.dataio.nb_channel
         self.factor = 1.
-        #~ self.gains = np.ones(n, dtype=float) * 1./(self.factor*max(self.mad))
-        #~ self.offsets = np.arange(n)[::-1] - self.med*self.gains
         self.gain_zoom(15.)
     
     def gain_zoom(self, factor_ratio):
         self.factor *= factor_ratio
-        #~ self.offsets = self.offsets + self.med*self.gains - self.med*self.gains*factor
-        #~ self.gains = self.gains*factor
         n = self.dataio.nb_channel
         self.gains = np.ones(n, dtype=float) * 1./(self.factor*max(self.mad))
         self.offsets = np.arange(n)[::-1] - self.med*self.gains
         self.refresh()
+
+    def seek(self, t, cascade=True):
+        if cascade:
+            for otherviewer in self.shared_view_with:
+                otherviewer.seek(t, cascade = False)
+        else:
+            self.timeseeker.seek(t, emit = False)
+            
+        self.time_by_seg[self.seg_num] = t
+        t1,t2 = t-self.xsize/3. , t+self.xsize*2/3.
+        t_start = self.dataio.segments_range.loc[self.seg_num, (self.signal_type,'t_start')]
+        sr = self.dataio.sampling_rate
+        ind1 = max(0, int((t1-t_start)*sr))
+        ind2 = int((t2-t_start)*sr)
+        
+        if self.gains is None:
+            self.estimate_auto_scale()
+
+        #signal chunk
+        if self.mode == 'memory':
+            #~ chunk = self.sigs.loc[t1:t2]
+            chunk = self.sigs.iloc[ind1:ind2]
+        elif self.mode == 'file':
+            chunk = self.dataio.get_signals(seg_num = self.seg_num, t_start = t1, t_stop = t2, signal_type = self.signal_type)
+        
+        for c in range(self.dataio.nb_channel):
+            self.curves[c].setData(chunk.index.values, chunk.iloc[:, c].values*self.gains[c]+self.offsets[c])
+            self.channel_labels[c].setPos(t1, self.dataio.nb_channel-c-1)
+        
+        inwindow_times, inwindow_label, inwindow_selected = self.get_peak_or_spiketrain_in_window(t1, t2)
+        
+        if inwindow_times is not None:
+            
+            for c in range(self.dataio.nb_channel):
+                #reset scatters
+                for k in self.spikesorter.cluster_labels:
+                    if not self.spikesorter.cluster_visible[k]:
+                        self.scatters[c][k].setData([], [])
+                
+                for k in list(self.scatters[c].keys()):
+                    if not k in self.spikesorter.cluster_labels:
+                        scatter = self.scatters[c].pop(k)
+                        self.plot.removeItem(scatter)
+                
+                # plotted selected
+                if 'sel' not in self.scatters[c]:
+                    brush = QtGui.QColor( 'magenta')
+                    brush.setAlpha(180)
+                    pen = QtGui.QColor( 'yellow')
+                    self.scatters[c]['sel'] = pg.ScatterPlotItem(pen=pen, brush=brush, size=20, pxMode = True)
+                    self.plot.addItem(self.scatters[c]['sel'])
+                
+                p = chunk.loc[inwindow_times[inwindow_selected]]
+                self.scatters[c]['sel'].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
+            
+            for k in self.spikesorter.cluster_labels:
+                if not self.spikesorter.cluster_visible[k]:
+                    continue
+                p = chunk.loc[inwindow_times[inwindow_label==k]]
+                for c in range(self.dataio.nb_channel):
+                    color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
+                    if k not in self.scatters[c]:
+                        self.scatters[c][k] = pg.ScatterPlotItem(pen=None, brush=color, size=10, pxMode = True)
+                        self.plot.addItem(self.scatters[c][k])
+                        self.scatters[c][k].sigClicked.connect(self.item_clicked)
+                    
+                    if self.spikesorter.catalogue[k]['channel_peak_max'] == c:
+                        self.scatters[c][k].setBrush(color)
+                        self.scatters[c][k].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
+                    else:
+                        self.scatters[c][k].setData([], [])
+            
+            self._plot_prediction(t1, t2, chunk, ind1)
+        
+        n = self.dataio.nb_channel
+        for c in range(n):
+            if self.params['plot_threshold'] and self.spikesorter.threshold is not None:
+                self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*self.spikesorter.threshold)
+                self.threshold_lines[c].show()
+            else:
+                self.threshold_lines[c].hide()
+        
+        self.plot.setXRange( t1, t2, padding = 0.0)
+        self.plot.setYRange(-.5, self.dataio.nb_channel-.5, padding = 0.0)
+
+
+
+class TraceViewer(BaseTraceViewer):
+    def _create_toolbar(self):
+        pass
+        
+    def _initialize_plot(self):
+        pass
+    
+    def load_peak_or_spiketrain(self):
+        if self.spikesorter.peak_labels is not None:
+            self.seg_peak_labels = self.spikesorter.peak_labels.xs(self.seg_num)
+        else:
+            self.seg_peak_labels = None
+
+    def get_peak_or_spiketrain_in_window(self, t1, t2):
+        if self.seg_peak_labels is None:
+            return None, None
+        inwindow = self.seg_peak_labels.loc[t1:t2]
+        inwindow_label = inwindow.values
+        inwindow_times = inwindow.index.values
+        
+        seg_selection = self.spikesorter.peak_selection.xs(self.seg_num)
+        inwindow_selected = seg_selection.loc[inwindow.index].values
+        
+        return inwindow_times, inwindow_label, inwindow_selected
+    
+    def _plot_prediction(self,t1, t2, chunk, ind1):
+        pass
     
     def on_peak_selection_changed(self):
         selected_peaks = self.spikesorter.peak_selection[self.spikesorter.peak_selection]
@@ -357,10 +380,115 @@ class TraceViewer(WidgetBase):
             self.seek(time)
         else:
             self.refresh()
+    
+    def item_clicked(self, plot, points):
+        if self.select_button.isChecked()and len(points)==1:
+            x = points[0].pos().x()
+            self.spikesorter.peak_selection[:] = False
+            self.spikesorter.peak_selection.loc[(self.seg_num, x)] = True
+            
+            self.peak_selection_changed.emit()
+            self.refresh()
+    
 
-    def on_peak_cluster_changed(self):
-        self.refresh()
 
+class PeelerTraceViewer(BaseTraceViewer):
+    def _create_toolbar(self):
+        self.plot_buttons = {}
+        for name in ['signals', 'prediction', 'residual']:
+            self.plot_buttons[name] = but = QtGui.QPushButton(name,  checkable = True)
+            but.clicked.connect(self.refresh)
+            self.toolbar.addWidget(but)
+            
+            if name in ['signals', 'prediction']:
+                but.setChecked(True)
+    
+    def _initialize_plot(self):
+        self.curves_prediction = []
+        self.curves_residuals = []
+        for c in range(self.dataio.nb_channel):
+            color = '#FF00FF'  # TODO
+            curve = pg.PlotCurveItem(pen=color)
+            self.plot.addItem(curve)
+            self.curves_prediction.append(curve)
+
+            color = '#FFFF00'  # TODO
+            curve = pg.PlotCurveItem(pen=color)
+            self.plot.addItem(curve)
+            self.curves_residuals.append(curve)
+
+   
+    def load_peak_or_spiketrain(self):
+        self.spiketrains = self.dataio.get_spiketrains(self.seg_num)
+
+    def get_peak_or_spiketrain_in_window(self, t1, t2):
+        if self.spiketrains is None:
+            return None, None
+        mask = (self.spiketrains['time']>=t1) & (self.spiketrains['time']<=t2)
+        inwindow_label = self.spiketrains[mask]['label'].values
+        inwindow_times = self.spiketrains[mask]['time'].values
+        
+        inwindow_selected = np.zeros(inwindow_label.shape, dtype = bool)
+        
+        return inwindow_times, inwindow_label, inwindow_selected
+
+    def _plot_prediction(self,t1, t2, chunk, ind1):
+        prediction = np.zeros(chunk.shape)
+        
+        mask = (self.spiketrains['time']>=t1) & (self.spiketrains['time']<=t2)
+        spiketrains = self.spiketrains[mask]
+        spike_pos = spiketrains.index-ind1
+        labels = spiketrains['label'].values
+        jitters = spiketrains['jitter'].values
+
+        length = self.spikesorter.limit_right - self.spikesorter.limit_left
+        catalogue = self.spikesorter.catalogue
+        for i in range(spike_pos.size):
+            pos = spike_pos[i] + self.spikesorter.limit_left
+            if pos+length>=prediction.shape[0]: continue
+            if pos<0: continue
+            
+            k = labels[i]
+            if k<0: continue
+            wf0 = catalogue[k]['center']
+            wf1 = catalogue[k]['centerD']
+            wf2 = catalogue[k]['centerDD']
+            pred = wf0 + jitters[i]*wf1 + jitters[i]**2/2*wf2
+            
+            prediction[pos:pos+length, :] = pred.reshape(self.dataio.nb_channel, -1).transpose()
+        
+        # plotting tricks
+        prediction *=self.mad
+        prediction += self.med
+        residuals = chunk.values - prediction
+        residuals += self.med
+        
+        for c in range(self.dataio.nb_channel):
+            if self.plot_buttons['prediction'].isChecked():
+                self.curves_prediction[c].setData(chunk.index.values, prediction[:, c]*self.gains[c]+self.offsets[c])
+            else:
+                self.curves_prediction[c].setData([], [])
+            
+            if self.plot_buttons['residual'].isChecked():
+                self.curves_residuals[c].setData(chunk.index.values, residuals[:, c]*self.gains[c]+self.offsets[c])
+            else:
+                self.curves_residuals[c].setData([], [])
+                
+            if not self.plot_buttons['signals'].isChecked():
+                self.curves[c].setData([], [])
+
+    def on_peak_selection_changed(self):
+        selected_peaks = self.spikesorter.peak_selection[self.spikesorter.peak_selection]
+        if self.params['auto_zoom_on_select'] and selected_peaks.shape[0]==1:
+            seg_num, time= selected_peaks.index[0]
+            if seg_num != self.seg_num:
+                seg_pos = self.dataio.segments_range.index.tolist().index(seg_num)
+                self.combo_seg.setCurrentIndex(seg_pos)
+            self.spinbox_xsize.setValue(self.params['zoom_size'])
+            self.seek(time)
+        else:
+            self.refresh()
+    
     def item_clicked(self, plot, points):
         if self.select_button.isChecked()and len(points)==1:
             x = points[0].pos().x()
@@ -370,4 +498,3 @@ class TraceViewer(WidgetBase):
             self.peak_selection_changed.emit()
             self.refresh()
 
-    

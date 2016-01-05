@@ -20,7 +20,9 @@ class PeakModel(QtCore.QAbstractItemModel):
         
     def rowCount(self, parentIndex):
         if not parentIndex.isValid() and self.spikesorter.peak_labels is not None:
-            return self.spikesorter.peak_labels.shape[0]
+            v = self.spikesorter.cluster_visible[self.spikesorter.cluster_visible]
+            self.visible_peak_labels = self.spikesorter.peak_labels[self.spikesorter.peak_labels.isin(v.index)]
+            return self.visible_peak_labels.shape[0]
         else :
             return 0
         
@@ -44,8 +46,8 @@ class PeakModel(QtCore.QAbstractItemModel):
         
         col = index.column()
         row = index.row()
-        ind = self.spikesorter.peak_labels.index[row]
-        label =  self.spikesorter.peak_labels.iloc[row]
+        ind = self.visible_peak_labels.index[row]
+        label =  self.visible_peak_labels.iloc[row]
         
         if role ==QtCore.Qt.DisplayRole :
             if col == 0:
@@ -66,7 +68,7 @@ class PeakModel(QtCore.QAbstractItemModel):
                 return None
         else :
             return None
-
+    
     def flags(self, index):
         if not index.isValid():
             return QtCore.Qt.NoItemFlags
@@ -124,17 +126,20 @@ class PeakList(WidgetBase):
         self.spikesorter.peak_selection[:] = False
         for index in self.tree.selectedIndexes():
             if index.column() == 0:
-                #~ self.spikesorter.peak_selection.iloc[index.row()] = True # this is buggy ??????
-                self.spikesorter.peak_selection.values[index.row()] = True
+                ind = self.model.visible_peak_labels.index[index.row()]
+                self.spikesorter.peak_selection.loc[ind] = True
         self.peak_selection_changed.emit()
-
+    
     def on_peak_selection_changed(self):
         self.tree.selectionModel().selectionChanged.disconnect(self.on_tree_selection)
         
-        selected_peaks = self.spikesorter.peak_selection[self.spikesorter.peak_selection]
+        v = self.spikesorter.cluster_visible[self.spikesorter.cluster_visible]
+        selected_peaks = self.spikesorter.peak_selection.iloc[self.spikesorter.peak_labels.isin(v.index).values]
+        selected_peaks = selected_peaks[selected_peaks]
+        
         if selected_peaks.shape[0]>100:#otherwise this is verry slow
             selected_peaks = selected_peaks.iloc[:10]
-        rows = [self.spikesorter.peak_labels.index.get_loc(ind) for ind in selected_peaks.index]
+        rows = [self.model.visible_peak_labels.index.get_loc(ind) for ind in selected_peaks.index]
         
         # change selection
         self.tree.selectionModel().clearSelection()
@@ -154,11 +159,12 @@ class PeakList(WidgetBase):
 
         self.tree.selectionModel().selectionChanged.connect(self.on_tree_selection)        
 
+
     def open_context_menu(self):
         menu = QtGui.QMenu()
         act = menu.addAction('Move selection to trash')
         act.triggered.connect(self.move_selection_to_trash)
-        #~ menu.popup(self.cursor().pos())
+        ##menu.popup(self.cursor().pos())
         menu.exec_(self.cursor().pos())
     
     def move_selection_to_trash(self):
@@ -190,7 +196,7 @@ class ClusterList(WidgetBase):
         self.table.itemChanged.disconnect(self.on_item_changed)
         sps = self.spikesorter
         self.table.clear()
-        labels = ['label', 'nb_peaks', 'show/hide' ]
+        labels = ['label', 'show/hide', 'nb_peaks']
         self.table.setColumnCount(len(labels))
         self.table.setHorizontalHeaderLabels(labels)
         #~ self.table.setMinimumWidth(100)
@@ -214,19 +220,21 @@ class ClusterList(WidgetBase):
             self.table.setItem(i,0, item)
             item.setIcon(icon)
             
-            item = QtGui.QTableWidgetItem('{}'.format(self.spikesorter.cluster_count[k]))
-            item.setFlags(QtCore.Qt.ItemIsEnabled|QtCore.Qt.ItemIsSelectable)
-            self.table.setItem(i,1, item)
-            
             item = QtGui.QTableWidgetItem('')
             item.setFlags(QtCore.Qt.ItemIsEnabled|QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsUserCheckable)
             item.setCheckState({ False: QtCore.Qt.Unchecked, True : QtCore.Qt.Checked}[self.spikesorter.cluster_visible[k]])
+            self.table.setItem(i,1, item)
+
+            item = QtGui.QTableWidgetItem('{}'.format(self.spikesorter.cluster_count[k]))
+            item.setFlags(QtCore.Qt.ItemIsEnabled|QtCore.Qt.ItemIsSelectable)
             self.table.setItem(i,2, item)
-            
+        
+        for i in range(3):
+            self.table.resizeColumnToContents(i)
         self.table.itemChanged.connect(self.on_item_changed)        
 
     def on_item_changed(self, item):
-        if item.column() != 2: return
+        if item.column() != 1: return
         sel = {QtCore.Qt.Unchecked : False, QtCore.Qt.Checked : True}[item.checkState()]
         k = self.spikesorter.cluster_labels[item.row()]
         self.spikesorter.cluster_visible[k] = item.checkState()
