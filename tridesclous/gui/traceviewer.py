@@ -197,10 +197,19 @@ class BaseTraceViewer(WidgetBase):
         self.load_peak_or_spiketrain()
 
         self.timeseeker.set_start_stop(lims['t_start'], lims['t_stop'], seek = False)
-        #~ self.timeseeker.seek(self.time_by_seg[self.seg_num], emit = False)
+        
+        if np.isnan(self.time_by_seg[self.seg_num]) and not np.isnan(lims['t_start']):
+            self.time_by_seg[self.seg_num] = lims['t_start']
+            
 
         if self.isVisible():
             self.refresh()
+    
+    def have_sigs(self):
+        if self.mode == 'memory':
+            return self.sigs is not None
+        elif self.mode == 'file':
+             return self.dataio.have_signals(seg_num=self.seg_num, signal_type=self.signal_type)
 
     
     def on_combo_seg_changed(self):
@@ -240,7 +249,7 @@ class BaseTraceViewer(WidgetBase):
         if self.mode == 'memory':
             self.med, self.mad = median_mad(self.sigs, axis = 0)
         elif self.mode == 'file':
-            lims = self.dataio.segments.loc[self.seg_num]
+            lims = self.dataio.segments_range.xs(self.signal_type, axis=1).loc[self.seg_num]
             chunk = self.dataio.get_signals(seg_num = self.seg_num, t_start = lims['t_start'], t_stop = lims['t_start']+60., signal_type = self.signal_type)
             self.med, self.mad = median_mad(chunk, axis = 0)
         
@@ -256,6 +265,8 @@ class BaseTraceViewer(WidgetBase):
         self.refresh()
 
     def seek(self, t, cascade=True):
+        if not self.have_sigs(): return
+        
         if cascade:
             for otherviewer in self.shared_view_with:
                 otherviewer.seek(t, cascade = False)
@@ -356,7 +367,7 @@ class TraceViewer(BaseTraceViewer):
 
     def get_peak_or_spiketrain_in_window(self, t1, t2):
         if self.seg_peak_labels is None:
-            return None, None
+            return None, None, None
         inwindow = self.seg_peak_labels.loc[t1:t2]
         inwindow_label = inwindow.values
         inwindow_times = inwindow.index.values

@@ -21,7 +21,7 @@ class TimeSeeker(QtGui.QWidget) :
             self.slider = None
             
         if show_spinbox:
-            self.spinbox = pg.SpinBox(decimals = 3., minimum = -np.inf, maximum = np.inf, suffix = 's', siPrefix = True, 
+            self.spinbox = pg.SpinBox(decimals = 4, bounds=[-np.inf, np.inf], suffix = 's', siPrefix = True, 
                             step = 0.1, dec = True, minStep = 0.001)
             self.layout.addWidget(self.spinbox)
             self.spinbox.valueChanged.connect(self.spinbox_changed)
@@ -32,6 +32,7 @@ class TimeSeeker(QtGui.QWidget) :
         self.set_start_stop(0., 10.)
 
     def set_start_stop(self, t_start, t_stop, seek = True):
+        if np.isnan(t_start) or np.isnan(t_stop): return
         assert t_stop>t_start
         self.t_start = t_start
         self.t_stop = t_stop

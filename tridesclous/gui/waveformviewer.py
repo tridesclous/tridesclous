@@ -60,6 +60,9 @@ class WaveformViewer(WidgetBase):
         self.plot1.clear()
         self.plot2.clear()
         
+        if not hasattr(self.spikesorter, 'all_waveforms'):
+            return
+        
         #lines
         def addSpan(plot):
         

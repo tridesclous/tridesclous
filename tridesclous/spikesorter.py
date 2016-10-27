@@ -55,6 +55,8 @@ class SpikeSorter:
         self._catalogue = None
         self.colors = {}
         self.qcolors = {}
+        
+        self.threshold = None
     
     def summary(self, level=1):
         t = self.dataio.summary(level=level)
@@ -119,6 +121,8 @@ class SpikeSorter:
         self.clustering = Clustering(self.all_waveforms, good_events = self.all_good_events)
         self.peak_selection = pd.Series(name = 'selected', index = self.all_waveforms.index, dtype = bool)
         self.peak_selection[:] = False
+        #~ self._check_plot_attributes()
+        self.on_new_cluster()
     
     @property
     def peak_labels(self):
@@ -145,20 +149,6 @@ class SpikeSorter:
         self._catalogue, self.limit_left, self.limit_right = self.dataio.get_catalogue()
         self.threshold = None
     
-    
-    #~ def load_all_peaks(self):
-        #~ all = []
-        #~ for seg_num in self.dataio.segments.index:
-            #~ peaks = self.dataio.get_peaks(seg_num)
-            #~ if peaks is not None:
-                #~ all.append(peaks)
-        #~ if len(all) == 0:
-            #~ self.all_peaks = None
-        #~ else:
-            #~ self.all_peaks = pd.concat(all, axis=0)
-            #~ #create a colum to handle selection on UI
-            #~ self.all_peaks['selected'] = False
-
     def project(self, *args, **kargs):
         self.clustering.project(*args, **kargs)
     

@@ -156,7 +156,7 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
             # theorically this should work but the index will unefficient when self.store.select
             t_start = self.segments_range.loc[seg_num, (signal_type, 't_start')]
             t_stop = self.segments_range.loc[seg_num, (signal_type, 't_stop')]
-            assert np.all(~((times>=t_start) & (times<=t_stop))), 'data already in store for seg_num {}'.format(seg_num)
+            #~ assert np.all(~((times>=t_start) & (times<=t_stop))), 'data already in store for seg_num {}'.format(seg_num)
 
         
         if self.info is None:
@@ -266,6 +266,11 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
                 
                 seg_num += 1
     
+    def have_signals(self, seg_num=0,signal_type = 'filtered'):
+        path = 'segment_{}/{}_signals'.format(seg_num, signal_type)
+        return path in self.store
+
+    
     def get_signals(self, seg_num=0, t_start = None, t_stop = None, signal_type = 'filtered'):
         """
         Get a chunk of signals in the dataset.
@@ -278,6 +283,9 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
         
         """
         path = 'segment_{}/{}_signals'.format(seg_num, signal_type)
+        
+        if path not in self.store:
+            return None
         
         if t_start is None and t_stop is None:
             query = None
@@ -344,6 +352,8 @@ nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
                 for col in catalogue2.columns:
                     catalogue[k][col] = catalogue2.loc[k, col]
             return catalogue, self.info['limit_left'], self.info['limit_right']
+        else:
+            return {}, None, None
     
     def save_spiketrains(self, spiketrains, seg_num = 0):
         path = 'segment_{}/spiketrains'.format(seg_num)
