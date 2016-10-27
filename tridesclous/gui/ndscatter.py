@@ -71,8 +71,10 @@ class NDScatter(WidgetBase):
         
         self.timer_tour = QtCore.QTimer(interval = 100)
         self.timer_tour.timeout.connect(self.new_tour_step)
-        self.initialize()
-        self.refresh()
+        
+        if self.data is not None:
+            self.initialize()
+            self.refresh()
     
     def create_toolbar(self):
         
@@ -100,7 +102,10 @@ class NDScatter(WidgetBase):
     
     @property
     def data(self):
-        return self.spikesorter.clustering.features
+        try:
+            return self.spikesorter.clustering.features
+        except:
+            return None
     
     def initialize(self):
         self.viewBox = MyViewBox()

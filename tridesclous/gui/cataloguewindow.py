@@ -15,16 +15,17 @@ import itertools
 import datetime
 
 class CatalogueWindow(QtGui.QMainWindow):
-    def __init__(self, spikesorter):
+    def __init__(self, spikesorter, mode='memory'):
         QtGui.QMainWindow.__init__(self)
         
         self.spikesorter = spikesorter
+        self.mode = mode
         
-        self.traceviewer = TraceViewer(spikesorter = spikesorter)
-        self.peaklist = PeakList(spikesorter = spikesorter)
-        self.clusterlist = ClusterList(spikesorter = spikesorter)
-        self.ndscatter = NDScatter(spikesorter = spikesorter)
-        self.WaveformViewer = WaveformViewer(spikesorter = spikesorter)
+        self.traceviewer = TraceViewer(spikesorter=spikesorter, mode=self.mode)
+        self.peaklist = PeakList(spikesorter=spikesorter)
+        self.clusterlist = ClusterList(spikesorter=spikesorter)
+        self.ndscatter = NDScatter(spikesorter=spikesorter)
+        self.WaveformViewer = WaveformViewer(spikesorter=spikesorter)
         
         self.all_view = [self.traceviewer, self.peaklist, self.clusterlist, self.ndscatter, self.WaveformViewer]
         

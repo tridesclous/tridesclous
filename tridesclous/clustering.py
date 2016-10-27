@@ -35,6 +35,7 @@ class Clustering_:
         self.good_events = good_events
         self.labels = pd.Series(index = waveforms.index,  dtype ='int32', name = 'label')
         self.labels.loc[:]= 0
+        self.reset()
     
     def project(self, method = 'pca', n_components = 5, selection = None):
         #TODO remove peak than are out to avoid PCA polution.
