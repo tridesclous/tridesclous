@@ -10,10 +10,13 @@ It is a complete rewrite of our old tools (SpikeOmatic, OpenElectrophy, ...)
 with up-to-date (in 2015) python modules to simplify our codes.
 
 tridesclous:
-  * should make easy to leave a mark of your spike sorting process in a jupyter notebook.
+  * should make easy to leave a mark of your spike sorting process in
+    a jupyter notebook.
   * offer a simple UI written in Qt for interactive exploration.
+  * could be usefull for online spikesorting in a near futur with pyacq.
 
-In short, tridesclous force you to write a script for spike sorting but you also benefit of a simple UI.
+In short, tridesclous force you to write a script for spike sorting but 
+you also benefit of a simple UI for offline spike sorting (and online soon).
 
 
 Dependencies:
@@ -27,6 +30,7 @@ Dependencies:
   * PyQt4 (for UI only)
   * pyqtgraph (for UI only)
   * jupyter (for UI only)
+  * pyacq (for online)
 
 For test:
   * pytest
