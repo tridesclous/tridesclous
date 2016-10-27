@@ -88,12 +88,12 @@ def detect_peak_method_span(rectified_signals, peak_sign='-', n_span = 2):
         peaks = sig_center>1.
         for i in range(k):
             peaks &= sig_center>sig[i:i+sig_center.size]
-            peaks &= sig_center>=sig[k+i:k+i+sig_center.size]
+            peaks &= sig_center>=sig[k+i+1:k+i+1+sig_center.size]
     elif peak_sign == '-':
         peaks = sig_center<-1.
         for i in range(k):
             peaks &= sig_center<sig[i:i+sig_center.size]
-            peaks &= sig_center<=sig[k+i:k+i+sig_center.size]
+            peaks &= sig_center<=sig[k+i+1:k+i+1+sig_center.size]
     peaks_pos,  = np.where(peaks)
     peaks_pos += k
     return peaks_pos
