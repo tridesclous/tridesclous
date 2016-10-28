@@ -31,6 +31,7 @@ class SpikeSorter:
     """
     def __init__(self, ):
         self.dataio = 
+        self.signal_preprocessor = 
         self.catalogue_constructor = 
         self.template_peeler = 
         
