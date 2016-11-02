@@ -27,10 +27,7 @@ class PeakDetectorEngine_Numpy:
         self.n_peak = 0
         
     def process_data(self, pos, newbuf):
-        newbuf = newbuf.copy()#move this to thread ???
-        if self.mads is not None:
-            newbuf -= self.medians[None, :]
-            newbuf /= self.mads[None, :]
+        newbuf = newbuf.copy()
         
         if self.peak_sign == '+':
             newbuf[newbuf<self.relative_threshold] = 0.
@@ -69,22 +66,18 @@ class PeakDetectorEngine_Numpy:
         if ind_peaks.size>0:
             ind_peaks = ind_peaks + pos - newbuf.shape[0] - k
             self.n_peak += ind_peaks.size
-            peaks = np.zeros(ind_peaks.size, dtype = [('index', 'int64'), ('code', 'int64')])
-            peaks['index'] = ind_peaks
+            #~ peaks = np.zeros(ind_peaks.size, dtype = [('index', 'int64'), ('code', 'int64')])
+            #~ peaks['index'] = ind_peaks
             #~ self.output_stream().send(peaks, index=self.n)
-            return self.n_peak, peaks
+            #~ return self.n_peak, peaks
+            return self.n_peak, ind_peaks
         
         return None, None
         
-    def change_params(self, peak_sign=None, relative_threshold=None,
-                        peak_span=None, medians=None, mads=None):
+    def change_params(self, peak_sign=None, relative_threshold=None, peak_span=None):
         self.peak_sign = peak_sign
         self.relative_threshold = relative_threshold
         self.peak_span = peak_span
-        self.medians = medians
-        self.mads = mads
-        #~ print('self.peak_span engine', self.peak_span)
-        #~ print('self.sample_rate engine', self.sample_rate)
         
         self.n_span = int(self.sample_rate*self.peak_span)//2
         self.n_span = max(1, self.n_span)
@@ -123,7 +116,7 @@ class PeakDetectorEngine_OpenCL:
 
         pyopencl.enqueue_copy(self.queue,  self.sigs_cl, newbuf)
         event = self.kern_detect_peaks(self.queue,  (self.chunksize,), (self.max_wg_size,),
-                                self.sigs_cl, self.meds_cl, self.mads_cl, self.ring_sum_cl, self.peaks_cl)
+                                self.sigs_cl, self.ring_sum_cl, self.peaks_cl)
         event.wait()
         
         if pos-(newbuf.shape[0]+2*self.n_span)<0:
@@ -136,21 +129,17 @@ class PeakDetectorEngine_OpenCL:
         if ind_peaks.size>0:
             ind_peaks += pos - newbuf.shape[0] - self.n_span
             self.n_peak += ind_peaks.size
-            peaks = np.zeros(ind_peaks.size, dtype = [('index', 'int64'), ('code', 'int64')])
-            peaks['index'] = ind_peaks
-            return self.n_peak, peaks
+            #~ peaks = np.zeros(ind_peaks.size, dtype = [('index', 'int64'), ('code', 'int64')])
+            #~ peaks['index'] = ind_peaks
+            #~ return self.n_peak, peaks
+            return self.n_peak, ind_peaks
         
         return None, None
         
-    def change_params(self, peak_sign=None, relative_threshold=None,
-                        peak_span=None, medians=None, mads=None):
+    def change_params(self, peak_sign=None, relative_threshold=None, peak_span=None):
         self.peak_sign = peak_sign
         self.relative_threshold = relative_threshold
         self.peak_span = peak_span
-        self.medians = medians
-        self.mads = mads
-        #~ print('self.peak_span engine', self.peak_span)
-        #~ print('self.sample_rate engine', self.sample_rate)
         
         self.n_span = int(self.sample_rate*self.peak_span)//2
         self.n_span = max(1, self.n_span)
@@ -163,8 +152,6 @@ class PeakDetectorEngine_OpenCL:
         
         #GPU buffers
         self.sigs_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE, size=self.nb_channel*self.chunksize*self.dtype.itemsize)
-        self.meds_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.medians.astype(self.dtype))
-        self.mads_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.mads.astype(self.dtype))
         
         self.ring_sum_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=ring_sum)
         self.peaks_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=self.peaks)
@@ -188,8 +175,6 @@ class PeakDetectorEngine_OpenCL:
     #define peak_sign %(peak_sign)d
     
     __kernel void detect_peaks(__global  float *sigs,
-                                                __constant  float *meds,
-                                                __constant  float *mads,
                                                 __global  float *ring_sum,
                                                 __global  uchar *peaks){
     
@@ -210,8 +195,7 @@ class PeakDetectorEngine_OpenCL:
         for (int chan=0; chan<nb_channel; chan++){
             idx = pos*nb_channel + chan;
             
-            //normalize signals
-            v = (sigs[idx] - meds[chan]) / mads[chan];
+            v = sigs[idx];
             
             //retify signals
             if(peak_sign==1){

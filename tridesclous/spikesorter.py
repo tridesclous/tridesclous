@@ -30,10 +30,10 @@ class SpikeSorter:
     
     """
     def __init__(self, ):
-        self.dataio = 
-        self.signal_preprocessor = 
-        self.catalogue_constructor = 
-        self.template_peeler = 
+        self.dataio = None
+        self.signal_preprocessor = None
+        self.catalogue_constructor = None
+        self.template_peeler = None
         
     def summary(self, level=1):
         t = ''

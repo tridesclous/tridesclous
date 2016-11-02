@@ -1,4 +1,4 @@
-import numyp as np
+import numpy as np
 
 import sklearn
 import sklearn.decomposition
@@ -20,10 +20,11 @@ class CatalogueConstructor:
       2. loop over chunks:
         * detect peaks
         * extract waveforms
-        * learn partial PCA
+        
       3. finalize:
         * concatenate waveforms
         * find good waveforms limit
+        * learn partial PCA
         * apply PCA
         * find clusters
         * put labels on peaks
@@ -46,11 +47,23 @@ class CatalogueConstructor:
         self.dataio = dataio
         
     
-    def initialize(self, chunksize=1024, n_left=-20, n_right=30, 
+    def initialize(self, chunksize=1024,
+            memory_mode='ram',
+            
+            #signal preprocessor
+            highpass_freq=300, backward_chunksize=1280,
+            
+            #peak detector
             peakdetector_engine='peakdetector_numpy',
             peak_sign='-', relative_threshold=5, peak_span=0.0005,
+            
+            #waveformextractor
+            n_left=-20, n_right=30, 
+            
+            #features
             pca_batch_size=16384,
-            memory_mode='ram'):
+            ):
+                
         self.chunksize = chunksize
         self.max_nb_peak = max_nb_peak
 
@@ -71,25 +84,39 @@ class CatalogueConstructor:
         self.pca_batch_size = pca_batch_size
         
         self.peak_sign = peak_sign
+        
+        self.signalpreprocessor = SignalPreprocessor_Numpy(sample_rate, nb_channel, chunksize, sigs.dtype)
+        self.signalpreprocessor.change_params(highpass_freq=highpass_freq, backward_chunksize=backward_chunksize)
+        
         PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
         self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.dataio.nb_channel,
                                                         self.chunksize, self.dataio.dtype)
         self.peakdetector.change_params(peak_sign=peak_sign,
                                     relative_threshold=relative_threshold, peak_span=peak_span)
         
-        self.waveformextractor = waveformextractor.WaveformExtractor(self.n_left, self.n_right,
+        self.waveformextractor = waveformextractor.WaveformExtractor(
                     self.dataio.nb_channel, self.chunksize, self.dataio.dtype)
+        self.waveformextractor.change_params(n_left=self.n_left, n_right=self.n_right)
         
-        self.nb_peak = 0
+        
+        #~ self.nb_peak = 0
         
         
     
     def process_one_chunk(self, pos, sigs_chunk):
+
+        pos2, preprocessed_chunk = signalpreprocessor.process_data(pos, chunk)
+        if preprocessed_chunk is  None:
+            return
         
-        chunk_peak_pos = self.peakdetector.process_data(pos, sigs_chunk)
+        #~ print('pos2', pos)
         
-        for peak_pos, waveforms in self.waveformextractor.new_peaks(pos, sigs_chunk, chunk_peak_pos):
-            
+        n_peaks, chunk_peaks = peakdetector.process_data(pos2, preprocessed_chunk)
+        if chunk_peaks is  None:
+            return
+        
+        
+        for peak_pos, waveforms in self.waveformextractor.new_peaks(pos2, preprocessed_chunk, chunk_peaks):
             #TODO for debug only: remove it:
             assert peak_pos.sahpe[0] == waveforms.shape[0]
             # #

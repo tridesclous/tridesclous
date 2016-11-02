@@ -1,77 +1,172 @@
-from tridesclous import DataIO
+from tridesclous import (get_dataset, )
+from tridesclous.peakdetector import peakdetector_engines
 
-from tridesclous import (normalize_signals, derivative_signals, rectify_signals,
-                detect_peak_method_span, PeakDetector, extract_peak_waveforms)
+import time
+
+import scipy.signal
+import numpy as np
 
 from matplotlib import pyplot
 
 
-def test_normalize_signals():
-    dataio = DataIO(dirname = 'datatest')
-    sigs = dataio.get_signals(seg_num=0)
-    normed_sigs = normalize_signals(sigs)
-    normed_sigs[3.14:3.22].plot()
+
+def offline_peak_detect(normed_sigs, sample_rate, peak_sign='-',relative_threshold = 5,  peak_span = 0.0005):
+    n_span = int(sample_rate*peak_span)//2
+   
+    # rectifiy
+    rectified_sigs = normed_sigs.copy()
+    if peak_sign=='+':
+        rectified_sigs[rectified_sigs<relative_threshold] = 0.
+    else:
+        rectified_sigs[rectified_sigs>-relative_threshold] = 0.
+
+    # peaks with span
+    k = n_span
+    sig = rectified_sum = rectified_sigs.sum(axis=1)
+    sig_center = sig[k:-k]
+    if peak_sign == '+':
+        peaks = sig_center>relative_threshold
+        for i in range(k):
+            peaks &= sig_center>sig[i:i+sig_center.size]
+            peaks &= sig_center>=sig[k+i+1:k+i+1+sig_center.size]
+    elif peak_sign == '-':
+        peaks = sig_center<-relative_threshold
+        for i in range(k):
+            peaks &= sig_center<sig[i:i+sig_center.size]
+            peaks &= sig_center<=sig[k+i+1:k+i+1+sig_center.size]
+    peaks_pos,  = np.where(peaks)
+    peaks_pos += k
+    
+    return peaks_pos, rectified_sum
+
+
     
 
-def test_derivative_signals():
-    dataio = DataIO(dirname = 'datatest')
-    sigs = dataio.get_signals(seg_num=0)
-    deriv_sigs = derivative_signals(sigs)
-    deriv_sigs[3.14:3.22].plot()
+def test_compare_offline_online_engines():
+    HAVE_PYOPENCL = True
+    if HAVE_PYOPENCL:
+        engines = ['peakdetector_numpy', 'peakdetector_opencl']
+        #~ engines = ['peakdetector_numpy']
+        #~ engines = ['peakdetector_opencl']
+    else:
+        engines = ['peakdetector_numpy']
 
-def test_rectify_signals():
-    dataio = DataIO(dirname = 'datatest')
-    sigs = dataio.get_signals(seg_num=0)
-    retified_sigs = rectify_signals(normalize_signals(sigs), threshold = -4)
+    # get sigs
+    get_dataset(name='BO')
     
-    fig, ax = pyplot.subplots()
-    retified_sigs[3.14:3.22].plot(ax = ax)
-    ax.set_ylim(-20, 10)
-
-def test_detect_peak_method_span():
-    dataio = DataIO(dirname = 'datatest')
-    sigs = dataio.get_signals(seg_num=0)
-    normed_sigs = normalize_signals(sigs)
-    retified_sigs = rectify_signals(normed_sigs, threshold = -4)    
-    peaks_pos = detect_peak_method_span(retified_sigs,  peak_sign='-', n_span = 5)
-    peaks_index = sigs.index[peaks_pos]
     
-    fig, ax = pyplot.subplots()
-    chunk = retified_sigs[3.14:3.22]
-    chunk.plot(ax = ax)
-    peaks_value = retified_sigs.loc[peaks_index]
-    peaks_value[3.14:3.22].plot(marker = 'o', linestyle = 'None', ax = ax, color = 'k')
-    ax.set_ylim(-20, 10)
+    sigs, sample_rate = get_dataset()
+    #~ sigs = sigs[:, [0]]
+    nb_channel = sigs.shape[1]
+    print('nb_channel', nb_channel)
     
-    fig, ax = pyplot.subplots()
-    chunk = normed_sigs[3.14:3.22]
-    chunk.plot(ax = ax)
-    peaks_value = normed_sigs.loc[peaks_index]
-    peaks_value[3.14:3.22].plot(marker = 'o', linestyle = 'None', ax = ax, color = 'k')
-    ax.set_ylim(-20, 10)
-
-
-def test_peakdetector():
-    dataio = DataIO(dirname = 'datatest')
-    sigs = dataio.get_signals(seg_num=0)
+    #params
+    chunksize = 1024
+    peak_sign = '-'
+    relative_threshold = 8
+    peak_span = 0.0009
     
-    peakdetector = PeakDetector(sigs, seg_num=0)
-    peakdetector.detect_peaks(threshold=-4, peak_sign = '-', n_span = 2)
-    print(peakdetector.peak_pos.size)
-    peakdetector.detect_peaks(threshold=-5, peak_sign = '-', n_span = 5)
-    print(peakdetector.peak_pos.size)
+    #~ print('n_span', n_span)
+    nloop = sigs.shape[0]//chunksize
+    sigs = sigs[:chunksize*nloop]
+    
+    print('sig duration', sigs.shape[0]/sample_rate)
+    
+    # HP filter
+    highpass_freq = 300.
+    b, a = scipy.signal.iirfilter(5, highpass_freq/sample_rate*2, analog=False,
+                                    btype = 'highpass', ftype = 'butter', output = 'ba')
+    filtered_sigs = scipy.signal.filtfilt(b, a, sigs, axis=0)
+    #~ filtered_sigs = filtered_sigs.astype('float32')
+    
+    # normalize
+    med = np.median(filtered_sigs, axis=0)
+    mad = np.median(np.abs(filtered_sigs-med),axis=0)*1.4826
+    normed_sigs = (filtered_sigs - med)/mad
+    normed_sigs = normed_sigs.astype('float32')
 
+    
+    
+    for peak_sign in ['-', '+', ]:
+    #~ for peak_sign in ['+', ]:
+    #~ for peak_sign in ['-', ]:
+        print()
+        print('peak_sign', peak_sign)
+        if peak_sign=='-':
+            sigs = normed_sigs
+        elif peak_sign=='+':
+            sigs = -normed_sigs
+        
+        #~ print(sigs.shape)
+        #~ print('nloop', nloop)
+        
+        
+        t1 = time.perf_counter()
+        offline_peaks, rectified_sum = offline_peak_detect(sigs, sample_rate, peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span=peak_span)
+        t2 = time.perf_counter()
+        print('offline', 'process time', t2-t1)
+        #~ print(offline_peaks)
+        
+        online_peaks = {}
+        for engine in engines:
+            print(engine)
+            EngineClass = peakdetector_engines[engine]
+            #~ buffer_size = chunksize*4
+            peakdetector_engine = EngineClass(sample_rate, nb_channel, chunksize, 'float32')
+            
+            peakdetector_engine.change_params(peak_sign=peak_sign, relative_threshold=relative_threshold,
+                            peak_span=peak_span)
+            
+            all_online_peaks = []
+            t1 = time.perf_counter()
+            for i in range(nloop):
+                #~ print(i)
+                pos = (i+1)*chunksize
+                chunk = sigs[pos-chunksize:pos,:]
+                n_peaks, chunk_peaks = peakdetector_engine.process_data(pos, chunk)
+                if chunk_peaks is not None:
+                    #~ all_online_peaks.append(chunk_peaks['index'])
+                    all_online_peaks.append(chunk_peaks)
+            online_peaks[engine] = np.concatenate(all_online_peaks)
+            t2 = time.perf_counter()
+            print(engine, 'process time', t2-t1)
+        
+        # remove peaks on border for comparison
+        offline_peaks = offline_peaks[(offline_peaks>chunksize) & (offline_peaks<sigs.shape[0]-chunksize)]
+        for engine in engines:
+            onlinepeaks = online_peaks[engine]
+            onlinepeaks = onlinepeaks[(onlinepeaks>chunksize) & (onlinepeaks<sigs.shape[0]-chunksize)]
+            online_peaks[engine] = onlinepeaks
 
-
+        # compare
+        for engine in engines:
+            onlinepeaks = online_peaks[engine]
+            assert offline_peaks.size==onlinepeaks.size, '{} nb_peak{} instead {}'.format(engine,  offline_peaks.size, onlinepeaks.size)
+            assert np.array_equal(offline_peaks, onlinepeaks)
+    
+        # plot
+        #~ fig, axs = pyplot.subplots(nrows=nb_channel, sharex=True)
+        #~ for i in range(nb_channel):
+            #~ axs[i].plot(sigs[:, i])
+            #~ axs[i].plot(offline_peaks, sigs[offline_peaks, i], ls = 'None', marker = 'o', color='g', markersize=12)
+            #~ for engine in engines:
+                #~ onlinepeaks = online_peaks[engine]
+                #~ axs[i].plot(onlinepeaks, sigs[onlinepeaks, i], ls = 'None', marker = 'o', color='r', markersize=6)
+        
+        #~ fig, ax = pyplot.subplots()
+        #~ ax.plot(rectified_sum)
+        #~ ax.plot(offline_peaks, rectified_sum[offline_peaks], ls = 'None', marker = 'o', color='g', markersize=12)
+        #~ for engine in engines:
+            #~ onlinepeaks = online_peaks[engine]
+            #~ ax.plot(onlinepeaks, rectified_sum[onlinepeaks], ls = 'None', marker = 'o', color='r', markersize=6)
+        
+        #~ for i in range(nloop):
+            #~ ax.axvline(i*chunksize, color='k', alpha=0.4)
+        
+        #~ pyplot.show()
+    
     
 
     
 if __name__ == '__main__':
-    #~ test_normalize_signals()
-    #~ test_derivative_signals()
-    #~ test_rectify_signals()
-    #~ test_detect_peak_method_span()
-    
-    test_peakdetector()
-    
-    pyplot.show()
+    test_compare_offline_online_engines()
