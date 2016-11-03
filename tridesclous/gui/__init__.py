@@ -1,4 +1,4 @@
-from .traceviewer import TraceViewer, PeelerTraceViewer
+from .traceviewer import CatalogueTraceViewer, PeelerTraceViewer
 #~ from .lists import PeakList, ClusterList
 #~ from .ndscatter import NDScatter
 #~ from .waveformviewer import WaveformViewer

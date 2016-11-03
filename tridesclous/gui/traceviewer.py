@@ -2,11 +2,10 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 
 import numpy as np
-import pandas as pd
 
 from .base import WidgetBase
 from .tools import TimeSeeker
-#~ from ..tools import median_mad
+from ..tools import median_mad
 from ..dataio import _signal_types
 
 
@@ -39,7 +38,7 @@ class MyViewBox(pg.ViewBox):
 
 class BaseTraceViewer(WidgetBase):
     
-    def __init__(self, dataio=dataio, signal_type = 'initial', parent=None):
+    def __init__(self, dataio=None, signal_type = 'initial', parent=None):
         WidgetBase.__init__(self, parent)
     
         self.dataio = dataio
@@ -48,9 +47,6 @@ class BaseTraceViewer(WidgetBase):
         self.layout = QtGui.QVBoxLayout()
         self.setLayout(self.layout)
         
-        # Can share view with other trace viewer : simultanetly view filter + full band
-        self.shared_view_with = shared_view_with
-
         self.create_toolbar()
         self.layout.addWidget(self.toolbar)
         
@@ -59,10 +55,8 @@ class BaseTraceViewer(WidgetBase):
         self.layout.addWidget(self.graphicsview)
         self.initialize_plot()
             
-        
         #handle time by segments
-        t_starts = self.dataio.segments_range.loc[:, ('filtered','t_start')].copy()
-        self.time_by_seg = pd.Series(t_starts, name = 'time', index = self.dataio.segments_range.index)
+        self.time_by_seg = np.array([0.]*self.dataio.nb_segment, dtype='float64')
         
         _params = [{'name': 'auto_zoom_on_select', 'type': 'bool', 'value': True },
                            {'name': 'zoom_size', 'type': 'float', 'value':  0.08, 'step' : 0.001 },
@@ -85,9 +79,10 @@ class BaseTraceViewer(WidgetBase):
         #Segment selection
         self.combo_seg = QtGui.QComboBox()
         tb.addWidget(self.combo_seg)
-        self.combo_seg.addItems([ 'Segment {}'.format(seg_num) for seg_num in self.dataio.segments_range.index ])
+        self.combo_seg.addItems([ 'Segment {}'.format(seg_num) for seg_num in range(self.dataio.nb_segment) ])
         self._seg_pos = 0
-        self.seg_num = self.dataio.segments_range.index[self._seg_pos]
+        #~ self.seg_num = self.dataio.segments_range.index[self._seg_pos]
+        self.seg_num = self._seg_pos
         self.combo_seg.currentIndexChanged.connect(self.on_combo_seg_changed)
         tb.addSeparator()
         
@@ -144,7 +139,9 @@ class BaseTraceViewer(WidgetBase):
             curve = pg.PlotCurveItem(pen=color)
             self.plot.addItem(curve)
             self.curves.append(curve)
-            label = pg.TextItem(str(self.dataio.info['channels'][c]), color=color, anchor=(0, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
+            #~ label = pg.TextItem(str(self.dataio.info['channels'][c]), color=color, anchor=(0, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
+            #TODO label channels
+            label = pg.TextItem('chan{}'.format(c), color=color, anchor=(0, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
             self.plot.addItem(label)
             self.channel_labels.append(label)
             
@@ -175,61 +172,58 @@ class BaseTraceViewer(WidgetBase):
         self.change_segment(self._seg_pos + 1)
 
     def change_segment(self, seg_pos):
+        #TODO: dirty because now seg_pos IS seg_num
         self._seg_pos  =  seg_pos
         if self._seg_pos<0:
-            self._seg_pos = self.dataio.segments_range.shape[0]-1
-        if self._seg_pos == self.dataio.segments_range.shape[0]:
+            self._seg_pos = self.dataio.nb_segment-1
+        if self._seg_pos == self.dataio.nb_segment:
             self._seg_pos = 0
-        self.seg_num = self.dataio.segments_range.index[self._seg_pos]
+        self.seg_num = self._seg_pos
         self.combo_seg.setCurrentIndex(self._seg_pos)
         
-        lims = self.dataio.segments_range.xs(self.signal_type, axis=1).loc[self.seg_num]
+        #~ lims = self.dataio.segments_range.xs(self.signal_type, axis=1).loc[self.seg_num]
         
-        if self.mode == 'memory':
-            self.sigs = self.dataio.get_signals(seg_num = self.seg_num, t_start = lims['t_start'], 
-                            t_stop = lims['t_stop'], signal_type = self.signal_type)
-        elif self.mode == 'file':
-            self.sigs = None
+        #~ if self.mode == 'memory':
+            #~ self.sigs = self.dataio.get_signals(seg_num = self.seg_num, t_start = lims['t_start'], 
+                            #~ t_stop = lims['t_stop'], signal_type = self.signal_type)
+        #~ elif self.mode == 'file':
+            #~ self.sigs = None
         
-        self.load_peak_or_spiketrain()
+        #~ self.load_peak_or_spiketrain()
 
-        self.timeseeker.set_start_stop(lims['t_start'], lims['t_stop'], seek = False)
+        #~ self.timeseeker.set_start_stop(lims['t_start'], lims['t_stop'], seek = False)
+        t_start=0.
+        t_stop = self.dataio.get_segment_shape(self.seg_num)[0]/self.dataio.sample_rate
+        self.timeseeker.set_start_stop(t_start, t_stop, seek = False)
         
-        if np.isnan(self.time_by_seg[self.seg_num]) and not np.isnan(lims['t_start']):
-            self.time_by_seg[self.seg_num] = lims['t_start']
-            
-
+        #~ if np.isnan(self.time_by_seg[self.seg_num]) and not np.isnan(lims['t_start']):
+            #~ self.time_by_seg[self.seg_num] = lims['t_start']
+        
+        #~ self.estimate_auto_scale()
+        
         if self.isVisible():
             self.refresh()
     
-    def have_sigs(self):
-        if self.mode == 'memory':
-            return self.sigs is not None
-        elif self.mode == 'file':
-             return self.dataio.have_signals(seg_num=self.seg_num, signal_type=self.signal_type)
+    #~ def have_sigs(self):
+        #~ return self.dataio.have_signals(seg_num=self.seg_num, signal_type=self.signal_type)
 
-    
     def on_combo_seg_changed(self):
         s =  self.combo_seg.currentIndex()
-        for otherviewer in self.shared_view_with:
-            otherviewer.combo.setCurrentIndex(s)
         self.change_segment(s)
     
     def on_combo_type_changed(self):
         s =  self.combo_type.currentIndex()
         self.signal_type = _signal_types[s]
+        self.estimate_auto_scale()
         self.change_segment(self._seg_pos)
-        
     
     def xsize_changed(self):
         self.xsize = self.spinbox_xsize.value()
-        for otherviewer in self.shared_view_with:
-            otherviewer.spinbox_xsize.setValue(self.xsize)
         if self.isVisible():
             self.refresh()
     
     def refresh(self):
-        self.seek(self.time_by_seg[self.seg_num], cascade = False)
+        self.seek(self.time_by_seg[self.seg_num])
 
     def xsize_zoom(self, xmove):
         factor = xmove/100.
@@ -243,14 +237,18 @@ class BaseTraceViewer(WidgetBase):
         self.refresh()
     
     def estimate_auto_scale(self):
-        if self.mode == 'memory':
-            self.med, self.mad = median_mad(self.sigs, axis = 0)
-        elif self.mode == 'file':
-            lims = self.dataio.segments_range.xs(self.signal_type, axis=1).loc[self.seg_num]
-            chunk = self.dataio.get_signals(seg_num = self.seg_num, t_start = lims['t_start'], t_stop = lims['t_start']+60., signal_type = self.signal_type)
-            self.med, self.mad = median_mad(chunk, axis = 0)
+
+        if self.signal_type=='initial':
+            i_stop = min(int(60.*self.dataio.sample_rate), self.dataio.get_segment_shape(self.seg_num)[0])
+            sigs = self.dataio.get_signals_chunk(seg_num=self.seg_num, i_start=0., i_stop=i_stop, signal_type=self.signal_type,
+                channels=None, return_type='raw_numpy')
+            self.med, self.mad = median_mad(sigs.astype('float32'), axis = 0)
+            #~ print(self.med, self.mad)
+        elif self.signal_type=='processed':
+            #in that case it should be already normalize
+            self.med = np.zeros(self.dataio.nb_channel, dtype='float32')
+            self.mad = np.ones(self.dataio.nb_channel, dtype='float32')
         
-        self.med, self.mad = self.med.values, self.mad.values
         self.factor = 1.
         self.gain_zoom(15.)
     
@@ -261,95 +259,114 @@ class BaseTraceViewer(WidgetBase):
         self.offsets = np.arange(n)[::-1] - self.med*self.gains
         self.refresh()
 
-    def seek(self, t, cascade=True):
-        if not self.have_sigs(): return
+    def seek(self, t):
+        #~ if not self.have_sigs(): return
         
-        if cascade:
-            for otherviewer in self.shared_view_with:
-                otherviewer.seek(t, cascade = False)
-        else:
+        if self.sender() is not self.timeseeker:
             self.timeseeker.seek(t, emit = False)
-            
+        
         self.time_by_seg[self.seg_num] = t
         t1,t2 = t-self.xsize/3. , t+self.xsize*2/3.
-        t_start = self.dataio.segments_range.loc[self.seg_num, (self.signal_type,'t_start')]
-        sr = self.dataio.sampling_rate
+        #~ t_start = self.dataio.segments_range.loc[self.seg_num, (self.signal_type,'t_start')]
+        t_start = 0.
+        sr = self.dataio.sample_rate
         ind1 = max(0, int((t1-t_start)*sr))
         ind2 = int((t2-t_start)*sr)
+
+        chunk = self.dataio.get_signals_chunk(seg_num=self.seg_num, i_start=ind1, i_stop=ind2, signal_type=self.signal_type,
+                channels=None, return_type='raw_numpy')
+        
+        if chunk is None: 
+            print('chunk is None')
+            return
         
         if self.gains is None:
             self.estimate_auto_scale()
 
         #signal chunk
-        if self.mode == 'memory':
+        #~ if self.mode == 'memory':
             #~ chunk = self.sigs.loc[t1:t2]
-            chunk = self.sigs.iloc[ind1:ind2]
-        elif self.mode == 'file':
-            chunk = self.dataio.get_signals(seg_num = self.seg_num, t_start = t1, t_stop = t2, signal_type = self.signal_type)
+            #~ chunk = self.sigs.iloc[ind1:ind2]
+        #~ elif self.mode == 'file':
+            #~ chunk = self.dataio.get_signals(seg_num = self.seg_num, t_start = t1, t_stop = t2, signal_type = self.signal_type)
         
+
+        
+        
+        #~ times = np.arange(ind2-ind1)/self.dataio.sample_rate+t1
+        times = None
+        times = np.arange(chunk.shape[0])/self.dataio.sample_rate+t1
         for c in range(self.dataio.nb_channel):
-            self.curves[c].setData(chunk.index.values, chunk.iloc[:, c].values*self.gains[c]+self.offsets[c])
+            #~ self.curves[c].setData(chunk.index.values, chunk.iloc[:, c].values*self.gains[c]+self.offsets[c])
+            self.curves[c].setData(times, chunk[:, c]*self.gains[c]+self.offsets[c])
+            #TODO GAIN
+            #~ self.curves[c].setData(times, chunk[:, c])
+            
             self.channel_labels[c].setPos(t1, self.dataio.nb_channel-c-1)
         
-        inwindow_times, inwindow_label, inwindow_selected = self.get_peak_or_spiketrain_in_window(t1, t2)
+        #~ inwindow_times, inwindow_label, inwindow_selected = self.get_peak_or_spiketrain_in_window(t1, t2)
         
-        if inwindow_times is not None:
+        #~ if inwindow_times is not None:
             
-            for c in range(self.dataio.nb_channel):
-                #reset scatters
-                for k in self.spikesorter.cluster_labels:
-                    if not self.spikesorter.cluster_visible[k]:
-                        self.scatters[c][k].setData([], [])
+            #~ for c in range(self.dataio.nb_channel):
+                #~ #reset scatters
+                #~ for k in self.spikesorter.cluster_labels:
+                    #~ if not self.spikesorter.cluster_visible[k]:
+                        #~ self.scatters[c][k].setData([], [])
                 
-                for k in list(self.scatters[c].keys()):
-                    if not k in self.spikesorter.cluster_labels:
-                        scatter = self.scatters[c].pop(k)
-                        self.plot.removeItem(scatter)
+                #~ for k in list(self.scatters[c].keys()):
+                    #~ if not k in self.spikesorter.cluster_labels:
+                        #~ scatter = self.scatters[c].pop(k)
+                        #~ self.plot.removeItem(scatter)
                 
-                # plotted selected
-                if 'sel' not in self.scatters[c]:
-                    brush = QtGui.QColor( 'magenta')
-                    brush.setAlpha(180)
-                    pen = QtGui.QColor( 'yellow')
-                    self.scatters[c]['sel'] = pg.ScatterPlotItem(pen=pen, brush=brush, size=20, pxMode = True)
-                    self.plot.addItem(self.scatters[c]['sel'])
+                #~ # plotted selected
+                #~ if 'sel' not in self.scatters[c]:
+                    #~ brush = QtGui.QColor( 'magenta')
+                    #~ brush.setAlpha(180)
+                    #~ pen = QtGui.QColor( 'yellow')
+                    #~ self.scatters[c]['sel'] = pg.ScatterPlotItem(pen=pen, brush=brush, size=20, pxMode = True)
+                    #~ self.plot.addItem(self.scatters[c]['sel'])
                 
-                p = chunk.loc[inwindow_times[inwindow_selected]]
-                self.scatters[c]['sel'].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
+                #~ p = chunk.loc[inwindow_times[inwindow_selected]]
+                #~ self.scatters[c]['sel'].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
             
-            for k in self.spikesorter.cluster_labels:
-                if not self.spikesorter.cluster_visible[k]:
-                    continue
-                p = chunk.loc[inwindow_times[inwindow_label==k]]
-                for c in range(self.dataio.nb_channel):
-                    color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
-                    if k not in self.scatters[c]:
-                        self.scatters[c][k] = pg.ScatterPlotItem(pen=None, brush=color, size=10, pxMode = True)
-                        self.plot.addItem(self.scatters[c][k])
-                        self.scatters[c][k].sigClicked.connect(self.item_clicked)
+            #~ for k in self.spikesorter.cluster_labels:
+                #~ if not self.spikesorter.cluster_visible[k]:
+                    #~ continue
+                #~ p = chunk.loc[inwindow_times[inwindow_label==k]]
+                #~ for c in range(self.dataio.nb_channel):
+                    #~ color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
+                    #~ if k not in self.scatters[c]:
+                        #~ self.scatters[c][k] = pg.ScatterPlotItem(pen=None, brush=color, size=10, pxMode = True)
+                        #~ self.plot.addItem(self.scatters[c][k])
+                        #~ self.scatters[c][k].sigClicked.connect(self.item_clicked)
                     
-                    if self.spikesorter.catalogue[k]['channel_peak_max'] == c:
-                        self.scatters[c][k].setBrush(color)
-                        self.scatters[c][k].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
-                    else:
-                        self.scatters[c][k].setData([], [])
+                    #~ if self.spikesorter.catalogue[k]['channel_peak_max'] == c:
+                        #~ self.scatters[c][k].setBrush(color)
+                        #~ self.scatters[c][k].setData(p.index.values, p.iloc[:,c].values*self.gains[c]+self.offsets[c])
+                    #~ else:
+                        #~ self.scatters[c][k].setData([], [])
             
-            self._plot_prediction(t1, t2, chunk, ind1)
+            #~ self._plot_prediction(t1, t2, chunk, ind1)
         
-        n = self.dataio.nb_channel
-        for c in range(n):
-            if self.params['plot_threshold'] and self.spikesorter.threshold is not None:
-                self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*self.spikesorter.threshold)
-                self.threshold_lines[c].show()
-            else:
-                self.threshold_lines[c].hide()
+        #~ n = self.dataio.nb_channel
+        #~ for c in range(n):
+            #~ if self.params['plot_threshold'] and self.spikesorter.threshold is not None:
+                #~ self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*self.spikesorter.threshold)
+                #~ self.threshold_lines[c].show()
+            #~ else:
+                #~ self.threshold_lines[c].hide()
         
         self.plot.setXRange( t1, t2, padding = 0.0)
         self.plot.setYRange(-.5, self.dataio.nb_channel-.5, padding = 0.0)
 
 
 
-class TraceViewer(BaseTraceViewer):
+class CatalogueTraceViewer(BaseTraceViewer):
+    def __init__(self, catalogueconstructor=None, signal_type = 'initial', parent=None):
+        self.catalogueconstructor = catalogueconstructor
+        BaseTraceViewer.__init__(self, dataio=catalogueconstructor.dataio, signal_type=signal_type, parent=parent)
+    
     def _create_toolbar(self):
         pass
         
@@ -382,7 +399,8 @@ class TraceViewer(BaseTraceViewer):
         if self.params['auto_zoom_on_select'] and selected_peaks.shape[0]==1:
             seg_num, time= selected_peaks.index[0]
             if seg_num != self.seg_num:
-                seg_pos = self.dataio.segments_range.index.tolist().index(seg_num)
+                #~ seg_pos = self.dataio.segments_range.index.tolist().index(seg_num)
+                seg_pos = seg_num
                 self.combo_seg.setCurrentIndex(seg_pos)
             self.spinbox_xsize.setValue(self.params['zoom_size'])
             self.seek(time)
@@ -490,7 +508,9 @@ class PeelerTraceViewer(BaseTraceViewer):
         if self.params['auto_zoom_on_select'] and selected_peaks.shape[0]==1:
             seg_num, time= selected_peaks.index[0]
             if seg_num != self.seg_num:
-                seg_pos = self.dataio.segments_range.index.tolist().index(seg_num)
+                #~ seg_pos = self.dataio.segments_range.index.tolist().index(seg_num)
+                seg_pos = seg_num
+                
                 self.combo_seg.setCurrentIndex(seg_pos)
             self.spinbox_xsize.setValue(self.params['zoom_size'])
             self.seek(time)

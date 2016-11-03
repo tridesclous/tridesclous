@@ -1,3 +1,7 @@
+#
+tridesclous/tests/test_catalogueconstructor/*
+tridesclous/tests/test_rawdataio/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

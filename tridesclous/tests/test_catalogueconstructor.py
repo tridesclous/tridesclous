@@ -9,9 +9,11 @@ from matplotlib import pyplot
 
 def test_catalogue_constructor():
     filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT']
+    #~ filenames = ['Tem06c06.IOT']
     dataio = RawDataIO(dirname='test_catalogueconstructor')
     dataio.set_initial_signals(filenames=filenames, dtype='int16',
                                      nb_channel=16, sample_rate=10000.)    
+    print(dataio.segments_path)
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
@@ -35,7 +37,7 @@ def test_catalogue_constructor():
                 pca_batch_size=16384,
                 )
         t1 = time.perf_counter()
-        catalogueconstructor.estimate_noise(seg_num=0)
+        catalogueconstructor.estimate_noise(seg_num=0, duration=10.)
         t2 = time.perf_counter()
         print('estimate_noise', t2-t1)
         

@@ -10,12 +10,12 @@ def get_catalogueconstructor():
     return catalogueconstructor
 
 
-def test_traceviewer():
+def test_cataloguetraceviewer():
     app = pg.mkQApp()
     
     catalogueconstructor = get_catalogueconstructor()
     
-    traceviewer = TraceViewer(catalogueconstructor=catalogueconstructor, mode = 'memory', signal_type = 'filtered')
+    traceviewer = CatalogueTraceViewer(catalogueconstructor=catalogueconstructor, signal_type = 'initial')
     traceviewer.show()
     traceviewer.resize(800,600)
     
@@ -26,11 +26,11 @@ def test_traceviewer_linked():
     app = pg.mkQApp()
     catalogueconstructor = get_catalogueconstructor()
     
-    traceviewer0 = TraceViewer(catalogueconstructor=catalogueconstructor, mode = 'memory', signal_type = 'filtered')
+    traceviewer0 = TraceViewer(catalogueconstructor=catalogueconstructor, mode = 'memory', signal_type = 'initial')
     traceviewer0.show()
     traceviewer0.resize(800,600)
 
-    traceviewer1 = TraceViewer(catalogueconstructor=catalogueconstructor, shared_view_with = [traceviewer0], signal_type = 'unfiltered')
+    traceviewer1 = TraceViewer(catalogueconstructor=catalogueconstructor, shared_view_with = [traceviewer0], signal_type = 'initial')
     traceviewer1.show()
     traceviewer1.resize(800,600)
     traceviewer0.shared_view_with.append(traceviewer1)
@@ -114,7 +114,7 @@ def test_cataloguewindow_from_classes():
     
     
 if __name__ == '__main__':
-    test_traceviewer()
+    test_cataloguetraceviewer()
     #~ test_traceviewer_linked()
     #~ test_peaklist()
     #~ test_clusterlist()

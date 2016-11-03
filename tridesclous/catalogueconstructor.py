@@ -111,7 +111,9 @@ class CatalogueConstructor:
         self.params_waveformextractor = dict(n_left=self.n_left, n_right=self.n_right)
         self.waveformextractor = waveformextractor.WaveformExtractor(self.dataio.nb_channel, self.chunksize)
         
-    
+        #TODO make processed data as int32 ???
+        self.dataio.reset_signals(signal_type='processed', dtype='float32')
+        
         self.nb_peak = 0
     
     def _fname(self, name, ext='.raw'):
@@ -151,6 +153,9 @@ class CatalogueConstructor:
         pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
         if preprocessed_chunk is  None:
             return
+        
+        self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num, i_start=pos2-preprocessed_chunk.shape[0],
+                        i_stop=pos2, signal_type='processed', channels=None)
         
         n_peaks, chunk_peaks = self.peakdetector.process_data(pos2, preprocessed_chunk)
         if chunk_peaks is  None:
