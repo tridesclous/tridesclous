@@ -6,6 +6,13 @@ from pyacq.dsp.overlapfiltfilt import SosFiltfilt_Scipy
 
 
 class SignalPreprocessor_Numpy:
+    """
+    This apply chunk by chunk on a multi signal:
+       * baseline removal
+       * hight pass filtfilt
+       * normalize (optional)
+    
+    """
     def __init__(self,sample_rate, nb_channel, chunksize, input_dtype):
         self.sample_rate = sample_rate
         self.nb_channel = nb_channel
@@ -13,24 +20,38 @@ class SignalPreprocessor_Numpy:
         self.input_dtype = input_dtype
         
     def process_data(self, pos, data):
+        data = data.astype(self.output_dtype)
+        
+        
         pos2, data2 = self.filtfilt_engine.compute_one_chunk(pos, data)
+
         
         if pos2 is None:
             return None, None
+
+        if self.common_ref_removal:
+            data2 -= np.median(data2, axis=1)[:, None]
         
-        data2 -= self.medians
-        data2 /= self.mads
+        if self.normalize:
+            data2 -= self.medians
+            data2 /= self.mads
         
         return pos2, data2
     
     
-    def change_params(self, highpass_freq=300., output_dtype='float32', 
+    def change_params(self, common_ref_removal=True,
+                                            highpass_freq=300.,
+                                            output_dtype='float32', 
+                                            normalize=True,
                                             backward_chunksize=None,
-                                             medians=None, mads=None):
+                                            medians=None, mads=None):
         self.medians = medians
         self.mads = mads
+        
+        self.common_ref_removal = common_ref_removal
         self.highpass_freq = highpass_freq
         self.output_dtype = output_dtype
+        self.normalize = normalize
         self.backward_chunksize = backward_chunksize
         
         assert self.backward_chunksize>self.chunksize

@@ -8,6 +8,7 @@ import numpy as np
 
 from matplotlib import pyplot
 
+from tridesclous.tests.test_signalpreprocessor import offline_signal_preprocessor
 
 
 def offline_peak_detect(normed_sigs, sample_rate, peak_sign='-',relative_threshold = 5,  peak_span = 0.0005):
@@ -72,19 +73,15 @@ def test_compare_offline_online_engines():
     
     print('sig duration', sigs.shape[0]/sample_rate)
     
-    # HP filter
+    # normalize sigs
     highpass_freq = 300.
-    b, a = scipy.signal.iirfilter(5, highpass_freq/sample_rate*2, analog=False,
-                                    btype = 'highpass', ftype = 'butter', output = 'ba')
-    filtered_sigs = scipy.signal.filtfilt(b, a, sigs, axis=0)
-    #~ filtered_sigs = filtered_sigs.astype('float32')
+    preprocess_params = dict(
+                highpass_freq=highpass_freq,
+                common_ref_removal=True,
+                backward_chunksize=chunksize+chunksize//4,
+                output_dtype='float32')
+    normed_sigs = offline_signal_preprocessor(sigs, sample_rate, **preprocess_params)
     
-    # normalize
-    med = np.median(filtered_sigs, axis=0)
-    mad = np.median(np.abs(filtered_sigs-med),axis=0)*1.4826
-    normed_sigs = (filtered_sigs - med)/mad
-    normed_sigs = normed_sigs.astype('float32')
-
     
     
     for peak_sign in ['-', '+', ]:

@@ -21,8 +21,7 @@ class PeakDetectorEngine_Numpy:
         self.sample_rate = sample_rate
         self.nb_channel = nb_channel
         self.chunksize = chunksize
-        
-        self.ring_sum = RingBuffer((chunksize*2,), dtype, double=True)
+        self.dtype = dtype
         
         self.n_peak = 0
         
@@ -81,6 +80,8 @@ class PeakDetectorEngine_Numpy:
         
         self.n_span = int(self.sample_rate*self.peak_span)//2
         self.n_span = max(1, self.n_span)
+        
+        self.ring_sum = RingBuffer((self.chunksize*2,), self.dtype, double=True)
         
 
 

@@ -6,7 +6,7 @@ import pandas as pd
 
 from .base import WidgetBase
 from .tools import TimeSeeker
-from ..tools import median_mad
+#~ from ..tools import median_mad
 from ..dataio import _signal_types
 
 
@@ -39,13 +39,10 @@ class MyViewBox(pg.ViewBox):
 
 class BaseTraceViewer(WidgetBase):
     
-    def __init__(self, spikesorter = None, shared_view_with = [], 
-                    mode = 'memory', signal_type = 'filtered', parent=None):
+    def __init__(self, dataio=dataio, signal_type = 'initial', parent=None):
         WidgetBase.__init__(self, parent)
     
-        self.spikesorter = spikesorter
-        self.dataio = self.spikesorter.dataio
-        self.mode = mode
+        self.dataio = dataio
         self.signal_type = signal_type
         
         self.layout = QtGui.QVBoxLayout()

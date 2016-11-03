@@ -2,28 +2,20 @@ from tridesclous import *
 import  pyqtgraph as pg
 from matplotlib import pyplot
 
-def get_spikesorter():
-    spikesorter = SpikeSorter(dirname = '../../tests/datatest')
-    #~ spikesorter = SpikeSorter(dirname = '../../tests/datatest_neo')
-    print(spikesorter.summary(level=1))
-    spikesorter.detect_peaks_extract_waveforms(seg_nums = 'all',  threshold=-5.,
-                            peak_sign = '-', n_span = 2,  n_left=-30, n_right=50)
-    #~ print(spikesorter.summary(level=1))
-    spikesorter.project(method = 'pca', n_components = 5)
-    spikesorter.find_clusters(7)
-    spikesorter.refresh_colors(reset=True, palette = 'husl')
-    #~ print(spikesorter.summary(level=1))
-    spikesorter.construct_catalogue()
+# run test_catalogueconstructor.py before this
 
-    return spikesorter
+def get_catalogueconstructor():
+    dataio = RawDataIO(dirname='test_catalogueconstructor')
+    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    return catalogueconstructor
 
 
 def test_traceviewer():
     app = pg.mkQApp()
     
-    spikesorter = get_spikesorter()
+    catalogueconstructor = get_catalogueconstructor()
     
-    traceviewer = TraceViewer(spikesorter=spikesorter, mode = 'memory', signal_type = 'filtered')
+    traceviewer = TraceViewer(catalogueconstructor=catalogueconstructor, mode = 'memory', signal_type = 'filtered')
     traceviewer.show()
     traceviewer.resize(800,600)
     
@@ -32,13 +24,13 @@ def test_traceviewer():
 
 def test_traceviewer_linked():
     app = pg.mkQApp()
-    spikesorter = get_spikesorter()
+    catalogueconstructor = get_catalogueconstructor()
     
-    traceviewer0 = TraceViewer(spikesorter=spikesorter, mode = 'memory', signal_type = 'filtered')
+    traceviewer0 = TraceViewer(catalogueconstructor=catalogueconstructor, mode = 'memory', signal_type = 'filtered')
     traceviewer0.show()
     traceviewer0.resize(800,600)
 
-    traceviewer1 = TraceViewer(spikesorter=spikesorter, shared_view_with = [traceviewer0], signal_type = 'unfiltered')
+    traceviewer1 = TraceViewer(catalogueconstructor=catalogueconstructor, shared_view_with = [traceviewer0], signal_type = 'unfiltered')
     traceviewer1.show()
     traceviewer1.resize(800,600)
     traceviewer0.shared_view_with.append(traceviewer1)
@@ -48,9 +40,9 @@ def test_traceviewer_linked():
 
 def test_peaklist():
     app = pg.mkQApp()
-    spikesorter = get_spikesorter()
+    catalogueconstructor = get_catalogueconstructor()
     
-    peaklist = PeakList(spikesorter = spikesorter)
+    peaklist = PeakList(catalogueconstructor = catalogueconstructor)
     peaklist.show()
     peaklist.resize(800,400)
     
@@ -58,9 +50,9 @@ def test_peaklist():
 
 def test_clusterlist():
     app = pg.mkQApp()
-    spikesorter = get_spikesorter()
+    catalogueconstructor = get_catalogueconstructor()
     
-    clusterlist = ClusterList(spikesorter = spikesorter)
+    clusterlist = ClusterList(catalogueconstructor = catalogueconstructor)
     clusterlist.show()
     clusterlist.resize(800,400)
 
@@ -68,18 +60,18 @@ def test_clusterlist():
 
 def test_ndviewer():
     app = pg.mkQApp()
-    spikesorter = get_spikesorter()
+    catalogueconstructor = get_catalogueconstructor()
     
-    ndscatter = NDScatter(spikesorter)
+    ndscatter = NDScatter(catalogueconstructor)
     ndscatter.show()
     
     app.exec_()
 
 def test_waveformviewer():
     app = pg.mkQApp()
-    spikesorter = get_spikesorter()
+    catalogueconstructor = get_catalogueconstructor()
     
-    waveformviewer = WaveformViewer(spikesorter)
+    waveformviewer = WaveformViewer(catalogueconstructor)
     waveformviewer.show()
     
     app.exec_()
@@ -91,9 +83,9 @@ def test_waveformviewer():
 
 def test_cataloguewindow():
     app = pg.mkQApp()
-    spikesorter = get_spikesorter()
+    catalogueconstructor = get_catalogueconstructor()
     
-    win = CatalogueWindow(spikesorter)
+    win = CatalogueWindow(catalogueconstructor)
     win.show()
     
     app.exec_()
@@ -122,12 +114,12 @@ def test_cataloguewindow_from_classes():
     
     
 if __name__ == '__main__':
-    #~ test_traceviewer()
+    test_traceviewer()
     #~ test_traceviewer_linked()
     #~ test_peaklist()
     #~ test_clusterlist()
     #~ test_ndviewer()
     #~ test_waveformviewer()
     
-    test_cataloguewindow()
+    #~ test_cataloguewindow()
     #~ test_cataloguewindow_from_classes()

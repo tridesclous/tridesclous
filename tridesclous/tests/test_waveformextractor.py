@@ -33,6 +33,7 @@ def test_compare_offline_online_engines():
     highpass_freq = 300.
     preprocess_params = dict(
                 highpass_freq=highpass_freq,
+                common_ref_removal=True,
                 backward_chunksize=chunksize+chunksize//4,
                 output_dtype='float32')
     
@@ -56,11 +57,11 @@ def test_compare_offline_online_engines():
     print('offline', 'process time', t2-t1)
     
     # precompute medians and mads
-    b, a = scipy.signal.iirfilter(5, highpass_freq/sample_rate*2, analog=False,
-                                    btype = 'highpass', ftype = 'butter', output = 'ba')
-    filtered_sigs = scipy.signal.filtfilt(b, a, sigs, axis=0)
-    medians = np.median(filtered_sigs, axis=0)
-    mads = np.median(np.abs(filtered_sigs-medians),axis=0)*1.4826
+    params2 = dict(preprocess_params)
+    params2['normalize'] = False
+    sigs_for_noise = offline_signal_preprocessor(sigs, sample_rate, **params2)
+    medians = np.median(sigs_for_noise, axis=0)
+    mads = np.median(np.abs(sigs_for_noise-medians),axis=0)*1.4826
     preprocess_params['medians'] = medians
     preprocess_params['mads'] = mads
     #

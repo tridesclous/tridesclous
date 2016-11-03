@@ -1,4 +1,5 @@
 import numpy as np
+import os
 
 import sklearn
 import sklearn.decomposition
@@ -44,16 +45,22 @@ class CatalogueConstructor:
     
     
     """
-    def __init__(self, dataio):
+    def __init__(self, dataio, name='initial_catalogue'):
         self.dataio = dataio
         
+        self.catalogue_path = os.path.join(self.dataio.dirname, name)
+        if not os.path.exists(self.catalogue_path):
+            os.mkdir(self.catalogue_path)
     
     def initialize(self, chunksize=1024,
             memory_mode='ram',
             
+            internal_dtype = 'float32',
+            
             #signal preprocessor
             signalpreprocessor_engine='signalpreprocessor_numpy',
             highpass_freq=300, backward_chunksize=1280,
+            common_ref_removal=True,
             
             #peak detector
             peakdetector_engine='peakdetector_numpy',
@@ -65,8 +72,11 @@ class CatalogueConstructor:
             #features
             pca_batch_size=16384,
             ):
-                
+        
+        #TODO : channels_groups
+        
         self.chunksize = chunksize
+        self.internal_dtype = internal_dtype
 
         self.n_left = n_left
         self.n_right = n_right
@@ -75,32 +85,68 @@ class CatalogueConstructor:
         self.memory_mode = memory_mode
         
         if self.memory_mode=='ram':
-            self.all_peak_pos = []
-            self.all_peak_waveforms = []
-        
+            self.peak_pos = []
+            self.peak_waveforms = []
+            self.peak_segment = []
         elif self.memory_mode=='memmap':
-            raise(NotImplementedError)
+            self.peak_files = {}
+            for name in ['peak_pos', 'peak_waveforms', 'peak_segment']:
+                self.peak_files[name] = open(self._fname(name), mode='wb')
         
         self.pca_batch_size = pca_batch_size
         
         self.peak_sign = peak_sign
         
+        self.params_signalpreprocessor = dict(highpass_freq=highpass_freq, backward_chunksize=backward_chunksize,
+                    common_ref_removal=common_ref_removal, output_dtype=self.internal_dtype)
         SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[signalpreprocessor_engine]
         self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.dataio.nb_channel, chunksize, self.dataio.dtype)
-        self.signalpreprocessor.change_params(highpass_freq=highpass_freq, backward_chunksize=backward_chunksize)
         
+        
+        self.params_peakdetector = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span=peak_span)
         PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
         self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.dataio.nb_channel,
-                                                        self.chunksize, self.dataio.dtype)
-        self.peakdetector.change_params(peak_sign=peak_sign,
-                                    relative_threshold=relative_threshold, peak_span=peak_span)
+                                                        self.chunksize, self.internal_dtype)
         
+        self.params_waveformextractor = dict(n_left=self.n_left, n_right=self.n_right)
         self.waveformextractor = waveformextractor.WaveformExtractor(self.dataio.nb_channel, self.chunksize)
-        self.waveformextractor.change_params(n_left=self.n_left, n_right=self.n_right)
+        
     
         self.nb_peak = 0
+    
+    def _fname(self, name, ext='.raw'):
+        filename = os.path.join(self.catalogue_path, name+ext)
+        return filename
+    
+    def estimate_noise(self, seg_num=0, duration=10.):
+        length = int(duration*self.dataio.sample_rate)
+        length -= length%self.chunksize
         
-    def process_one_chunk(self, pos, sigs_chunk):
+        
+        #create a file for estimating noise
+        filename = self._fname('filetered_sigs_for_noise_estimation_seg_{}'.format(seg_num))
+        filtered_sigs = np.memmap(filename, dtype=self.internal_dtype, mode='w+', shape=(length, self.dataio.nb_channel))
+        
+        
+        params2 = dict(self.params_signalpreprocessor)
+        params2['normalize'] = False
+        self.signalpreprocessor.change_params(**params2)
+        
+        iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chunksize=self.chunksize, i_stop=length,
+                                                    signal_type='initial', channels=None, return_type='raw_numpy')
+        for pos, sigs_chunk in iterator:
+            pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
+            if preprocessed_chunk is not None:
+                filtered_sigs[pos2-preprocessed_chunk.shape[0]:pos2, :] = preprocessed_chunk
+        
+        
+        medians = np.median(filtered_sigs, axis=0)
+        mads = np.median(np.abs(filtered_sigs-medians),axis=0)*1.4826
+        
+        self.params_signalpreprocessor['medians'] = np.array(medians)
+        self.params_signalpreprocessor['mads'] = np.array(mads)
+        
+    def process_one_chunk(self, pos, sigs_chunk, seg_num):
 
         pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
         if preprocessed_chunk is  None:
@@ -112,33 +158,68 @@ class CatalogueConstructor:
         
         for peak_pos, waveforms in self.waveformextractor.new_peaks(pos2, preprocessed_chunk, chunk_peaks):
             #TODO for debug only: remove it:
-            assert peak_pos.sahpe[0] == waveforms.shape[0]
+            assert peak_pos.shape[0] == waveforms.shape[0]
             # #
             
+            peak_segment = np.ones(peak_pos.size, dtype='int64') * seg_num
+            
             if self.memory_mode=='ram':
-                self.all_peak_pos.append(peak_pos)
-                self.all_peak_waveforms.append(waveforms)
+                self.peak_pos.append(peak_pos)
+                self.peak_waveforms.append(waveforms)
+                self.peak_segment.append(peak_segment)
             elif self.memory_mode=='memmap':
-                raise(NotImplementedError)
+                self.peak_files['peak_pos'].write(peak_pos.tobytes(order='C'))
+                self.peak_files['peak_waveforms'].write(waveforms.tobytes(order='C'))
+                self.peak_files['peak_segment'].write(peak_segment.tobytes(order='C'))
             
             self.nb_peak += peak_pos.size
     
+    def loop_extract_waveforms(self, seg_num=0):
+        #TODO : channels_groups
+        #TODO seg_num
+        
+        #initialize engines
+        self.signalpreprocessor.change_params(**self.params_signalpreprocessor)
+        self.peakdetector.change_params(**self.params_peakdetector)
+        self.waveformextractor.change_params(**self.params_waveformextractor)
+        
+        iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chunksize=self.chunksize,
+                                                    signal_type='initial', channels=None, return_type='raw_numpy')
+        for pos, sigs_chunk in iterator:
+            #~ print(seg_num, pos, sigs_chunk.shape)
+            self.process_one_chunk(pos, sigs_chunk, seg_num)
+            
+            #~ assert sigs_chunk.shape[0] == 1024
+        
+        #~ self.finalize()
+        
+        
     
-    def finalize(self):
+    def finalize_extract_waveforms(self):
     
         if self.memory_mode=='ram':
-            self.all_peak_pos = np.concatenate(self.all_peak_pos, axis=0)
-            self.all_peak_waveforms = np.concatenate(self.all_peak_waveforms, axis=0)
+            self.peak_pos = np.concatenate(self.peak_pos, axis=0)
+            self.peak_waveforms = np.concatenate(self.peak_waveforms, axis=0)
+            self.peak_segment = np.concatenate(self.peak_segment, axis=0)
             
         elif self.memory_mode=='memmap':
-            raise(NotImplementedError)
+            for f in self.peak_files.values():
+                f.close()
+            self.peak_files = {}
+            self.peak_pos = np.memmap(self._fname('peak_pos'), dtype='int64', mode='r')
+            self.peak_waveforms = np.memmap(self._fname('peak_waveforms'), dtype=self.internal_dtype, mode='r').reshape(self.nb_peak, self.dataio.nb_channel, -1)
+            self.peak_segment = np.memmap(self._fname('peak_segment'), dtype='int64', mode='r')
         
         #TODO inject good_events logic
-        
+    
+    def project(self, method = 'pca', n_components = 5, selection = None):
         #PCA
-        self.pca = sklearn.decomposition.IncrementalPCA(batch_size=self.pca_batch_size)
-        self.pca.fit(self.all_peak_waveforms)
-        self.features = self.pca.transform(self.all_peak_waveforms)
+        # TODO selection
+        self.pca = sklearn.decomposition.IncrementalPCA(batch_size=self.pca_batch_size, n_components=n_components)
+        
+        wf = self.peak_waveforms.reshape(self.peak_waveforms.shape[0], -1)
+        self.pca.fit(wf)
+        self.features = self.pca.transform(wf)
         
         self.labels = np.ones(self.nb_peak, dtype='int64')
         

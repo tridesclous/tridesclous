@@ -10,7 +10,8 @@ from matplotlib import pyplot
 
 
 
-def offline_signal_preprocessor(sigs, sample_rate, highpass_freq=300.,output_dtype='float32', **unused):
+def offline_signal_preprocessor(sigs, sample_rate, common_ref_removal=True,
+        highpass_freq=300.,output_dtype='float32', normalize=True, **unused):
     #cast
     sigs = sigs.astype(output_dtype)
     
@@ -18,11 +19,18 @@ def offline_signal_preprocessor(sigs, sample_rate, highpass_freq=300.,output_dty
     b, a = scipy.signal.iirfilter(5, highpass_freq/sample_rate*2, analog=False,
                                     btype = 'highpass', ftype = 'butter', output = 'ba')
     filtered_sigs = scipy.signal.filtfilt(b, a, sigs, axis=0)
+
+    # common reference removal
+    if common_ref_removal:
+        filtered_sigs = filtered_sigs - np.median(filtered_sigs, axis=1)[:, None]
     
     # normalize
-    med = np.median(filtered_sigs, axis=0)
-    mad = np.median(np.abs(filtered_sigs-med),axis=0)*1.4826
-    normed_sigs = (filtered_sigs - med)/mad
+    if normalize:
+        med = np.median(filtered_sigs, axis=0)
+        mad = np.median(np.abs(filtered_sigs-med),axis=0)*1.4826
+        normed_sigs = (filtered_sigs - med)/mad
+    else:
+        normed_sigs = filtered_sigs
     
     return normed_sigs.astype(output_dtype)
     
@@ -53,7 +61,9 @@ def test_compare_offline_online_engines():
     print('sig duration', sigs.shape[0]/sample_rate)
     
     highpass_freq = 300.
-    params = {'highpass_freq': highpass_freq, 'output_dtype': 'float32', 
+    params = {'common_ref_removal' : True,
+                'highpass_freq': highpass_freq, 'output_dtype': 'float32',
+                'normalize' : True,
                 'backward_chunksize':chunksize+chunksize//4}
     
     t1 = time.perf_counter()
@@ -62,11 +72,11 @@ def test_compare_offline_online_engines():
     print('offline', 'process time', t2-t1)
     
     # precompute medians and mads
-    b, a = scipy.signal.iirfilter(5, highpass_freq/sample_rate*2, analog=False,
-                                    btype = 'highpass', ftype = 'butter', output = 'ba')
-    filtered_sigs = scipy.signal.filtfilt(b, a, sigs, axis=0)
-    medians = np.median(filtered_sigs, axis=0)
-    mads = np.median(np.abs(filtered_sigs-medians),axis=0)*1.4826
+    params2 = dict(params)
+    params2['normalize'] = False
+    sigs_for_noise = offline_signal_preprocessor(sigs, sample_rate, **params2)
+    medians = np.median(sigs_for_noise, axis=0)
+    mads = np.median(np.abs(sigs_for_noise-medians),axis=0)*1.4826
     params['medians'] = medians
     params['mads'] = mads
     
@@ -109,17 +119,17 @@ def test_compare_offline_online_engines():
         assert np.max(residual)<5e-5, 'online differt from offline'
     
         # plot
-        fig, axs = pyplot.subplots(nrows=nb_channel, sharex=True)
-        for i in range(nb_channel):
-            ax = axs[i]
+        #~ fig, axs = pyplot.subplots(nrows=nb_channel, sharex=True)
+        #~ for i in range(nb_channel):
+            #~ ax = axs[i]
             
-            ax.plot(offline_sig[:, 2], color = 'g')
-            ax.plot(online_sig[:, 2], color = 'r', ls='--')
+            #~ ax.plot(offline_sig[:, i], color = 'g')
+            #~ ax.plot(online_sig[:, i], color = 'r', ls='--')
             
-            for i in range(nloop):
-                ax.axvline(i*chunksize, color='k', alpha=0.4)
+            #~ for i in range(nloop):
+                #~ ax.axvline(i*chunksize, color='k', alpha=0.4)
         
-        pyplot.show()
+        #~ pyplot.show()
 
 
 
