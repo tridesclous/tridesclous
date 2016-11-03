@@ -1,6 +1,7 @@
 from .version import version as __version__
 
 from .datasets import get_dataset
+from .dataio import RawDataIO
 from .spikesorter import SpikeSorter
 
 

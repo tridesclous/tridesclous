@@ -5,6 +5,7 @@ import sklearn.decomposition
 import sklearn.cluster
 import sklearn.mixture
 
+from . import signalpreprocessor
 from . import  peakdetector
 from . import waveformextractor
 
@@ -51,6 +52,7 @@ class CatalogueConstructor:
             memory_mode='ram',
             
             #signal preprocessor
+            signalpreprocessor_engine='signalpreprocessor_numpy',
             highpass_freq=300, backward_chunksize=1280,
             
             #peak detector
@@ -65,13 +67,11 @@ class CatalogueConstructor:
             ):
                 
         self.chunksize = chunksize
-        self.max_nb_peak = max_nb_peak
 
         self.n_left = n_left
         self.n_right = n_right
         
         
-        self.preallocate_peak_size = preallocate_peak_size
         self.memory_mode = memory_mode
         
         if self.memory_mode=='ram':
@@ -85,7 +85,8 @@ class CatalogueConstructor:
         
         self.peak_sign = peak_sign
         
-        self.signalpreprocessor = SignalPreprocessor_Numpy(sample_rate, nb_channel, chunksize, sigs.dtype)
+        SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[signalpreprocessor_engine]
+        self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.dataio.nb_channel, chunksize, self.dataio.dtype)
         self.signalpreprocessor.change_params(highpass_freq=highpass_freq, backward_chunksize=backward_chunksize)
         
         PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
@@ -94,27 +95,20 @@ class CatalogueConstructor:
         self.peakdetector.change_params(peak_sign=peak_sign,
                                     relative_threshold=relative_threshold, peak_span=peak_span)
         
-        self.waveformextractor = waveformextractor.WaveformExtractor(
-                    self.dataio.nb_channel, self.chunksize, self.dataio.dtype)
+        self.waveformextractor = waveformextractor.WaveformExtractor(self.dataio.nb_channel, self.chunksize)
         self.waveformextractor.change_params(n_left=self.n_left, n_right=self.n_right)
-        
-        
-        #~ self.nb_peak = 0
-        
-        
     
+        self.nb_peak = 0
+        
     def process_one_chunk(self, pos, sigs_chunk):
 
-        pos2, preprocessed_chunk = signalpreprocessor.process_data(pos, chunk)
+        pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
         if preprocessed_chunk is  None:
             return
         
-        #~ print('pos2', pos)
-        
-        n_peaks, chunk_peaks = peakdetector.process_data(pos2, preprocessed_chunk)
+        n_peaks, chunk_peaks = self.peakdetector.process_data(pos2, preprocessed_chunk)
         if chunk_peaks is  None:
             return
-        
         
         for peak_pos, waveforms in self.waveformextractor.new_peaks(pos2, preprocessed_chunk, chunk_peaks):
             #TODO for debug only: remove it:
