@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import json
 
 import sklearn
 import sklearn.decomposition
@@ -51,6 +52,32 @@ class CatalogueConstructor:
         self.catalogue_path = os.path.join(self.dataio.dirname, name)
         if not os.path.exists(self.catalogue_path):
             os.mkdir(self.catalogue_path)
+            
+        self.info_filename = os.path.join(self.catalogue_path, 'info.json')
+        if not os.path.exists(self.info_filename):
+            #first init
+            self.info = {}
+            self.flush_info()
+        else:
+            with open(self.info_filename, 'r', encoding='utf8') as f:
+                self.info = json.load(f)
+        
+        if os.path.exists(self._fname('peak_pos')):
+            self.memory_mode = 'memmap'
+            self.open_peak_data()
+            
+        else:
+            self.info = {}
+            self.peak_pos = []
+
+    def flush_info(self):
+        with open(self.info_filename, 'w', encoding='utf8') as f:
+            json.dump(self.info, f, indent=4)
+
+    def _fname(self, name, ext='.raw'):
+        filename = os.path.join(self.catalogue_path, name+ext)
+        return filename
+
     
     def initialize(self, chunksize=1024,
             memory_mode='ram',
@@ -115,10 +142,10 @@ class CatalogueConstructor:
         self.dataio.reset_signals(signal_type='processed', dtype='float32')
         
         self.nb_peak = 0
-    
-    def _fname(self, name, ext='.raw'):
-        filename = os.path.join(self.catalogue_path, name+ext)
-        return filename
+        
+        #TODO put all params in info
+        self.info['internal_dtype'] = internal_dtype
+        self.flush_info()
     
     def estimate_noise(self, seg_num=0, duration=10.):
         length = int(duration*self.dataio.sample_rate)
@@ -178,7 +205,9 @@ class CatalogueConstructor:
                 self.peak_files['peak_segment'].write(peak_segment.tobytes(order='C'))
             
             self.nb_peak += peak_pos.size
-    
+
+
+        
     def loop_extract_waveforms(self, seg_num=0):
         #TODO : channels_groups
         #TODO seg_num
@@ -201,21 +230,33 @@ class CatalogueConstructor:
         
     
     def finalize_extract_waveforms(self):
-    
+        
+        labels = np.ones(self.nb_peak, dtype='int32')
         if self.memory_mode=='ram':
             self.peak_pos = np.concatenate(self.peak_pos, axis=0)
             self.peak_waveforms = np.concatenate(self.peak_waveforms, axis=0)
             self.peak_segment = np.concatenate(self.peak_segment, axis=0)
-            
+            self.peak_labels = labels
+            self.peak_selection = np.zeros(self.nb_peak, dtype='bool')
         elif self.memory_mode=='memmap':
             for f in self.peak_files.values():
                 f.close()
             self.peak_files = {}
-            self.peak_pos = np.memmap(self._fname('peak_pos'), dtype='int64', mode='r')
-            self.peak_waveforms = np.memmap(self._fname('peak_waveforms'), dtype=self.internal_dtype, mode='r').reshape(self.nb_peak, self.dataio.nb_channel, -1)
-            self.peak_segment = np.memmap(self._fname('peak_segment'), dtype='int64', mode='r')
+            open(self._fname('peak_label'), mode='wb').write(labels.tobytes(order='C'))
+            self.open_peak_data()
         
-        #TODO inject good_events logic
+        self.cluster_labels = np.unique(self.peak_labels)
+        
+    def open_peak_data(self):
+        self.internal_dtype = self.info['internal_dtype']
+        
+        self.peak_pos = np.memmap(self._fname('peak_pos'), dtype='int64', mode='r')
+        self.nb_peak = self.peak_pos.size
+        self.peak_waveforms = np.memmap(self._fname('peak_waveforms'), dtype=self.internal_dtype, mode='r').reshape(self.nb_peak, self.dataio.nb_channel, -1)
+        self.peak_segment = np.memmap(self._fname('peak_segment'), dtype='int64', mode='r')
+        self.peak_labels = np.memmap(self._fname('peak_label'), dtype='int32', mode='r')
+        self.peak_selection = np.zeros(self.nb_peak, dtype='bool')
+    
     
     def project(self, method = 'pca', n_components = 5, selection = None):
         #PCA
@@ -225,57 +266,42 @@ class CatalogueConstructor:
         wf = self.peak_waveforms.reshape(self.peak_waveforms.shape[0], -1)
         self.pca.fit(wf)
         self.features = self.pca.transform(wf)
-        
-        self.labels = np.ones(self.nb_peak, dtype='int64')
-        
-        
-    #~ def project(self, method = 'pca', n_components = 5, selection = None):
-        #~ #TODO remove peak than are out to avoid PCA polution.
-        #~ wf = self.waveforms.values
-        #~ if selection is None:
-            #~ selection = self.good_events
-        
-        #~ if method=='pca':
-            #~ self._pca = sklearn.decomposition.PCA(n_components = n_components)
-            
-            #~ self._pca.fit(wf[selection])
-            #~ feat = self._pca.transform(wf)
-            
-            #~ self.features = pd.DataFrame(feat, index = self.waveforms.index, columns = ['pca{}'.format(i) for i in range(n_components)])
-            
-        #~ return self.features
     
-    #~ def reset(self):
-        #~ self.cluster_labels = np.unique(self.labels.values)
-        #~ self.catalogue = {}
-        
-
-
-    #~ def find_clusters(self, n_clusters,method='kmeans', order_clusters = True,**kargs):
-        #~ self.labels = find_clusters(self.features, n_clusters, method='kmeans', **kargs)
-        #~ self.labels[~self.good_events] = -1
+    
+    def find_clusters(self, n_clusters,method='kmeans', order_clusters = True,**kargs):
+        pass
+        #~ self.peak_labels = find_clusters(self.features, n_clusters, method='kmeans', **kargs)
+        #~ self.peak_labels[~self.good_events] = -1
         
         #~ self.reset()
         #~ if order_clusters:
             #~ self.order_clusters()
-        #~ return self.labels
+        #~ return self.peak_labels
+
+    def _check_plot_attributes(self):
+        if not hasattr(self, 'cluster_visible'):
+            self.cluster_visible = np.ones(self.nb_peak, dtype='bool')
+            self.cluster_visible[:] = True
+        for k in self.cluster_labels:
+            if k not in self.cluster_visible:
+                self.cluster_visible.loc[k] = True
 
     #~ def merge_cluster(self, label1, label2, order_clusters = True,):
-        #~ self.labels[self.labels==label2] = label1
+        #~ self.peak_labels[self.peak_labels==label2] = label1
         #~ self.reset()
         #~ if order_clusters:
             #~ self.order_clusters()
-        #~ return self.labels
+        #~ return self.peak_labels
     
     #~ def split_cluster(self, label, n, method='kmeans', order_clusters = True, **kargs):
-        #~ mask = self.labels==label
+        #~ mask = self.peak_labels==label
         #~ new_label = find_clusters(self.features[mask], n, method=method, **kargs)
         #~ new_label += max(self.cluster_labels)+1
-        #~ self.labels[mask] = new_label
+        #~ self.peak_labels[mask] = new_label
         #~ self.reset()
         #~ if order_clusters:
             #~ self.order_clusters()
-        #~ return self.labels
+        #~ return self.peak_labels
     
     #~ def order_clusters(self):
         #~ """
@@ -288,7 +314,7 @@ class CatalogueConstructor:
         #~ cluster_labels =  cluster_labels[cluster_labels>=0]
         #~ powers = [ ]
         #~ for k in cluster_labels:
-            #~ wf = self.waveforms[self.labels==k].values
+            #~ wf = self.waveforms[self.peak_labels==k].values
             #~ #power = np.sum(np.median(wf, axis=0)**2)
             #~ power = np.sum(np.abs(np.median(wf, axis=0)))
             #~ powers.append(power)
@@ -296,10 +322,10 @@ class CatalogueConstructor:
         
         #~ #reassign labels
         #~ N = int(max(cluster_labels)*10)
-        #~ self.labels[self.labels>=0] += N
+        #~ self.peak_labels[self.peak_labels>=0] += N
         #~ for new, old in enumerate(sorted_labels+N):
-            #~ #self.labels[self.labels==old] = new
-            #~ self.labels[self.labels==old] = cluster_labels[new]
+            #~ #self.peak_labels[self.peak_labels==old] = new
+            #~ self.peak_labels[self.peak_labels==old] = cluster_labels[new]
         #~ self.reset()
     
     #~ def construct_catalogue(self):
@@ -312,7 +338,7 @@ class CatalogueConstructor:
         #~ for k in self.cluster_labels:
             #~ # take peak of this cluster
             #~ # and reshaape (nb_peak, nb_channel, nb_csample)
-            #~ wf = self.waveforms[self.labels==k].values
+            #~ wf = self.waveforms[self.peak_labels==k].values
             #~ wf = wf.reshape(wf.shape[0], nb_channel, -1)
             
             #~ #compute first and second derivative on dim=2

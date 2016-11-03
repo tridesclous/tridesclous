@@ -305,14 +305,15 @@ class BaseTraceViewer(WidgetBase):
             self.channel_labels[c].setPos(t1, self.dataio.nb_channel-c-1)
         
         #~ inwindow_times, inwindow_label, inwindow_selected = self.get_peak_or_spiketrain_in_window(t1, t2)
+        inwindow_ind, inwindow_label, inwindow_selected = self.get_peak_or_spiketrain_in_window(ind1, ind2)
         
-        #~ if inwindow_times is not None:
+        if inwindow_ind is not None:
             
-            #~ for c in range(self.dataio.nb_channel):
-                #~ #reset scatters
-                #~ for k in self.spikesorter.cluster_labels:
-                    #~ if not self.spikesorter.cluster_visible[k]:
-                        #~ self.scatters[c][k].setData([], [])
+            for c in range(self.dataio.nb_channel):
+                #reset scatters
+                for k in self.spikesorter.cluster_labels:
+                    if not self.spikesorter.cluster_visible[k]:
+                        self.scatters[c][k].setData([], [])
                 
                 #~ for k in list(self.scatters[c].keys()):
                     #~ if not k in self.spikesorter.cluster_labels:
@@ -364,7 +365,7 @@ class BaseTraceViewer(WidgetBase):
 
 class CatalogueTraceViewer(BaseTraceViewer):
     def __init__(self, catalogueconstructor=None, signal_type = 'initial', parent=None):
-        self.catalogueconstructor = catalogueconstructor
+        self.cc = self.catalogueconstructor = catalogueconstructor
         BaseTraceViewer.__init__(self, dataio=catalogueconstructor.dataio, signal_type=signal_type, parent=parent)
     
     def _create_toolbar(self):
@@ -373,23 +374,35 @@ class CatalogueTraceViewer(BaseTraceViewer):
     def _initialize_plot(self):
         pass
     
-    def load_peak_or_spiketrain(self):
-        if self.spikesorter.peak_labels is not None:
-            self.seg_peak_labels = self.spikesorter.peak_labels.xs(self.seg_num)
-        else:
-            self.seg_peak_labels = None
+    #~ def load_peak_or_spiketrain(self):
+        #~ if self.spikesorter.peak_labels is not None:
+            #~ self.seg_peak_labels = self.spikesorter.peak_labels.xs(self.seg_num)
+        #~ else:
+            #~ self.seg_peak_labels = None
 
-    def get_peak_or_spiketrain_in_window(self, t1, t2):
-        if self.seg_peak_labels is None:
+    #~ def get_peak_or_spiketrain_in_window(self, t1, t2):
+        #~ if self.seg_peak_labels is None:
+            #~ return None, None, None
+        #~ inwindow = self.seg_peak_labels.loc[t1:t2]
+        #~ inwindow_label = inwindow.values
+        #~ inwindow_times = inwindow.index.values
+        
+        #~ seg_selection = self.spikesorter.peak_selection.xs(self.seg_num)
+        #~ inwindow_selected = seg_selection.loc[inwindow.index].values
+        
+        #~ return inwindow_times, inwindow_label, inwindow_selected
+
+    def get_peak_or_spiketrain_in_window(self, ind1, ind2):
+        if self.cc.peak_pos ==[]:
             return None, None, None
-        inwindow = self.seg_peak_labels.loc[t1:t2]
-        inwindow_label = inwindow.values
-        inwindow_times = inwindow.index.values
         
-        seg_selection = self.spikesorter.peak_selection.xs(self.seg_num)
-        inwindow_selected = seg_selection.loc[inwindow.index].values
+        keep = (self.cc.peak_segment==self.seg_num) & (self.cc.peak_pos>=ind1) & (self.cc.peak_pos<ind2)
         
-        return inwindow_times, inwindow_label, inwindow_selected
+        inwindow_ind = self.cc.peak_pos[keep]
+        inwindow_label = self.cc.peak_labels[keep]
+        seg_selection = self.cc.peak_selection[keep]
+        
+        return inwindow_ind, inwindow_label, inwindow_selected
     
     def _plot_prediction(self,t1, t2, chunk, ind1):
         pass
@@ -444,8 +457,8 @@ class PeelerTraceViewer(BaseTraceViewer):
             self.curves_residuals.append(curve)
 
    
-    def load_peak_or_spiketrain(self):
-        self.spiketrains = self.dataio.get_spiketrains(self.seg_num)
+    #~ def load_peak_or_spiketrain(self):
+        #~ self.spiketrains = self.dataio.get_spiketrains(self.seg_num)
 
     def get_peak_or_spiketrain_in_window(self, t1, t2):
         if self.spiketrains is None:
