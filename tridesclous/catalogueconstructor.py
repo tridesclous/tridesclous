@@ -2,6 +2,8 @@ import numpy as np
 import os
 import json
 
+import seaborn as sns
+
 import sklearn
 import sklearn.decomposition
 import sklearn.cluster
@@ -10,6 +12,8 @@ import sklearn.mixture
 from . import signalpreprocessor
 from . import  peakdetector
 from . import waveformextractor
+
+from pyqtgraph.Qt import QtCore, QtGui
 
 class CatalogueConstructor:
     """
@@ -237,15 +241,17 @@ class CatalogueConstructor:
             self.peak_waveforms = np.concatenate(self.peak_waveforms, axis=0)
             self.peak_segment = np.concatenate(self.peak_segment, axis=0)
             self.peak_labels = labels
-            self.peak_selection = np.zeros(self.nb_peak, dtype='bool')
+            
+            #~ self.peak_selection = np.zeros(self.nb_peak, dtype='bool')
+            #~ self.cluster_labels = np.unique(self.peak_labels)
+            self._check_plot_attributes()
+            
         elif self.memory_mode=='memmap':
             for f in self.peak_files.values():
                 f.close()
             self.peak_files = {}
             open(self._fname('peak_label'), mode='wb').write(labels.tobytes(order='C'))
             self.open_peak_data()
-        
-        self.cluster_labels = np.unique(self.peak_labels)
         
     def open_peak_data(self):
         self.internal_dtype = self.info['internal_dtype']
@@ -255,7 +261,10 @@ class CatalogueConstructor:
         self.peak_waveforms = np.memmap(self._fname('peak_waveforms'), dtype=self.internal_dtype, mode='r').reshape(self.nb_peak, self.dataio.nb_channel, -1)
         self.peak_segment = np.memmap(self._fname('peak_segment'), dtype='int64', mode='r')
         self.peak_labels = np.memmap(self._fname('peak_label'), dtype='int32', mode='r')
-        self.peak_selection = np.zeros(self.nb_peak, dtype='bool')
+        
+        #~ self.peak_selection = np.zeros(self.nb_peak, dtype='bool')
+        #~ self.cluster_labels = np.unique(self.peak_labels)
+        self._check_plot_attributes()
     
     
     def project(self, method = 'pca', n_components = 5, selection = None):
@@ -279,12 +288,55 @@ class CatalogueConstructor:
         #~ return self.peak_labels
 
     def _check_plot_attributes(self):
+        if not hasattr(self, 'peak_selection'):
+            self.peak_selection = np.zeros(self.nb_peak, dtype='bool')
+            
+        if not hasattr(self, 'cluster_labels'):
+            self.cluster_labels = np.unique(self.peak_labels)
+        
+        
         if not hasattr(self, 'cluster_visible'):
-            self.cluster_visible = np.ones(self.nb_peak, dtype='bool')
-            self.cluster_visible[:] = True
+            self.cluster_visible = {}
+        
         for k in self.cluster_labels:
             if k not in self.cluster_visible:
-                self.cluster_visible.loc[k] = True
+                self.cluster_visible[k] = True
+        
+        if not hasattr(self, 'cluster_colors'):
+            self.refresh_colors(reset=True)
+        
+
+    #~ def on_new_cluster(self):
+        #~ if self.peak_labels is None: return
+        
+        #~ self.clustering.reset()
+        #~ self.cluster_count = self.peak_labels.groupby(self.peak_labels).count()
+        #~ self._check_plot_attributes()
+        #~ self.construct_catalogue(save = False)
+    
+    
+    def refresh_colors(self, reset=True, palette = 'husl'):
+        #~ if self.cluster_labels is None: return
+        
+        if reset:
+            self.colors = {}
+        
+        #~ self._check_plot_attributes()
+        
+        n = self.cluster_labels.size
+        color_table = sns.color_palette(palette, n)
+        for i, k in enumerate(self.cluster_labels):
+            if k not in self.colors:
+                self.colors[k] = color_table[i]
+        
+        self.colors[-1] = (.4, .4, .4)
+        
+        #~ if HAVE_QT:
+        #~ if True:
+        self.qcolors = {}
+        for k, color in self.colors.items():
+            r, g, b = color
+            self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
 
     #~ def merge_cluster(self, label1, label2, order_clusters = True,):
         #~ self.peak_labels[self.peak_labels==label2] = label1

@@ -1,5 +1,7 @@
 from .version import version as __version__
 
+import PyQt5 # this force pyqtgraph to deal with Qt5
+
 from .datasets import get_dataset
 from .dataio import RawDataIO
 from .catalogueconstructor import CatalogueConstructor
@@ -9,7 +11,7 @@ from .catalogueconstructor import CatalogueConstructor
 
 #~ from .mpl_plot import *
 
-import PyQt5 # this force pyqtgraph to deal with Qt5
+
 from .gui import *
 
 
