@@ -42,10 +42,10 @@ class MyViewBox(pg.ViewBox):
 
 
 class NDScatter(WidgetBase):
-    def __init__(self, spikesorter = None, parent=None):
+    def __init__(self, catalogueconstructor=None, parent=None):
         WidgetBase.__init__(self, parent)
         
-        self.spikesorter = spikesorter
+        self.cc = self.catalogueconstructor = catalogueconstructor
         
         self.layout = QtGui.QHBoxLayout()
         self.setLayout(self.layout)
@@ -102,10 +102,8 @@ class NDScatter(WidgetBase):
     
     @property
     def data(self):
-        try:
-            return self.spikesorter.clustering.features
-        except:
-            return None
+        if hasattr(self.cc, 'features'):
+            return self.cc.features
     
     def initialize(self):
         self.viewBox = MyViewBox()
@@ -124,7 +122,7 @@ class NDScatter(WidgetBase):
         
         #~ m = np.max(np.abs(self.data.values))
         med, mad = median_mad(self.data)
-        m = 4.*np.max(mad.values)
+        m = 4.*np.max(mad)
         self.limit = m
         self.plot.setXRange(-m, m)
         self.plot.setYRange(-m, m)
@@ -147,7 +145,8 @@ class NDScatter(WidgetBase):
         self.plot2.setYRange(-1, 1)
         self.proj_labels = []
         for i in range(ndim):
-            label = pg.TextItem(self.data.columns[i], color=(1,1,1), anchor=(0.5, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
+            text = 'PC{}'.format(i)
+            label = pg.TextItem(text, color=(1,1,1), anchor=(0.5, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
             self.proj_labels.append(label)
             self.plot2.addItem(label)
         
@@ -188,8 +187,8 @@ class NDScatter(WidgetBase):
             #~ if k not in visible_labels:
             scatter.setData([], [])
         
-        for k in self.spikesorter.cluster_labels:
-            color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
+        for k in self.cc.cluster_labels:
+            color = self.cc.qcolors.get(k, QtGui.QColor( 'white'))
             if k not in self.scatters:
                 self.scatters[k] = pg.ScatterPlotItem(pen=None, brush=color, size=2, pxMode = True)
                 self.plot.addItem(self.scatters[k])
@@ -197,14 +196,14 @@ class NDScatter(WidgetBase):
             else:
                 self.scatters[k].setBrush(color)
             
-            if self.spikesorter.cluster_visible.loc[k]:
-                data = self.data[self.spikesorter.peak_labels==k].values
+            if self.cc.cluster_visible[k]:
+                data = self.data[self.cc.peak_labels==k]
                 projected = np.dot(data, self.projection )
                 self.scatters[k].setData(projected[:,0], projected[:,1])
             else:
                 self.scatters[k].setData([], [])
         
-        data = self.data[self.spikesorter.peak_selection]
+        data = self.data[self.cc.peak_selection]
         projected = np.dot(data, self.projection )
         self.scatters['sel'].setData(projected[:,0], projected[:,1])
         

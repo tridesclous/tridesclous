@@ -1,12 +1,9 @@
 import numpy as np
-import pandas as pd
 
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 
-from ..dataio import DataIO
-from ..spikesorter import SpikeSorter
-from .traceviewer import TraceViewer
+from .traceviewer import CatalogueTraceViewer
 from .lists import PeakList, ClusterList
 from .ndscatter import NDScatter
 from .waveformviewer import WaveformViewer
@@ -15,17 +12,17 @@ import itertools
 import datetime
 
 class CatalogueWindow(QtGui.QMainWindow):
-    def __init__(self, spikesorter, mode='memory'):
+    def __init__(self, catalogueconstructor, mode='memory'):
         QtGui.QMainWindow.__init__(self)
         
-        self.spikesorter = spikesorter
+        self.catalogueconstructor = catalogueconstructor
         self.mode = mode
         
-        self.traceviewer = TraceViewer(spikesorter=spikesorter, mode=self.mode)
-        self.peaklist = PeakList(spikesorter=spikesorter)
-        self.clusterlist = ClusterList(spikesorter=spikesorter)
-        self.ndscatter = NDScatter(spikesorter=spikesorter)
-        self.WaveformViewer = WaveformViewer(spikesorter=spikesorter)
+        self.traceviewer = CatalogueTraceViewer(catalogueconstructor=catalogueconstructor, signal_type='processed')
+        self.peaklist = PeakList(catalogueconstructor=catalogueconstructor)
+        self.clusterlist = ClusterList(catalogueconstructor=catalogueconstructor)
+        self.ndscatter = NDScatter(catalogueconstructor=catalogueconstructor)
+        self.WaveformViewer = WaveformViewer(catalogueconstructor=catalogueconstructor)
         
         self.all_view = [self.traceviewer, self.peaklist, self.clusterlist, self.ndscatter, self.WaveformViewer]
         
@@ -70,7 +67,7 @@ class CatalogueWindow(QtGui.QMainWindow):
         self.create_actions()
         self.create_toolbar()
         
-        self.spikesorter.refresh_colors()
+        self.catalogueconstructor.refresh_colors()
         
     def create_actions(self):
         self.act_save = QtGui.QAction(u'Save catalogue', self,checkable = False, icon=QtGui.QIcon.fromTheme("document-save"))
@@ -99,35 +96,21 @@ class CatalogueWindow(QtGui.QMainWindow):
         self.toolbar.addAction(self.act_decimate)
         self.toolbar.addAction(self.act_setting)
     
-    @classmethod
-    def from_classes(cls, peakdetector, waveformextractor, clustering, dataio =None):
-        if dataio is None:
-            name = 'test_tri_des_clous_'+datetime.datetime.now().strftime('%A, %d. %B %Y %Ih%M%pm%S')
-            print('Create DataIO : ', name)
-            dataio = DataIO(name)
-            dataio.append_signals(peakdetector.sigs,  seg_num=0, signal_type = 'filtered')
-        spikesorter = SpikeSorter(dataio = dataio)
-        
-        spikesorter.threshold = peakdetector.threshold
-        spikesorter.peak_selection = pd.Series(name = 'selected', index = clustering.labels.index, dtype = bool)
-        spikesorter.peak_selection[:] = False
-        spikesorter.all_waveforms  = waveformextractor.get_ajusted_waveforms()
-        spikesorter.clustering = clustering
-        
-        spikesorter.on_new_cluster()
-        spikesorter.refresh_colors()
-        
-        return CatalogueWindow(spikesorter)
 
     def save_catalogue(self):
-        self.spikesorter.dataio.save_catalogue(self.spikesorter.clustering.catalogue, self.spikesorter.limit_left, self.spikesorter.limit_right)
+        #TODO
+        pass
     
     def refresh(self):
         for w in self.all_view:
             w.refresh()
     
     def random_decimate(self):
+        #TODO
         pass
     
     def open_settings(self):
+        #TODO
         pass
+
+    

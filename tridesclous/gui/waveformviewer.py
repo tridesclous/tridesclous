@@ -11,10 +11,10 @@ class MyViewBox(pg.ViewBox):
     pass
 
 class WaveformViewer(WidgetBase):
-    def __init__(self, spikesorter = None, parent=None):
+    def __init__(self, catalogueconstructor=None, parent=None):
         WidgetBase.__init__(self, parent)
     
-        self.spikesorter = spikesorter
+        self.cc = self.catalogueconstructor = catalogueconstructor
         
         self.layout = QtGui.QVBoxLayout()
         self.setLayout(self.layout)
@@ -52,22 +52,24 @@ class WaveformViewer(WidgetBase):
         #~ self.viewBox.xsize_zoom.connect(self.xsize_zoom)    
     
     @property
-    def catalogue(self):
-        return self.spikesorter.clustering.catalogue
+    def centroids(self):
+        return self.cc.centroids
     
     def refresh(self):
         self.plot1.clear()
         self.plot2.clear()
         
-        if not hasattr(self.spikesorter, 'all_waveforms'):
+        if self.cc.peak_pos ==[]:
             return
         
         #lines
         def addSpan(plot):
         
-            nb_channel = self.spikesorter.dataio.nb_channel
-            samples = self.spikesorter.all_waveforms.columns.levels[1]
-            n_left, n_right = min(samples)+2, max(samples)-1
+            nb_channel = self.cc.dataio.nb_channel
+            #~ samples = self.cc.all_waveforms.columns.levels[1]
+            #~ n_left, n_right = min(samples)+2, max(samples)-1
+            d = self.cc.info['params_waveformextractor']
+            n_left, n_right = d['n_left'], d['n_right']
             white = pg.mkColor(255, 255, 255, 20)
             width = n_right - n_left
             for i in range(nb_channel):
@@ -84,13 +86,13 @@ class WaveformViewer(WidgetBase):
         addSpan(self.plot2)
         
         #waveforms
-        for i,k in enumerate(self.catalogue):
-            if not self.spikesorter.cluster_visible[k]:
+        for i,k in enumerate(self.centroids):
+            if not self.cc.cluster_visible[k]:
                 continue
-            wf0 = self.catalogue[k]['center']
-            mad = self.catalogue[k]['mad']
+            wf0 = self.centroids[k]['median'].flatten()
+            mad = self.centroids[k]['mad'].flatten()
             
-            color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
+            color = self.cc.qcolors.get(k, QtGui.QColor( 'white'))
             curve = pg.PlotCurveItem(np.arange(wf0.size), wf0, pen=pg.mkPen(color, width=2))
             self.plot1.addItem(curve)
             

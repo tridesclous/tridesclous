@@ -38,7 +38,7 @@ class MyViewBox(pg.ViewBox):
 
 class BaseTraceViewer(WidgetBase):
     
-    def __init__(self, dataio=None, signal_type = 'initial', parent=None):
+    def __init__(self, dataio=None, signal_type='initial', parent=None):
         WidgetBase.__init__(self, parent)
     
         self.dataio = dataio
@@ -83,7 +83,6 @@ class BaseTraceViewer(WidgetBase):
         tb.addWidget(self.combo_seg)
         self.combo_seg.addItems([ 'Segment {}'.format(seg_num) for seg_num in range(self.dataio.nb_segment) ])
         self._seg_pos = 0
-        #~ self.seg_num = self.dataio.segments_range.index[self._seg_pos]
         self.seg_num = self._seg_pos
         self.combo_seg.currentIndexChanged.connect(self.on_combo_seg_changed)
         tb.addSeparator()
@@ -102,7 +101,6 @@ class BaseTraceViewer(WidgetBase):
         self.xsize = .5
         tb.addWidget(QtGui.QLabel(u'X size (s)'))
         self.spinbox_xsize = pg.SpinBox(value = self.xsize, bounds = [0.001, 10.], suffix = 's', siPrefix = True, step = 0.1, dec = True)
-        #~ self.spinbox_xsize = pg.SpinBox(value = self.xsize, bounds = [0.001, 10.]) # step = 0.1, dec = True)
         self.spinbox_xsize.sigValueChanged.connect(self.xsize_changed)
         tb.addWidget(self.spinbox_xsize)
         tb.addSeparator()
@@ -183,32 +181,14 @@ class BaseTraceViewer(WidgetBase):
         self.seg_num = self._seg_pos
         self.combo_seg.setCurrentIndex(self._seg_pos)
         
-        #~ lims = self.dataio.segments_range.xs(self.signal_type, axis=1).loc[self.seg_num]
-        
-        #~ if self.mode == 'memory':
-            #~ self.sigs = self.dataio.get_signals(seg_num = self.seg_num, t_start = lims['t_start'], 
-                            #~ t_stop = lims['t_stop'], signal_type = self.signal_type)
-        #~ elif self.mode == 'file':
-            #~ self.sigs = None
-        
-        #~ self.load_peak_or_spiketrain()
 
-        #~ self.timeseeker.set_start_stop(lims['t_start'], lims['t_stop'], seek = False)
         t_start=0.
         t_stop = self.dataio.get_segment_shape(self.seg_num)[0]/self.dataio.sample_rate
         self.timeseeker.set_start_stop(t_start, t_stop, seek = False)
         
-        #~ if np.isnan(self.time_by_seg[self.seg_num]) and not np.isnan(lims['t_start']):
-            #~ self.time_by_seg[self.seg_num] = lims['t_start']
-        
-        #~ self.estimate_auto_scale()
-        
         if self.isVisible():
             self.refresh()
     
-    #~ def have_sigs(self):
-        #~ return self.dataio.have_signals(seg_num=self.seg_num, signal_type=self.signal_type)
-
     def on_combo_seg_changed(self):
         s =  self.combo_seg.currentIndex()
         self.change_segment(s)
@@ -245,7 +225,7 @@ class BaseTraceViewer(WidgetBase):
             sigs = self.dataio.get_signals_chunk(seg_num=self.seg_num, i_start=0, i_stop=i_stop, signal_type=self.signal_type,
                 channels=None, return_type='raw_numpy')
             self.med, self.mad = median_mad(sigs.astype('float32'), axis = 0)
-            #~ print(self.med, self.mad)
+
         elif self.signal_type=='processed':
             #in that case it should be already normalize
             self.med = np.zeros(self.dataio.nb_channel, dtype='float32')
@@ -269,7 +249,6 @@ class BaseTraceViewer(WidgetBase):
         
         self.time_by_seg[self.seg_num] = t
         t1,t2 = t-self.xsize/3. , t+self.xsize*2/3.
-        #~ t_start = self.dataio.segments_range.loc[self.seg_num, (self.signal_type,'t_start')]
         t_start = 0.
         sr = self.dataio.sample_rate
         ind1 = max(0, int((t1-t_start)*sr))
@@ -322,36 +301,6 @@ class CatalogueTraceViewer(BaseTraceViewer):
     def _initialize_plot(self):
         pass
     
-    #~ def load_peak_or_spiketrain(self):
-        #~ if self.spikesorter.peak_labels is not None:
-            #~ self.seg_peak_labels = self.spikesorter.peak_labels.xs(self.seg_num)
-        #~ else:
-            #~ self.seg_peak_labels = None
-
-    #~ def get_peak_or_spiketrain_in_window(self, t1, t2):
-        #~ if self.seg_peak_labels is None:
-            #~ return None, None, None
-        #~ inwindow = self.seg_peak_labels.loc[t1:t2]
-        #~ inwindow_label = inwindow.values
-        #~ inwindow_times = inwindow.index.values
-        
-        #~ seg_selection = self.spikesorter.peak_selection.xs(self.seg_num)
-        #~ inwindow_selected = seg_selection.loc[inwindow.index].values
-        
-        #~ return inwindow_times, inwindow_label, inwindow_selected
-
-    #~ def get_peak_or_spiketrain_in_window(self, ind1, ind2):
-        #~ if self.cc.peak_pos ==[]:
-            #~ return None, None, None
-        
-        #~ keep = (self.cc.peak_segment==self.seg_num) & (self.cc.peak_pos>=ind1) & (self.cc.peak_pos<ind2)
-        
-        #~ inwindow_ind = self.cc.peak_pos[keep]
-        #~ inwindow_label = self.cc.peak_labels[keep]
-        #~ seg_selection = self.cc.peak_selection[keep]
-        
-        #~ return inwindow_ind, inwindow_label, inwindow_selected
-    
     def _plot_prediction(self,ind1, ind2, sigs_chunk, times_chunk):
         pass
     
@@ -365,6 +314,8 @@ class CatalogueTraceViewer(BaseTraceViewer):
         inwindow_ind = np.array(self.cc.peak_pos[keep] - ind1)
         inwindow_label = np.array(self.cc.peak_labels[keep])
         inwindow_selected = np.array(self.cc.peak_selection[keep])
+        
+        #~ return
         
         for c in range(self.dataio.nb_channel):
             #reset scatters
@@ -414,17 +365,19 @@ class CatalogueTraceViewer(BaseTraceViewer):
                 else:
                     self.scatters[c][k].setData([], [])
     
-    
     def on_peak_selection_changed(self):
-        selected_peaks = self.cc.peak_selection[self.cc.peak_selection]
-        if self.params['auto_zoom_on_select'] and selected_peaks.shape[0]==1:
-            seg_num, time= selected_peaks.index[0]
+        n_selected = np.sum(self.cc.peak_selection)
+        if self.params['auto_zoom_on_select'] and n_selected==1:
+            ind, = np.nonzero(self.cc.peak_selection)
+            ind = ind[0]
+            seg_num = self.cc.peak_segment[ind]
+            peak_time = self.cc.peak_pos[ind]/self.dataio.sample_rate
+
             if seg_num != self.seg_num:
-                #~ seg_pos = self.dataio.segments_range.index.tolist().index(seg_num)
                 seg_pos = seg_num
                 self.combo_seg.setCurrentIndex(seg_pos)
             self.spinbox_xsize.setValue(self.params['zoom_size'])
-            self.seek(time)
+            self.seek(peak_time)
         else:
             self.refresh()
     
@@ -432,7 +385,17 @@ class CatalogueTraceViewer(BaseTraceViewer):
         if self.select_button.isChecked()and len(points)==1:
             x = points[0].pos().x()
             self.cc.peak_selection[:] = False
-            self.cc.peak_selection.loc[(self.seg_num, x)] = True
+            
+            pos_click = int(x*self.dataio.sample_rate )
+            mask = self.cc.peak_segment==self.seg_num
+            ind_nearest = np.argmin(np.abs(self.cc.peak_pos[mask] - pos_click))
+            
+            ind_clicked = np.nonzero(mask)[0][ind_nearest]
+            #~ ind_clicked
+            self.cc.peak_selection[ind_clicked] = True
+            #~ print(ind_nearest)
+            
+            #~ self.cc.peak_selection.loc[(self.seg_num, x)] = True
             
             self.peak_selection_changed.emit()
             self.refresh()

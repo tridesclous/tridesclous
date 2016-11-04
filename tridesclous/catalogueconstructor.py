@@ -1,7 +1,10 @@
-import numpy as np
 import os
 import json
+from collections import OrderedDict
+import time
 
+import numpy as np
+import scipy.signal
 import seaborn as sns
 
 import sklearn
@@ -12,6 +15,8 @@ import sklearn.mixture
 from . import signalpreprocessor
 from . import  peakdetector
 from . import waveformextractor
+
+from .tools import median_mad
 
 from pyqtgraph.Qt import QtCore, QtGui
 
@@ -68,7 +73,9 @@ class CatalogueConstructor:
         
         if os.path.exists(self._fname('peak_pos')):
             self.memory_mode = 'memmap'
+            #~ self.load_info()
             self.open_peak_data()
+            
             
         else:
             self.info = {}
@@ -107,7 +114,7 @@ class CatalogueConstructor:
         #TODO : channels_groups
         
         self.chunksize = chunksize
-        self.internal_dtype = internal_dtype
+        #~ self.internal_dtype = internal_dtype
 
         self.n_left = n_left
         self.n_right = n_right
@@ -124,12 +131,8 @@ class CatalogueConstructor:
             for name in ['peak_pos', 'peak_waveforms', 'peak_segment']:
                 self.peak_files[name] = open(self._fname(name), mode='wb')
         
-        self.pca_batch_size = pca_batch_size
-        
-        self.peak_sign = peak_sign
-        
         self.params_signalpreprocessor = dict(highpass_freq=highpass_freq, backward_chunksize=backward_chunksize,
-                    common_ref_removal=common_ref_removal, output_dtype=self.internal_dtype)
+                    common_ref_removal=common_ref_removal, output_dtype=internal_dtype)
         SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[signalpreprocessor_engine]
         self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.dataio.nb_channel, chunksize, self.dataio.dtype)
         
@@ -137,10 +140,14 @@ class CatalogueConstructor:
         self.params_peakdetector = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span=peak_span)
         PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
         self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.dataio.nb_channel,
-                                                        self.chunksize, self.internal_dtype)
+                                                        self.chunksize, internal_dtype)
         
         self.params_waveformextractor = dict(n_left=self.n_left, n_right=self.n_right)
         self.waveformextractor = waveformextractor.WaveformExtractor(self.dataio.nb_channel, self.chunksize)
+
+        #~ self.pca_batch_size = pca_batch_size
+        self.params_features = dict(pca_batch_size=pca_batch_size)
+
         
         #TODO make processed data as int32 ???
         self.dataio.reset_signals(signal_type='processed', dtype='float32')
@@ -149,7 +156,21 @@ class CatalogueConstructor:
         
         #TODO put all params in info
         self.info['internal_dtype'] = internal_dtype
+        self.info['params_signalpreprocessor'] = self.params_signalpreprocessor
+        self.info['params_peakdetector'] = self.params_peakdetector
+        self.info['params_waveformextractor'] = self.params_waveformextractor
+        self.info['params_features'] = self.params_features
         self.flush_info()
+    
+    def load_info(self):
+        pass
+        #TODO remove this and take all directly here
+        #~ self.internal_dtype = self.info['internal_dtype']
+        #~ self.params_signalpreprocessor = self.info['params_signalpreprocessor']
+        #~ self.params_peakdetector = self.info['params_peakdetector']
+        #~ self.params_waveformextractor = self.info['params_waveformextractor']
+        
+        
     
     def estimate_noise(self, seg_num=0, duration=10.):
         length = int(duration*self.dataio.sample_rate)
@@ -158,7 +179,7 @@ class CatalogueConstructor:
         
         #create a file for estimating noise
         filename = self._fname('filetered_sigs_for_noise_estimation_seg_{}'.format(seg_num))
-        filtered_sigs = np.memmap(filename, dtype=self.internal_dtype, mode='w+', shape=(length, self.dataio.nb_channel))
+        filtered_sigs = np.memmap(filename, dtype=self.info['internal_dtype'], mode='w+', shape=(length, self.dataio.nb_channel))
         
         
         params2 = dict(self.params_signalpreprocessor)
@@ -244,7 +265,8 @@ class CatalogueConstructor:
             
             #~ self.peak_selection = np.zeros(self.nb_peak, dtype='bool')
             #~ self.cluster_labels = np.unique(self.peak_labels)
-            self._check_plot_attributes()
+            self.on_new_cluster()
+            #~ self._check_plot_attributes()
             
         elif self.memory_mode=='memmap':
             for f in self.peak_files.values():
@@ -254,23 +276,23 @@ class CatalogueConstructor:
             self.open_peak_data()
         
     def open_peak_data(self):
-        self.internal_dtype = self.info['internal_dtype']
-        
         self.peak_pos = np.memmap(self._fname('peak_pos'), dtype='int64', mode='r')
         self.nb_peak = self.peak_pos.size
-        self.peak_waveforms = np.memmap(self._fname('peak_waveforms'), dtype=self.internal_dtype, mode='r').reshape(self.nb_peak, self.dataio.nb_channel, -1)
+        self.peak_waveforms = np.memmap(self._fname('peak_waveforms'), dtype=self.info['internal_dtype'], mode='r').reshape(self.nb_peak, self.dataio.nb_channel, -1)
         self.peak_segment = np.memmap(self._fname('peak_segment'), dtype='int64', mode='r')
-        self.peak_labels = np.memmap(self._fname('peak_label'), dtype='int32', mode='r')
+        self.peak_labels = np.memmap(self._fname('peak_label'), dtype='int32', mode='r+')
         
         #~ self.peak_selection = np.zeros(self.nb_peak, dtype='bool')
         #~ self.cluster_labels = np.unique(self.peak_labels)
-        self._check_plot_attributes()
+        #~ self._check_plot_attributes()
+        self.on_new_cluster()
     
     
     def project(self, method = 'pca', n_components = 5, selection = None):
         #PCA
         # TODO selection
-        self.pca = sklearn.decomposition.IncrementalPCA(batch_size=self.pca_batch_size, n_components=n_components)
+        batch_size = self.info['params_features']['pca_batch_size']
+        self.pca = sklearn.decomposition.IncrementalPCA(batch_size=batch_size, n_components=n_components)
         
         wf = self.peak_waveforms.reshape(self.peak_waveforms.shape[0], -1)
         self.pca.fit(wf)
@@ -291,8 +313,8 @@ class CatalogueConstructor:
         if not hasattr(self, 'peak_selection'):
             self.peak_selection = np.zeros(self.nb_peak, dtype='bool')
             
-        if not hasattr(self, 'cluster_labels'):
-            self.cluster_labels = np.unique(self.peak_labels)
+        #~ if not hasattr(self, 'cluster_labels'):
+            #~ self.cluster_labels = np.unique(self.peak_labels)
         
         
         if not hasattr(self, 'cluster_visible'):
@@ -301,19 +323,57 @@ class CatalogueConstructor:
         for k in self.cluster_labels:
             if k not in self.cluster_visible:
                 self.cluster_visible[k] = True
+        for k in list(self.cluster_visible.keys()):
+            if k not in self.cluster_labels:
+                self.cluster_visible.pop(k)
         
         if not hasattr(self, 'cluster_colors'):
             self.refresh_colors(reset=True)
         
 
-    #~ def on_new_cluster(self):
-        #~ if self.peak_labels is None: return
+    def on_new_cluster(self, label_changed=None):
+        """
+        label_changed can be remove/add/modify
+        """
+        if self.peak_pos==[]: return
         
-        #~ self.clustering.reset()
-        #~ self.cluster_count = self.peak_labels.groupby(self.peak_labels).count()
-        #~ self._check_plot_attributes()
-        #~ self.construct_catalogue(save = False)
+        self.cluster_labels = np.unique(self.peak_labels)
+        
+        if label_changed is None:
+            #re count evry clusters
+            self.cluster_count = { k:np.sum(self.peak_labels==k) for k in self.cluster_labels}
+        else:
+            for k in label_changed:
+                if k in self.cluster_labels:
+                    self.cluster_count[k] = np.sum(self.peak_labels==k)
+                else:
+                    self.cluster_count.pop(k)
+        
+        self.compute_centroid(label_changed=None)
+            
+        
+        self._check_plot_attributes()
+        #~ self.construct_catalogue()
     
+    def compute_centroid(self, label_changed=None):
+        if label_changed is None:
+            # recompute all clusters
+            self.centroids = {}
+            label_changed = self.cluster_labels
+        
+        
+        t1 = time.perf_counter()
+        for k in label_changed:
+            if k not in self.cluster_labels:
+                self.centroid.pop(k)
+                continue
+            wf = self.peak_waveforms[self.peak_labels==k]
+            median, mad = median_mad(wf, axis = 0)
+            self.centroids[k] = {'median':median, 'mad':mad}
+        
+        t2 = time.perf_counter()
+        print('construct_catalogue', t2-t1)
+        
     
     def refresh_colors(self, reset=True, palette = 'husl'):
         #~ if self.cluster_labels is None: return
@@ -355,7 +415,9 @@ class CatalogueConstructor:
             #~ self.order_clusters()
         #~ return self.peak_labels
     
-    #~ def order_clusters(self):
+    def order_clusters(self):
+        pass
+        #TODO
         #~ """
         #~ This reorder labels from highest power to lower power.
         #~ The higher power the smaller label.
@@ -380,45 +442,47 @@ class CatalogueConstructor:
             #~ self.peak_labels[self.peak_labels==old] = cluster_labels[new]
         #~ self.reset()
     
-    #~ def construct_catalogue(self):
-        #~ """
+    def construct_catalogue(self):
         
-        #~ """
-        
-        #~ self.catalogue = OrderedDict()
-        #~ nb_channel = self.waveforms.columns.levels[0].size
-        #~ for k in self.cluster_labels:
-            #~ # take peak of this cluster
-            #~ # and reshaape (nb_peak, nb_channel, nb_csample)
-            #~ wf = self.waveforms[self.peak_labels==k].values
+        t1 = time.perf_counter()
+        self.catalogue = OrderedDict()
+        nb_channel = self.dataio.nb_channel
+        for k in self.cluster_labels:
+            #~ print('construct_catalogue', k)
+            # take peak of this cluster
+            # and reshaape (nb_peak, nb_channel, nb_csample)
+            wf = self.peak_waveforms[self.peak_labels==k]
             #~ wf = wf.reshape(wf.shape[0], nb_channel, -1)
             
-            #~ #compute first and second derivative on dim=2
-            #~ kernel = np.array([1,0,-1])/2.
-            #~ kernel = kernel[None, None, :]
-            #~ wfD =  scipy.signal.fftconvolve(wf,kernel,'same') # first derivative
-            #~ wfDD =  scipy.signal.fftconvolve(wfD,kernel,'same') # second derivative
+            #compute first and second derivative on dim=2
+            kernel = np.array([1,0,-1])/2.
+            kernel = kernel[None, None, :]
+            wfD =  scipy.signal.fftconvolve(wf,kernel,'same') # first derivative
+            wfDD =  scipy.signal.fftconvolve(wfD,kernel,'same') # second derivative
             
-            #~ # medians
-            #~ center = np.median(wf, axis=0)
-            #~ centerD = np.median(wfD, axis=0)
-            #~ centerDD = np.median(wfDD, axis=0)
-            #~ mad = np.median(np.abs(wf-center),axis=0)*1.4826
+            # medians
+            center = np.median(wf, axis=0)
+            centerD = np.median(wfD, axis=0)
+            centerDD = np.median(wfDD, axis=0)
+            mad = np.median(np.abs(wf-center),axis=0)*1.4826
             
-            #~ #eliminate margin because of border effect of derivative and reshape
-            #~ center = center[:, 2:-2]
+            #eliminate margin because of border effect of derivative and reshape
+            center = center[:, 2:-2]
             #~ centerD = centerD[:, 2:-2]
             #~ centerDD = centerDD[:, 2:-2]
             
-            #~ self.catalogue[k] = {'center' : center.reshape(-1), 'centerD' : centerD.reshape(-1), 'centerDD': centerDD.reshape(-1) }
+            self.catalogue[k] = {'center' : center.reshape(-1), 'centerD' : centerD.reshape(-1), 'centerDD': centerDD.reshape(-1) }
+            #~ self.catalogue[k] = {'center' : center.reshape(-1)}
             
-            #~ #this is for plotting pupose
-            #~ mad = mad[:, 2:-2].reshape(-1)
-            #~ self.catalogue[k]['mad'] = mad
-            #~ self.catalogue[k]['channel_peak_max'] = np.argmax(np.max(center, axis=1))
-
+            #this is for plotting pupose
+            mad = mad[:, 2:-2].reshape(-1)
+            self.catalogue[k]['mad'] = mad
+            self.catalogue[k]['channel_peak_max'] = np.argmax(np.max(center, axis=1))
         
-        #~ return self.catalogue    
+        t2 = time.perf_counter()
+        print('construct_catalogue', t2-t1)
+        
+        return self.catalogue
     
     #~ def save(self):
         #~ pass
