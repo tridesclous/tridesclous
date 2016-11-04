@@ -73,7 +73,6 @@ class CatalogueConstructor:
         
         if os.path.exists(self._fname('peak_pos')):
             self.memory_mode = 'memmap'
-            #~ self.load_info()
             self.open_peak_data()
             
             
@@ -162,15 +161,6 @@ class CatalogueConstructor:
         self.info['params_features'] = self.params_features
         self.flush_info()
     
-    def load_info(self):
-        pass
-        #TODO remove this and take all directly here
-        #~ self.internal_dtype = self.info['internal_dtype']
-        #~ self.params_signalpreprocessor = self.info['params_signalpreprocessor']
-        #~ self.params_peakdetector = self.info['params_peakdetector']
-        #~ self.params_waveformextractor = self.info['params_waveformextractor']
-        
-        
     
     def estimate_noise(self, seg_num=0, duration=10.):
         length = int(duration*self.dataio.sample_rate)

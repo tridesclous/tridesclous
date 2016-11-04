@@ -276,14 +276,6 @@ class BaseTraceViewer(WidgetBase):
         
         self._plot_prediction(ind1, ind2, sigs_chunk, times_chunk)
         
-        #TODO threshold
-        #~ n = self.dataio.nb_channel
-        #~ for c in range(n):
-            #~ if self.params['plot_threshold'] and self.spikesorter.threshold is not None:
-                #~ self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*self.spikesorter.threshold)
-                #~ self.threshold_lines[c].show()
-            #~ else:
-                #~ self.threshold_lines[c].hide()
         
         self.plot.setXRange( t1, t2, padding = 0.0)
         self.plot.setYRange(-.5, self.dataio.nb_channel-.5, padding = 0.0)
@@ -364,6 +356,19 @@ class CatalogueTraceViewer(BaseTraceViewer):
                     self.scatters[c][k].setData(times_chunk_in, sigs_chunk_in[:, c]*self.gains[c]+self.offsets[c])
                 else:
                     self.scatters[c][k].setData([], [])
+
+        n = self.dataio.nb_channel
+        for c in range(n):
+            if self.params['plot_threshold']:
+                threshold = self.cc.info['params_peakdetector']['relative_threshold']
+                if self.cc.info['params_peakdetector']['peak_sign']=='-':
+                    threshold = -threshold
+                self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*threshold)
+                self.threshold_lines[c].show()
+            else:
+                self.threshold_lines[c].hide()
+
+    
     
     def on_peak_selection_changed(self):
         n_selected = np.sum(self.cc.peak_selection)

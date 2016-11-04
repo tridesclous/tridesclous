@@ -340,7 +340,7 @@ class ClusterList(WidgetBase):
         for k in self.selected_cluster():
             take = self.cc.peak_labels == k
             self.cc.peak_labels[take] = -1
-        self.cc.on_new_cluster()
+        self.cc.on_new_cluster(label_changed=self.selected_cluster()+[-1])
         self.cc.refresh_colors(reset = False)
         self.refresh()
         self.peak_cluster_changed.emit()
@@ -350,7 +350,7 @@ class ClusterList(WidgetBase):
         for k in self.selected_cluster():
             take = self.cc.peak_labels == k
             self.cc.peak_labels[take] = new_label
-        self.cc.on_new_cluster()
+        self.cc.on_new_cluster(label_changed=self.selected_cluster()+[new_label]))
         self.cc.refresh_colors(reset = False)
         self.refresh()
         self.peak_cluster_changed.emit()
