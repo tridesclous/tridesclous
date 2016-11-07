@@ -200,7 +200,7 @@ class NDScatter(WidgetBase):
                 self.scatters[k].setBrush(color)
             
             if self.cc.cluster_visible[k]:
-                data = self.data[self.cc.peak_labels==k]
+                data = self.data[(self.cc.peak_labels==k) & self.cc.peak_visible]
                 projected = np.dot(data, self.projection )
                 self.scatters[k].setData(projected[:,0], projected[:,1])
             else:

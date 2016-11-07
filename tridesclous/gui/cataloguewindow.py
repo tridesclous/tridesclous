@@ -15,7 +15,7 @@ class CatalogueWindow(QtGui.QMainWindow):
     def __init__(self, catalogueconstructor, mode='memory'):
         QtGui.QMainWindow.__init__(self)
         
-        self.catalogueconstructor = catalogueconstructor
+        self.cc = self.catalogueconstructor = catalogueconstructor
         self.mode = mode
         
         self.traceviewer = CatalogueTraceViewer(catalogueconstructor=catalogueconstructor, signal_type='processed')
@@ -77,7 +77,7 @@ class CatalogueWindow(QtGui.QMainWindow):
         self.act_refresh.triggered.connect(self.refresh)
 
         self.act_decimate = QtGui.QAction(u'Random decimate', self,checkable = False, icon=QtGui.QIcon.fromTheme("roll"))
-        self.act_decimate.triggered.connect(self.random_decimate)
+        self.act_decimate.triggered.connect(self.by_cluster_random_decimate)
 
         self.act_setting = QtGui.QAction(u'Settings', self,checkable = False, icon=QtGui.QIcon.fromTheme("preferences-other"))
         self.act_setting.triggered.connect(self.open_settings)
@@ -105,9 +105,13 @@ class CatalogueWindow(QtGui.QMainWindow):
         for w in self.all_view:
             w.refresh()
     
-    def random_decimate(self):
+    def by_cluster_random_decimate(self):
         #TODO
         pass
+        
+        self.cc.by_cluster_random_decimate()
+        self.ndscatter.refresh()
+        
     
     def open_settings(self):
         #TODO
