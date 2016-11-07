@@ -33,8 +33,6 @@ def test_catalogue_constructor():
                 #waveformextractor
                 n_left=-20, n_right=30, 
                 
-                #features
-                pca_batch_size=16384,
                 )
         t1 = time.perf_counter()
         catalogueconstructor.estimate_noise(seg_num=0, duration=10.)
@@ -53,16 +51,23 @@ def test_catalogue_constructor():
         t2 = time.perf_counter()
         print('finalize_extract_waveforms', t2-t1)
 
-        t1 = time.perf_counter()
-        catalogueconstructor.project()
-        t2 = time.perf_counter()
-        print('project', t2-t1)
-        
-        
-        
         for seg_num in range(dataio.nb_segment):
             mask = catalogueconstructor.peak_segment==seg_num
             print('seg_num', seg_num, np.sum(mask))
+        
+        # PCA
+        t1 = time.perf_counter()
+        catalogueconstructor.project(method='IncrementalPCA', n_components=7, batch_size=16384)
+        t2 = time.perf_counter()
+        print('project', t2-t1)
+        
+        # cluster
+        t1 = time.perf_counter()
+        catalogueconstructor.find_clusters(method='kmeans', n_clusters=11)
+        #~ catalogueconstructor.find_clusters(method='gmm', n_clusters=11)
+        t2 = time.perf_counter()
+        print('find_clusters', t2-t1)
+        
         
         
         #plot

@@ -187,6 +187,9 @@ class NDScatter(WidgetBase):
             #~ if k not in visible_labels:
             scatter.setData([], [])
         
+        if self.data.shape[1] != self.projection.shape[0]:
+            self.initialize()
+        
         for k in self.cc.cluster_labels:
             color = self.cc.qcolors.get(k, QtGui.QColor( 'white'))
             if k not in self.scatters:

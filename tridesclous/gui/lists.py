@@ -230,6 +230,7 @@ class ClusterList(WidgetBase):
             
             item = QtGui.QTableWidgetItem('')
             item.setFlags(QtCore.Qt.ItemIsEnabled|QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsUserCheckable)
+            
             item.setCheckState({ False: QtCore.Qt.Unchecked, True : QtCore.Qt.Checked}[self.cc.cluster_visible[k]])
             self.table.setItem(i,1, item)
 
@@ -254,7 +255,13 @@ class ClusterList(WidgetBase):
             if index.column() !=0: continue
             selected.append(self.cc.cluster_labels[index.row()])
         return selected
-
+    
+    def _selected_spikes(self):
+        selection = np.zeros(self.cc.peak_labels.shape[0], dtype = bool)
+        for k in self.selected_cluster():
+            selection |= self.cc.peak_labels == k
+        return selection
+    
     def open_context_menu(self):
         n = len(self.selected_cluster())
         menu = QtGui.QMenu()
@@ -272,10 +279,10 @@ class ClusterList(WidgetBase):
             act.triggered.connect(self.order_clusters)
             
         if n>=1:
-            act = menu.addAction('PCA projection with all')
-            act.triggered.connect(self.pca_project_all)
-            act = menu.addAction('PCA projection with selection')
-            act.triggered.connect(self.pca_project_selection)
+            act = menu.addAction('PC projection with all')
+            act.triggered.connect(self.pc_project_all)
+            act = menu.addAction('PC projection with selection')
+            act.triggered.connect(self.pc_project_selection)
             act = menu.addAction('Move selection to trash')
             act.triggered.connect(self.move_selection_to_trash)
             act = menu.addAction('Merge selection')
@@ -297,8 +304,12 @@ class ClusterList(WidgetBase):
         self.refresh()
         self.colors_changed.emit()
     
-    def sort_clusters(self):
-        pass
+    def order_clusters(self):
+        self.cc.order_clusters()
+        self.cc.refresh_colors(reset = True)
+        self.refresh()
+        self.colors_changed.emit()
+        
         
     def show_all(self):
         for k in self.cc.cluster_visible:
@@ -319,22 +330,35 @@ class ClusterList(WidgetBase):
         self.refresh()
         self.peak_cluster_changed.emit()
     
-    def pca_project_all(self):
-        #TODO
-        pass
-        #~ self.cc.clustering.project(method = 'pca', n_components = self.cc.clustering._pca.n_components)
-        #~ self.refresh()
-        #~ self.peak_cluster_changed.emit()
+    def _open_pca_menu(self):
+        _params = [{'name' : 'method', 'type' : 'list', 'values' : ['pca']},
+                            {'name' : 'n_components', 'type' : 'int', 'value' : 5},
+                            ]
+        dialog1 = ParamDialog(_params, title = 'PC params ?', parent = self)
+        if not dialog1.exec_():
+            return
+        
+        return {'method' : dialog1.params['method'], 
+                        'n_components' : dialog1.params['n_components']}
+        
     
-    def pca_project_selection(self):
-        #TODO
-        pass
-        #~ selection = np.zeros(self.cc.peak_labels.shape[0], dtype = bool)
-        #~ for k in self.selected_cluster():
-            #~ selection |= self.cc.peak_labels == k
-        #~ self.cc.clustering.project(method = 'pca', n_components = self.cc.clustering._pca.n_components,
-                                        #~ selection = selection)
-        #~ self.peak_cluster_changed.emit()
+    def pc_project_all(self, selection=None):
+        _params = [{'name' : 'method', 'type' : 'list', 'values' : ['pca']},
+                            {'name' : 'n_components', 'type' : 'int', 'value' : 5},
+                            ]
+        dialog1 = ParamDialog(_params, title = 'PC params ?', parent = self)
+        if not dialog1.exec_():
+            return
+        
+        params =  {'method' : dialog1.params['method'], 
+                        'n_components' : dialog1.params['n_components']}
+        
+        self.cc.project(**params)
+        self.refresh()
+        self.peak_cluster_changed.emit()
+    
+    def pc_project_selection(self):
+        self.pc_project_all(selection=self._selected_spikes())
     
     def move_selection_to_trash(self):
         for k in self.selected_cluster():
@@ -346,17 +370,14 @@ class ClusterList(WidgetBase):
         self.peak_cluster_changed.emit()
     
     def merge_selection(self):
-        new_label = max(self.cc.cluster_labels)+1
-        for k in self.selected_cluster():
-            take = self.cc.peak_labels == k
-            self.cc.peak_labels[take] = new_label
-        self.cc.on_new_cluster(label_changed=self.selected_cluster()+[new_label]))
+        label_to_merge = self.selected_cluster()
+        self.cc.merge_cluster(label_to_merge, order_clusters =False)
         self.cc.refresh_colors(reset = False)
         self.refresh()
         self.peak_cluster_changed.emit()
     
     def split_selection(self):
-        k = self.selected_cluster()[0]
+        label_to_split = self.selected_cluster()[0]
         
         _params = [{'name' : 'method', 'type' : 'list', 'values' : ['kmeans', 'gmm']}]
         dialog1 = ParamDialog(_params, title = 'Which method ?', parent = self)
@@ -383,21 +404,14 @@ class ClusterList(WidgetBase):
             kargs = dialog2.get()
         
         n = kargs.pop('n')
-        # TODO
         
-        #~ self.cc.clustering.split_cluster(k, n, method=method, order_clusters = True, **kargs)
-
-        #~ self.cc.on_new_cluster()
-        #~ self.cc.refresh_colors(reset = False)
-        #~ self.refresh()
-        #~ self.peak_cluster_changed.emit()
+        self.cc.split_cluster(label_to_split, n, method=method, order_clusters=True, **kargs)
+        self.cc.refresh_colors(reset = False)
+        self.refresh()
+        self.peak_cluster_changed.emit()
 
     
     def select_peaks_of_clusters(self):
-        self.cc.peak_selection[:] = False
-        for k in self.selected_cluster():
-            self.cc.peak_selection[self.cc.peak_labels == k] = True
-            
+        self.cc.peak_selection[:] = self._selected_spikes()
         self.refresh()
         self.peak_selection_changed.emit()
-

@@ -129,6 +129,7 @@ def test_compare_offline_online_engines():
     
     offline_wf = offline_waveforms[ind_error_max, : , :]
     online_wf = online_waveforms[ind_error_max, : , :]
+    #~ print(online_wf.shape)
     
     fig, ax = pyplot.subplots()
     ax.plot(offline_wf.flatten(), color='g')
@@ -140,8 +141,6 @@ def test_compare_offline_online_engines():
     ax.plot(np.median(wf2, axis=0), color='g')
     wf3 = online_waveforms.reshape(offline_waveforms.shape[0], -1)
     ax.plot(np.median(wf3, axis=0), color='r', ls='--')
-    
-    
     
     
     pyplot.show()

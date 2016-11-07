@@ -7,14 +7,16 @@ import numpy as np
 import scipy.signal
 import seaborn as sns
 
-import sklearn
-import sklearn.decomposition
-import sklearn.cluster
-import sklearn.mixture
+#~ import sklearn
+#~ import sklearn.decomposition
+#~ import sklearn.cluster
+#~ import sklearn.mixture
 
 from . import signalpreprocessor
 from . import  peakdetector
 from . import waveformextractor
+from . import decomposition
+from . import cluster 
 
 from .tools import median_mad
 
@@ -106,8 +108,8 @@ class CatalogueConstructor:
             #waveformextractor
             n_left=-20, n_right=30, 
             
-            #features
-            pca_batch_size=16384,
+            #~ #features
+            #~ pca_batch_size=16384,
             ):
         
         #TODO : channels_groups
@@ -145,7 +147,7 @@ class CatalogueConstructor:
         self.waveformextractor = waveformextractor.WaveformExtractor(self.dataio.nb_channel, self.chunksize)
 
         #~ self.pca_batch_size = pca_batch_size
-        self.params_features = dict(pca_batch_size=pca_batch_size)
+        #~ self.params_features = dict(pca_batch_size=pca_batch_size)
 
         
         #TODO make processed data as int32 ???
@@ -158,7 +160,7 @@ class CatalogueConstructor:
         self.info['params_signalpreprocessor'] = self.params_signalpreprocessor
         self.info['params_peakdetector'] = self.params_peakdetector
         self.info['params_waveformextractor'] = self.params_waveformextractor
-        self.info['params_features'] = self.params_features
+        #~ self.info['params_features'] = self.params_features
         self.flush_info()
     
     
@@ -278,49 +280,32 @@ class CatalogueConstructor:
         self.on_new_cluster()
     
     
-    def project(self, method = 'pca', n_components = 5, selection = None):
-        #PCA
-        # TODO selection
-        batch_size = self.info['params_features']['pca_batch_size']
-        self.pca = sklearn.decomposition.IncrementalPCA(batch_size=batch_size, n_components=n_components)
+    def project(self, method='IncrementalPCA', selection = None, n_components=5, **params):
+        """
+        params:
+        n_components
         
+        """
         wf = self.peak_waveforms.reshape(self.peak_waveforms.shape[0], -1)
-        self.pca.fit(wf)
-        self.features = self.pca.transform(wf)
+        params['n_components'] = n_components
+        self.features = decomposition.project_waveforms(wf, method=method, selection=None, **params)
+    
+    def find_clusters(self, method='kmeans', n_clusters=1, order_clusters=True, selection=None, **kargs):
+        if selection is None:
+            labels = cluster.find_clusters(self.features, method=method, n_clusters=n_clusters, **kargs)
+            self.peak_labels[:] = labels
+        else:
+            features = self.features[selection]
+            labels = cluster.find_clusters(features, method=method, n_clusters=n_clusters, **kargs)
+            labels += max(self.cluster_labels)+1
+            self.peak_labels[selection] = labels
+        
+        self.on_new_cluster(label_changed=None)
+        
+        if order_clusters:
+            self.order_clusters()
     
     
-    def find_clusters(self, n_clusters,method='kmeans', order_clusters = True,**kargs):
-        pass
-        #~ self.peak_labels = find_clusters(self.features, n_clusters, method='kmeans', **kargs)
-        #~ self.peak_labels[~self.good_events] = -1
-        
-        #~ self.reset()
-        #~ if order_clusters:
-            #~ self.order_clusters()
-        #~ return self.peak_labels
-
-    def _check_plot_attributes(self):
-        if not hasattr(self, 'peak_selection'):
-            self.peak_selection = np.zeros(self.nb_peak, dtype='bool')
-            
-        #~ if not hasattr(self, 'cluster_labels'):
-            #~ self.cluster_labels = np.unique(self.peak_labels)
-        
-        
-        if not hasattr(self, 'cluster_visible'):
-            self.cluster_visible = {}
-        
-        for k in self.cluster_labels:
-            if k not in self.cluster_visible:
-                self.cluster_visible[k] = True
-        for k in list(self.cluster_visible.keys()):
-            if k not in self.cluster_labels:
-                self.cluster_visible.pop(k)
-        
-        if not hasattr(self, 'cluster_colors'):
-            self.refresh_colors(reset=True)
-        
-
     def on_new_cluster(self, label_changed=None):
         """
         label_changed can be remove/add/modify
@@ -339,11 +324,27 @@ class CatalogueConstructor:
                 else:
                     self.cluster_count.pop(k)
         
-        self.compute_centroid(label_changed=None)
-            
+        self.compute_centroid(label_changed=label_changed)
         
         self._check_plot_attributes()
-        #~ self.construct_catalogue()
+
+    def _check_plot_attributes(self):
+        if not hasattr(self, 'peak_selection'):
+            self.peak_selection = np.zeros(self.nb_peak, dtype='bool')
+        
+        if not hasattr(self, 'cluster_visible'):
+            self.cluster_visible = {}
+        
+        for k in self.cluster_labels:
+            if k not in self.cluster_visible:
+                self.cluster_visible[k] = True
+        for k in list(self.cluster_visible.keys()):
+            if k not in self.cluster_labels:
+                self.cluster_visible.pop(k)
+        
+        if not hasattr(self, 'cluster_colors'):
+            self.refresh_colors(reset=True)
+
     
     def compute_centroid(self, label_changed=None):
         if label_changed is None:
@@ -351,27 +352,22 @@ class CatalogueConstructor:
             self.centroids = {}
             label_changed = self.cluster_labels
         
-        
-        t1 = time.perf_counter()
+        #~ t1 = time.perf_counter()
         for k in label_changed:
             if k not in self.cluster_labels:
-                self.centroid.pop(k)
+                self.centroids.pop(k)
                 continue
             wf = self.peak_waveforms[self.peak_labels==k]
             median, mad = median_mad(wf, axis = 0)
             self.centroids[k] = {'median':median, 'mad':mad}
         
-        t2 = time.perf_counter()
-        print('construct_catalogue', t2-t1)
+        #~ t2 = time.perf_counter()
+        #~ print('compute_centroid', t2-t1)
         
     
     def refresh_colors(self, reset=True, palette = 'husl'):
-        #~ if self.cluster_labels is None: return
-        
         if reset:
             self.colors = {}
-        
-        #~ self._check_plot_attributes()
         
         n = self.cluster_labels.size
         color_table = sns.color_palette(palette, n)
@@ -381,112 +377,90 @@ class CatalogueConstructor:
         
         self.colors[-1] = (.4, .4, .4)
         
-        #~ if HAVE_QT:
-        #~ if True:
         self.qcolors = {}
         for k, color in self.colors.items():
             r, g, b = color
             self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
 
-    #~ def merge_cluster(self, label1, label2, order_clusters = True,):
-        #~ self.peak_labels[self.peak_labels==label2] = label1
-        #~ self.reset()
-        #~ if order_clusters:
-            #~ self.order_clusters()
-        #~ return self.peak_labels
+    def merge_cluster(self, labels_to_merge, order_clusters =False,):
+        #TODO: maybe take the first cluster label instead of new one (except -1)
+        new_label = max(self.cluster_labels)+1
+        for k in labels_to_merge:
+            take = self.peak_labels == k
+            self.peak_labels[take] = new_label
+
+        if order_clusters:
+            self.order_clusters()
+        else:
+            self.on_new_cluster(label_changed=labels_to_merge+[new_label])
     
-    #~ def split_cluster(self, label, n, method='kmeans', order_clusters = True, **kargs):
-        #~ mask = self.peak_labels==label
-        #~ new_label = find_clusters(self.features[mask], n, method=method, **kargs)
-        #~ new_label += max(self.cluster_labels)+1
-        #~ self.peak_labels[mask] = new_label
-        #~ self.reset()
-        #~ if order_clusters:
-            #~ self.order_clusters()
-        #~ return self.peak_labels
+    
+    def split_cluster(self, label, n, method='kmeans', order_clusters=True, **kargs):
+        mask = self.peak_labels==label
+        self.find_clusters(method=method, n_clusters=n, order_clusters=order_clusters, selection=mask, **kargs)
     
     def order_clusters(self):
-        pass
-        #TODO
-        #~ """
-        #~ This reorder labels from highest power to lower power.
-        #~ The higher power the smaller label.
-        #~ Negative labels are not reassigned.
-        #~ """
-        #~ cluster_labels = self.cluster_labels.copy()
-        #~ cluster_labels.sort()
-        #~ cluster_labels =  cluster_labels[cluster_labels>=0]
-        #~ powers = [ ]
-        #~ for k in cluster_labels:
-            #~ wf = self.waveforms[self.peak_labels==k].values
-            #~ #power = np.sum(np.median(wf, axis=0)**2)
-            #~ power = np.sum(np.abs(np.median(wf, axis=0)))
-            #~ powers.append(power)
-        #~ sorted_labels = cluster_labels[np.argsort(powers)[::-1]]
+        """
+        This reorder labels from highest power to lower power.
+        The higher power the smaller label.
+        Negative labels are not reassigned.
+        """
+        cluster_labels = self.cluster_labels.copy()
+        cluster_labels.sort()
+        cluster_labels =  cluster_labels[cluster_labels>=0]
+        powers = [ ]
+        for k in cluster_labels:
+            power = np.sum(self.centroids[k]['median'].flatten()**2)
+            powers.append(power)
+        sorted_labels = cluster_labels[np.argsort(powers)[::-1]]
         
-        #~ #reassign labels
-        #~ N = int(max(cluster_labels)*10)
-        #~ self.peak_labels[self.peak_labels>=0] += N
-        #~ for new, old in enumerate(sorted_labels+N):
-            #~ #self.peak_labels[self.peak_labels==old] = new
-            #~ self.peak_labels[self.peak_labels==old] = cluster_labels[new]
-        #~ self.reset()
+        #reassign labels
+        N = int(max(cluster_labels)*10)
+        self.peak_labels[self.peak_labels>=0] += N
+        for new, old in enumerate(sorted_labels+N):
+            self.peak_labels[self.peak_labels==old] = cluster_labels[new]
+        
+        self.on_new_cluster()
     
     def construct_catalogue(self):
-        
-        t1 = time.perf_counter()
-        self.catalogue = OrderedDict()
-        nb_channel = self.dataio.nb_channel
-        for k in self.cluster_labels:
-            #~ print('construct_catalogue', k)
-            # take peak of this cluster
-            # and reshaape (nb_peak, nb_channel, nb_csample)
-            wf = self.peak_waveforms[self.peak_labels==k]
-            #~ wf = wf.reshape(wf.shape[0], nb_channel, -1)
+        #TODO
+        pass
+        #~ t1 = time.perf_counter()
+        #~ self.catalogue = OrderedDict()
+        #~ nb_channel = self.dataio.nb_channel
+        #~ for k in self.cluster_labels:
+            #~ #print('construct_catalogue', k)
+            #~ # take peak of this cluster
+            #~ # and reshaape (nb_peak, nb_channel, nb_csample)
+            #~ wf = self.peak_waveforms[self.peak_labels==k]
             
-            #compute first and second derivative on dim=2
-            kernel = np.array([1,0,-1])/2.
-            kernel = kernel[None, None, :]
-            wfD =  scipy.signal.fftconvolve(wf,kernel,'same') # first derivative
-            wfDD =  scipy.signal.fftconvolve(wfD,kernel,'same') # second derivative
+            #~ #compute first and second derivative on dim=2
+            #~ kernel = np.array([1,0,-1])/2.
+            #~ kernel = kernel[None, None, :]
+            #~ wfD =  scipy.signal.fftconvolve(wf,kernel,'same') # first derivative
+            #~ wfDD =  scipy.signal.fftconvolve(wfD,kernel,'same') # second derivative
             
-            # medians
-            center = np.median(wf, axis=0)
-            centerD = np.median(wfD, axis=0)
-            centerDD = np.median(wfDD, axis=0)
-            mad = np.median(np.abs(wf-center),axis=0)*1.4826
+            #~ # medians
+            #~ center = np.median(wf, axis=0)
+            #~ centerD = np.median(wfD, axis=0)
+            #~ centerDD = np.median(wfDD, axis=0)
+            #~ mad = np.median(np.abs(wf-center),axis=0)*1.4826
             
-            #eliminate margin because of border effect of derivative and reshape
-            center = center[:, 2:-2]
+            #~ #eliminate margin because of border effect of derivative and reshape
+            #~ center = center[:, 2:-2]
             #~ centerD = centerD[:, 2:-2]
             #~ centerDD = centerDD[:, 2:-2]
             
-            self.catalogue[k] = {'center' : center.reshape(-1), 'centerD' : centerD.reshape(-1), 'centerDD': centerDD.reshape(-1) }
-            #~ self.catalogue[k] = {'center' : center.reshape(-1)}
+            #~ self.catalogue[k] = {'center' : center.reshape(-1), 'centerD' : centerD.reshape(-1), 'centerDD': centerDD.reshape(-1) }
             
-            #this is for plotting pupose
-            mad = mad[:, 2:-2].reshape(-1)
-            self.catalogue[k]['mad'] = mad
-            self.catalogue[k]['channel_peak_max'] = np.argmax(np.max(center, axis=1))
+            #~ #this is for plotting pupose
+            #~ mad = mad[:, 2:-2].reshape(-1)
+            #~ self.catalogue[k]['mad'] = mad
+            #~ self.catalogue[k]['channel_peak_max'] = np.argmax(np.max(center, axis=1))
         
-        t2 = time.perf_counter()
-        print('construct_catalogue', t2-t1)
+        #~ t2 = time.perf_counter()
+        #~ print('construct_catalogue', t2-t1)
         
-        return self.catalogue
-    
-    #~ def save(self):
-        #~ pass
+        #~ return self.catalogue
 
-
-
-
-#~ def find_clusters(features, n_clusters, method='kmeans', **kargs):
-    #~ if method == 'kmeans':
-        #~ km = sklearn.cluster.KMeans(n_clusters=n_clusters,**kargs)
-        #~ labels = km.fit_predict(features)
-    #~ elif method == 'gmm':
-        #~ gmm = sklearn.mixture.GMM(n_components=n_clusters,**kargs)
-        #~ labels =gmm.fit_predict(features)
-    
-    #~ return labels
 

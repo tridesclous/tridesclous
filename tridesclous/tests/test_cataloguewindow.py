@@ -74,7 +74,8 @@ def test_cataloguewindow():
     catalogueconstructor = get_catalogueconstructor()
 
     #TODO: remove this
-    catalogueconstructor.project()
+    catalogueconstructor.project(method='pca', n_components=7)
+    catalogueconstructor.find_clusters(method='kmeans', n_clusters=6)
     
     win = CatalogueWindow(catalogueconstructor)
     win.show()
