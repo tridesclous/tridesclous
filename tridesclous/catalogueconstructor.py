@@ -333,10 +333,6 @@ class CatalogueConstructor:
         if not hasattr(self, 'peak_selection'):
             self.peak_selection = np.zeros(self.nb_peak, dtype='bool')
         
-        if not hasattr(self, 'peak_visible'):
-            self.peak_visible = np.zeros(self.nb_peak, dtype='bool')
-            self.by_cluster_random_decimate()
-        
         if not hasattr(self, 'cluster_visible'):
             self.cluster_visible = {}
         
@@ -388,18 +384,6 @@ class CatalogueConstructor:
         for k, color in self.colors.items():
             r, g, b = color
             self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
-
-    def by_cluster_random_decimate(self):
-        self.max_visible_by_cluster = 400
-        for k in self.cluster_labels:
-            mask = self.peak_labels==k
-            if self.cluster_count[k]>self.max_visible_by_cluster:
-                self.peak_visible[mask] = False
-                visible, = np.nonzero(mask)
-                visible = np.random.choice(visible, size=self.max_visible_by_cluster)
-                self.peak_visible[visible] = True
-            else:
-                self.peak_visible[mask] = True
 
     def merge_cluster(self, labels_to_merge, order_clusters =False,):
         #TODO: maybe take the first cluster label instead of new one (except -1)

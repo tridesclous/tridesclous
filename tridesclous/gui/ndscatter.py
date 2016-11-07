@@ -60,7 +60,9 @@ class NDScatter(WidgetBase):
         self.toolbar.addWidget(self.graphicsview2)
 
         _params = [{'name': 'refresh_interval', 'type': 'float', 'value': 100 },
-                           {'name': 'nb_step', 'type': 'int', 'value':  10, 'limits' : [5, 100] },]
+                           {'name': 'nb_step', 'type': 'int', 'value':  10, 'limits' : [5, 100] },
+                           {'name': 'max_visible_by_cluster', 'type': 'int', 'value':  1000, 'limits' : [10, 10000], 'step':50 },
+                           ]
         self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
         self.tree_params = pg.parametertree.ParameterTree(parent  = self)
         self.tree_params.header().hide()
@@ -92,6 +94,11 @@ class NDScatter(WidgetBase):
         but = QtGui.QPushButton('settings')
         but.clicked.connect(self.open_settings)
         tb.addWidget(but)
+        but = QtGui.QPushButton('random decimate', icon=QtGui.QIcon.fromTheme("roll"))
+        but.clicked.connect(self.by_cluster_random_decimate)
+        tb.addWidget(but)
+        
+        
         
 
     def open_settings(self):
@@ -131,6 +138,9 @@ class NDScatter(WidgetBase):
         self.projection = np.zeros( (ndim, 2))
         self.projection[0,0] = 1.
         self.projection[1,1] = 1.
+        
+        self.peak_visible = np.zeros(self.cc.nb_peak, dtype=bool)
+        self.by_cluster_random_decimate(refresh=False)
         
         self.plot2 = pg.PlotItem(viewBox=MyViewBox(lockAspect=True))
         self.graphicsview2.setCentralItem(self.plot2)
@@ -181,6 +191,21 @@ class NDScatter(WidgetBase):
         if self.timer_tour.isActive():
             self.tour_step == 0
         self.refresh()
+
+    def by_cluster_random_decimate(self, clicked=None, refresh=True):
+        m = self.params['max_visible_by_cluster']
+        for k in self.cc.cluster_labels:
+            mask = self.cc.peak_labels==k
+            if self.cc.cluster_count[k]>m:
+                self.peak_visible[mask] = False
+                visible, = np.nonzero(mask)
+                visible = np.random.choice(visible, size=m)
+                self.peak_visible[visible] = True
+            else:
+                self.peak_visible[mask] = True
+        
+        if refresh:
+            self.refresh()
     
     def refresh(self):
         for k, scatter in self.scatters.items():
@@ -200,7 +225,7 @@ class NDScatter(WidgetBase):
                 self.scatters[k].setBrush(color)
             
             if self.cc.cluster_visible[k]:
-                data = self.data[(self.cc.peak_labels==k) & self.cc.peak_visible]
+                data = self.data[(self.cc.peak_labels==k) & self.peak_visible]
                 projected = np.dot(data, self.projection )
                 self.scatters[k].setData(projected[:,0], projected[:,1])
             else:

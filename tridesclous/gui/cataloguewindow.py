@@ -76,8 +76,8 @@ class CatalogueWindow(QtGui.QMainWindow):
         self.act_refresh = QtGui.QAction(u'Refresh', self,checkable = False, icon=QtGui.QIcon.fromTheme("view-refresh"))
         self.act_refresh.triggered.connect(self.refresh)
 
-        self.act_decimate = QtGui.QAction(u'Random decimate', self,checkable = False, icon=QtGui.QIcon.fromTheme("roll"))
-        self.act_decimate.triggered.connect(self.by_cluster_random_decimate)
+        #~ self.act_decimate = QtGui.QAction(u'Random decimate', self,checkable = False, icon=QtGui.QIcon.fromTheme("roll"))
+        #~ self.act_decimate.triggered.connect(self.by_cluster_random_decimate)
 
         self.act_setting = QtGui.QAction(u'Settings', self,checkable = False, icon=QtGui.QIcon.fromTheme("preferences-other"))
         self.act_setting.triggered.connect(self.open_settings)
@@ -93,7 +93,7 @@ class CatalogueWindow(QtGui.QMainWindow):
         
         self.toolbar.addAction(self.act_save)
         self.toolbar.addAction(self.act_refresh)
-        self.toolbar.addAction(self.act_decimate)
+        #~ self.toolbar.addAction(self.act_decimate)
         self.toolbar.addAction(self.act_setting)
     
 
@@ -105,12 +105,12 @@ class CatalogueWindow(QtGui.QMainWindow):
         for w in self.all_view:
             w.refresh()
     
-    def by_cluster_random_decimate(self):
-        #TODO
-        pass
+    #~ def by_cluster_random_decimate(self):
+        #~ #TODO
+        #~ pass
         
-        self.cc.by_cluster_random_decimate()
-        self.ndscatter.refresh()
+        #~ self.cc.by_cluster_random_decimate()
+        #~ self.ndscatter.refresh()
         
     
     def open_settings(self):

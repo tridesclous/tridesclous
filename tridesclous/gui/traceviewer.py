@@ -223,7 +223,7 @@ class BaseTraceViewer(WidgetBase):
         if self.signal_type=='initial':
             i_stop = min(int(60.*self.dataio.sample_rate), self.dataio.get_segment_shape(self.seg_num)[0])
             sigs = self.dataio.get_signals_chunk(seg_num=self.seg_num, i_start=0, i_stop=i_stop, signal_type=self.signal_type,
-                channels=None, return_type='raw_numpy')
+                return_type='raw_numpy')
             self.med, self.mad = median_mad(sigs.astype('float32'), axis = 0)
 
         elif self.signal_type=='processed':
