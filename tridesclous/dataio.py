@@ -22,17 +22,23 @@ class BaseDataIO:
         else:
             with open(self.info_filename, 'r', encoding='utf8') as f:
                 self.info = json.load(f)
+            self.reload_info()
             self.reload_existing()
     
     def flush_info(self):
         with open(self.info_filename, 'w', encoding='utf8') as f:
             json.dump(self.info, f, indent=4)
     
+    def reload_info(self):
+        self.channel_group = self.info['channel_group']
+        self.nb_channel  = len(self.channel_group)
+    
     def iter_over_chunk(self, seg_num=0, i_stop=None, chunksize=1024, **kargs):
         
         if i_stop is not None:
             length = min(self.get_segment_shape(seg_num)[0], i_stop)
         else:
+            
             length = self.get_segment_shape(seg_num)[0]
         
         nloop = length//chunksize
@@ -42,26 +48,14 @@ class BaseDataIO:
             sigs_chunk = self.get_signals_chunk(seg_num=seg_num, i_start=i_start, i_stop=i_stop, **kargs)
             yield  i_stop, sigs_chunk
     
-    
-    #~ def get_segment_shape(self, seg_num):
-        #~ pass
-
-    #~ @property
-    #~ def dtype(self):
-        #~ pass
-
-    #~ @property
-    #~ def sample_rate(self):
-        #~ pass
-        
-    #~ @property
-    #~ def nb_channel(self):
-        #~ pass
-    
-    #~ @property
-    #~ def nb_segments(self):
-        #~ pass
-
+    def set_channel_group(self, channel_group=[]):
+        if isinstance(channel_group, np.ndarray):
+            channel_group =channel_group.tolist()
+        self.channel_group = list(channel_group)
+        self.info['channel_group'] = self.channel_group
+        self.nb_channel  = len(self.channel_group)
+        self.info['nb_channel'] = self.nb_channel
+        self.flush_info()
 
 
 class RawDataIO(BaseDataIO):
@@ -73,11 +67,11 @@ class RawDataIO(BaseDataIO):
     def __init__(self, dirname='test'):
         BaseDataIO.__init__(self, dirname=dirname)
     
-    def set_initial_signals(self, filenames=[], dtype='int16', nb_channel=0,
+    def set_initial_signals(self, filenames=[], dtype='int16', total_channel=0,
                         sample_rate=0.):
     
         self.dtype = np.dtype(dtype)
-        self.nb_channel= int(nb_channel)
+        self.total_channel= int(total_channel)
         self.sample_rate = float(sample_rate)
         
         self.filenames = filenames
@@ -87,10 +81,12 @@ class RawDataIO(BaseDataIO):
         
         self.info['filenames'] = self.filenames
         self.info['dtype'] = self.dtype.name
-        self.info['nb_channel'] = self.nb_channel
+        self.info['total_channel'] = self.total_channel
         self.info['sample_rate'] = self.sample_rate
-        self.info['dtype_processed'] = None
+        #~ self.info['dtype_processed'] = None
         self.flush_info()
+        
+        self.set_channel_group(np.arange(self.total_channel))
         
         self._open_inital_data()
         self.processed_data = []
@@ -98,7 +94,7 @@ class RawDataIO(BaseDataIO):
     def reload_existing(self):
         self.filenames = self.info['filenames']
         self.dtype = np.dtype(self.info['dtype'])
-        self.nb_channel = self.info['nb_channel']
+        self.total_channel = self.info['total_channel']
         self.sample_rate = self.info['sample_rate']
         
         
@@ -110,7 +106,7 @@ class RawDataIO(BaseDataIO):
         
         self.initial_data = []
         for filename in self.filenames:
-            data = np.memmap(filename, dtype=self.dtype, mode='r').reshape(-1, self.nb_channel)
+            data = np.memmap(filename, dtype=self.dtype, mode='r').reshape(-1, self.total_channel)
             self.initial_data.append(data)
         
         self.segments_path = []
@@ -124,6 +120,8 @@ class RawDataIO(BaseDataIO):
     
     def _open_processed_data(self):
         self.processed_data = []
+        if 'dtype_processed' not in self.info:
+            return
         dtype = self.info['dtype_processed']
         for i in range(self.nb_segment):
             filename = os.path.join(self.segments_path[i], 'processed_data_{}.raw'.format(dtype))
@@ -131,10 +129,9 @@ class RawDataIO(BaseDataIO):
                 shape = self.get_segment_shape(i)
                 data = np.memmap(filename, dtype=dtype, mode='r+').reshape(shape)
                 self.processed_data.append(data)
-        
     
     def get_signals_chunk(self, seg_num=0, i_start=None, i_stop=None, signal_type='initial',
-                channels=None, return_type='raw_numpy'):
+                return_type='raw_numpy'):
         
         if signal_type=='initial':
             data = self.initial_data[seg_num][i_start:i_stop, :]
@@ -146,8 +143,8 @@ class RawDataIO(BaseDataIO):
         else:
             raise(ValueError, 'signal_type is not valide')
         
-        if channels is not None:
-            data = data[:, channels]
+        
+        data = data[:, self.channel_group]
         
         if return_type=='raw_numpy':
             return data
@@ -177,7 +174,9 @@ class RawDataIO(BaseDataIO):
         self.processed_data[seg_num].flush()
     
     def get_segment_shape(self, seg_num):
-        return self.initial_data[seg_num].shape
+        shape = self.initial_data[seg_num].shape
+        shape = (shape[0],self.nb_channel,)
+        return shape
     
     #~ def have_signals(self, seg_num=0., signal_type='initial'):
         #~ if signal_type=='initial':

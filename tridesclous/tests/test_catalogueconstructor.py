@@ -12,12 +12,15 @@ def test_catalogue_constructor():
     #~ filenames = ['Tem06c06.IOT']
     dataio = RawDataIO(dirname='test_catalogueconstructor')
     dataio.set_initial_signals(filenames=filenames, dtype='int16',
-                                     nb_channel=16, sample_rate=10000.)    
+                                     total_channel=16, sample_rate=10000.)    
+    dataio.set_channel_group(range(14))
     print(dataio.segments_path)
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
-    for memory_mode in ['ram', 'memmap']:
+    #~ for memory_mode in ['ram', 'memmap']:
+    for memory_mode in ['memmap']:
+    
         print()
         print(memory_mode)
         catalogueconstructor.initialize(chunksize=1024,
@@ -28,7 +31,7 @@ def test_catalogue_constructor():
                 
                 #peak detector
                 peakdetector_engine='peakdetector_numpy',
-                peak_sign='-', relative_threshold=5, peak_span=0.0005,
+                peak_sign='-', relative_threshold=7, peak_span=0.0005,
                 
                 #waveformextractor
                 n_left=-20, n_right=30, 

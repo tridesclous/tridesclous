@@ -201,6 +201,7 @@ class ClusterList(WidgetBase):
         self.refresh()
 
     def refresh(self):
+        self.cc._check_plot_attributes()
         self.table.itemChanged.disconnect(self.on_item_changed)
         
         self.table.clear()
@@ -246,7 +247,7 @@ class ClusterList(WidgetBase):
         if item.column() != 1: return
         sel = {QtCore.Qt.Unchecked : False, QtCore.Qt.Checked : True}[item.checkState()]
         k = self.cc.cluster_labels[item.row()]
-        self.cc.cluster_visible[k] = item.checkState()
+        self.cc.cluster_visible[k] = bool(item.checkState())
         self.cluster_visibility_changed.emit()
     
     def selected_cluster(self):
@@ -269,8 +270,6 @@ class ClusterList(WidgetBase):
         if n>=0: 
             act = menu.addAction('Reset colors')
             act.triggered.connect(self.reset_colors)
-            act = menu.addAction('Sort by ascending waveform power')
-            act.triggered.connect(self.sort_clusters)
             act = menu.addAction('Show all')
             act.triggered.connect(self.show_all)
             act = menu.addAction('Hide all')
@@ -330,30 +329,36 @@ class ClusterList(WidgetBase):
         self.refresh()
         self.peak_cluster_changed.emit()
     
-    def _open_pca_menu(self):
-        _params = [{'name' : 'method', 'type' : 'list', 'values' : ['pca']},
-                            {'name' : 'n_components', 'type' : 'int', 'value' : 5},
-                            ]
-        dialog1 = ParamDialog(_params, title = 'PC params ?', parent = self)
+    def _dialog_methods(self, methods, _params_by_method):
+        _params = [{'name' : 'method', 'type' : 'list', 'values' : methods}]
+        dialog1 = ParamDialog(_params, title = 'Which method ?', parent = self)
         if not dialog1.exec_():
-            return
+            return None, None
+
+        method = dialog1.params['method']
         
-        return {'method' : dialog1.params['method'], 
-                        'n_components' : dialog1.params['n_components']}
+        _params =  _params_by_method[method]
+        dialog2 = ParamDialog(_params, title = '{} parameters'.format(method), parent = self)
+        if not dialog2.exec_():
+            return None, None
+        kargs = dialog2.get()
         
+        return method, kargs
+        
+
     
     def pc_project_all(self, selection=None):
-        _params = [{'name' : 'method', 'type' : 'list', 'values' : ['pca']},
-                            {'name' : 'n_components', 'type' : 'int', 'value' : 5},
-                            ]
-        dialog1 = ParamDialog(_params, title = 'PC params ?', parent = self)
-        if not dialog1.exec_():
-            return
+
         
-        params =  {'method' : dialog1.params['method'], 
-                        'n_components' : dialog1.params['n_components']}
+        methods = ['pca', 'peak_max']
+        _params_by_method = {
+            'pca' : [{'name' : 'n_components', 'type' : 'int', 'value' : 5},],
+            'peak_max' : [],
+        }
+        method, kargs = self._dialog_methods(methods, _params_by_method)
+        if method is None: return
         
-        self.cc.project(**params)
+        self.cc.project(method=method, selection=selection, **kargs)
         self.refresh()
         self.peak_cluster_changed.emit()
     
@@ -379,29 +384,15 @@ class ClusterList(WidgetBase):
     def split_selection(self):
         label_to_split = self.selected_cluster()[0]
         
-        _params = [{'name' : 'method', 'type' : 'list', 'values' : ['kmeans', 'gmm']}]
-        dialog1 = ParamDialog(_params, title = 'Which method ?', parent = self)
-        if not dialog1.exec_():
-            return
-
-        method = dialog1.params['method']
-        
-        if  method=='kmeans':
-            _params =  [{'name' : 'n', 'type' : 'int', 'value' : 2}]
-            dialog2 = ParamDialog(_params, title = 'kmeans parameters', parent = self)
-            if not dialog2.exec_():
-                return
-            kargs = dialog2.get()
-        
-        elif method=='gmm':
-            _params =  [{'name' : 'n', 'type' : 'int', 'value' : 2},
+        methods = ['kmeans', 'gmm']
+        _params_by_method = {
+            'kmeans' : [{'name' : 'n', 'type' : 'int', 'value' : 2}],
+            'gmm' : [{'name' : 'n', 'type' : 'int', 'value' : 2},
                                 {'name' : 'covariance_type', 'type' : 'list', 'values' : ['full']},
-                                {'name' : 'n_init', 'type' : 'int', 'value' : 10},
-                                ]
-            dialog2 = ParamDialog(_params, title = 'kmeans parameters', parent = self)
-            if not dialog2.exec_():
-                return
-            kargs = dialog2.get()
+                                {'name' : 'n_init', 'type' : 'int', 'value' : 10},],
+        }
+        method, kargs = self._dialog_methods(methods, _params_by_method)
+        if method is None: return
         
         n = kargs.pop('n')
         

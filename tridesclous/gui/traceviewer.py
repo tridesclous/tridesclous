@@ -255,7 +255,7 @@ class BaseTraceViewer(WidgetBase):
         ind2 = int((t2-t_start)*sr)
 
         sigs_chunk = self.dataio.get_signals_chunk(seg_num=self.seg_num, i_start=ind1, i_stop=ind2, signal_type=self.signal_type,
-                channels=None, return_type='raw_numpy')
+                return_type='raw_numpy')
         
         if sigs_chunk is None: 
             print('chunk is None')

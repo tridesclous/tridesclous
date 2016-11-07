@@ -179,7 +179,7 @@ class CatalogueConstructor:
         self.signalpreprocessor.change_params(**params2)
         
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chunksize=self.chunksize, i_stop=length,
-                                                    signal_type='initial', channels=None, return_type='raw_numpy')
+                                                    signal_type='initial',  return_type='raw_numpy')
         for pos, sigs_chunk in iterator:
             pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
             if preprocessed_chunk is not None:
@@ -199,7 +199,7 @@ class CatalogueConstructor:
             return
         
         self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num, i_start=pos2-preprocessed_chunk.shape[0],
-                        i_stop=pos2, signal_type='processed', channels=None)
+                        i_stop=pos2, signal_type='processed')
         
         n_peaks, chunk_peaks = self.peakdetector.process_data(pos2, preprocessed_chunk)
         if chunk_peaks is  None:
@@ -235,7 +235,7 @@ class CatalogueConstructor:
         self.waveformextractor.change_params(**self.params_waveformextractor)
         
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chunksize=self.chunksize,
-                                                    signal_type='initial', channels=None, return_type='raw_numpy')
+                                                    signal_type='initial', return_type='raw_numpy')
         for pos, sigs_chunk in iterator:
             #~ print(seg_num, pos, sigs_chunk.shape)
             self.process_one_chunk(pos, sigs_chunk, seg_num)
@@ -288,7 +288,8 @@ class CatalogueConstructor:
         """
         wf = self.peak_waveforms.reshape(self.peak_waveforms.shape[0], -1)
         params['n_components'] = n_components
-        self.features = decomposition.project_waveforms(wf, method=method, selection=None, **params)
+        self.features = decomposition.project_waveforms(self.peak_waveforms, method=method, selection=None,
+                    catalogueconstructor=self, **params)
     
     def find_clusters(self, method='kmeans', n_clusters=1, order_clusters=True, selection=None, **kargs):
         if selection is None:
@@ -344,6 +345,8 @@ class CatalogueConstructor:
         
         if not hasattr(self, 'cluster_colors'):
             self.refresh_colors(reset=True)
+        else:
+            self.refresh_colors(reset=False)
 
     
     def compute_centroid(self, label_changed=None):
