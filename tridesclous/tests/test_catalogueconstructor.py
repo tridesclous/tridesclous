@@ -27,7 +27,9 @@ def test_catalogue_constructor():
                 memory_mode=memory_mode,
                 
                 #signal preprocessor
-                highpass_freq=300, backward_chunksize=1280,
+                highpass_freq=300,
+                backward_chunksize=1280,
+                #~ backward_chunksize=1024*2,
                 
                 #peak detector
                 peakdetector_engine='peakdetector_numpy',

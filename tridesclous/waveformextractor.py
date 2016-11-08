@@ -18,15 +18,15 @@ class WaveformExtractor:
         
     
     def new_peaks(self, pos, sigs_chunk, chunk_peak_pos):
-        print()
-        print('pos', pos)
+        #~ print()
+        #~ print('pos', pos)
         if pos==self.chunksize and chunk_peak_pos is not None:
             # remove the very first peak is too near the border the left of first chunk
             chunk_peak_pos = chunk_peak_pos[chunk_peak_pos>-self.n_left+1]
         
         if len(self.peak_at_right_border) >0 and self.last_sigs_chunk is not None:
             
-            print('self.peak_at_right_border', self.peak_at_right_border)
+            #~ print('self.peak_at_right_border', self.peak_at_right_border)
             #~ print(self.peak_at_right_border-pos+self.chunksize*2+self.n_left)
             chunk_waveforms = cut_on_border(self.last_sigs_chunk, sigs_chunk, 
                                 self.peak_at_right_border-pos+self.chunksize*2+self.n_left, self.peak_width)
@@ -40,9 +40,10 @@ class WaveformExtractor:
         
         # peak on left border
         if np.any(on_left) and self.last_sigs_chunk is not None:
-            print('peak on left border', pos2[on_left]+self.chunksize+self.n_left)
+            #~ print('peak on left border', pos2[on_left]+self.chunksize+self.n_left)
             chunk_waveforms = cut_on_border(self.last_sigs_chunk, sigs_chunk, 
-                                    pos2[on_left]+self.chunksize+self.n_left, self.peak_width)
+                                    #~ pos2[on_left]+self.chunksize+self.n_left, self.peak_width)
+                                    pos2[on_left]+self.last_sigs_chunk.shape[0]+self.n_left, self.peak_width)
             #~ print('left border')
             yield chunk_peak_pos[on_left], chunk_waveforms
         
@@ -99,7 +100,7 @@ def cut_on_border(left_sigs, right_sigs, indexes, width):
         #left 
         
         l1 = left_sigs.shape[0] - ind
-        print(l1, left_sigs.shape[0], ind)
+        #~ print(l1, left_sigs.shape[0], ind)
         l2 = width - l1
         chunks[i,:,:l1] = left_sigs[ind:ind+l1,:].transpose()
         #right

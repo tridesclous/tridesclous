@@ -195,8 +195,8 @@ class CatalogueConstructor:
         if preprocessed_chunk is  None:
             return
         
-        self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num, i_start=pos2-preprocessed_chunk.shape[0],
-                        i_stop=pos2, signal_type='processed')
+        #~ self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num, i_start=pos2-preprocessed_chunk.shape[0],
+                        #~ i_stop=pos2, signal_type='processed')
         
         n_peaks, chunk_peaks = self.peakdetector.process_data(pos2, preprocessed_chunk)
         if chunk_peaks is  None:
@@ -204,13 +204,14 @@ class CatalogueConstructor:
         
         #~ peak_pos = chunk_peaks
         #~ peak_segment = np.ones(peak_pos.size, dtype='int64') * seg_num
-        
         #~ if self.memory_mode=='ram':
             #~ self.peak_pos.append(peak_pos)
             #~ self.peak_segment.append(peak_segment)
         #~ elif self.memory_mode=='memmap':
             #~ self.peak_files['peak_pos'].write(peak_pos.tobytes(order='C'))
             #~ self.peak_files['peak_segment'].write(peak_segment.tobytes(order='C'))
+        #~ self.nb_peak += peak_pos.size
+
         
         for peak_pos, waveforms in self.waveformextractor.new_peaks(pos2, preprocessed_chunk, chunk_peaks):
             #TODO for debug only: remove it:
@@ -246,7 +247,9 @@ class CatalogueConstructor:
         for pos, sigs_chunk in iterator:
             #~ print(seg_num, pos, sigs_chunk.shape)
             self.process_one_chunk(pos, sigs_chunk, seg_num)
-            
+        
+        
+        self.dataio.flush_signals(seg_num=seg_num)
             #~ assert sigs_chunk.shape[0] == 1024
         
         #~ self.finalize()

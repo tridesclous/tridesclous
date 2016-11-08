@@ -165,12 +165,13 @@ class RawDataIO(BaseDataIO):
         self.flush_info()
         
     
-    def set_signals_chunk(self,sigs_chunk, seg_num=0, i_start=None, i_stop=None, signal_type='processed',
-                channels=None):
+    def set_signals_chunk(self,sigs_chunk, seg_num=0, i_start=None, i_stop=None, signal_type='processed'):
         assert signal_type != 'initial'
         
         self.processed_data[seg_num][i_start:i_stop, :] = sigs_chunk
         #TODO somewhere esle
+        
+    def flush_signals(self, seg_num=0):
         self.processed_data[seg_num].flush()
     
     def get_segment_shape(self, seg_num):
