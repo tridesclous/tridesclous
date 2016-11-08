@@ -112,7 +112,8 @@ class CatalogueConstructor:
             #~ pca_batch_size=16384,
             ):
         
-        #TODO : channels_groups
+        #TODO remove stuff if already computed
+        
         
         self.chunksize = chunksize
         #~ self.internal_dtype = internal_dtype
@@ -145,10 +146,6 @@ class CatalogueConstructor:
         
         self.params_waveformextractor = dict(n_left=self.n_left, n_right=self.n_right)
         self.waveformextractor = waveformextractor.WaveformExtractor(self.dataio.nb_channel, self.chunksize)
-
-        #~ self.pca_batch_size = pca_batch_size
-        #~ self.params_features = dict(pca_batch_size=pca_batch_size)
-
         
         #TODO make processed data as int32 ???
         self.dataio.reset_signals(signal_type='processed', dtype='float32')
@@ -203,7 +200,17 @@ class CatalogueConstructor:
         
         n_peaks, chunk_peaks = self.peakdetector.process_data(pos2, preprocessed_chunk)
         if chunk_peaks is  None:
-            return
+            chunk_peaks = np.array([], dtype='int64')
+        
+        #~ peak_pos = chunk_peaks
+        #~ peak_segment = np.ones(peak_pos.size, dtype='int64') * seg_num
+        
+        #~ if self.memory_mode=='ram':
+            #~ self.peak_pos.append(peak_pos)
+            #~ self.peak_segment.append(peak_segment)
+        #~ elif self.memory_mode=='memmap':
+            #~ self.peak_files['peak_pos'].write(peak_pos.tobytes(order='C'))
+            #~ self.peak_files['peak_segment'].write(peak_segment.tobytes(order='C'))
         
         for peak_pos, waveforms in self.waveformextractor.new_peaks(pos2, preprocessed_chunk, chunk_peaks):
             #TODO for debug only: remove it:
@@ -255,11 +262,8 @@ class CatalogueConstructor:
             self.peak_segment = np.concatenate(self.peak_segment, axis=0)
             self.peak_labels = labels
             
-            #~ self.peak_selection = np.zeros(self.nb_peak, dtype='bool')
-            #~ self.cluster_labels = np.unique(self.peak_labels)
             self.on_new_cluster()
-            #~ self._check_plot_attributes()
-            
+        
         elif self.memory_mode=='memmap':
             for f in self.peak_files.values():
                 f.close()
@@ -274,9 +278,6 @@ class CatalogueConstructor:
         self.peak_segment = np.memmap(self._fname('peak_segment'), dtype='int64', mode='r')
         self.peak_labels = np.memmap(self._fname('peak_label'), dtype='int32', mode='r+')
         
-        #~ self.peak_selection = np.zeros(self.nb_peak, dtype='bool')
-        #~ self.cluster_labels = np.unique(self.peak_labels)
-        #~ self._check_plot_attributes()
         self.on_new_cluster()
     
     

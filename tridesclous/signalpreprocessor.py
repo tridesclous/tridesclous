@@ -24,6 +24,8 @@ class SignalPreprocessor_Numpy:
         
         
         pos2, data2 = self.filtfilt_engine.compute_one_chunk(pos, data)
+        #TODO this cause problem for peakdetector_opencl
+        # because pos is not multiple  chunksize
 
         
         if pos2 is None:
