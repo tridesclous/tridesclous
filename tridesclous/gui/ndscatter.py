@@ -125,7 +125,7 @@ class NDScatter(WidgetBase):
     def by_cluster_random_decimate(self, clicked=None, refresh=True):
         m = self.params['max_visible_by_cluster']
         for k in self.cluster_labels:
-            mask = self.cc.peak_label==k
+            mask = self.cc.peak_label[self.cc.peak_waveforms_index]==k
             if self.cc.cluster_count[k]>m:
                 self.peak_visible[mask] = False
                 visible, = np.nonzero(mask)
@@ -147,7 +147,6 @@ class NDScatter(WidgetBase):
     @property
     def cluster_labels(self):
         return self.cc.cluster_labels
-    
     #
     
     
@@ -234,6 +233,9 @@ class NDScatter(WidgetBase):
 
     
     def refresh(self):
+        if not hasattr(self, 'viewBox'):
+            self.initialize()
+        
         for k, scatter in self.scatters.items():
             #~ if k not in visible_labels:
             scatter.setData([], [])

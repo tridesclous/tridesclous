@@ -47,7 +47,7 @@ def test_catalogue_constructor():
         t1 = time.perf_counter()
         for seg_num in range(dataio.nb_segment):
             #~ print('seg_num', seg_num)
-            catalogueconstructor.run_signalprocessor_loop(seg_num=seg_num)
+            catalogueconstructor.run_signalprocessor_loop(seg_num=seg_num, duration=10.)
         t2 = time.perf_counter()
         print('run_signalprocessor_loop', t2-t1)
 
@@ -162,6 +162,6 @@ def compare_nb_waveforms():
 
     
 if __name__ == '__main__':
-    #~ test_catalogue_constructor()
+    test_catalogue_constructor()
     
-    compare_nb_waveforms()
+    #~ compare_nb_waveforms()

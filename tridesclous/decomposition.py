@@ -23,7 +23,7 @@ def project_waveforms(peak_waveforms, method='IncrementalPCA', selection=None, c
         features = pca.transform(flatten_waveforms)
     elif method=='peak_max':
         ind_peak = catalogueconstructor.info['params_waveformextractor']['n_left']+1
-        features = peak_waveforms[:, :, ind_peak].copy()
+        features = peak_waveforms[:, ind_peak, : ].copy()
         
     else:
         Raise(NotImplementedError)

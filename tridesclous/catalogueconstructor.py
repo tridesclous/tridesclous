@@ -115,6 +115,7 @@ class CatalogueConstructor:
     
     
     def estimate_signals_noise(self, seg_num=0, duration=10.):
+        
         length = int(duration*self.dataio.sample_rate)
         length -= length%self.chunksize
         
@@ -125,6 +126,7 @@ class CatalogueConstructor:
         params2 = dict(self.params_signalpreprocessor)
         params2['normalize'] = False
         self.signalpreprocessor.change_params(**params2)
+        
         
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chunksize=self.chunksize, i_stop=length,
                                                     signal_type='initial',  return_type='raw_numpy')
@@ -165,8 +167,10 @@ class CatalogueConstructor:
 
 
         
-    def run_signalprocessor_loop(self, seg_num=0):
+    def run_signalprocessor_loop(self, seg_num=0, duration=60.):
         
+        length = int(duration*self.dataio.sample_rate)
+        length -= length%self.chunksize
         #initialize engines
         
         p = dict(self.params_signalpreprocessor)
@@ -177,12 +181,11 @@ class CatalogueConstructor:
         
         self.peakdetector.change_params(**self.params_peakdetector)
         
-        iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chunksize=self.chunksize,
+        iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chunksize=self.chunksize, i_stop=length,
                                                     signal_type='initial', return_type='raw_numpy')
         for pos, sigs_chunk in iterator:
             #~ print(seg_num, pos, sigs_chunk.shape)
             self.signalprocessor_one_chunk(pos, sigs_chunk, seg_num)
-        
         
         self.dataio.flush_signals(seg_num=seg_num)
         
@@ -248,18 +251,20 @@ class CatalogueConstructor:
     
     
     def find_clusters(self, method='kmeans', n_clusters=1, order_clusters=True, selection=None, **kargs):
+        #TODO clustering on all peaks
+        
         if selection is None:
             labels = cluster.find_clusters(self.features, method=method, n_clusters=n_clusters, **kargs)
             self.peak_label[self.peak_waveforms_index] = labels
         else:
-            #TODO
-            #~ features = self.features[selection]
-            #~ labels = cluster.find_clusters(features, method=method, n_clusters=n_clusters, **kargs)
-            #~ labels += max(self.cluster_labels)+1
-            #~ self.peak_label[selection] = labels
-            pass
+            
+            sel = selection[self.peak_waveforms_index]
+            features = self.features[sel]
+            labels = cluster.find_clusters(features, method=method, n_clusters=n_clusters, **kargs)
+            labels += max(self.cluster_labels)+1
+            self.peak_label[sel] = labels
         
-        #~ self.on_new_cluster(label_changed=None)
+        self.on_new_cluster(label_changed=None)
         
         #~ if order_clusters:
             #~ self.order_clusters()
@@ -321,7 +326,11 @@ class CatalogueConstructor:
                 continue
             wf = self.peak_waveforms[self.peak_label[self.peak_waveforms_index]==k]
             median, mad = median_mad(wf, axis = 0)
-            self.centroids[k] = {'median':median, 'mad':mad}
+            mean, std = np.mean(wf, axis=0), np.std(wf, axis=0)
+            max_on_channel = np.argmax(np.max(np.abs(mean), axis=0))
+            
+            self.centroids[k] = {'median':median, 'mad':mad, 'max_on_channel' : max_on_channel, 
+                        'mean': mean, 'std': std}
         
         t2 = time.perf_counter()
         print('compute_centroid', t2-t1)
@@ -380,7 +389,8 @@ class CatalogueConstructor:
         N = int(max(cluster_labels)*10)
         self.peak_label[self.peak_label>=0] += N
         for new, old in enumerate(sorted_labels+N):
-            self.peak_label[self.peak_label==old] = cluster_labels[new]
+            #~ self.peak_label[self.peak_label==old] = cluster_labels[new]
+            self.peak_label[self.peak_label==old] = new
         
         self.on_new_cluster()
     

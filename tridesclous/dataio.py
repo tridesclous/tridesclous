@@ -4,6 +4,7 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 
+from .iotools import ArrayCollection
 
 _signal_types = ['initial', 'processed']
 

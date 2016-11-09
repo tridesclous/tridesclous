@@ -90,6 +90,7 @@ class BaseTraceViewer(WidgetBase):
         self.combo_type = QtGui.QComboBox()
         tb.addWidget(self.combo_type)
         self.combo_type.addItems([ signal_type for signal_type in _signal_types ])
+        self.combo_type.setCurrentIndex(_signal_types.index(self.signal_type))
         self.combo_type.currentIndexChanged.connect(self.on_combo_type_changed)
 
         # time slider
@@ -312,7 +313,7 @@ class CatalogueTraceViewer(BaseTraceViewer):
         for c in range(self.dataio.nb_channel):
             #reset scatters
             for k in self.cc.cluster_labels:
-                if not self.cc.cluster_visible[k]:
+                if not self.cc.cluster_visible[k] and k in self.scatters[c]:
                     self.scatters[c][k].setData([], [])
             
             for k in list(self.scatters[c].keys()):
@@ -336,7 +337,6 @@ class CatalogueTraceViewer(BaseTraceViewer):
         for k in self.cc.cluster_labels:
             if not self.cc.cluster_visible[k]:
                 continue
-            #~ p = chunk.loc[inwindow_times[inwindow_label==k]]
             mask = inwindow_label==k
             times_chunk_in = times_chunk[inwindow_ind[mask]]
             sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
@@ -350,8 +350,8 @@ class CatalogueTraceViewer(BaseTraceViewer):
                 
                 #TODO take the max peak
                 #TODO optimze speed
-                #~ if self.cc.catalogue[k]['channel_peak_max'] == c:
-                if True:
+                if self.cc.centroids[k]['max_on_channel'] == c:
+                #~ if True:
                     self.scatters[c][k].setBrush(color)
                     self.scatters[c][k].setData(times_chunk_in, sigs_chunk_in[:, c]*self.gains[c]+self.offsets[c])
                 else:

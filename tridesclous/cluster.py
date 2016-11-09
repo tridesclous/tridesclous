@@ -14,6 +14,8 @@ def find_clusters(features, method='kmeans', n_clusters=1, **kargs):
     elif method == 'gmm':
         gmm = sklearn.mixture.GMM(n_components=n_clusters,**kargs)
         labels =gmm.fit_predict(features)
+    else:
+        raise(ValueError, 'find_clusters method unlnown')
     
     return labels
 
