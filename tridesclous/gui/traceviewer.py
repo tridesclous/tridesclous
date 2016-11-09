@@ -134,7 +134,7 @@ class BaseTraceViewer(WidgetBase):
         self.curves = []
         self.channel_labels = []
         self.threshold_lines =[]
-        self.scatters = []
+        self.scatters = {}
         for c in range(self.dataio.nb_channel):
             color = '#7FFF00'  # TODO
             curve = pg.PlotCurveItem(pen=color)
@@ -151,8 +151,10 @@ class BaseTraceViewer(WidgetBase):
             self.threshold_lines.append(tc)
             self.plot.addItem(tc)
             tc.hide()
-            
-            self.scatters.append({})
+        
+        self.selection_line = pg.InfiniteLine(pos = 0., angle=90, movable=False, pen = pg.mkPen('w'))
+        self.plot.addItem(self.selection_line)
+        self.selection_line.hide()
         
         self._initialize_plot()
         
@@ -310,52 +312,52 @@ class CatalogueTraceViewer(BaseTraceViewer):
         
         #~ return
         
-        for c in range(self.dataio.nb_channel):
-            #reset scatters
-            for k in self.cc.cluster_labels:
-                if not self.cc.cluster_visible[k] and k in self.scatters[c]:
-                    self.scatters[c][k].setData([], [])
+        #~ for c in range(self.dataio.nb_channel):
+        #reset scatters
+        #~ for k in self.cc.cluster_labels:
+            #~ if not self.cc.cluster_visible[k] and k in self.scatters:
+                #~ self.scatters[k].setData([], [])
             
-            for k in list(self.scatters[c].keys()):
-                if k=='sel': continue
-                if not k in self.cc.cluster_labels:
-                    scatter = self.scatters[c].pop(k)
-                    self.plot.removeItem(scatter)
+        for k in list(self.scatters.keys()):
+            if not k in self.cc.cluster_labels:
+                scatter = self.scatters.pop(k)
+                self.plot.removeItem(scatter)
             
-            # plotted selected
-            if 'sel' not in self.scatters[c]:
-                brush = QtGui.QColor( 'magenta')
-                brush.setAlpha(180)
-                pen = QtGui.QColor( 'yellow')
-                self.scatters[c]['sel'] = pg.ScatterPlotItem(pen=pen, brush=brush, size=20, pxMode = True)
-                self.plot.addItem(self.scatters[c]['sel'])
-            
-            mask = inwindow_selected
-            self.scatters[c]['sel'].setData(times_chunk[inwindow_ind[mask]], 
-                                        sigs_chunk[inwindow_ind[mask], c]*self.gains[c]+self.offsets[c])
+        # plotted selected
+        #~ if 'sel' not in self.scatters[c]:
+            #~ brush = QtGui.QColor( 'magenta')
+            #~ brush.setAlpha(180)
+            #~ pen = QtGui.QColor( 'yellow')
+            #~ self.scatters[c]['sel'] = pg.ScatterPlotItem(pen=pen, brush=brush, size=20, pxMode = True)
+            #~ self.plot.addItem(self.scatters[c]['sel'])
+        
+        if np.sum(inwindow_selected)==1:
+            self.selection_line.setPos(times_chunk[inwindow_ind[inwindow_selected]])
+            self.selection_line.show()
+        else:
+            self.selection_line.hide()
+        #~ c = self.cc.centroids[k]['max_on_channel']
+        #~ self.scatters['sel'].setData(times_chunk[inwindow_ind[mask]], 
+                                    #~ sigs_chunk[inwindow_ind[mask], c]*self.gains[c]+self.offsets[c])
+        
+            self.selection_line.hide()
         
         for k in self.cc.cluster_labels:
-            if not self.cc.cluster_visible[k]:
-                continue
-            mask = inwindow_label==k
-            times_chunk_in = times_chunk[inwindow_ind[mask]]
-            sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
+            color = self.cc.qcolors.get(k, self._default_color)
+            if k not in self.scatters:
+                self.scatters[k] = pg.ScatterPlotItem(pen=None, brush=color, size=10, pxMode = True)
+                self.plot.addItem(self.scatters[k])
+                self.scatters[k].sigClicked.connect(self.item_clicked)
             
-            for c in range(self.dataio.nb_channel):
-                color = self.cc.qcolors.get(k, self._default_color)
-                if k not in self.scatters[c]:
-                    self.scatters[c][k] = pg.ScatterPlotItem(pen=None, brush=color, size=10, pxMode = True)
-                    self.plot.addItem(self.scatters[c][k])
-                    self.scatters[c][k].sigClicked.connect(self.item_clicked)
-                
-                #TODO take the max peak
-                #TODO optimze speed
-                if self.cc.centroids[k]['max_on_channel'] == c:
-                #~ if True:
-                    self.scatters[c][k].setBrush(color)
-                    self.scatters[c][k].setData(times_chunk_in, sigs_chunk_in[:, c]*self.gains[c]+self.offsets[c])
-                else:
-                    self.scatters[c][k].setData([], [])
+            if not self.cc.cluster_visible[k]:
+                self.scatters[k].setData([], [])
+            else:
+                mask = inwindow_label==k
+                times_chunk_in = times_chunk[inwindow_ind[mask]]
+                sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
+                c = self.cc.centroids[k]['max_on_channel']
+                self.scatters[k].setBrush(color)
+                self.scatters[k].setData(times_chunk_in, sigs_chunk_in[:, c]*self.gains[c]+self.offsets[c])
 
         n = self.dataio.nb_channel
         for c in range(n):
