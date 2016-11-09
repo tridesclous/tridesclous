@@ -22,72 +22,7 @@ from .tools import median_mad
 
 from pyqtgraph.Qt import QtCore, QtGui
 
-#~ class ArrayCollection:
-    #~ """
-    #~ Collection of arrays.
-    #~ Some live in ram some ondisk via memmap.
-    #~ Some can be appendable.
-    #~ """
-    #~ def __init__(self, parentclass=None, dirname=None):
-        #~ assert parentclass is not None
-        
-        #~ self.dirname = dirname
-        #~ if not os.path.exists(self.dirname):
-            #~ os.mkdir(self.dirname)
-        
-        #~ self.parentclass = parentclass
-        #~ self._array = {}
-        #~ self._array_states = {}
-
-    #~ def _fname(self, name, ext='.raw'):
-        #~ filename = os.path.join(self.catalogue_path, name+ext)
-        #~ return filename
-        
-    #~ def create_array(self, name, dtype, shape, memory_mode):
-        #~ if self.memory_mode=='ram':
-            #~ arr = np.zeros(shape, dtype=dtype)
-        #~ elif self.memory_mode=='memmap':
-            #~ arr = np.memmap(self._fname(name), dtype=self.info['internal_dtype'], mode='w+', shape=shape)
-        #~ self.arrays[name] = arr
-        #~ self._array_states[name] = 'w'
-        
-        #~ def get_array():
-            #~ return self.arrays[name]
-        #~ setattr(self.parentclass, name, get_array)
-    
-    #~ def initialize(self, name):
-        #~ if self.memory_mode=='ram':
-            #~ self.arrays[name] = []
-        #~ elif self.memory_mode=='memmap':
-            #~ self.arrays[name] = open(self._fname(name), mode='wb')
-        
-        #~ self._array_states[name] = 'a'
-        #~ def get_array():
-            #~ raise(ValueError, 'Array is not finalize %s', name)
-        #~ setattr(self.parentclass, name, get_array)
-    
-    #~ def append_chunk(self, name, arr_chunk):
-        #~ assert self._array_states[name]=='a'
-        
-        #~ if self.memory_mode=='ram':
-            #~ self.arrays[name].append(arr_chunk)
-        #~ elif self.memory_mode=='memmap':
-            #~ self.arrays[name].write(arr_chunk.tobytes(order='C'))
-        
-        
-    #~ def finalize(self, name):
-        #~ assert self._array_states[name]=='a'
-        #~ if self.memory_mode=='ram':
-            #~ self.arrays[name] = np.concatenate(self.arrays[name], axis=0)
-        #~ elif self.memory_mode=='memmap':
-            #~ self.arrays[name].close()
-            #~ self.arrays[name] = np.memmap(self._fname(name), dtype=dtype, mode='r').reshape(shape)
-        
-        #~ self._array_states[name] = 'r'
-        #~ def get_array():
-            #~ return self.arrays[name]
-        #~ setattr(self.parentclass, name, get_array)
-
+from .iotools import ArrayCollection
 
 class CatalogueConstructor:
     """
@@ -102,8 +37,8 @@ class CatalogueConstructor:
         self.catalogue_path = os.path.join(self.dataio.dirname, name)
         if not os.path.exists(self.catalogue_path):
             os.mkdir(self.catalogue_path)
-        
-        #~ self.arrays = ArrayCollection(parentclass=self, dirname=self.catalogue_path)
+        #~ print('self.catalogue_path', self.catalogue_path)
+        self.arrays = ArrayCollection(parent=self, dirname=self.catalogue_path)
         
         self.info_filename = os.path.join(self.catalogue_path, 'info.json')
         if not os.path.exists(self.info_filename):
@@ -114,24 +49,19 @@ class CatalogueConstructor:
             with open(self.info_filename, 'r', encoding='utf8') as f:
                 self.info = json.load(f)
         
-        if os.path.exists(self._fname('peak_pos')):
-            self.memory_mode = 'memmap'
-            self.open_peak_data()
-        else:
-            self.info = {}
-            self.peak_pos = []
-            self.peak_waveforms = None
-
+        for name in ['peak_pos', 'peak_segment', 'peak_label',
+                    'peak_waveforms', 'peak_waveforms_index', 'features']:
+            # this set attribute to class if exsits
+            self.arrays.load_if_exists(name)
+        #~ print(' __init__ self.peak_pos', self.peak_pos)
+        if self.peak_pos is not None:
+            self.nb_peak = self.peak_pos.size
+            self.memory_mode='memmap'
+    
     def flush_info(self):
         with open(self.info_filename, 'w', encoding='utf8') as f:
             json.dump(self.info, f, indent=4)
-
-    def _fname(self, name, ext='.raw'):
-        #TODO remove when ArrayCollection working
-        filename = os.path.join(self.catalogue_path, name+ext)
-        return filename
-
-
+    
     
     def initialize_signalprocessor_loop(self, chunksize=1024,
             memory_mode='ram',
@@ -147,35 +77,19 @@ class CatalogueConstructor:
             peakdetector_engine='peakdetector_numpy',
             peak_sign='-', relative_threshold=5, peak_span=0.0005,
             
-            #waveformextractor
-            #~ n_left=-20, n_right=30, 
-            
-            #~ #features
-            #~ pca_batch_size=16384,
             ):
         
         #TODO remove stuff if already computed
         
         
         self.chunksize = chunksize
-        #~ self.internal_dtype = internal_dtype
-
-        #~ self.n_left = n_left
-        #~ self.n_right = n_right
-        
-        
         self.memory_mode = memory_mode
         
-        if self.memory_mode=='ram':
-            self.peak_pos = []
-            self.peak_waveforms = []
-            self.peak_segment = []
-            self.peak_label = []
-        elif self.memory_mode=='memmap':
-            self.peak_files = {}
-            #~ for name in ['peak_pos', 'peak_waveforms', 'peak_segment']:
-            for name in ['peak_pos',  'peak_segment', 'peak_label']:
-                self.peak_files[name] = open(self._fname(name), mode='wb')
+        for name, dtype in [('peak_pos', 'int64'),
+                                        ('peak_segment', 'int64'),
+                                        ('peak_label', 'int32')]:
+            self.arrays.initialize_array(name, self.memory_mode,  dtype, (-1, ))
+        
         
         self.params_signalpreprocessor = dict(highpass_freq=highpass_freq, backward_chunksize=backward_chunksize,
                     common_ref_removal=common_ref_removal, output_dtype=internal_dtype)
@@ -188,9 +102,6 @@ class CatalogueConstructor:
         self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.dataio.nb_channel,
                                                         self.chunksize, internal_dtype)
         
-        #~ self.params_waveformextractor = dict(n_left=self.n_left, n_right=self.n_right)
-        #~ self.waveformextractor = waveformextractor.WaveformExtractor(self.dataio.nb_channel, self.chunksize)
-        
         #TODO make processed data as int32 ???
         self.dataio.reset_signals(signal_type='processed', dtype='float32')
         
@@ -200,8 +111,6 @@ class CatalogueConstructor:
         self.info['internal_dtype'] = internal_dtype
         self.info['params_signalpreprocessor'] = self.params_signalpreprocessor
         self.info['params_peakdetector'] = self.params_peakdetector
-        #~ self.info['params_waveformextractor'] = self.params_waveformextractor
-        #~ self.info['params_features'] = self.params_features
         self.flush_info()
     
     
@@ -209,11 +118,9 @@ class CatalogueConstructor:
         length = int(duration*self.dataio.sample_rate)
         length -= length%self.chunksize
         
-        
-        #create a file for estimating noise
-        filename = self._fname('filetered_sigs_for_noise_estimation_seg_{}'.format(seg_num))
-        filtered_sigs = np.memmap(filename, dtype=self.info['internal_dtype'], mode='w+', shape=(length, self.dataio.nb_channel))
-        
+        name = 'filetered_sigs_for_noise_estimation_seg_{}'.format(seg_num)
+        shape=(length, self.dataio.nb_channel)
+        filtered_sigs = self.arrays.create_array(name, self.info['internal_dtype'], shape, 'memmap')
         
         params2 = dict(self.params_signalpreprocessor)
         params2['normalize'] = False
@@ -230,8 +137,7 @@ class CatalogueConstructor:
         self.signals_medians = medians= np.median(filtered_sigs, axis=0)
         self.signals_mads = np.median(np.abs(filtered_sigs-medians),axis=0)*1.4826
         
-        
-        
+        self.arrays.detach_array(name)
 
         
     def signalprocessor_one_chunk(self, pos, sigs_chunk, seg_num):
@@ -250,34 +156,12 @@ class CatalogueConstructor:
         peak_pos = chunk_peaks
         peak_segment = np.ones(peak_pos.size, dtype='int64') * seg_num
         peak_label = np.zeros(peak_pos.size, dtype='int32')
-        if self.memory_mode=='ram':
-            self.peak_pos.append(peak_pos)
-            self.peak_segment.append(peak_segment)
-            self.peak_label.append(peak_label)
-        elif self.memory_mode=='memmap':
-            self.peak_files['peak_pos'].write(peak_pos.tobytes(order='C'))
-            self.peak_files['peak_segment'].write(peak_segment.tobytes(order='C'))
-            self.peak_files['peak_label'].write(peak_label.tobytes(order='C'))
-        self.nb_peak += peak_pos.size
-
         
-        #~ for peak_pos, waveforms in self.waveformextractor.new_peaks(pos2, preprocessed_chunk, chunk_peaks):
-            #~ #TODO for debug only: remove it:
-            #~ assert peak_pos.shape[0] == waveforms.shape[0]
-            #~ # #
-            
-            #~ peak_segment = np.ones(peak_pos.size, dtype='int64') * seg_num
-            
-            #~ if self.memory_mode=='ram':
-                #~ self.peak_pos.append(peak_pos)
-                #~ self.peak_waveforms.append(waveforms)
-                #~ self.peak_segment.append(peak_segment)
-            #~ elif self.memory_mode=='memmap':
-                #~ self.peak_files['peak_pos'].write(peak_pos.tobytes(order='C'))
-                #~ self.peak_files['peak_waveforms'].write(waveforms.tobytes(order='C'))
-                #~ self.peak_files['peak_segment'].write(peak_segment.tobytes(order='C'))
-            
-            #~ self.nb_peak += peak_pos.size
+        self.arrays.append_chunk('peak_pos',  peak_pos)
+        self.arrays.append_chunk('peak_label',  peak_label)
+        self.arrays.append_chunk('peak_segment',  peak_segment)
+
+        self.nb_peak += peak_pos.size
 
 
         
@@ -292,7 +176,6 @@ class CatalogueConstructor:
         self.signalpreprocessor.change_params(**p)
         
         self.peakdetector.change_params(**self.params_peakdetector)
-        #~ self.waveformextractor.change_params(**self.params_waveformextractor)
         
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chunksize=self.chunksize,
                                                     signal_type='initial', return_type='raw_numpy')
@@ -302,47 +185,14 @@ class CatalogueConstructor:
         
         
         self.dataio.flush_signals(seg_num=seg_num)
-            #~ assert sigs_chunk.shape[0] == 1024
-        
-        #~ self.finalize()
         
         
     
     def finalize_signalprocessor_loop(self):
         
-        #~ labels = np.ones(self.nb_peak, dtype='int32')
-        if self.memory_mode=='ram':
-            self.peak_pos = np.concatenate(self.peak_pos, axis=0)
-            #~ self.peak_waveforms = np.concatenate(self.peak_waveforms, axis=0)
-            self.peak_segment = np.concatenate(self.peak_segment, axis=0)
-            self.peak_label = np.concatenate(self.peak_label, axis=0)
-            
-            #~ self.peak_labels = labels
-            
-            #~ self.on_new_cluster()
-        
-        elif self.memory_mode=='memmap':
-            for f in self.peak_files.values():
-                f.close()
-            self.peak_files = {}
-            #~ open(self._fname('peak_label'), mode='wb').write(labels.tobytes(order='C'))
-            self.open_peak_data()
-        
-    def open_peak_data(self):
-        self.peak_pos = np.memmap(self._fname('peak_pos'), dtype='int64', mode='r')
-        self.nb_peak = self.peak_pos.size
-        #~ 
-        self.peak_segment = np.memmap(self._fname('peak_segment'), dtype='int64', mode='r')
-        self.peak_labels = np.memmap(self._fname('peak_label'), dtype='int32', mode='r+')
-        
-        if 'params_waveformextractor' in self.info and os.path.exists(self._fname('peak_waveforms')):
-            p = self.info['params_waveformextractor']
-            print(p)
-            #~ self.peak_waveforms = np.memmap(self._fname('peak_waveforms'), dtype=self.info['internal_dtype'], mode='r').reshape(p['nb_peak_waveforms'], -1, self.dataio.nb_channel)
-            self.peak_waveforms = None
-        else:
-            self.peak_waveforms = None
-        
+        self.arrays.finalize_array('peak_pos')
+        self.arrays.finalize_array('peak_label')
+        self.arrays.finalize_array('peak_segment')
         #~ self.on_new_cluster()
     
     
@@ -351,29 +201,24 @@ class CatalogueConstructor:
         peak_width = - n_left + n_right
 
         if self.nb_peak>nb_max:
-            take = np.zeros(self.nb_peak, dtype='bool')
-            self.waveforms_peak_index = np.random.choice(self.nb_peak, size=nb_max).astype('int64')
-            take[self.waveforms_peak_index] = True
+            take_mask = np.zeros(self.nb_peak, dtype='bool')
+            take_index = np.random.choice(self.nb_peak, size=nb_max).astype('int64')
+            take_mask[take_index] = True
         else:
-            self.waveforms_peak_index = np.arange(self.nb_peak, dtype='int64')
-            take = np.ones(self.nb_peak, dtype='bool')
+            take_index = np.arange(self.nb_peak, dtype='int64')
+            take_mask = np.ones(self.nb_peak, dtype='bool')
         
-        nb_peak_waveforms = int(self.waveforms_peak_index.size)
-        print('yep', nb_peak_waveforms)
+        nb_peak_waveforms = take_index.size
+        self.arrays.create_array('peak_waveforms_index', 'int64', (nb_peak_waveforms,), self.memory_mode)
+        self.peak_waveforms_index[:] = take_index
+        
         shape=(nb_peak_waveforms, peak_width, self.dataio.nb_channel)
-        
-        
-        if self.memory_mode=='ram':
-            self.peak_waveforms = np.zeros(shape, dtype=self.info['internal_dtype'])
-        elif self.memory_mode=='memmap':
-            self.peak_waveforms = np.memmap(self._fname('peak_waveforms'), dtype=self.info['internal_dtype'], mode='w+', shape=shape)
-        
-        
-        
+        self.arrays.create_array('peak_waveforms', self.info['internal_dtype'], shape, self.memory_mode)
+
         seg_nums = np.unique(self.peak_segment)
         n = 0
         for seg_num in seg_nums:
-            insegmen_peak_pos = self.peak_pos[take & (self.peak_segment==seg_num)]
+            insegmen_peak_pos = self.peak_pos[take_mask & (self.peak_segment==seg_num)]
             for pos in insegmen_peak_pos:
                 i_start = pos+n_left
                 i_stop = i_start+peak_width
@@ -382,15 +227,7 @@ class CatalogueConstructor:
                 n +=1
                 #~ print(n, seg_num)
         
-        params_waveformextractor = dict(n_left=n_left, n_right=n_right,  nb_max=nb_max)
-        if self.memory_mode=='ram':
-            pass
-        elif self.memory_mode=='memmap':
-            self.peak_waveforms.flush()
-            params_waveformextractor['nb_peak_waveforms'] = nb_peak_waveforms
-            self.peak_waveforms = np.memmap(self._fname('peak_waveforms'), dtype=self.info['internal_dtype'], mode='r', shape=shape)
-        self.info['params_waveformextractor'] = params_waveformextractor
-        print(self.info)
+        self.info['params_waveformextractor'] = dict(n_left=n_left, n_right=n_right,  nb_max=nb_max)
         self.flush_info()
         
 
@@ -402,23 +239,30 @@ class CatalogueConstructor:
         """
         wf = self.peak_waveforms.reshape(self.peak_waveforms.shape[0], -1)
         params['n_components'] = n_components
-        self.features = decomposition.project_waveforms(self.peak_waveforms, method=method, selection=None,
+        features = decomposition.project_waveforms(self.peak_waveforms, method=method, selection=None,
                     catalogueconstructor=self, **params)
+        
+        #trick to make it persistant
+        self.arrays.create_array('features', self.info['internal_dtype'], features.shape, self.memory_mode)
+        self.features[:] = features
+    
     
     def find_clusters(self, method='kmeans', n_clusters=1, order_clusters=True, selection=None, **kargs):
         if selection is None:
             labels = cluster.find_clusters(self.features, method=method, n_clusters=n_clusters, **kargs)
-            self.peak_labels[:] = labels
+            self.peak_label[self.peak_waveforms_index] = labels
         else:
-            features = self.features[selection]
-            labels = cluster.find_clusters(features, method=method, n_clusters=n_clusters, **kargs)
-            labels += max(self.cluster_labels)+1
-            self.peak_labels[selection] = labels
+            #TODO
+            #~ features = self.features[selection]
+            #~ labels = cluster.find_clusters(features, method=method, n_clusters=n_clusters, **kargs)
+            #~ labels += max(self.cluster_labels)+1
+            #~ self.peak_label[selection] = labels
+            pass
         
-        self.on_new_cluster(label_changed=None)
+        #~ self.on_new_cluster(label_changed=None)
         
-        if order_clusters:
-            self.order_clusters()
+        #~ if order_clusters:
+            #~ self.order_clusters()
     
     
     def on_new_cluster(self, label_changed=None):
@@ -427,20 +271,20 @@ class CatalogueConstructor:
         """
         if self.peak_pos==[]: return
         
-        self.cluster_labels = np.unique(self.peak_labels)
+        self.cluster_labels = np.unique(self.peak_label)
         
         if label_changed is None:
             #re count evry clusters
-            self.cluster_count = { k:np.sum(self.peak_labels==k) for k in self.cluster_labels}
+            self.cluster_count = { k:np.sum(self.peak_label==k) for k in self.cluster_labels}
         else:
             for k in label_changed:
                 if k in self.cluster_labels:
-                    self.cluster_count[k] = np.sum(self.peak_labels==k)
+                    self.cluster_count[k] = np.sum(self.peak_label==k)
                 else:
                     self.cluster_count.pop(k)
         
         #TODO
-        #~ self.compute_centroid(label_changed=label_changed)
+        self.compute_centroid(label_changed=label_changed)
         
         self._check_plot_attributes()
 
@@ -470,17 +314,17 @@ class CatalogueConstructor:
             self.centroids = {}
             label_changed = self.cluster_labels
         
-        #~ t1 = time.perf_counter()
+        t1 = time.perf_counter()
         for k in label_changed:
             if k not in self.cluster_labels:
                 self.centroids.pop(k)
                 continue
-            wf = self.peak_waveforms[self.peak_labels==k]
+            wf = self.peak_waveforms[self.peak_label[self.peak_waveforms_index]==k]
             median, mad = median_mad(wf, axis = 0)
             self.centroids[k] = {'median':median, 'mad':mad}
         
-        #~ t2 = time.perf_counter()
-        #~ print('compute_centroid', t2-t1)
+        t2 = time.perf_counter()
+        print('compute_centroid', t2-t1)
         
     
     def refresh_colors(self, reset=True, palette = 'husl'):
@@ -504,8 +348,8 @@ class CatalogueConstructor:
         #TODO: maybe take the first cluster label instead of new one (except -1)
         new_label = max(self.cluster_labels)+1
         for k in labels_to_merge:
-            take = self.peak_labels == k
-            self.peak_labels[take] = new_label
+            take = self.peak_label == k
+            self.peak_label[take] = new_label
 
         if order_clusters:
             self.order_clusters()
@@ -514,7 +358,7 @@ class CatalogueConstructor:
     
     
     def split_cluster(self, label, n, method='kmeans', order_clusters=True, **kargs):
-        mask = self.peak_labels==label
+        mask = self.peak_label==label
         self.find_clusters(method=method, n_clusters=n, order_clusters=order_clusters, selection=mask, **kargs)
     
     def order_clusters(self):
@@ -534,9 +378,9 @@ class CatalogueConstructor:
         
         #reassign labels
         N = int(max(cluster_labels)*10)
-        self.peak_labels[self.peak_labels>=0] += N
+        self.peak_label[self.peak_label>=0] += N
         for new, old in enumerate(sorted_labels+N):
-            self.peak_labels[self.peak_labels==old] = cluster_labels[new]
+            self.peak_label[self.peak_label==old] = cluster_labels[new]
         
         self.on_new_cluster()
     
@@ -550,7 +394,7 @@ class CatalogueConstructor:
             #~ #print('construct_catalogue', k)
             #~ # take peak of this cluster
             #~ # and reshaape (nb_peak, nb_channel, nb_csample)
-            #~ wf = self.peak_waveforms[self.peak_labels==k]
+            #~ wf = self.peak_waveforms[self.peak_label==k]
             
             #~ #compute first and second derivative on dim=2
             #~ kernel = np.array([1,0,-1])/2.

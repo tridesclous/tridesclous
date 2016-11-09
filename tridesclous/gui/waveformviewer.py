@@ -89,8 +89,8 @@ class WaveformViewer(WidgetBase):
         for i,k in enumerate(self.centroids):
             if not self.cc.cluster_visible[k]:
                 continue
-            wf0 = self.centroids[k]['median'].flatten()
-            mad = self.centroids[k]['mad'].flatten()
+            wf0 = self.centroids[k]['median'].T.flatten()
+            mad = self.centroids[k]['mad'].T.flatten()
             
             color = self.cc.qcolors.get(k, QtGui.QColor( 'white'))
             curve = pg.PlotCurveItem(np.arange(wf0.size), wf0, pen=pg.mkPen(color, width=2))

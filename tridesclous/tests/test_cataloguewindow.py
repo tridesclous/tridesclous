@@ -7,7 +7,9 @@ from matplotlib import pyplot
 def get_catalogueconstructor():
     dataio = RawDataIO(dirname='test_catalogueconstructor')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    
     catalogueconstructor.on_new_cluster()
+    
     return catalogueconstructor
 
 
@@ -94,7 +96,7 @@ if __name__ == '__main__':
     #~ test_peaklist()
     #~ test_clusterlist()
     #~ test_ndscatter()
-    test_waveformviewer()
+    #~ test_waveformviewer()
     
-    #~ test_cataloguewindow()
+    test_cataloguewindow()
 

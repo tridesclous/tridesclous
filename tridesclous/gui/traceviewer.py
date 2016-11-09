@@ -304,7 +304,7 @@ class CatalogueTraceViewer(BaseTraceViewer):
         keep = (self.cc.peak_segment==self.seg_num) & (self.cc.peak_pos>=ind1) & (self.cc.peak_pos<ind2)
         
         inwindow_ind = np.array(self.cc.peak_pos[keep] - ind1)
-        inwindow_label = np.array(self.cc.peak_labels[keep])
+        inwindow_label = np.array(self.cc.peak_label[keep])
         inwindow_selected = np.array(self.cc.peak_selection[keep])
         
         #~ return

@@ -107,10 +107,49 @@ class NDScatter(WidgetBase):
         else:
             self.tree_params.hide()        
     
+    # this handle data with propties so model change shoudl not affect so much teh code
     @property
     def data(self):
         if hasattr(self.cc, 'features'):
             return self.cc.features
+    
+    def data_by_label(self, k):
+        if k=='sel':
+            data = self.data[self.cc.peak_selection[self.cc.peak_waveforms_index]]
+        else:
+            data = self.data[(self.cc.peak_label[self.cc.peak_waveforms_index]==k) & self.peak_visible]
+            #~ data = self.data[(self.cc.peak_label[self.cc.peak_waveforms_index]==k)]
+            
+        return data
+    
+    def by_cluster_random_decimate(self, clicked=None, refresh=True):
+        m = self.params['max_visible_by_cluster']
+        for k in self.cluster_labels:
+            mask = self.cc.peak_label==k
+            if self.cc.cluster_count[k]>m:
+                self.peak_visible[mask] = False
+                visible, = np.nonzero(mask)
+                visible = np.random.choice(visible, size=m)
+                self.peak_visible[visible] = True
+            else:
+                self.peak_visible[mask] = True
+        
+        if refresh:
+            self.refresh()
+        
+    def get_color(self, k):
+        color = self.cc.qcolors.get(k, QtGui.QColor( 'white'))
+        return color
+    
+    def is_cluster_visible(self, k):
+        return self.cc.cluster_visible[k]
+
+    @property
+    def cluster_labels(self):
+        return self.cc.cluster_labels
+    
+    #
+    
     
     def initialize(self):
         self.viewBox = MyViewBox()
@@ -139,8 +178,8 @@ class NDScatter(WidgetBase):
         self.projection[0,0] = 1.
         self.projection[1,1] = 1.
         
-        #~ self.peak_visible = np.zeros(self.cc.nb_peak, dtype=bool)
-        #~ self.by_cluster_random_decimate(refresh=False)
+        self.peak_visible = np.zeros(self.data.shape[0], dtype=bool)
+        self.by_cluster_random_decimate(refresh=False)
         
         self.plot2 = pg.PlotItem(viewBox=MyViewBox(lockAspect=True))
         self.graphicsview2.setCentralItem(self.plot2)
@@ -192,20 +231,7 @@ class NDScatter(WidgetBase):
             self.tour_step == 0
         self.refresh()
 
-    def by_cluster_random_decimate(self, clicked=None, refresh=True):
-        m = self.params['max_visible_by_cluster']
-        for k in self.cc.cluster_labels:
-            mask = self.cc.peak_labels==k
-            if self.cc.cluster_count[k]>m:
-                self.peak_visible[mask] = False
-                visible, = np.nonzero(mask)
-                visible = np.random.choice(visible, size=m)
-                self.peak_visible[visible] = True
-            else:
-                self.peak_visible[mask] = True
-        
-        if refresh:
-            self.refresh()
+
     
     def refresh(self):
         for k, scatter in self.scatters.items():
@@ -215,8 +241,8 @@ class NDScatter(WidgetBase):
         if self.data.shape[1] != self.projection.shape[0]:
             self.initialize()
         
-        for k in self.cc.cluster_labels:
-            color = self.cc.qcolors.get(k, QtGui.QColor( 'white'))
+        for k in self.cluster_labels:
+            color = self.get_color(k)
             if k not in self.scatters:
                 self.scatters[k] = pg.ScatterPlotItem(pen=None, brush=color, size=2, pxMode = True)
                 self.plot.addItem(self.scatters[k])
@@ -224,15 +250,14 @@ class NDScatter(WidgetBase):
             else:
                 self.scatters[k].setBrush(color)
             
-            if self.cc.cluster_visible[k]:
-                #~ data = self.data[(self.cc.peak_labels==k) & self.peak_visible]
-                data = self.data[(self.cc.peak_labels==k)]
+            if self.is_cluster_visible(k):
+                data = self.data_by_label(k)
                 projected = np.dot(data, self.projection )
                 self.scatters[k].setData(projected[:,0], projected[:,1])
             else:
                 self.scatters[k].setData([], [])
         
-        data = self.data[self.cc.peak_selection]
+        data = self.data_by_label('sel')
         projected = np.dot(data, self.projection )
         self.scatters['sel'].setData(projected[:,0], projected[:,1])
         

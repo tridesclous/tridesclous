@@ -18,14 +18,14 @@ class PeakModel(QtCore.QAbstractItemModel):
         return 4
         
     def rowCount(self, parentIndex):
-        if not parentIndex.isValid() and self.cc.peak_labels is not None:
+        if not parentIndex.isValid() and self.cc.peak_label is not None:
             visibles = np.array([k for k, v in self.cc.cluster_visible.items() if v ])
-            self.visible_mask = np.in1d(self.cc.peak_labels, visibles)
+            self.visible_mask = np.in1d(self.cc.peak_label, visibles)
             self.visible_ind, = np.nonzero(self.visible_mask)
-            #~ self.visible_peak_labels = self.cc.peak_labels[self.visible_peak_mask]
+            #~ self.visible_peak_labels = self.cc.peak_label[self.visible_peak_mask]
             
             #~ v = self.cc.cluster_visible[self.cc.cluster_visible]
-            #~ self.visible_peak_labels = self.cc.peak_labels[self.cc.peak_labels.isin(v.index)]
+            #~ self.visible_peak_labels = self.cc.peak_label[self.cc.peak_label.isin(v.index)]
             #~ return self.visible_peak_labels.shape[0]
             return np.sum(self.visible_mask)
         else :
@@ -60,7 +60,7 @@ class PeakModel(QtCore.QAbstractItemModel):
         seg_num = self.cc.peak_segment[abs_ind]
         peak_pos = self.cc.peak_pos[abs_ind]
         peak_time = peak_pos/self.cc.dataio.sample_rate
-        peak_label = self.cc.peak_labels[abs_ind]
+        peak_label = self.cc.peak_label[abs_ind]
         
         if role ==QtCore.Qt.DisplayRole :
             if col == 0:
@@ -177,7 +177,7 @@ class PeakList(WidgetBase):
         menu.exec_(self.cursor().pos())
     
     def move_selection_to_trash(self):
-        self.cc.peak_labels[self.cc.peak_selection] = -1
+        self.cc.peak_label[self.cc.peak_selection] = -1
         self.cc.on_new_cluster()
         self.cc.refresh_colors(reset = False)
         self.refresh()
@@ -258,9 +258,9 @@ class ClusterList(WidgetBase):
         return selected
     
     def _selected_spikes(self):
-        selection = np.zeros(self.cc.peak_labels.shape[0], dtype = bool)
+        selection = np.zeros(self.cc.peak_label.shape[0], dtype = bool)
         for k in self.selected_cluster():
-            selection |= self.cc.peak_labels == k
+            selection |= self.cc.peak_label == k
         return selection
     
     def open_context_menu(self):
@@ -367,8 +367,8 @@ class ClusterList(WidgetBase):
     
     def move_selection_to_trash(self):
         for k in self.selected_cluster():
-            take = self.cc.peak_labels == k
-            self.cc.peak_labels[take] = -1
+            take = self.cc.peak_label == k
+            self.cc.peak_label[take] = -1
         self.cc.on_new_cluster(label_changed=self.selected_cluster()+[-1])
         self.cc.refresh_colors(reset = False)
         self.refresh()

@@ -16,15 +16,19 @@ class CatalogueWindow(QtGui.QMainWindow):
         QtGui.QMainWindow.__init__(self)
         
         self.cc = self.catalogueconstructor = catalogueconstructor
+        # force recreate centroid an dmore
+        self.cc.on_new_cluster()
+        
         self.mode = mode
         
         self.traceviewer = CatalogueTraceViewer(catalogueconstructor=catalogueconstructor, signal_type='processed')
         self.peaklist = PeakList(catalogueconstructor=catalogueconstructor)
         self.clusterlist = ClusterList(catalogueconstructor=catalogueconstructor)
-        self.ndscatter = NDScatter(catalogueconstructor=catalogueconstructor)
-        self.WaveformViewer = WaveformViewer(catalogueconstructor=catalogueconstructor)
+        #~ self.ndscatter = NDScatter(catalogueconstructor=catalogueconstructor)
+        #~ self.WaveformViewer = WaveformViewer(catalogueconstructor=catalogueconstructor)
         
-        self.all_view = [self.traceviewer, self.peaklist, self.clusterlist, self.ndscatter, self.WaveformViewer]
+        #~ self.all_view = [self.traceviewer, self.peaklist, self.clusterlist, self.ndscatter, self.WaveformViewer]
+        self.all_view = [self.traceviewer, self.peaklist, self.clusterlist]
         
         for w1, w2 in itertools.combinations(self.all_view,2):
             w1.peak_selection_changed.connect(w2.on_peak_selection_changed)
@@ -42,14 +46,14 @@ class CatalogueWindow(QtGui.QMainWindow):
 
         docks = {}
 
-        docks['WaveformViewer'] = QtGui.QDockWidget('WaveformViewer',self)
-        docks['WaveformViewer'].setWidget(self.WaveformViewer)
-        #~ self.tabifyDockWidget(docks['ndscatter'], docks['WaveformViewer'])
-        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, docks['WaveformViewer'])
+        #~ docks['WaveformViewer'] = QtGui.QDockWidget('WaveformViewer',self)
+        #~ docks['WaveformViewer'].setWidget(self.WaveformViewer)
+        #self.tabifyDockWidget(docks['ndscatter'], docks['WaveformViewer'])
+        #~ self.addDockWidget(QtCore.Qt.RightDockWidgetArea, docks['WaveformViewer'])
         
         docks['traceviewer'] = QtGui.QDockWidget('traceviewer',self)
         docks['traceviewer'].setWidget(self.traceviewer)
-        #~ self.addDockWidget(QtCore.Qt.RightDockWidgetArea, docks['traceviewer'])
+        #self.addDockWidget(QtCore.Qt.RightDockWidgetArea, docks['traceviewer'])
         self.tabifyDockWidget(docks['WaveformViewer'], docks['traceviewer'])
         
         docks['peaklist'] = QtGui.QDockWidget('peaklist',self)
@@ -60,9 +64,9 @@ class CatalogueWindow(QtGui.QMainWindow):
         docks['clusterlist'].setWidget(self.clusterlist)
         self.splitDockWidget(docks['peaklist'], docks['clusterlist'], QtCore.Qt.Horizontal)
         
-        docks['ndscatter'] = QtGui.QDockWidget('ndscatter',self)
-        docks['ndscatter'].setWidget(self.ndscatter)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, docks['ndscatter'])
+        #~ docks['ndscatter'] = QtGui.QDockWidget('ndscatter',self)
+        #~ docks['ndscatter'].setWidget(self.ndscatter)
+        #~ self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, docks['ndscatter'])
         
         self.create_actions()
         self.create_toolbar()
