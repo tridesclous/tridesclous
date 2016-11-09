@@ -3,7 +3,7 @@ import numpy as np
 
 
 
-class WaveformExtractor:
+class OnlineWaveformExtractor:
     """
     Class for extracting waveforms around peak on the fly.
     This class deal with peaks that are near the border.
@@ -68,7 +68,7 @@ class WaveformExtractor:
 
 
 
-def cut_full(signals, indexes, width):
+def cut_full(signals, indexes, width, chunks=None):
     """
     This cut small chunks on signals and return concatenate them.
     This use numpy.array for input/output.
@@ -88,7 +88,8 @@ def cut_full(signals, indexes, width):
         shape = (indexes.size, signals.shape[1], width)
     
     """
-    chunks = np.empty((indexes.size, signals.shape[1], width), dtype = signals.dtype)
+    if chunks is None:
+        chunks = np.empty((indexes.size, signals.shape[1], width), dtype = signals.dtype)
     for i, ind in enumerate(indexes):
         chunks[i,:,:] = signals[ind:ind+width,:].transpose()
     return chunks

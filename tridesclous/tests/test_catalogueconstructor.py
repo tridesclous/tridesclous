@@ -18,12 +18,12 @@ def test_catalogue_constructor():
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
-    #~ for memory_mode in ['ram', 'memmap']:
-    for memory_mode in ['memmap']:
+    for memory_mode in ['ram', 'memmap']:
+    #~ for memory_mode in ['memmap']:
     
         print()
         print(memory_mode)
-        catalogueconstructor.initialize(chunksize=1024,
+        catalogueconstructor.initialize_signalprocessor_loop(chunksize=1024,
                 memory_mode=memory_mode,
                 
                 #signal preprocessor
@@ -36,42 +36,49 @@ def test_catalogue_constructor():
                 peak_sign='-', relative_threshold=7, peak_span=0.0005,
                 
                 #waveformextractor
-                n_left=-20, n_right=30, 
+                #~ n_left=-20, n_right=30, 
                 
                 )
         t1 = time.perf_counter()
-        catalogueconstructor.estimate_noise(seg_num=0, duration=10.)
+        catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
         t2 = time.perf_counter()
-        print('estimate_noise', t2-t1)
+        print('estimate_signals_noise', t2-t1)
         
         t1 = time.perf_counter()
         for seg_num in range(dataio.nb_segment):
             #~ print('seg_num', seg_num)
-            catalogueconstructor.loop_extract_waveforms(seg_num=seg_num)
+            catalogueconstructor.run_signalprocessor_loop(seg_num=seg_num)
         t2 = time.perf_counter()
-        print('loop_extract_waveforms', t2-t1)
+        print('run_signalprocessor_loop', t2-t1)
 
         t1 = time.perf_counter()
-        catalogueconstructor.finalize_extract_waveforms()
+        catalogueconstructor.finalize_signalprocessor_loop()
         t2 = time.perf_counter()
-        print('finalize_extract_waveforms', t2-t1)
+        print('finalize_signalprocessor_loop', t2-t1)
 
         for seg_num in range(dataio.nb_segment):
             mask = catalogueconstructor.peak_segment==seg_num
             print('seg_num', seg_num, np.sum(mask))
         
-        # PCA
         t1 = time.perf_counter()
-        catalogueconstructor.project(method='IncrementalPCA', n_components=7, batch_size=16384)
+        catalogueconstructor.extract_some_waveforms(n_left=-20, n_right=30,  nb_max=5000)
         t2 = time.perf_counter()
-        print('project', t2-t1)
+        print('extract_some_waveforms', t2-t1)
+        print(catalogueconstructor.peak_waveforms.shape)
         
-        # cluster
-        t1 = time.perf_counter()
-        catalogueconstructor.find_clusters(method='kmeans', n_clusters=11)
-        #~ catalogueconstructor.find_clusters(method='gmm', n_clusters=11)
-        t2 = time.perf_counter()
-        print('find_clusters', t2-t1)
+
+        
+        #~ # PCA
+        #~ t1 = time.perf_counter()
+        #~ catalogueconstructor.project(method='IncrementalPCA', n_components=7, batch_size=16384)
+        #~ t2 = time.perf_counter()
+        #~ print('project', t2-t1)
+        
+        #~ # cluster
+        #~ t1 = time.perf_counter()
+        #~ catalogueconstructor.find_clusters(method='kmeans', n_clusters=11)
+        #~ t2 = time.perf_counter()
+        #~ print('find_clusters', t2-t1)
         
         
         
@@ -83,10 +90,78 @@ def test_catalogue_constructor():
         #~ ax.plot(np.median(wf, axis=0), color='b')
         
         #~ pyplot.show()
+    
+    
+def compare_nb_waveforms():
+    filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT']
+    dataio = RawDataIO(dirname='test_catalogueconstructor')
+    dataio.set_initial_signals(filenames=filenames, dtype='int16',
+                                     total_channel=16, sample_rate=10000.)    
+    dataio.set_channel_group(range(14))
+    #~ print(dataio.segments_path)
+    
+    catalogueconstructor = CatalogueConstructor(dataio=dataio)
 
+    memory_mode ='memmap'
 
+    catalogueconstructor.initialize_signalprocessor_loop(chunksize=1024,
+            memory_mode=memory_mode,
+            
+            #signal preprocessor
+            highpass_freq=300,
+            backward_chunksize=1280,
+            
+            #peak detector
+            peakdetector_engine='peakdetector_numpy',
+            peak_sign='-', relative_threshold=7, peak_span=0.0005,
+            )
+    
+    t1 = time.perf_counter()
+    catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
+    t2 = time.perf_counter()
+    print('estimate_signals_noise', t2-t1)
+    
+    t1 = time.perf_counter()
+    for seg_num in range(dataio.nb_segment):
+        #~ print('seg_num', seg_num)
+        catalogueconstructor.run_signalprocessor_loop(seg_num=seg_num)
+    t2 = time.perf_counter()
+    print('run_signalprocessor_loop', t2-t1)
+
+    t1 = time.perf_counter()
+    catalogueconstructor.finalize_signalprocessor_loop()
+    t2 = time.perf_counter()
+    print('finalize_signalprocessor_loop', t2-t1)
+
+    for seg_num in range(dataio.nb_segment):
+        mask = catalogueconstructor.peak_segment==seg_num
+        print('seg_num', seg_num, np.sum(mask))
+    
+    
+    fig, axs = pyplot.subplots(nrows=2)
+    
+    colors = ['r', 'g', 'b']
+    for i, nb_max in enumerate([100, 1000, 10000]):
+        t1 = time.perf_counter()
+        catalogueconstructor.extract_some_waveforms(n_left=-20, n_right=30,  nb_max=nb_max)
+        t2 = time.perf_counter()
+        print('extract_some_waveforms', nb_max,  t2-t1)
+        print(catalogueconstructor.peak_waveforms.shape)
+        wf = catalogueconstructor.peak_waveforms
+        wf = wf.swapaxes(1,2).reshape(wf.shape[0], -1)
+        axs[0].plot(np.median(wf, axis=0), color=colors[i], label='nb_max {}'.format(nb_max))
+        
+        axs[1].plot(np.mean(wf, axis=0), color=colors[i], label='nb_max {}'.format(nb_max))
+    
+    axs[0].legend()
+    axs[0].set_title('median')
+    axs[1].set_title('mean')
+    pyplot.show()        
+    
 
 
     
 if __name__ == '__main__':
-    test_catalogue_constructor()
+    #~ test_catalogue_constructor()
+    
+    compare_nb_waveforms()

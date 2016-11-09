@@ -139,8 +139,8 @@ class NDScatter(WidgetBase):
         self.projection[0,0] = 1.
         self.projection[1,1] = 1.
         
-        self.peak_visible = np.zeros(self.cc.nb_peak, dtype=bool)
-        self.by_cluster_random_decimate(refresh=False)
+        #~ self.peak_visible = np.zeros(self.cc.nb_peak, dtype=bool)
+        #~ self.by_cluster_random_decimate(refresh=False)
         
         self.plot2 = pg.PlotItem(viewBox=MyViewBox(lockAspect=True))
         self.graphicsview2.setCentralItem(self.plot2)
@@ -225,7 +225,8 @@ class NDScatter(WidgetBase):
                 self.scatters[k].setBrush(color)
             
             if self.cc.cluster_visible[k]:
-                data = self.data[(self.cc.peak_labels==k) & self.peak_visible]
+                #~ data = self.data[(self.cc.peak_labels==k) & self.peak_visible]
+                data = self.data[(self.cc.peak_labels==k)]
                 projected = np.dot(data, self.projection )
                 self.scatters[k].setData(projected[:,0], projected[:,1])
             else:
