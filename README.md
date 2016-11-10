@@ -1,5 +1,6 @@
 # trisdesclous
 Tris Des Clous, french touch spike sorting.
+Pronouced [tree day clue] for english speaker.
 
 This module provide some functions and examples of spike sorting.
 It is our material for learning good practices in spike sorting technics.

@@ -31,20 +31,19 @@ class SpikeSorter:
     """
     def __init__(self, ):
         self.dataio = None
-        self.signal_preprocessor = None
         self.catalogue_constructor = None
         self.template_peeler = None
-        
+    
     def summary(self, level=1):
         t = ''
         return t
-
+        
     def __repr__(self):
         return self.summary(level=0)
-    
+        
     def run_preprocessing(self):
         pass
-    
+        
     def make_initial_catalogue(self):
         pass
         
