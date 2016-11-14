@@ -38,7 +38,6 @@ class PeakDetectorEngine_Numpy:
         else:
             sum_rectified = newbuf[:,0]
         
-
         self.ring_sum.new_chunk(sum_rectified, index=pos)
         
         k = self.n_span

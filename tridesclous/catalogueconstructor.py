@@ -2,6 +2,7 @@ import os
 import json
 from collections import OrderedDict
 import time
+import pickle
 
 import numpy as np
 import scipy.signal
@@ -50,7 +51,8 @@ class CatalogueConstructor:
                 self.info = json.load(f)
         
         for name in ['peak_pos', 'peak_segment', 'peak_label',
-                    'peak_waveforms', 'peak_waveforms_index', 'features']:
+                    'peak_waveforms', 'peak_waveforms_index', 'features',
+                    'signals_medians','signals_mads', ]:
             # this set attribute to class if exsits
             self.arrays.load_if_exists(name)
         #~ print(' __init__ self.peak_pos', self.peak_pos)
@@ -75,7 +77,7 @@ class CatalogueConstructor:
             
             #peak detector
             peakdetector_engine='peakdetector_numpy',
-            peak_sign='-', relative_threshold=5, peak_span=0.0005,
+            peak_sign='-', relative_threshold=7, peak_span=0.0005,
             
             ):
         
@@ -103,7 +105,7 @@ class CatalogueConstructor:
                                                         self.chunksize, internal_dtype)
         
         #TODO make processed data as int32 ???
-        self.dataio.reset_signals(signal_type='processed', dtype='float32')
+        self.dataio.reset_signals(signal_type='processed', dtype=internal_dtype)
         
         self.nb_peak = 0
         
@@ -136,12 +138,18 @@ class CatalogueConstructor:
                 filtered_sigs[pos2-preprocessed_chunk.shape[0]:pos2, :] = preprocessed_chunk
         
         
-        self.signals_medians = medians= np.median(filtered_sigs, axis=0)
-        self.signals_mads = np.median(np.abs(filtered_sigs-medians),axis=0)*1.4826
+        signals_medians = np.median(filtered_sigs, axis=0)
+        signals_mads = np.median(np.abs(filtered_sigs-signals_medians),axis=0)*1.4826
         
         self.arrays.detach_array(name)
-
         
+        #make theses persistant
+        self.arrays.create_array('signals_medians', self.info['internal_dtype'], signals_medians.shape, 'memmap')
+        self.arrays.create_array('signals_mads', self.info['internal_dtype'], signals_mads.shape, 'memmap')
+        self.signals_medians[:] = signals_medians
+        self.signals_mads[:] = signals_mads
+
+
     def signalprocessor_one_chunk(self, pos, sigs_chunk, seg_num):
 
         pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
@@ -175,8 +183,8 @@ class CatalogueConstructor:
         
         p = dict(self.params_signalpreprocessor)
         p['normalize'] = True
-        p['medians'] = self.signals_medians
-        p['mads'] = self.signals_mads
+        p['signals_medians'] = self.signals_medians
+        p['signals_mads'] = self.signals_mads
         self.signalpreprocessor.change_params(**p)
         
         self.peakdetector.change_params(**self.params_peakdetector)
@@ -394,45 +402,70 @@ class CatalogueConstructor:
         
         self.on_new_cluster()
     
-    def construct_catalogue(self):
-        #TODO
-        pass
-        #~ t1 = time.perf_counter()
-        #~ self.catalogue = OrderedDict()
-        #~ nb_channel = self.dataio.nb_channel
-        #~ for k in self.cluster_labels:
-            #~ #print('construct_catalogue', k)
-            #~ # take peak of this cluster
-            #~ # and reshaape (nb_peak, nb_channel, nb_csample)
-            #~ wf = self.peak_waveforms[self.peak_label==k]
-            
-            #~ #compute first and second derivative on dim=2
-            #~ kernel = np.array([1,0,-1])/2.
-            #~ kernel = kernel[None, None, :]
-            #~ wfD =  scipy.signal.fftconvolve(wf,kernel,'same') # first derivative
-            #~ wfDD =  scipy.signal.fftconvolve(wfD,kernel,'same') # second derivative
-            
-            #~ # medians
-            #~ center = np.median(wf, axis=0)
-            #~ centerD = np.median(wfD, axis=0)
-            #~ centerDD = np.median(wfDD, axis=0)
-            #~ mad = np.median(np.abs(wf-center),axis=0)*1.4826
-            
-            #~ #eliminate margin because of border effect of derivative and reshape
-            #~ center = center[:, 2:-2]
-            #~ centerD = centerD[:, 2:-2]
-            #~ centerDD = centerDD[:, 2:-2]
-            
-            #~ self.catalogue[k] = {'center' : center.reshape(-1), 'centerD' : centerD.reshape(-1), 'centerDD': centerDD.reshape(-1) }
-            
-            #~ #this is for plotting pupose
-            #~ mad = mad[:, 2:-2].reshape(-1)
-            #~ self.catalogue[k]['mad'] = mad
-            #~ self.catalogue[k]['channel_peak_max'] = np.argmax(np.max(center, axis=1))
+    def make_catalogue(self):
+        #TODO: offer possibility to resample some waveforms or choose the number
         
-        #~ t2 = time.perf_counter()
-        #~ print('construct_catalogue', t2-t1)
+        t1 = time.perf_counter()
+        self.catalogue = {}
         
-        #~ return self.catalogue
+        self.catalogue = {}
+        self.catalogue['n_left'] = self.info['params_waveformextractor']['n_left'] +2
+        self.catalogue['n_right'] = self.info['params_waveformextractor']['n_right'] -2
+        self.catalogue['peak_width'] = self.catalogue['n_right'] - self.catalogue['n_left']
+        
+        cluster_labels = self.cluster_labels[self.cluster_labels>=0]
+        self.catalogue['cluster_labels'] = cluster_labels
+        
+        s = self.peak_waveforms.shape
+        centers0 = np.zeros((cluster_labels.size, s[1] - 4, s[2]), dtype=self.info['internal_dtype'])
+        centers1 = np.zeros_like(centers0)
+        centers2 = np.zeros_like(centers0)
+        self.catalogue['centers0'] = centers0 # median of wavforms
+        self.catalogue['centers1'] = centers1 # median of first derivative of wavforms
+        self.catalogue['centers2'] = centers2 # median of second derivative of wavforms
 
+        
+        for i, k in enumerate(cluster_labels):
+            #print('construct_catalogue', k)
+            # take peak of this cluster
+            # and reshaape (nb_peak, nb_channel, nb_csample)
+            #~ wf = self.peak_waveforms[self.peak_label==k]
+            wf0 = self.peak_waveforms[self.peak_label[self.peak_waveforms_index]==k]
+            
+            
+            #compute first and second derivative on dim=1 (time)
+            kernel = np.array([1,0,-1])/2.
+            kernel = kernel[None, :, None]
+            wf1 =  scipy.signal.fftconvolve(wf0,kernel,'same') # first derivative
+            wf2 =  scipy.signal.fftconvolve(wf1,kernel,'same') # second derivative
+            
+            #median and
+            #eliminate margin because of border effect of derivative and reshape
+            centers0[i,:,:] = np.median(wf0, axis=0)[2:-2, :]
+            centers1[i,:,:] = np.median(wf1, axis=0)[2:-2, :]
+            centers2[i,:,:] = np.median(wf2, axis=0)[2:-2, :]
+        
+        self.catalogue['params_signalpreprocessor'] = dict(self.info['params_signalpreprocessor'])
+        self.catalogue['params_peakdetector'] = dict(self.info['params_peakdetector'])
+        self.catalogue['signals_medians'] = self.signals_medians
+        self.catalogue['signals_mads'] = self.signals_mads        
+        
+        
+        t2 = time.perf_counter()
+        print('construct_catalogue', t2-t1)
+        
+        return self.catalogue
+    
+    def save_catalogue(self):
+        self.make_catalogue()
+        
+        filename = os.path.join(self.catalogue_path, 'initial_catalogue.pickle')
+        with open(filename, mode='wb') as f:
+            pickle.dump(self.catalogue, f)
+    
+    def load_catalogue(self):
+        filename = os.path.join(self.catalogue_path, 'initial_catalogue.pickle')
+        with open(filename, mode='rb') as f:
+            self.catalogue = pickle.load(f)
+        return self.catalogue
 

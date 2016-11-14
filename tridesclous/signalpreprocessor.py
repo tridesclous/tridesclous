@@ -35,8 +35,8 @@ class SignalPreprocessor_Numpy:
             data2 -= np.median(data2, axis=1)[:, None]
         
         if self.normalize:
-            data2 -= self.medians
-            data2 /= self.mads
+            data2 -= self.signals_medians
+            data2 /= self.signals_mads
         
         return pos2, data2
     
@@ -46,9 +46,9 @@ class SignalPreprocessor_Numpy:
                                             output_dtype='float32', 
                                             normalize=True,
                                             backward_chunksize=None,
-                                            medians=None, mads=None):
-        self.medians = medians
-        self.mads = mads
+                                            signals_medians=None, signals_mads=None):
+        self.signals_medians = signals_medians
+        self.signals_mads = signals_mads
         
         self.common_ref_removal = common_ref_removal
         self.highpass_freq = highpass_freq
