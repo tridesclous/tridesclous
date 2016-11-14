@@ -11,6 +11,9 @@ from . import signalpreprocessor
 from . import  peakdetector
 from . import waveformextractor
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+
 
 class Peeler:
     """
@@ -73,11 +76,31 @@ class Peeler:
             peak_pos2 = chunk_peaks - shift
             
             spikes  = classify_and_align(peak_pos2, residual, self.catalogue)
-            
+            print(spikes)
             good_spikes = spikes[spikes['label']!=-1]
+            print(good_spikes)
             
             prediction = make_prediction_signals(good_spikes, residual.dtype, residual.shape, self.catalogue)
+            print(np.sum(prediction))
             residual -= prediction
+            
+            ###
+            #DEBUG
+            N=sigs_chunk.shape[1]
+            #~ colors = sns.color_palette('husl', len(self.catalogue['cluster_labels']))
+            #~ fig, axs = plt.subplots(nrows=N, sharex=True, sharey=True, )
+            #~ for ii, k in enumerate(self.catalogue['cluster_labels']):
+                #~ for iii in range(N):
+                    #~ axs[iii].plot(self.catalogue['centers0'][ii, :, iii], color=colors[ii], label='{}'.format(k))
+            #~ axs[0].legend()
+            fig, axs = plt.subplots(nrows=N, sharex=True, sharey=True, )
+            for iii in range(N):
+                axs[iii].plot(prediction[:, iii], color='m')
+                axs[iii].plot(residual[:, iii], color='g')
+                axs[iii].plot(peak_pos2, residual[peak_pos2, iii], color='g', marker='o', ls='None')
+            plt.show()
+            #ENDDEBUG
+            ###
             
             # for output
             good_spikes['index'] += shift
@@ -103,6 +126,13 @@ class Peeler:
         self.peakdetectors = []
         for level in range(self.n_peel_level):
             self.peakdetectors.append(PeakDetector_class(self.dataio.sample_rate, self.dataio.nb_channel, chunksize, internal_dtype))
+        
+        #find max  channel for each cluster for peak alignement
+        self.catalogue['max_on_channel'] = np.zeros_like(self.catalogue['cluster_labels'])
+        for i, k in enumerate(self.catalogue['cluster_labels']):
+            center = self.catalogue['centers0'][i]
+            self.catalogue['max_on_channel'][i] = np.argmax(np.max(np.abs(center), axis=0))
+        
         
     
     def run_loop(self, seg_num=0, duration=60.):
@@ -143,12 +173,13 @@ def classify_and_align(peak_pos, residual, catalogue):
     the absolute peak_pos. So time scaling must be done outside.
     
     """
-    
+    print('classify_and_align')
     width = catalogue['peak_width']
+    n_left = catalogue['n_left']
     waveforms = np.empty((peak_pos.size, width, residual.shape[1]), dtype = residual.dtype)
-    for i, ind in enumerate(peak_pos):
+    for i, ind in enumerate(peak_pos+n_left):
         #TODO fix limits!!!!
-        if ind+width>=residual.shape[1]:
+        if ind+width>=residual.shape[0]:
             pass
         else:
             waveforms[i,:,:] = residual[ind:ind+width,:]
@@ -159,8 +190,28 @@ def classify_and_align(peak_pos, residual, catalogue):
     #~ jitters = np.empty(waveforms.shape[0], dtype = 'float64')
     #~ labels = np.empty(waveforms.shape[0], dtype = int)
     for i in range(waveforms.shape[0]):
-        wf = waveforms[i,:]
-        label, jitter = estimate_one_jitter(wf, catalogue)
+        waveform = waveforms[i,:,:]
+        
+        ###
+        # DEBUG
+        #~ N = waveform.shape[1]
+        #~ fig, axs = plt.subplots(nrows=N, sharex=True, sharey=True, )
+        #~ for iii in range(N):
+            #~ axs[iii].plot(waveform[:, iii], color='r', lw=4)
+        #~ colors = sns.color_palette('husl', len(catalogue['cluster_labels']))
+        #~ fig, axs = plt.subplots(nrows=N, sharex=True, sharey=True, )
+        #~ for ii, k in enumerate(catalogue['cluster_labels']):
+            #~ for iii in range(N):
+                #~ axs[iii].plot(catalogue['centers0'][ii, :, iii], color=colors[ii], label='{}'.format(k))
+        #~ axs[0].legend()
+        ###
+        
+        label, jitter = estimate_one_jitter(waveform, catalogue)
+        #~ print('label', label)
+        #~ plt.show()
+        
+        
+        #~ print('label, jitter', label, jitter)
         
         # if more than one sample of jitter
         # then we take a new wf at the good place and do estimate again
@@ -180,7 +231,7 @@ def classify_and_align(peak_pos, residual, catalogue):
         spikes['jitter'][i] = jitter
         spikes['label'][i] = label
     
-    
+    print(spikes)
     return spikes
         #~ jitters[i] = jitter
         #~ labels[i] = label
@@ -193,7 +244,7 @@ def classify_and_align(peak_pos, residual, catalogue):
     #~ return spike_pos, jitters, labels    
     
 
-def estimate_one_jitter(wf, catalogue):
+def estimate_one_jitter(waveform, catalogue):
     """
     Estimate the jitter for one peak given its waveform
     
@@ -212,18 +263,25 @@ def estimate_one_jitter(wf, catalogue):
       * h2_norm2: error at order2
     """
     
-    cluster_idx = np.argmin(np.sum(np.sum((catalogue['centers0']-wf)**2, axis = 1), axis = 1))
+    print('argmin')
+    print(waveform.shape)
+    #~ print(waveform)
+    print(np.sum(np.sum((catalogue['centers0']-waveform)**2, axis = 1), axis = 1))
+    cluster_idx = np.argmin(np.sum(np.sum((catalogue['centers0']-waveform)**2, axis = 1), axis = 1))
+    print(cluster_idx)
     k = catalogue['cluster_labels'][cluster_idx]
+    print(k)
     
-    wf0 = catalogue['centers0'][cluster_idx]
-    wf1 = catalogue['centers1'][cluster_idx]
-    wf2 = catalogue['centers2'][cluster_idx]
+    chan = catalogue['max_on_channel'][cluster_idx]
+    #~ print()
+    #~ print('cluster_idx', cluster_idx, 'k', k, 'chan', chan)
     
-    #TODO flatten everything in make_catalogue
-    wf0 = wf0.T.flatten()
-    wf1 = wf1.T.flatten()
-    wf2 = wf2.T.flatten()
-    wf = wf.T.flatten()
+    return k, 0.
+
+    wf0 = catalogue['centers0'][cluster_idx,: , chan]
+    wf1 = catalogue['centers1'][cluster_idx,: , chan]
+    wf2 = catalogue['centers2'][cluster_idx,: , chan]
+    wf = waveform[:, chan]
     
     #TODO put that in make_catalogue
     wf1_norm2 = wf1.dot(wf1)
@@ -235,6 +293,7 @@ def estimate_one_jitter(wf, catalogue):
     h_dot_wf1 = h.dot(wf1)
     jitter0 = h_dot_wf1/wf1_norm2
     h1_norm2 = np.sum((h-jitter0*wf1)**2)
+    #~ print(h0_norm2, h1_norm2)
     
     if h0_norm2 > h1_norm2:
         #order 1 is better than order 0

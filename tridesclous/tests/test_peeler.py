@@ -18,8 +18,8 @@ def setup_catalogue():
     filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT']
     dataio.set_initial_signals(filenames=filenames, dtype='int16',
                                      total_channel=16, sample_rate=10000.)    
-    dataio.set_channel_group(range(14))
-    
+    #~ dataio.set_channel_group(range(14))
+    dataio.set_channel_group([5, 6, 7, 8, 9])
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
 

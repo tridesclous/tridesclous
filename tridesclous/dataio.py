@@ -136,6 +136,7 @@ class RawDataIO(BaseDataIO):
         
         if signal_type=='initial':
             data = self.initial_data[seg_num][i_start:i_stop, :]
+            data = data[:, self.channel_group]
         elif signal_type=='processed':
             if seg_num>=len(self.processed_data):
                 return None
@@ -144,8 +145,6 @@ class RawDataIO(BaseDataIO):
         else:
             raise(ValueError, 'signal_type is not valide')
         
-        
-        data = data[:, self.channel_group]
         
         if return_type=='raw_numpy':
             return data
