@@ -111,7 +111,6 @@ class RawDataIO(BaseDataIO):
         
         
         self._open_inital_data()
-        print('reload_existing')
         self._open_processed_data()
     
     def _open_inital_data(self):
@@ -169,7 +168,6 @@ class RawDataIO(BaseDataIO):
             raise(NotImplementedError)
     
     def reset_processed_signals(self, dtype='float32'):
-        print('reset_processed_signals')
         for i in range(self.nb_segment):
             self.arrays_by_seg[i].create_array('processed_signals', dtype, self.get_segment_shape(i), 'memmap')
 

@@ -132,13 +132,6 @@ class Peeler:
         for level in range(self.n_peel_level):
             self.peakdetectors.append(PeakDetector_class(self.dataio.sample_rate, self.dataio.nb_channel, chunksize, internal_dtype))
         
-        #find max  channel for each cluster for peak alignement
-        self.catalogue['max_on_channel'] = np.zeros_like(self.catalogue['cluster_labels'])
-        for i, k in enumerate(self.catalogue['cluster_labels']):
-            center = self.catalogue['centers0'][i]
-            self.catalogue['max_on_channel'][i] = np.argmax(np.max(np.abs(center), axis=0))
-        
-    
     def run_loop(self, seg_num=0, duration=60.):
         
         length = int(duration*self.dataio.sample_rate)
@@ -327,8 +320,8 @@ def make_prediction_signals(spikes, dtype, shape, catalogue):
         pred = wf0
         
         pos = spikes[i]['index'] + catalogue['n_left']
-        
-        prediction[pos:pos+catalogue['peak_width'], :] += pred
+        if pos>0 and  pos+catalogue['peak_width']<shape[0]:
+            prediction[pos:pos+catalogue['peak_width'], :] += pred
         
     return prediction
 

@@ -15,7 +15,23 @@ def test_traceviewer():
     traceviewer.show()
     traceviewer.resize(800,600)
     app.exec_()
+
+
+def test_SpikeList():
+    dataio = RawDataIO(dirname='test_peeler')
+    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    initial_catalogue = catalogueconstructor.load_catalogue()
     
+    
+    app = pg.mkQApp()
+    traceviewer = SpikeList(catalogue=initial_catalogue, dataio=dataio)
+    traceviewer.show()
+    traceviewer.resize(800,600)
+    app.exec_()
+
+
+
+
 #~ def test_peelerwindow():
     #~ app = pg.mkQApp()
     #~ spikesorter = get_spikesorter()
@@ -28,7 +44,8 @@ def test_traceviewer():
     
     
 if __name__ == '__main__':
-    test_traceviewer()
+    #~ test_traceviewer()
+    test_SpikeList()
     
     #~ test_peelerwindow()
     

@@ -7,7 +7,7 @@ from .base import WidgetBase
 from .tools import TimeSeeker
 from ..tools import median_mad
 from ..dataio import _signal_types
-
+from ..peeler import make_prediction_signals
 
 
 class MyViewBox(pg.ViewBox):
@@ -245,8 +245,6 @@ class BaseTraceViewer(WidgetBase):
         self.refresh()
 
     def seek(self, t):
-        #~ if not self.have_sigs(): return
-        
         if self.sender() is not self.timeseeker:
             self.timeseeker.seek(t, emit = False)
         
@@ -261,23 +259,21 @@ class BaseTraceViewer(WidgetBase):
                 return_type='raw_numpy')
         
         if sigs_chunk is None: 
-            print('chunk is None')
             return
         
         if self.gains is None:
             self.estimate_auto_scale()
 
         #signal chunk
-        
         times_chunk = np.arange(sigs_chunk.shape[0], dtype='float32')/self.dataio.sample_rate+max(t1, 0)
         for c in range(self.dataio.nb_channel):
             self.curves[c].setData(times_chunk, sigs_chunk[:, c]*self.gains[c]+self.offsets[c])
-            
             self.channel_labels[c].setPos(t1, self.dataio.nb_channel-c-1)
         
         # plot peaks or spikes or prediction or residuals ...
         self._plot_specific_items(ind1, ind2, sigs_chunk, times_chunk)
         
+        #ranges
         self.plot.setXRange( t1, t2, padding = 0.0)
         self.plot.setYRange(-.5, self.dataio.nb_channel-.5, padding = 0.0)
 
@@ -294,9 +290,6 @@ class CatalogueTraceViewer(BaseTraceViewer):
     def _initialize_plot(self):
         pass
     
-    def _plot_prediction(self,ind1, ind2, sigs_chunk, times_chunk):
-        pass
-    
     def _plot_specific_items(self, ind1, ind2, sigs_chunk, times_chunk):
         # plot peaks
 
@@ -309,36 +302,15 @@ class CatalogueTraceViewer(BaseTraceViewer):
         inwindow_label = np.array(self.cc.peak_label[keep])
         inwindow_selected = np.array(self.cc.peak_selection[keep])
         
-        #~ return
-        
-        #~ for c in range(self.dataio.nb_channel):
-        #reset scatters
-        #~ for k in self.cc.cluster_labels:
-            #~ if not self.cc.cluster_visible[k] and k in self.scatters:
-                #~ self.scatters[k].setData([], [])
-            
         for k in list(self.scatters.keys()):
             if not k in self.cc.cluster_labels:
                 scatter = self.scatters.pop(k)
                 self.plot.removeItem(scatter)
             
-        # plotted selected
-        #~ if 'sel' not in self.scatters[c]:
-            #~ brush = QtGui.QColor( 'magenta')
-            #~ brush.setAlpha(180)
-            #~ pen = QtGui.QColor( 'yellow')
-            #~ self.scatters[c]['sel'] = pg.ScatterPlotItem(pen=pen, brush=brush, size=20, pxMode = True)
-            #~ self.plot.addItem(self.scatters[c]['sel'])
-        
         if np.sum(inwindow_selected)==1:
             self.selection_line.setPos(times_chunk[inwindow_ind[inwindow_selected]])
             self.selection_line.show()
         else:
-            self.selection_line.hide()
-        #~ c = self.cc.centroids[k]['max_on_channel']
-        #~ self.scatters['sel'].setData(times_chunk[inwindow_ind[mask]], 
-                                    #~ sigs_chunk[inwindow_ind[mask], c]*self.gains[c]+self.offsets[c])
-        
             self.selection_line.hide()
         
         for k in self.cc.cluster_labels:
@@ -368,8 +340,6 @@ class CatalogueTraceViewer(BaseTraceViewer):
                 self.threshold_lines[c].show()
             else:
                 self.threshold_lines[c].hide()
-
-    
     
     def on_peak_selection_changed(self):
         n_selected = np.sum(self.cc.peak_selection)
@@ -442,82 +412,114 @@ class PeelerTraceViewer(BaseTraceViewer):
         #~ self.spiketrains = self.dataio.get_spiketrains(self.seg_num)
 
     def _plot_specific_items(self, ind1, ind2, sigs_chunk, times_chunk):
-        pass
-    
-    def get_peak_or_spiketrain_in_window(self, t1, t2):
-        return
-        #~ if self.spiketrains is None:
-            #~ return None, None
-        #~ mask = (self.spiketrains['time']>=t1) & (self.spiketrains['time']<=t2)
-        #~ inwindow_label = self.spiketrains[mask]['label'].values
-        #~ inwindow_times = self.spiketrains[mask]['time'].values
         
-        #~ inwindow_selected = np.zeros(inwindow_label.shape, dtype = bool)
+        all_spikes = self.dataio.get_spikes(seg_num=self.seg_num, i_start=None, i_stop=None)
+        keep = (all_spikes['index']>=ind1) & (all_spikes['index']<ind2)
+        spikes = np.array(all_spikes[keep], copy=True)
+        print(spikes)
+        spikes['index'] -= ind1
+        print(spikes)
         
-        #~ return inwindow_times, inwindow_label, inwindow_selected
+        inwindow_ind = spikes['index']
+        inwindow_label = spikes['label']
+        #TODO spike selection
+        #~ inwindow_selected = np.array(self.cc.peak_selection[keep])
+        
+        for k in list(self.scatters.keys()):
+            if not k in self.catalogue['cluster_labels']:
+                scatter = self.scatters.pop(k)
+                self.plot.removeItem(scatter)
+            
+        #TODO
+        #~ if np.sum(inwindow_selected)==1:
+            #~ self.selection_line.setPos(times_chunk[inwindow_ind[inwindow_selected]])
+            #~ self.selection_line.show()
+        #~ else:
+            #~ self.selection_line.hide()
 
-    #~ def _plot_prediction(self,t1, t2, chunk, ind1):
-    def _plot_prediction(self, ind1, ind2, sigs_chunk, times_chunk):
-        pass
-        #~ prediction = np.zeros(chunk.shape)
-        
-        #~ mask = (self.spiketrains['time']>=t1) & (self.spiketrains['time']<=t2)
-        #~ spiketrains = self.spiketrains[mask]
-        #~ spike_pos = spiketrains.index-ind1
-        #~ labels = spiketrains['label'].values
-        #~ jitters = spiketrains['jitter'].values
-
-        #~ length = self.spikesorter.limit_right - self.spikesorter.limit_left
-        #~ catalogue = self.spikesorter.catalogue
-        #~ for i in range(spike_pos.size):
-            #~ pos = spike_pos[i] + self.spikesorter.limit_left
-            #~ if pos+length>=prediction.shape[0]: continue
-            #~ if pos<0: continue
+        for i, k in enumerate(self.catalogue['cluster_labels']):
+            #~ color = self.cc.qcolors.get(k, self._default_color)
+            #~ self.catalogue['cluster_labels']
             
-            #~ k = labels[i]
-            #~ if k<0: continue
-            #~ wf0 = catalogue[k]['center']
-            #~ wf1 = catalogue[k]['centerD']
-            #~ wf2 = catalogue[k]['centerDD']
-            #~ pred = wf0 + jitters[i]*wf1 + jitters[i]**2/2*wf2
+            #~ self.qcolors = {}
+            #~ for k, color in self.colors.items():
+                #~ r, g, b = color
+                #~ self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
+            r, g, b = self.catalogue['cluster_colors'][k]
+            color = QtGui.QColor(r*255, g*255, b*255)
             
-            #~ prediction[pos:pos+length, :] = pred.reshape(self.dataio.nb_channel, -1).transpose()
-        
-        #~ # plotting tricks
-        #~ prediction *=self.mad
-        #~ prediction += self.med
-        #~ residuals = chunk.values - prediction
-        #~ residuals += self.med
-        
-        #~ for c in range(self.dataio.nb_channel):
-            #~ if self.plot_buttons['prediction'].isChecked():
-                #~ self.curves_prediction[c].setData(chunk.index.values, prediction[:, c]*self.gains[c]+self.offsets[c])
+            #~ color = self._default_color
+            
+            if k not in self.scatters:
+                self.scatters[k] = pg.ScatterPlotItem(pen=None, brush=color, size=10, pxMode = True)
+                self.plot.addItem(self.scatters[k])
+                self.scatters[k].sigClicked.connect(self.item_clicked)
+            
+            #TODO visible
+            #~ if not self.cc.cluster_visible[k]:
+                #~ self.scatters[k].setData([], [])
             #~ else:
-                #~ self.curves_prediction[c].setData([], [])
-            
-            #~ if self.plot_buttons['residual'].isChecked():
-                #~ self.curves_residuals[c].setData(chunk.index.values, residuals[:, c]*self.gains[c]+self.offsets[c])
-            #~ else:
-                #~ self.curves_residuals[c].setData([], [])
+            if 1:
+                mask = inwindow_label==k
+                #~ print('mask', mask.shape)
+                #~ print('inwindow_ind', inwindow_ind.shape)
+                #~ print('times_chunk', times_chunk.shape)
+                times_chunk_in = times_chunk[inwindow_ind[mask]]
+                sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
+                #~ c = self.cc.centroids[k]['max_on_channel']
+                c = self.catalogue['max_on_channel'][i]
                 
-            #~ if not self.plot_buttons['signals'].isChecked():
-                #~ self.curves[c].setData([], [])
+                self.scatters[k].setBrush(color)
+                self.scatters[k].setData(times_chunk_in, sigs_chunk_in[:, c]*self.gains[c]+self.offsets[c])
+
+        #~ n = self.dataio.nb_channel
+        #~ for c in range(n):
+            #~ if self.params['plot_threshold']:
+                #~ threshold = self.cc.info['params_peakdetector']['relative_threshold']
+                #~ if self.cc.info['params_peakdetector']['peak_sign']=='-':
+                    #~ threshold = -threshold
+                #~ self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*threshold)
+                #~ self.threshold_lines[c].show()
+            #~ else:
+                #~ self.threshold_lines[c].hide()
+
+        
+        #prediction
+        prediction = make_prediction_signals(spikes, sigs_chunk.dtype, sigs_chunk.shape, self.catalogue)
+        residuals = sigs_chunk - prediction
+        
+       
+        for c in range(self.dataio.nb_channel):
+            if self.plot_buttons['prediction'].isChecked():
+                self.curves_prediction[c].setData(times_chunk, prediction[:, c]*self.gains[c]+self.offsets[c])
+            else:
+                self.curves_prediction[c].setData([], [])
+            
+            if self.plot_buttons['residual'].isChecked():
+                self.curves_residuals[c].setData(times_chunk, residuals[:, c]*self.gains[c]+self.offsets[c])
+            else:
+                self.curves_residuals[c].setData([], [])
+                
+            if not self.plot_buttons['signals'].isChecked():
+                self.curves[c].setData([], [])
 
     def on_peak_selection_changed(self):
-        selected_peaks = self.spikesorter.peak_selection[self.spikesorter.peak_selection]
-        if self.params['auto_zoom_on_select'] and selected_peaks.shape[0]==1:
-            seg_num, time= selected_peaks.index[0]
-            if seg_num != self.seg_num:
-                #~ seg_pos = self.dataio.segments_range.index.tolist().index(seg_num)
-                seg_pos = seg_num
+        #TODO
+        #~ selected_peaks = self.spikesorter.peak_selection[self.spikesorter.peak_selection]
+        #~ if self.params['auto_zoom_on_select'] and selected_peaks.shape[0]==1:
+            #~ seg_num, time= selected_peaks.index[0]
+            #~ if seg_num != self.seg_num:
+                seg_pos = self.dataio.segments_range.index.tolist().index(seg_num)
+                #~ seg_pos = seg_num
                 
-                self.combo_seg.setCurrentIndex(seg_pos)
-            self.spinbox_xsize.setValue(self.params['zoom_size'])
-            self.seek(time)
-        else:
-            self.refresh()
+                #~ self.combo_seg.setCurrentIndex(seg_pos)
+            #~ self.spinbox_xsize.setValue(self.params['zoom_size'])
+            #~ self.seek(time)
+        #~ else:
+            #~ self.refresh()
     
     def item_clicked(self, plot, points):
+        #TODO
         if self.select_button.isChecked()and len(points)==1:
             x = points[0].pos().x()
             self.spikesorter.peak_selection[:] = False

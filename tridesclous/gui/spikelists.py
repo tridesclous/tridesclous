@@ -7,29 +7,40 @@ from .base import WidgetBase
 from .tools import ParamDialog
 
 
-class PeakModel(QtCore.QAbstractItemModel):
-    def __init__(self, parent =None, catalogueconstructor=None):
+class SpikeModel(QtCore.QAbstractItemModel):
+    def __init__(self, parent =None, dataio=None, catalogue=None):
         QtCore.QAbstractItemModel.__init__(self,parent)
-        self.cc = self.catalogueconstructor = catalogueconstructor
+        
+        self.dataio = dataio
+        self.catalogue = catalogue
         self.refresh_colors()
     
     def columnCount(self , parentIndex):
         return 4
-        
+    
     def rowCount(self, parentIndex):
-        if not parentIndex.isValid() and self.cc.peak_label is not None:
-            visibles = np.array([k for k, v in self.cc.cluster_visible.items() if v ])
-            self.visible_mask = np.in1d(self.cc.peak_label, visibles)
-            self.visible_ind, = np.nonzero(self.visible_mask)
+        #~ if not parentIndex.isValid() and self.cc.peak_label is not None:
+        if not parentIndex.isValid():
+            n = 0
+            self.cumsum_spike_by_seg = []
+            for i in range(self.dataio.nb_segment):
+                spikes = self.dataio.get_spikes(seg_num=i)
+                n += spikes.size
+                self.cumsum_spike_by_seg.append(n)
+            #TODO visible
+            
+            #~ visibles = np.array([k for k, v in self.cc.cluster_visible.items() if v ])
+            #~ self.visible_mask = np.in1d(self.cc.peak_label, visibles)
+            #~ self.visible_ind, = np.nonzero(self.visible_mask)
             #~ self.visible_peak_labels = self.cc.peak_label[self.visible_peak_mask]
             
             #~ v = self.cc.cluster_visible[self.cc.cluster_visible]
             #~ self.visible_peak_labels = self.cc.peak_label[self.cc.peak_label.isin(v.index)]
             #~ return self.visible_peak_labels.shape[0]
-            return np.sum(self.visible_mask)
+            return int(n)
         else :
             return 0
-        
+    
     def index(self, row, column, parentIndex):
         if not parentIndex.isValid():
             if column==0:
@@ -54,12 +65,17 @@ class PeakModel(QtCore.QAbstractItemModel):
         #~ label =  self.visible_peak_labels.iloc[row]
         #~ t_start = 0.
         
-        abs_ind = self.visible_ind[row]
-        
-        seg_num = self.cc.peak_segment[abs_ind]
-        peak_pos = self.cc.peak_pos[abs_ind]
-        peak_time = peak_pos/self.cc.dataio.sample_rate
-        peak_label = self.cc.peak_label[abs_ind]
+        #~ abs_ind = self.visible_ind[row]
+        abs_ind = row
+        #~ seg_num = self.cc.peak_segment[abs_ind]
+        #~ peak_pos = self.cc.peak_pos[abs_ind]
+        #~ peak_time = peak_pos/self.cc.dataio.sample_rate
+        #~ peak_label = self.cc.peak_label[abs_ind]
+        seg_num = 0
+        peak_pos = 0
+        peak_time = 0.
+        peak_label = 0
+
         
         if role ==QtCore.Qt.DisplayRole :
             if col == 0:
@@ -92,23 +108,25 @@ class PeakModel(QtCore.QAbstractItemModel):
         return
     
     def refresh_colors(self):
+        #TODO
         self.icons = { }
-        for k in self.cc.qcolors:
-            color = self.cc.qcolors.get(k, QtGui.QColor( 'white'))
-            pix = QtGui.QPixmap(10,10 )
-            pix.fill(color)
-            self.icons[k] = QtGui.QIcon(pix)
+        #~ for k in self.cc.qcolors:
+            #~ color = self.cc.qcolors.get(k, QtGui.QColor( 'white'))
+            #~ pix = QtGui.QPixmap(10,10 )
+            #~ pix.fill(color)
+            #~ self.icons[k] = QtGui.QIcon(pix)
         
         #~ self.icons[-1] = QIcon(':/user-trash.png')
         
         self.layoutChanged.emit()
         
-        
-class PeakList(WidgetBase):
-    def __init__(self, catalogueconstructor=None, parent=None):
+
+class SpikeList(WidgetBase):
+    def __init__(self,dataio=None, catalogue=None, parent=None):
         WidgetBase.__init__(self, parent)
         
-        self.cc = self.catalogueconstructor = catalogueconstructor
+        self.dataio = dataio
+        self.catalogue = catalogue
         
         self.layout = QtGui.QVBoxLayout()
         self.setLayout(self.layout)
@@ -122,7 +140,7 @@ class PeakList(WidgetBase):
         self.layout.addWidget(self.tree)
         self.tree.customContextMenuRequested.connect(self.open_context_menu)
         
-        self.model = PeakModel(catalogueconstructor = catalogueconstructor)
+        self.model = SpikeModel(dataio=dataio, catalogue=catalogue,)
         self.tree.setModel(self.model)
         self.tree.selectionModel().selectionChanged.connect(self.on_tree_selection)
 
@@ -134,38 +152,42 @@ class PeakList(WidgetBase):
         self.model.refresh_colors()
     
     def on_tree_selection(self):
-        self.cc.peak_selection[:] = False
-        for index in self.tree.selectedIndexes():
-            if index.column() == 0:
-                ind = self.model.visible_ind[index.row()]
-                self.cc.peak_selection[ind] = True
-        self.peak_selection_changed.emit()
+        #TODO
+        pass
+        #~ self.cc.peak_selection[:] = False
+        #~ for index in self.tree.selectedIndexes():
+            #~ if index.column() == 0:
+                #~ ind = self.model.visible_ind[index.row()]
+                #~ self.cc.peak_selection[ind] = True
+        #~ self.peak_selection_changed.emit()
     
     def on_peak_selection_changed(self):
-        self.tree.selectionModel().selectionChanged.disconnect(self.on_tree_selection)
+        #TODO
+        pass
+        #~ self.tree.selectionModel().selectionChanged.disconnect(self.on_tree_selection)
         
-        row_selected, = np.nonzero(self.cc.peak_selection[self.model.visible_mask])
+        #~ row_selected, = np.nonzero(self.cc.peak_selection[self.model.visible_mask])
         
-        if row_selected.size>100:#otherwise this is verry slow
-            row_selected = row_selected[:10]
+        #~ if row_selected.size>100:#otherwise this is verry slow
+            #~ row_selected = row_selected[:10]
         
-        # change selection
-        self.tree.selectionModel().clearSelection()
-        flags = QtCore.QItemSelectionModel.Select #| QItemSelectionModel.Rows
-        itemsSelection = QtCore.QItemSelection()
-        for r in row_selected:
-            for c in range(2):
-                index = self.tree.model().index(r,c,QtCore.QModelIndex())
-                ir = QtCore.QItemSelectionRange( index )
-                itemsSelection.append(ir)
-        self.tree.selectionModel().select(itemsSelection , flags)
+        #~ # change selection
+        #~ self.tree.selectionModel().clearSelection()
+        #~ flags = QtCore.QItemSelectionModel.Select #| QItemSelectionModel.Rows
+        #~ itemsSelection = QtCore.QItemSelection()
+        #~ for r in row_selected:
+            #~ for c in range(2):
+                #~ index = self.tree.model().index(r,c,QtCore.QModelIndex())
+                #~ ir = QtCore.QItemSelectionRange( index )
+                #~ itemsSelection.append(ir)
+        #~ self.tree.selectionModel().select(itemsSelection , flags)
 
-        # set selection visible
-        if len(row_selected)>=1:
-            index = self.tree.model().index(row_selected[0],0,QtCore.QModelIndex())
-            self.tree.scrollTo(index)
+        #~ # set selection visible
+        #~ if len(row_selected)>=1:
+            #~ index = self.tree.model().index(row_selected[0],0,QtCore.QModelIndex())
+            #~ self.tree.scrollTo(index)
 
-        self.tree.selectionModel().selectionChanged.connect(self.on_tree_selection)        
+        #~ self.tree.selectionModel().selectionChanged.connect(self.on_tree_selection)        
 
 
     def open_context_menu(self):
@@ -176,8 +198,10 @@ class PeakList(WidgetBase):
         menu.exec_(self.cursor().pos())
     
     def move_selection_to_trash(self):
-        self.cc.peak_label[self.cc.peak_selection] = -1
-        self.cc.on_new_cluster()
-        self.cc.refresh_colors(reset = False)
-        self.refresh()
-        self.peak_cluster_changed.emit()
+        #TODO
+        pass
+        #~ self.cc.peak_label[self.cc.peak_selection] = -1
+        #~ self.cc.on_new_cluster()
+        #~ self.cc.refresh_colors(reset = False)
+        #~ self.refresh()
+        #~ self.peak_cluster_changed.emit()

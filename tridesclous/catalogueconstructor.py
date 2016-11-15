@@ -428,7 +428,6 @@ class CatalogueConstructor:
         self.catalogue['centers1'] = centers1 # median of first derivative of wavforms
         self.catalogue['centers2'] = centers2 # median of second derivative of wavforms
 
-        
         for i, k in enumerate(cluster_labels):
             #print('construct_catalogue', k)
             # take peak of this cluster
@@ -448,11 +447,23 @@ class CatalogueConstructor:
             centers0[i,:,:] = np.median(wf0, axis=0)[2:-2, :]
             centers1[i,:,:] = np.median(wf1, axis=0)[2:-2, :]
             centers2[i,:,:] = np.median(wf2, axis=0)[2:-2, :]
+
+        #find max  channel for each cluster for peak alignement
+        self.catalogue['max_on_channel'] = np.zeros_like(self.catalogue['cluster_labels'])
+        for i, k in enumerate(cluster_labels):
+            center = self.catalogue['centers0'][i]
+            self.catalogue['max_on_channel'][i] = np.argmax(np.max(np.abs(center), axis=0))
         
+        #colors
+        self.catalogue['cluster_colors'] = {}
+        self.catalogue['cluster_colors'].update(self.colors)
+        
+        #params
         self.catalogue['params_signalpreprocessor'] = dict(self.info['params_signalpreprocessor'])
         self.catalogue['params_peakdetector'] = dict(self.info['params_peakdetector'])
         self.catalogue['signals_medians'] = self.signals_medians
         self.catalogue['signals_mads'] = self.signals_mads        
+
         
         
         t2 = time.perf_counter()

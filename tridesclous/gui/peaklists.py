@@ -2,7 +2,6 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 
 import numpy as np
-import pandas as pd
 
 from .base import WidgetBase
 from .tools import ParamDialog
@@ -114,7 +113,7 @@ class PeakList(WidgetBase):
         self.layout = QtGui.QVBoxLayout()
         self.setLayout(self.layout)
         
-        self.layout.addWidget(QtGui.QLabel('<b>All spikes</b>') )
+        self.layout.addWidget(QtGui.QLabel('<b>All peaks</b>') )
         
         self.tree = QtGui.QTreeView(minimumWidth = 100, uniformRowHeights = True,
                     selectionMode= QtGui.QAbstractItemView.ExtendedSelection, selectionBehavior = QtGui.QTreeView.SelectRows,
