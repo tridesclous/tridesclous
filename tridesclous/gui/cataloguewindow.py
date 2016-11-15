@@ -4,7 +4,7 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 
 from .traceviewer import CatalogueTraceViewer
-from .lists import PeakList, ClusterList
+from .peaklists import PeakList, ClusterList
 from .ndscatter import NDScatter
 from .waveformviewer import WaveformViewer
 
