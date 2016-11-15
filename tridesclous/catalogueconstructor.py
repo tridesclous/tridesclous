@@ -25,6 +25,9 @@ from pyqtgraph.Qt import QtCore, QtGui
 
 from .iotools import ArrayCollection
 
+# TODO auto cut left rigth after first cut
+
+
 class CatalogueConstructor:
     """
     CatalogueConstructor scan a smal part of the dataset to construct the catalogue.
@@ -105,7 +108,7 @@ class CatalogueConstructor:
                                                         self.chunksize, internal_dtype)
         
         #TODO make processed data as int32 ???
-        self.dataio.reset_signals(signal_type='processed', dtype=internal_dtype)
+        self.dataio.reset_processed_signals(dtype=internal_dtype)
         
         self.nb_peak = 0
         
@@ -195,11 +198,12 @@ class CatalogueConstructor:
             #~ print(seg_num, pos, sigs_chunk.shape)
             self.signalprocessor_one_chunk(pos, sigs_chunk, seg_num)
         
-        self.dataio.flush_signals(seg_num=seg_num)
+        
         
         
     
     def finalize_signalprocessor_loop(self):
+        self.dataio.flush_processed_signals()
         
         self.arrays.finalize_array('peak_pos')
         self.arrays.finalize_array('peak_label')

@@ -11,7 +11,7 @@ class ArrayCollection:
     Automatique seattr to parent.
     """
     def __init__(self, parent=None, dirname=None):
-        assert parent is not None
+        #~ assert parent is not None
         
         self.dirname = dirname
         if not os.path.exists(self.dirname):
@@ -31,7 +31,11 @@ class ArrayCollection:
             for name in self._array:
                 if self._array_attr[name]['state']=='a':
                     continue
-                d[name] = dict(dtype=self._array[name].dtype.name, shape=list(self._array[name].shape))
+                if self._array[name].dtype.fields is None:
+                    dt = self._array[name].dtype.name
+                else:
+                    dt = self._array[name].dtype.descr
+                d[name] = dict(dtype=dt, shape=list(self._array[name].shape))
             json.dump(d, f, indent=4)        
         
     def create_array(self, name, dtype, shape, memory_mode):
@@ -42,7 +46,8 @@ class ArrayCollection:
         self._array[name] = arr
         self._array_attr[name] = {'state':'w', 'memory_mode':memory_mode}
         
-        setattr(self.parent, name, self._array[name])
+        if self.parent is not None:
+            setattr(self.parent, name, self._array[name])
         self.flush_json()
         return arr
     
@@ -64,7 +69,8 @@ class ArrayCollection:
         
         self._array_attr[name] = {'state':'a', 'memory_mode':memory_mode, 'dtype': dtype, 'shape':shape}
         
-        setattr(self.parent, name, None)
+        if self.parent is not None:
+            setattr(self.parent, name, None)
     
     def append_chunk(self, name, arr_chunk):
         assert self._array_attr[name]['state']=='a'
@@ -88,20 +94,39 @@ class ArrayCollection:
                                                 mode='r+').reshape(self._array_attr[name]['shape'])
         
         self._array_attr[name]['state'] = 'r'
-        
-        setattr(self.parent, name, self._array[name])
+        if self.parent is not None:
+            setattr(self.parent, name, self._array[name])
         self.flush_json()
+    
+    def flush_array(self, name):
+        memory_mode = self._array_attr[name]['memory_mode']
+        if memory_mode=='ram':
+            pass
+        elif memory_mode=='memmap':
+            self._array[name].flush()
+    
     
     def load_if_exists(self, name):
         try:
             with open(self._fname('arrays', ext='.json'), 'r', encoding='utf8') as f:
                 d = json.load(f)
                 if name in d:
-                    self._array[name] = np.memmap(self._fname(name), dtype=d[name]['dtype'], mode='r+').reshape(d[name]['shape'])
+                    if isinstance(d[name]['dtype'], str):
+                        dtype = np.dtype(d[name]['dtype'])
+                    else:
+                        dtype = np.dtype([ (k,v) for k,v in d[name]['dtype']])
+                    self._array[name] = np.memmap(self._fname(name), dtype=dtype, mode='r+').reshape(d[name]['shape'])
                     self._array_attr[name] = {'state':'r', 'memory_mode':'memmap'}
-                    setattr(self.parent, name, self._array[name])
+                    if self.parent is not None:
+                        setattr(self.parent, name, self._array[name])
                 else:
-                    setattr(self.parent, name, None)
+                    if self.parent is not None:
+                        setattr(self.parent, name, None)
         except:
-            setattr(self.parent, name, None)
-    
+            if self.parent is not None:
+                setattr(self.parent, name, None)
+
+    def get(self, name):
+        assert name in self._array_attr
+        return self._array[name]
+        
