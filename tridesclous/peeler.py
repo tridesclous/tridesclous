@@ -14,6 +14,13 @@ from . import waveformextractor
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+_dtype_spike = [('index', 'int64'), ('label', 'int64'), ('jitter', 'float64'),]
+
+
+LABEL_BAD_PREDICTION = -10
+LABEL_LEFT_LIMIT = -11
+LABEL_RIGHT_LIMIT = -12
+# good label are >=0
 
 class Peeler:
     """
@@ -45,7 +52,6 @@ class Peeler:
         self.n_peel_level = n_peel_level
         
     def process_one_chunk(self,  pos, sigs_chunk, seg_num):
-        print('yep')
         pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
         if preprocessed_chunk is  None:
             return
@@ -58,17 +64,15 @@ class Peeler:
         
         all_spikes = []
         
-        print()
-        print('pos2', pos2)
         for level in range(self.n_peel_level):
-            print('level', level)
+            #~ print('level', level)
             
             #detect peaks
             n_peaks, chunk_peaks = self.peakdetectors[level].process_data(pos2, residual)
             if chunk_peaks is  None:
                 chunk_peaks =np.array([], dtype='int64')
             
-            print('n_peaks', n_peaks)
+            #~ print('n_peaks', n_peaks)
             
             # relation between inside chunk index and abs index
             shift = pos2-residual.shape[0]
@@ -76,35 +80,35 @@ class Peeler:
             peak_pos2 = chunk_peaks - shift
             
             spikes  = classify_and_align(peak_pos2, residual, self.catalogue)
-            print(spikes)
-            good_spikes = spikes[spikes['label']!=-1]
-            print(good_spikes)
+            #~ print(spikes)
+            good_spikes = spikes[spikes['label']>=0]
+            
+            #~ print(good_spikes)
             
             prediction = make_prediction_signals(good_spikes, residual.dtype, residual.shape, self.catalogue)
-            print(np.sum(prediction))
             residual -= prediction
             
             ###
             #DEBUG
-            N=sigs_chunk.shape[1]
+            #~ N=sigs_chunk.shape[1]
             #~ colors = sns.color_palette('husl', len(self.catalogue['cluster_labels']))
             #~ fig, axs = plt.subplots(nrows=N, sharex=True, sharey=True, )
             #~ for ii, k in enumerate(self.catalogue['cluster_labels']):
                 #~ for iii in range(N):
                     #~ axs[iii].plot(self.catalogue['centers0'][ii, :, iii], color=colors[ii], label='{}'.format(k))
             #~ axs[0].legend()
-            fig, axs = plt.subplots(nrows=N, sharex=True, sharey=True, )
-            for iii in range(N):
-                axs[iii].plot(prediction[:, iii], color='m')
-                axs[iii].plot(residual[:, iii], color='g')
-                axs[iii].plot(peak_pos2, residual[peak_pos2, iii], color='g', marker='o', ls='None')
-            plt.show()
+            #~ fig, axs = plt.subplots(nrows=N, sharex=True, sharey=True, )
+            #~ for iii in range(N):
+                #~ axs[iii].plot(prediction[:, iii], color='m')
+                #~ axs[iii].plot(preprocessed_chunk[:, iii], color='g')
+                #~ axs[iii].plot(residual[:, iii], color='y')
+                #~ axs[iii].plot(peak_pos2, preprocessed_chunk[peak_pos2, iii], color='m', marker='o', ls='None')
+            #~ plt.show()
             #ENDDEBUG
             ###
             
             # for output
             good_spikes['index'] += shift
-            #~ yield good_spikes
             all_spikes.append(good_spikes)
         return np.concatenate(all_spikes)
             
@@ -116,7 +120,8 @@ class Peeler:
                                             internal_dtype='float32'):
         
         self.chunksize = chunksize
-        self.dataio.reset_signals(signal_type='processed', dtype=internal_dtype)
+        self.dataio.reset_processed_signals(dtype=internal_dtype)
+        self.dataio.reset_spikes(dtype=_dtype_spike)
         
         SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[signalpreprocessor_engine]
         self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.dataio.nb_channel, chunksize, self.dataio.dtype)
@@ -132,7 +137,6 @@ class Peeler:
         for i, k in enumerate(self.catalogue['cluster_labels']):
             center = self.catalogue['centers0'][i]
             self.catalogue['max_on_channel'][i] = np.argmax(np.max(np.abs(center), axis=0))
-        
         
     
     def run_loop(self, seg_num=0, duration=60.):
@@ -153,96 +157,78 @@ class Peeler:
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chunksize=self.chunksize, i_stop=length,
                                                     signal_type='initial', return_type='raw_numpy')
         for pos, sigs_chunk in iterator:
-            #~ print(seg_num, pos, sigs_chunk.shape)
             spikes = self.process_one_chunk(pos, sigs_chunk, seg_num)
-            print('spikes')
+            if spikes is not None and spikes.size>0:
+                self.dataio.append_spikes(seg_num=seg_num, spikes=spikes)
         
-        self.dataio.flush_signals(seg_num=seg_num)
-
+        
     def finalize_loop(self):
-        pass
-    
+        self.dataio.flush_processed_signals()
+        self.dataio.flush_spikes()
 
 
 
-_dtype_spike = [('index', 'int64'), ('label', 'int64'), ('jitter', 'float64'),]
 
-def classify_and_align(peak_pos, residual, catalogue):
+def classify_and_align(local_indexes, residual, catalogue):
     """
-    peak_pos is index of peaks inside residual and not
+    local_indexes is index of peaks inside residual and not
     the absolute peak_pos. So time scaling must be done outside.
     
     """
-    print('classify_and_align')
     width = catalogue['peak_width']
     n_left = catalogue['n_left']
-    waveforms = np.empty((peak_pos.size, width, residual.shape[1]), dtype = residual.dtype)
-    for i, ind in enumerate(peak_pos+n_left):
-        #TODO fix limits!!!!
-        if ind+width>=residual.shape[0]:
-            pass
-        else:
-            waveforms[i,:,:] = residual[ind:ind+width,:]
-    
-    spikes = np.zeros(waveforms.shape[0], dtype=_dtype_spike)
-    spikes['index'] = peak_pos
+    spikes = np.zeros(local_indexes.shape[0], dtype=_dtype_spike)
+    spikes['index'] = local_indexes
 
-    #~ jitters = np.empty(waveforms.shape[0], dtype = 'float64')
-    #~ labels = np.empty(waveforms.shape[0], dtype = int)
-    for i in range(waveforms.shape[0]):
-        waveform = waveforms[i,:,:]
-        
-        ###
-        # DEBUG
-        #~ N = waveform.shape[1]
-        #~ fig, axs = plt.subplots(nrows=N, sharex=True, sharey=True, )
-        #~ for iii in range(N):
-            #~ axs[iii].plot(waveform[:, iii], color='r', lw=4)
-        #~ colors = sns.color_palette('husl', len(catalogue['cluster_labels']))
-        #~ fig, axs = plt.subplots(nrows=N, sharex=True, sharey=True, )
-        #~ for ii, k in enumerate(catalogue['cluster_labels']):
-            #~ for iii in range(N):
-                #~ axs[iii].plot(catalogue['centers0'][ii, :, iii], color=colors[ii], label='{}'.format(k))
-        #~ axs[0].legend()
-        ###
+    for i, ind in enumerate(local_indexes+n_left):
+        #~ waveform = waveforms[i,:,:]
+        if ind+width>=residual.shape[0]:
+            # too near right limits no label
+            spikes['label'][i] = LABEL_RIGHT_LIMIT
+            continue
+        elif ind<0:
+            #TODO fix this
+            # too near left limits no label
+            spikes['label'][i] = LABEL_LEFT_LIMIT
+            continue
+        else:
+            waveform = residual[ind:ind+width,:]
         
         label, jitter = estimate_one_jitter(waveform, catalogue)
-        #~ print('label', label)
-        #~ plt.show()
-        
-        
         #~ print('label, jitter', label, jitter)
         
         # if more than one sample of jitter
-        # then we take a new wf at the good place and do estimate again
+        # then we try a peak shift
         # take it if better
-        if np.abs(jitter) > 0.5 and label !=-1:
-            #TODO
-            pass
-            #~ prev_label, prev_jitter = label, jitter
-            #~ peak_pos[i] -= int(np.round(jitter))
-            #~ chunk = cut_chunks(residual.values, np.array([ peak_pos[i]+self.n_left], dtype = 'int32'),
-                            #~ -self.n_left + self.n_right )
-            #~ wf = waveforms[i,:] = chunk[0,:].reshape(-1)
-            #~ new_label, new_jitter = self.estimate_one_jitter(wf)
-            #~ if np.abs(new_jitter)<np.abs(prev_jitter):
-                #~ label, jitter1 = new_label, new_jitter
+        #TODO debug peak shift
+        if np.abs(jitter) > 0.5 and label >=0:
+            prev_ind, prev_label, prev_jitter = label, jitter, ind
+            shift = -int(np.round(jitter))
+            #~ print('shift', shift)
+            ind = ind + shift
+            if ind+width>=residual.shape[0]:
+                spikes['label'][i] = LABEL_RIGHT_LIMIT
+                continue
+            elif ind<0:
+                spikes['label'][i] = LABEL_LEFT_LIMIT
+                continue
+            else:
+                waveform = residual[ind:ind+width,:]
+                new_label, new_jitter = estimate_one_jitter(waveform, catalogue)
+                if np.abs(new_jitter)<np.abs(prev_jitter):
+                    #~ print('keep shift')
+                    label, jitter = new_label, new_jitter
+                    spikes['index'][i] += shift
+                else:
+                    #~ print('no keep shift worst jitter')
+                    pass
         
         spikes['jitter'][i] = jitter
         spikes['label'][i] = label
     
-    print(spikes)
+    #~ print(spikes)
     return spikes
-        #~ jitters[i] = jitter
-        #~ labels[i] = label
-    
-    #~ keep = labels!=-1
-    #~ labels = labels[keep]
-    #~ jitters = jitters[keep]
-    #~ spike_pos = peak_pos[keep]
-    
-    #~ return spike_pos, jitters, labels    
-    
+
 
 def estimate_one_jitter(waveform, catalogue):
     """
@@ -263,26 +249,19 @@ def estimate_one_jitter(waveform, catalogue):
       * h2_norm2: error at order2
     """
     
-    print('argmin')
-    print(waveform.shape)
-    #~ print(waveform)
-    print(np.sum(np.sum((catalogue['centers0']-waveform)**2, axis = 1), axis = 1))
     cluster_idx = np.argmin(np.sum(np.sum((catalogue['centers0']-waveform)**2, axis = 1), axis = 1))
-    print(cluster_idx)
     k = catalogue['cluster_labels'][cluster_idx]
-    print(k)
-    
     chan = catalogue['max_on_channel'][cluster_idx]
-    #~ print()
     #~ print('cluster_idx', cluster_idx, 'k', k, 'chan', chan)
     
-    return k, 0.
+    #~ return k, 0.
 
     wf0 = catalogue['centers0'][cluster_idx,: , chan]
     wf1 = catalogue['centers1'][cluster_idx,: , chan]
     wf2 = catalogue['centers2'][cluster_idx,: , chan]
     wf = waveform[:, chan]
-    
+    #~ print()
+    #~ print(wf0.shape, wf.shape)
     #TODO put that in make_catalogue
     wf1_norm2 = wf1.dot(wf1)
     wf2_norm2 = wf2.dot(wf2)
@@ -294,6 +273,9 @@ def estimate_one_jitter(waveform, catalogue):
     jitter0 = h_dot_wf1/wf1_norm2
     h1_norm2 = np.sum((h-jitter0*wf1)**2)
     #~ print(h0_norm2, h1_norm2)
+    #~ print(h0_norm2 > h1_norm2)
+    
+    
     
     if h0_norm2 > h1_norm2:
         #order 1 is better than order 0
@@ -307,13 +289,20 @@ def estimate_one_jitter(waveform, catalogue):
             #~ jitter1 = jitter0
     else:
         jitter1 = 0.
+    #~ print('jitter1', jitter1)
+    #~ return k, 0.
+    
+    #~ print(np.sum(wf**2), np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2))
+    #~ print(np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2))
+    #~ return k, jitter1
     
     if np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2):
         #prediction should be smaller than original (which have noise)
         return k, jitter1
     else:
         #otherwise the prediction is bad
-        return -1, 0.    
+        #~ print('bad prediction')
+        return LABEL_BAD_PREDICTION, 0.
     
 
 def make_prediction_signals(spikes, dtype, shape, catalogue):
@@ -324,21 +313,22 @@ def make_prediction_signals(spikes, dtype, shape, catalogue):
         k = spikes[i]['label']
         if k<0: continue
         
-        #TODO better
-        cluster_idx = catalogue['cluster_labels'].tolist().index(k)
+        cluster_idx = np.nonzero(catalogue['cluster_labels']==k)[0][0]
+        #~ print('make_prediction_signals', 'k', k, 'cluster_idx', cluster_idx)
         
-        #TODO find better interpolation here
-        wf0 = catalogue['centers0'][cluster_idx]
-        wf1 = catalogue['centers1'][cluster_idx]
+        
+        wf0 = catalogue['centers0'][cluster_idx,:,:]
+        wf1 = catalogue['centers1'][cluster_idx,:,:]
         wf2 = catalogue['centers2'][cluster_idx]
         
         jitter = spikes[i]['jitter']
-        #TODO better than this
-        pred = wf0 +jitter*wf1 + jitter**2/2*wf2
+        #TODO find better interpolation here
+        #~ pred = wf0 +jitter*wf1 + jitter**2/2*wf2
+        pred = wf0
         
         pos = spikes[i]['index'] + catalogue['n_left']
-        #TODO fix swapaxes here (change since 0.1.0
-        prediction[pos:pos+catalogue['peak_width'], :] = pred.reshape(-1, shape[1])
+        
+        prediction[pos:pos+catalogue['peak_width'], :] += pred
         
     return prediction
 

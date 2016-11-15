@@ -57,7 +57,7 @@ def setup_catalogue():
         print('seg_num', seg_num, np.sum(mask))
     
     t1 = time.perf_counter()
-    catalogueconstructor.extract_some_waveforms(n_left=-20, n_right=30,  nb_max=5000)
+    catalogueconstructor.extract_some_waveforms(n_left=-12, n_right=15,  nb_max=10000)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
     print(catalogueconstructor.peak_waveforms.shape)
@@ -96,7 +96,11 @@ def test_peeler():
     peeler.change_params(catalogue=initial_catalogue, n_peel_level=2)
     
     peeler.initialize_loop()
-    peeler.run_loop()
+    t1 = time.perf_counter()
+    for seg_num in range(dataio.nb_segment):
+        peeler.run_loop(seg_num=seg_num)
+    t2 = time.perf_counter()
+    print('peeler.run_loop', t2-t1)
     peeler.finalize_loop()
     
     

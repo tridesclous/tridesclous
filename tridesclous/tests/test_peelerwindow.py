@@ -3,38 +3,32 @@ import  pyqtgraph as pg
 from matplotlib import pyplot
 
 
-def get_spikesorter():
-    spikesorter = SpikeSorter(dirname = '../../tests/datatest')
-    #~ spikesorter = SpikeSorter(dirname = '../../tests/datatest_neo')
-    print(spikesorter.summary(level=1))
-    spikesorter.refresh_colors(reset=True, palette = 'husl')
-    return spikesorter
-
 
 def test_traceviewer():
+    dataio = RawDataIO(dirname='test_peeler')
+    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    initial_catalogue = catalogueconstructor.load_catalogue()
+    
+    
     app = pg.mkQApp()
-    
-    spikesorter = get_spikesorter()
-    
-    traceviewer = PeelerTraceViewer(spikesorter=spikesorter, mode = 'memory', signal_type = 'filtered')
+    traceviewer = PeelerTraceViewer(catalogue=initial_catalogue, dataio=dataio)
     traceviewer.show()
     traceviewer.resize(800,600)
-    
     app.exec_()
     
-def test_peelerwindow():
-    app = pg.mkQApp()
-    spikesorter = get_spikesorter()
+#~ def test_peelerwindow():
+    #~ app = pg.mkQApp()
+    #~ spikesorter = get_spikesorter()
     
-    win = PeelerWindow(spikesorter)
-    win.show()
+    #~ win = PeelerWindow(spikesorter)
+    #~ win.show()
     
-    app.exec_()
+    #~ app.exec_()
 
     
     
 if __name__ == '__main__':
-    #~ test_traceviewer()
+    test_traceviewer()
     
-    test_peelerwindow()
+    #~ test_peelerwindow()
     
