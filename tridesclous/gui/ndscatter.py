@@ -42,10 +42,8 @@ class MyViewBox(pg.ViewBox):
 
 
 class NDScatter(WidgetBase):
-    def __init__(self, catalogueconstructor=None, parent=None):
-        WidgetBase.__init__(self, parent)
-        
-        self.cc = self.catalogueconstructor = catalogueconstructor
+    def __init__(self, controller=None, parent=None):
+        WidgetBase.__init__(self, parent=parent, controller=controller)
         
         self.layout = QtGui.QHBoxLayout()
         self.setLayout(self.layout)
@@ -110,23 +108,21 @@ class NDScatter(WidgetBase):
     # this handle data with propties so model change shoudl not affect so much teh code
     @property
     def data(self):
-        if hasattr(self.cc, 'features'):
-            return self.cc.features
+        return self.controller.features
     
     def data_by_label(self, k):
         if k=='sel':
-            data = self.data[self.cc.peak_selection[self.cc.peak_waveforms_index]]
+            data = self.data[self.controller.spike_selection[self.controller.peak_waveforms_index]]
         else:
-            data = self.data[(self.cc.peak_label[self.cc.peak_waveforms_index]==k) & self.peak_visible]
-            #~ data = self.data[(self.cc.peak_label[self.cc.peak_waveforms_index]==k)]
+            data = self.data[(self.controller.spike_label[self.controller.peak_waveforms_index]==k) & self.peak_visible]
             
         return data
     
     def by_cluster_random_decimate(self, clicked=None, refresh=True):
         m = self.params['max_visible_by_cluster']
-        for k in self.cluster_labels:
-            mask = self.cc.peak_label[self.cc.peak_waveforms_index]==k
-            if self.cc.cluster_count[k]>m:
+        for k in self.controller.cluster_labels:
+            mask = self.controller.spike_label[self.controller.peak_waveforms_index]==k
+            if self.controller.cluster_count[k]>m:
                 self.peak_visible[mask] = False
                 visible, = np.nonzero(mask)
                 visible = np.random.choice(visible, size=m)
@@ -138,17 +134,12 @@ class NDScatter(WidgetBase):
             self.refresh()
         
     def get_color(self, k):
-        color = self.cc.qcolors.get(k, QtGui.QColor( 'white'))
+        color = self.controller.qcolors.get(k, QtGui.QColor( 'white'))
         return color
     
     def is_cluster_visible(self, k):
-        return self.cc.cluster_visible[k]
+        return self.controller.cluster_visible[k]
 
-    @property
-    def cluster_labels(self):
-        return self.cc.cluster_labels
-    #
-    
     
     def initialize(self):
         self.viewBox = MyViewBox()
@@ -243,7 +234,7 @@ class NDScatter(WidgetBase):
         if self.data.shape[1] != self.projection.shape[0]:
             self.initialize()
         
-        for k in self.cluster_labels:
+        for k in self.controller.cluster_labels:
             color = self.get_color(k)
             if k not in self.scatters:
                 self.scatters[k] = pg.ScatterPlotItem(pen=None, brush=color, size=2, pxMode = True)

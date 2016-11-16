@@ -15,7 +15,6 @@ class PeelerController(ControllerBase):
         self.catalogue=catalogue
         
         self.init_plot_attributes()
-        self.refresh_colors()
     
     def init_plot_attributes(self):
         #concatenate all spikes for all segments
@@ -72,3 +71,15 @@ class PeelerController(ControllerBase):
     @property
     def cluster_labels(self):
         return self.catalogue['cluster_labels']
+    
+    def get_threshold(self):
+        threshold = 0.
+        return threshold
+    
+    def update_visible_spikes(self):
+        visibles = np.array([k for k, v in self.cluster_visible.items() if v ])
+        self.spikes['visible'][:] = np.in1d(self.controller.spike_label, visibles)
+
+    def on_cluster_visibility_changed(self):
+        self.update_visible_spikes()
+        ControllerBase.on_cluster_visibility_changed(self)

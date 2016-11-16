@@ -1,4 +1,5 @@
 #for catalogue window
+from .cataloguecontroller import CatalogueController
 from .traceviewer import CatalogueTraceViewer
 from .peaklists import PeakList, ClusterList
 from .ndscatter import NDScatter

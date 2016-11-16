@@ -4,21 +4,25 @@ from matplotlib import pyplot
 
 # run test_catalogueconstructor.py before this
 
-def get_catalogueconstructor():
+
+def get_controller():
     dataio = RawDataIO(dirname='test_catalogueconstructor')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    
-    catalogueconstructor.on_new_cluster()
-    
-    return catalogueconstructor
+    controller = CatalogueController(catalogueconstructor=catalogueconstructor)
+    return controller
 
 
-def test_cataloguetraceviewer():
+def test_CatalogueController():
+    controller = get_controller()
+    assert controller.cluster_labels is not None
+    #~ print(controller.cluster_labels)
+
+
+
+def test_CatalogueTraceViewer():
+    controller = get_controller()
     app = pg.mkQApp()
-    
-    catalogueconstructor = get_catalogueconstructor()
-    
-    traceviewer = CatalogueTraceViewer(catalogueconstructor=catalogueconstructor, signal_type = 'processed')
+    traceviewer = CatalogueTraceViewer(controller=controller, signal_type = 'processed')
     traceviewer.show()
     traceviewer.resize(800,600)
     
@@ -26,59 +30,56 @@ def test_cataloguetraceviewer():
     
 
 
-def test_peaklist():
-    app = pg.mkQApp()
-    catalogueconstructor = get_catalogueconstructor()
+def test_PeakList():
+    controller = get_controller()
     
-    peaklist = PeakList(catalogueconstructor = catalogueconstructor)
+    app = pg.mkQApp()
+    peaklist = PeakList(controller=controller)
     peaklist.show()
     peaklist.resize(800,400)
     
     app.exec_()
 
 def test_clusterlist():
-    app = pg.mkQApp()
-    catalogueconstructor = get_catalogueconstructor()
+    controller = get_controller()
     
-    clusterlist = ClusterList(catalogueconstructor = catalogueconstructor)
+    app = pg.mkQApp()
+    clusterlist = ClusterList(controller=controller)
     clusterlist.show()
     clusterlist.resize(800,400)
-
+    
     app.exec_()
 
-def test_ndscatter():
+def test_NDScatter():
+    controller = get_controller()
+    controller.project()
+    
     app = pg.mkQApp()
-    catalogueconstructor = get_catalogueconstructor()
-    
-    #TODO: remove this
-    catalogueconstructor.project()
-    
-    ndscatter = NDScatter(catalogueconstructor)
+    ndscatter = NDScatter(controller=controller)
     ndscatter.show()
     
     app.exec_()
 
-def test_waveformviewer():
-    app = pg.mkQApp()
-    catalogueconstructor = get_catalogueconstructor()
+
+def test_WaveformViewer():
+    controller = get_controller()
     
-    waveformviewer = WaveformViewer(catalogueconstructor)
+    app = pg.mkQApp()
+    waveformviewer = WaveformViewer(controller=controller)
     waveformviewer.show()
     
     app.exec_()
 
 
 
-
-
-
-def test_cataloguewindow():
+def test_CatalogueWindow():
+    dataio = RawDataIO(dirname='test_catalogueconstructor')
+    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    
     app = pg.mkQApp()
-    catalogueconstructor = get_catalogueconstructor()
-
     #TODO: remove this
-    catalogueconstructor.project(method='pca', n_components=12)
-    catalogueconstructor.find_clusters(method='kmeans', n_clusters=12)
+    #~ catalogueconstructor.project(method='pca', n_components=12)
+    #~ catalogueconstructor.find_clusters(method='kmeans', n_clusters=12)
     #~ catalogueconstructor.project(method='pca', n_components=5)
     #~ catalogueconstructor.find_clusters(method='gmm', n_clusters=1)
     
@@ -92,11 +93,13 @@ def test_cataloguewindow():
     
     
 if __name__ == '__main__':
-    #~ test_cataloguetraceviewer()
-    #~ test_peaklist()
-    #~ test_clusterlist()
-    #~ test_ndscatter()
-    #~ test_waveformviewer()
+    #~ test_CatalogueController()
     
-    test_cataloguewindow()
+    #~ test_CatalogueTraceViewer()
+    #~ test_PeakList()
+    #~ test_clusterlist()
+    #~ test_NDScatter()
+    #~ test_WaveformViewer()
+    
+    test_CatalogueWindow()
 

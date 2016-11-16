@@ -37,11 +37,10 @@ class MyViewBox(pg.ViewBox):
 
 
 class BaseTraceViewer(WidgetBase):
-    
-    def __init__(self, dataio=None, signal_type='initial', parent=None, controller=None):
+    def __init__(self,controller=None, signal_type='initial', parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
     
-        self.dataio = dataio
+        self.dataio = controller.dataio
         self.signal_type = signal_type
         
         self.layout = QtGui.QVBoxLayout()
@@ -280,9 +279,8 @@ class BaseTraceViewer(WidgetBase):
 
 
 class CatalogueTraceViewer(BaseTraceViewer):
-    def __init__(self, catalogueconstructor=None, signal_type = 'processed', parent=None):
-        self.cc = self.catalogueconstructor = catalogueconstructor
-        BaseTraceViewer.__init__(self, dataio=catalogueconstructor.dataio, signal_type=signal_type, parent=parent)
+    def __init__(self, controller=None, signal_type = 'processed', parent=None):
+        BaseTraceViewer.__init__(self, controller=controller, signal_type=signal_type, parent=parent)
     
     def _create_toolbar(self):
         pass
@@ -293,17 +291,17 @@ class CatalogueTraceViewer(BaseTraceViewer):
     def _plot_specific_items(self, ind1, ind2, sigs_chunk, times_chunk):
         # plot peaks
 
-        if self.cc.peak_pos ==[]:
+        if self.controller.spike_index ==[]:
             return
         
-        keep = (self.cc.peak_segment==self.seg_num) & (self.cc.peak_pos>=ind1) & (self.cc.peak_pos<ind2)
+        keep = (self.controller.spike_segment==self.seg_num) & (self.controller.spike_index>=ind1) & (self.controller.spike_index<ind2)
         
-        inwindow_ind = np.array(self.cc.peak_pos[keep] - ind1)
-        inwindow_label = np.array(self.cc.peak_label[keep])
-        inwindow_selected = np.array(self.cc.peak_selection[keep])
+        inwindow_ind = np.array(self.controller.spike_index[keep] - ind1)
+        inwindow_label = np.array(self.controller.spike_label[keep])
+        inwindow_selected = np.array(self.controller.spike_selection[keep])
         
         for k in list(self.scatters.keys()):
-            if not k in self.cc.cluster_labels:
+            if not k in self.controller.cluster_labels:
                 scatter = self.scatters.pop(k)
                 self.plot.removeItem(scatter)
             
@@ -313,41 +311,39 @@ class CatalogueTraceViewer(BaseTraceViewer):
         else:
             self.selection_line.hide()
         
-        for k in self.cc.cluster_labels:
-            color = self.cc.qcolors.get(k, self._default_color)
+        for k in self.controller.cluster_labels:
+            color = self.controller.qcolors.get(k, self._default_color)
             if k not in self.scatters:
                 self.scatters[k] = pg.ScatterPlotItem(pen=None, brush=color, size=10, pxMode = True)
                 self.plot.addItem(self.scatters[k])
                 self.scatters[k].sigClicked.connect(self.item_clicked)
             
-            if not self.cc.cluster_visible[k]:
+            if not self.controller.cluster_visible[k]:
                 self.scatters[k].setData([], [])
             else:
                 mask = inwindow_label==k
                 times_chunk_in = times_chunk[inwindow_ind[mask]]
                 sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
-                c = self.cc.centroids[k]['max_on_channel']
+                c = self.controller.centroids[k]['max_on_channel']
                 self.scatters[k].setBrush(color)
                 self.scatters[k].setData(times_chunk_in, sigs_chunk_in[:, c]*self.gains[c]+self.offsets[c])
 
         n = self.dataio.nb_channel
         for c in range(n):
             if self.params['plot_threshold']:
-                threshold = self.cc.info['params_peakdetector']['relative_threshold']
-                if self.cc.info['params_peakdetector']['peak_sign']=='-':
-                    threshold = -threshold
+                threshold = self.controller.get_threshold()
                 self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*threshold)
                 self.threshold_lines[c].show()
             else:
                 self.threshold_lines[c].hide()
     
     def on_peak_selection_changed(self):
-        n_selected = np.sum(self.cc.peak_selection)
+        n_selected = np.sum(self.controller.spike_selection)
         if self.params['auto_zoom_on_select'] and n_selected==1:
-            ind, = np.nonzero(self.cc.peak_selection)
+            ind, = np.nonzero(self.controller.spike_selection)
             ind = ind[0]
-            seg_num = self.cc.peak_segment[ind]
-            peak_time = self.cc.peak_pos[ind]/self.dataio.sample_rate
+            seg_num = self.controller.spike_segment[ind]
+            peak_time = self.controller.spike_index[ind]/self.dataio.sample_rate
 
             if seg_num != self.seg_num:
                 seg_pos = seg_num
@@ -360,18 +356,18 @@ class CatalogueTraceViewer(BaseTraceViewer):
     def item_clicked(self, plot, points):
         if self.select_button.isChecked()and len(points)==1:
             x = points[0].pos().x()
-            self.cc.peak_selection[:] = False
+            self.controller.spike_selection[:] = False
             
             pos_click = int(x*self.dataio.sample_rate )
-            mask = self.cc.peak_segment==self.seg_num
-            ind_nearest = np.argmin(np.abs(self.cc.peak_pos[mask] - pos_click))
+            mask = self.controller.spike_segment==self.seg_num
+            ind_nearest = np.argmin(np.abs(self.controller.spike_index[mask] - pos_click))
             
             ind_clicked = np.nonzero(mask)[0][ind_nearest]
             #~ ind_clicked
-            self.cc.peak_selection[ind_clicked] = True
+            self.controller.spike_selection[ind_clicked] = True
             #~ print(ind_nearest)
             
-            #~ self.cc.peak_selection.loc[(self.seg_num, x)] = True
+            #~ self.controller.spike_selection.loc[(self.seg_num, x)] = True
             
             self.peak_selection_changed.emit()
             self.refresh()
@@ -380,8 +376,7 @@ class CatalogueTraceViewer(BaseTraceViewer):
 
 class PeelerTraceViewer(BaseTraceViewer):
     def __init__(self, controller=None, signal_type = 'processed', parent=None):
-        self.controller = controller
-        BaseTraceViewer.__init__(self, dataio=self.controller.dataio, signal_type=signal_type, parent=parent, controller=controller)
+        BaseTraceViewer.__init__(self, controller=controller, signal_type=signal_type, parent=parent)
     
     def _create_toolbar(self):
         self.plot_buttons = {}
@@ -443,7 +438,7 @@ class PeelerTraceViewer(BaseTraceViewer):
                 self.scatters[k].sigClicked.connect(self.item_clicked)
             
             #TODO visible
-            #~ if not self.cc.cluster_visible[k]:
+            #~ if not self.controller.cluster_visible[k]:
                 #~ self.scatters[k].setData([], [])
             #~ else:
             if 1:
@@ -453,7 +448,6 @@ class PeelerTraceViewer(BaseTraceViewer):
                 #~ print('times_chunk', times_chunk.shape)
                 times_chunk_in = times_chunk[inwindow_ind[mask]]
                 sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
-                #~ c = self.cc.centroids[k]['max_on_channel']
                 c = self.controller.catalogue['max_on_channel'][i]
                 
                 self.scatters[k].setBrush(color)
@@ -462,9 +456,7 @@ class PeelerTraceViewer(BaseTraceViewer):
         #~ n = self.dataio.nb_channel
         #~ for c in range(n):
             #~ if self.params['plot_threshold']:
-                #~ threshold = self.cc.info['params_peakdetector']['relative_threshold']
-                #~ if self.cc.info['params_peakdetector']['peak_sign']=='-':
-                    #~ threshold = -threshold
+                #~ threshold = self.controller.get_threshold()
                 #~ self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*threshold)
                 #~ self.threshold_lines[c].show()
             #~ else:

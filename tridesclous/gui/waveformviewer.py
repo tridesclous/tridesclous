@@ -11,10 +11,8 @@ class MyViewBox(pg.ViewBox):
     pass
 
 class WaveformViewer(WidgetBase):
-    def __init__(self, catalogueconstructor=None, parent=None):
-        WidgetBase.__init__(self, parent)
-    
-        self.cc = self.catalogueconstructor = catalogueconstructor
+    def __init__(self, controller=None, parent=None):
+        WidgetBase.__init__(self, parent=parent, controller=controller)
         
         self.layout = QtGui.QVBoxLayout()
         self.setLayout(self.layout)
@@ -51,24 +49,21 @@ class WaveformViewer(WidgetBase):
         #~ self.viewBox.gain_zoom.connect(self.gain_zoom)
         #~ self.viewBox.xsize_zoom.connect(self.xsize_zoom)    
     
-    @property
-    def centroids(self):
-        return self.cc.centroids
     
     def refresh(self):
         self.plot1.clear()
         self.plot2.clear()
         
-        if self.cc.peak_pos ==[]:
+        if self.controller.spike_index ==[]:
             return
         
         #lines
         def addSpan(plot):
         
-            nb_channel = self.cc.dataio.nb_channel
-            #~ samples = self.cc.all_waveforms.columns.levels[1]
+            nb_channel = self.controller.dataio.nb_channel
             #~ n_left, n_right = min(samples)+2, max(samples)-1
-            d = self.cc.info['params_waveformextractor']
+            
+            d = self.controller.info['params_waveformextractor']
             n_left, n_right = d['n_left'], d['n_right']
             white = pg.mkColor(255, 255, 255, 20)
             width = n_right - n_left
@@ -86,13 +81,13 @@ class WaveformViewer(WidgetBase):
         addSpan(self.plot2)
         
         #waveforms
-        for i,k in enumerate(self.centroids):
-            if not self.cc.cluster_visible[k]:
+        for i,k in enumerate(self.controller.centroids):
+            if not self.controller.cluster_visible[k]:
                 continue
-            wf0 = self.centroids[k]['median'].T.flatten()
-            mad = self.centroids[k]['mad'].T.flatten()
+            wf0 = self.controller.centroids[k]['median'].T.flatten()
+            mad = self.controller.centroids[k]['mad'].T.flatten()
             
-            color = self.cc.qcolors.get(k, QtGui.QColor( 'white'))
+            color = self.controller.qcolors.get(k, QtGui.QColor( 'white'))
             curve = pg.PlotCurveItem(np.arange(wf0.size), wf0, pen=pg.mkPen(color, width=2))
             self.plot1.addItem(curve)
             
