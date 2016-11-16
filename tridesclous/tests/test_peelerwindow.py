@@ -4,27 +4,34 @@ from matplotlib import pyplot
 
 
 
-def test_traceviewer():
+def get_controller():
     dataio = RawDataIO(dirname='test_peeler')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     initial_catalogue = catalogueconstructor.load_catalogue()
+    controller = PeelerController(dataio=dataio,catalogue=initial_catalogue)
+    return controller
+
+
+def test_Peelercontroller():
+    controller = get_controller()
+    assert controller.cluster_labels is not None
     
+
+def test_PeelerTraceViewer():
+    controller = get_controller()
     
     app = pg.mkQApp()
-    traceviewer = PeelerTraceViewer(catalogue=initial_catalogue, dataio=dataio)
+    traceviewer = PeelerTraceViewer(controller=controller)
     traceviewer.show()
     traceviewer.resize(800,600)
     app.exec_()
 
 
 def test_SpikeList():
-    dataio = RawDataIO(dirname='test_peeler')
-    catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    initial_catalogue = catalogueconstructor.load_catalogue()
-    
+    controller = get_controller()
     
     app = pg.mkQApp()
-    traceviewer = SpikeList(catalogue=initial_catalogue, dataio=dataio)
+    traceviewer = SpikeList(controller)
     traceviewer.show()
     traceviewer.resize(800,600)
     app.exec_()
@@ -32,20 +39,24 @@ def test_SpikeList():
 
 
 
-#~ def test_peelerwindow():
-    #~ app = pg.mkQApp()
-    #~ spikesorter = get_spikesorter()
-    
-    #~ win = PeelerWindow(spikesorter)
-    #~ win.show()
-    
-    #~ app.exec_()
+def test_peelerwindow():
+    dataio = RawDataIO(dirname='test_peeler')
+    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    initial_catalogue = catalogueconstructor.load_catalogue()
+
+    app = pg.mkQApp()
+    win = PeelerWindow(dataio=dataio, catalogue=initial_catalogue)
+    win.show()
+    app.exec_()
 
     
     
 if __name__ == '__main__':
-    #~ test_traceviewer()
-    test_SpikeList()
+    #~ test_Peelercontroller()
     
-    #~ test_peelerwindow()
+    #~ test_PeelerTraceViewer()
+    #~ test_SpikeList()
     
+    test_peelerwindow()
+
+

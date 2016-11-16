@@ -8,11 +8,9 @@ from .tools import ParamDialog
 
 
 class SpikeModel(QtCore.QAbstractItemModel):
-    def __init__(self, parent =None, dataio=None, catalogue=None):
+    def __init__(self, parent =None, controller=None):
         QtCore.QAbstractItemModel.__init__(self,parent)
-        
-        self.dataio = dataio
-        self.catalogue = catalogue
+        self.controller = controller
         self.refresh_colors()
     
     def columnCount(self , parentIndex):
@@ -21,23 +19,9 @@ class SpikeModel(QtCore.QAbstractItemModel):
     def rowCount(self, parentIndex):
         #~ if not parentIndex.isValid() and self.cc.peak_label is not None:
         if not parentIndex.isValid():
-            n = 0
-            self.cumsum_spike_by_seg = []
-            for i in range(self.dataio.nb_segment):
-                spikes = self.dataio.get_spikes(seg_num=i)
-                n += spikes.size
-                self.cumsum_spike_by_seg.append(n)
-            #TODO visible
+            self.visible_ind, = np.nonzero(self.controller.spikes['visible'])
+            return self.visible_ind.size
             
-            #~ visibles = np.array([k for k, v in self.cc.cluster_visible.items() if v ])
-            #~ self.visible_mask = np.in1d(self.cc.peak_label, visibles)
-            #~ self.visible_ind, = np.nonzero(self.visible_mask)
-            #~ self.visible_peak_labels = self.cc.peak_label[self.visible_peak_mask]
-            
-            #~ v = self.cc.cluster_visible[self.cc.cluster_visible]
-            #~ self.visible_peak_labels = self.cc.peak_label[self.cc.peak_label.isin(v.index)]
-            #~ return self.visible_peak_labels.shape[0]
-            return int(n)
         else :
             return 0
     
@@ -61,21 +45,16 @@ class SpikeModel(QtCore.QAbstractItemModel):
         
         col = index.column()
         row = index.row()
-        #~ ind = self.visible_peak_labels.index[row]
-        #~ label =  self.visible_peak_labels.iloc[row]
+        
         #~ t_start = 0.
         
-        #~ abs_ind = self.visible_ind[row]
-        abs_ind = row
-        #~ seg_num = self.cc.peak_segment[abs_ind]
-        #~ peak_pos = self.cc.peak_pos[abs_ind]
-        #~ peak_time = peak_pos/self.cc.dataio.sample_rate
-        #~ peak_label = self.cc.peak_label[abs_ind]
-        seg_num = 0
-        peak_pos = 0
-        peak_time = 0.
-        peak_label = 0
-
+        abs_ind = self.visible_ind[row]
+        spike = self.controller.spikes[abs_ind]
+        seg_num = spike['segment']
+        peak_pos = spike['index']
+        peak_time = peak_pos/self.controller.dataio.sample_rate
+        peak_label = spike['label']
+ 
         
         if role ==QtCore.Qt.DisplayRole :
             if col == 0:
@@ -108,25 +87,19 @@ class SpikeModel(QtCore.QAbstractItemModel):
         return
     
     def refresh_colors(self):
-        #TODO
         self.icons = { }
-        #~ for k in self.cc.qcolors:
-            #~ color = self.cc.qcolors.get(k, QtGui.QColor( 'white'))
-            #~ pix = QtGui.QPixmap(10,10 )
-            #~ pix.fill(color)
-            #~ self.icons[k] = QtGui.QIcon(pix)
-        
+        for k, color in self.controller.qcolors.items():
+            pix = QtGui.QPixmap(10,10 )
+            pix.fill(color)
+            self.icons[k] = QtGui.QIcon(pix)
         #~ self.icons[-1] = QIcon(':/user-trash.png')
-        
         self.layoutChanged.emit()
         
 
 class SpikeList(WidgetBase):
-    def __init__(self,dataio=None, catalogue=None, parent=None):
-        WidgetBase.__init__(self, parent)
-        
-        self.dataio = dataio
-        self.catalogue = catalogue
+    def __init__(self,controller=None, parent=None):
+        WidgetBase.__init__(self, parent=parent, controller=controller)
+        self.controller = controller
         
         self.layout = QtGui.QVBoxLayout()
         self.setLayout(self.layout)
@@ -140,7 +113,7 @@ class SpikeList(WidgetBase):
         self.layout.addWidget(self.tree)
         self.tree.customContextMenuRequested.connect(self.open_context_menu)
         
-        self.model = SpikeModel(dataio=dataio, catalogue=catalogue,)
+        self.model = SpikeModel(controller=self.controller)
         self.tree.setModel(self.model)
         self.tree.selectionModel().selectionChanged.connect(self.on_tree_selection)
 
@@ -154,12 +127,12 @@ class SpikeList(WidgetBase):
     def on_tree_selection(self):
         #TODO
         pass
-        #~ self.cc.peak_selection[:] = False
-        #~ for index in self.tree.selectedIndexes():
-            #~ if index.column() == 0:
-                #~ ind = self.model.visible_ind[index.row()]
-                #~ self.cc.peak_selection[ind] = True
-        #~ self.peak_selection_changed.emit()
+        self.controller.spikes['selected'][:] = False
+        for index in self.tree.selectedIndexes():
+            if index.column() == 0:
+                ind = self.model.visible_ind[index.row()]
+                self.controller.spikes['selected'][ind] = True
+        self.peak_selection_changed.emit()
     
     def on_peak_selection_changed(self):
         #TODO

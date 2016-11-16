@@ -6,6 +6,8 @@ from .waveformviewer import WaveformViewer
 from .cataloguewindow import CatalogueWindow
 
 #for peeler window
+from .peelercontroller import PeelerController
 from .traceviewer import PeelerTraceViewer
 from .spikelists import SpikeList
-#~ from .peelerwindow import PeelerWindow
+from .peelerwindow import PeelerWindow
+
