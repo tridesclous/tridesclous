@@ -313,17 +313,28 @@ def make_prediction_signals(spikes, dtype, shape, catalogue):
         cluster_idx = np.nonzero(catalogue['cluster_labels']==k)[0][0]
         #~ print('make_prediction_signals', 'k', k, 'cluster_idx', cluster_idx)
         
+        # prediction with no interpolation
+        #~ wf0 = catalogue['centers0'][cluster_idx,:,:]
+        #~ pred = wf0
         
-        wf0 = catalogue['centers0'][cluster_idx,:,:]
-        wf1 = catalogue['centers1'][cluster_idx,:,:]
-        wf2 = catalogue['centers2'][cluster_idx]
-        
-        jitter = spikes[i]['jitter']
-        #TODO find better interpolation here
+        # predict with tailor approximate with derivative
+        #~ wf1 = catalogue['centers1'][cluster_idx,:,:]
+        #~ wf2 = catalogue['centers2'][cluster_idx]
         #~ pred = wf0 +jitter*wf1 + jitter**2/2*wf2
-        pred = wf0
+        
+        #predict with with precilputed splin
+        #TODO debug this!!!!!
+        #~ print()
+        r = catalogue['subsample_ratio']
+        int_jitter = int(spikes[i]['jitter']*r) + r//2
+        int_jitter = max(int_jitter, 0)
+        int_jitter = min(int_jitter, r-1)
+        pred = catalogue['interp_centers0'][cluster_idx, int_jitter::r, :]
+        #~ print(pred.shape)
+        #~ print(int_jitter, spikes[i]['jitter'])
         
         pos = spikes[i]['index'] + catalogue['n_left']
+        #~ print(prediction[pos:pos+catalogue['peak_width'], :].shape)
         if pos>0 and  pos+catalogue['peak_width']<shape[0]:
             prediction[pos:pos+catalogue['peak_width'], :] += pred
         

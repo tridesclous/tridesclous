@@ -381,14 +381,21 @@ class CatalogueConstructor:
         cluster_labels = self.cluster_labels[self.cluster_labels>=0]
         self.catalogue['cluster_labels'] = cluster_labels
         
-        s = self.peak_waveforms.shape
-        centers0 = np.zeros((cluster_labels.size, s[1] - 4, s[2]), dtype=self.info['internal_dtype'])
+        n, full_width, nchan = self.peak_waveforms.shape
+        centers0 = np.zeros((cluster_labels.size, full_width - 4, nchan), dtype=self.info['internal_dtype'])
         centers1 = np.zeros_like(centers0)
         centers2 = np.zeros_like(centers0)
         self.catalogue['centers0'] = centers0 # median of wavforms
         self.catalogue['centers1'] = centers1 # median of first derivative of wavforms
         self.catalogue['centers2'] = centers2 # median of second derivative of wavforms
-
+        
+        subsample = np.arange(1.5, full_width-2.5, 1/20.)
+        self.catalogue['subsample_ratio'] = 20
+        interp_centers0 = np.zeros((cluster_labels.size, subsample.size, nchan), dtype=self.info['internal_dtype'])
+        self.catalogue['interp_centers0'] = interp_centers0
+        
+        print('peak_width', self.catalogue['peak_width'])
+        
         for i, k in enumerate(cluster_labels):
             #print('construct_catalogue', k)
             # take peak of this cluster
@@ -405,23 +412,25 @@ class CatalogueConstructor:
             
             #median and
             #eliminate margin because of border effect of derivative and reshape
-            center0 = np.median(wf0, axis=0)
+            #~ center0 = np.median(wf0, axis=0)
+            #~ centers0[i,:,:] = center0[2:-2, :]
+            #~ centers1[i,:,:] = np.median(wf1, axis=0)[2:-2, :]
+            #~ centers2[i,:,:] = np.median(wf2, axis=0)[2:-2, :]
+            center0 = np.mean(wf0, axis=0)
             centers0[i,:,:] = center0[2:-2, :]
-            centers1[i,:,:] = np.median(wf1, axis=0)[2:-2, :]
-            centers2[i,:,:] = np.median(wf2, axis=0)[2:-2, :]
-            
+            centers1[i,:,:] = np.mean(wf1, axis=0)[2:-2, :]
+            centers2[i,:,:] = np.mean(wf2, axis=0)[2:-2, :]
+
             #interpolate centers0 for reconstruction inbetween bsample when jitter is estimated
-            #~ f = scipy.interpolate.interp1d(np.arange(center0.shape[0]), center0, axis=0, kind='cubic')
-            #~ subsample = np.arange(1.5, center0.shape[0]-2.5, .05)
-            #~ oversampled_center = f(subsample)
+            f = scipy.interpolate.interp1d(np.arange(full_width), center0, axis=0, kind='cubic')
+            oversampled_center = f(subsample)
+            interp_centers0[i, :, :] = oversampled_center
             
             #~ fig, ax = plt.subplots()
-            #~ ax.plot(np.arange(center0.shape[0]), center0, color='b', marker='o')
-            #~ ax.plot(subsample,oversampled_center, color='c')
+            #~ ax.plot(np.arange(full_width-4), center0[2:-2, :], color='b', marker='o')
+            #~ ax.plot(subsample-2.,oversampled_center, color='c')
             #~ plt.show()
-            
-            
-            
+        
 
         #find max  channel for each cluster for peak alignement
         self.catalogue['max_on_channel'] = np.zeros_like(self.catalogue['cluster_labels'])
