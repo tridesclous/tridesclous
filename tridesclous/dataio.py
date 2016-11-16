@@ -23,8 +23,13 @@ class BaseDataIO:
         else:
             with open(self.info_filename, 'r', encoding='utf8') as f:
                 self.info = json.load(f)
-            self.reload_info()
-            self.reload_existing()
+            try:
+                self.reload_info()
+                self.reload_existing()
+            except:
+                self.info = {}
+                self.flush_info()
+                
     
     def flush_info(self):
         with open(self.info_filename, 'w', encoding='utf8') as f:

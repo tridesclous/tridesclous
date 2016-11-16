@@ -36,10 +36,21 @@ def test_SpikeList():
     traceviewer.resize(800,600)
     app.exec_()
 
+def test_ClusterSpikeList():
+    controller = get_controller()
+    
+    app = pg.mkQApp()
+    traceviewer = ClusterSpikeList(controller)
+    traceviewer.show()
+    traceviewer.resize(800,600)
+    app.exec_()
 
 
 
-def test_peelerwindow():
+
+
+
+def test_PeelerWindow():
     dataio = RawDataIO(dirname='test_peeler')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     initial_catalogue = catalogueconstructor.load_catalogue()
@@ -56,7 +67,8 @@ if __name__ == '__main__':
     
     #~ test_PeelerTraceViewer()
     #~ test_SpikeList()
+    #~ test_ClusterSpikeList()
     
-    test_peelerwindow()
+    test_PeelerWindow()
 
 

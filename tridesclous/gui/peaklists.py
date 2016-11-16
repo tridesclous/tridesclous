@@ -131,9 +131,9 @@ class PeakList(WidgetBase):
             if index.column() == 0:
                 ind = self.model.visible_ind[index.row()]
                 self.controller.spike_selection[ind] = True
-        self.peak_selection_changed.emit()
+        self.spike_selection_changed.emit()
     
-    def on_peak_selection_changed(self):
+    def on_spike_selection_changed(self):
         self.tree.selectionModel().selectionChanged.disconnect(self.on_tree_selection)
         
         row_selected, = np.nonzero(self.controller.spike_selection[self.model.visible_mask])
@@ -170,10 +170,10 @@ class PeakList(WidgetBase):
     def move_selection_to_trash(self):
         self.controller.change_spike_label(self.controller.spike_selection, -1)
         self.refresh()
-        self.peak_cluster_changed.emit()
+        self.spike_label_changed.emit()
 
 
-class ClusterList(WidgetBase):
+class ClusterPeakList(WidgetBase):
     
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
@@ -306,7 +306,7 @@ class ClusterList(WidgetBase):
     def order_clusters(self):
         self.controller.order_clusters()
         self.refresh()
-        self.peak_cluster_changed.emit()
+        self.spike_label_changed.emit()
     
     def _dialog_methods(self, methods, _params_by_method):
         _params = [{'name' : 'method', 'type' : 'list', 'values' : methods}]
@@ -339,7 +339,7 @@ class ClusterList(WidgetBase):
         
         self.controller.project(method=method, selection=selection, **kargs)
         self.refresh()
-        self.peak_cluster_changed.emit()
+        self.spike_label_changed.emit()
     
     def pc_project_selection(self):
         self.pc_project_all(selection=self._selected_spikes())
@@ -349,13 +349,13 @@ class ClusterList(WidgetBase):
             mask = self.controller.spike_label == k
             self.controller.change_spike_label(mask, -1)
         self.refresh()
-        self.peak_cluster_changed.emit()
+        self.spike_label_changed.emit()
     
     def merge_selection(self):
         label_to_merge = self.selected_cluster()
         self.controller.merge_cluster(label_to_merge)
         self.refresh()
-        self.peak_cluster_changed.emit()
+        self.spike_label_changed.emit()
     
     def split_selection(self):
         label_to_split = self.selected_cluster()[0]
@@ -374,10 +374,10 @@ class ClusterList(WidgetBase):
         
         self.controller.split_cluster(label_to_split, n, method=method, order_clusters=True, **kargs)
         self.refresh()
-        self.peak_cluster_changed.emit()
+        self.spike_label_changed.emit()
 
     
     def select_peaks_of_clusters(self):
         self.controller.spike_selection[:] = self._selected_spikes()
         self.refresh()
-        self.peak_selection_changed.emit()
+        self.spike_selection_changed.emit()

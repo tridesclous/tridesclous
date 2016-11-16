@@ -22,6 +22,7 @@ LABEL_LEFT_LIMIT = -11
 LABEL_RIGHT_LIMIT = -12
 # good label are >=0
 
+
 class Peeler:
     """
     The peeler is core of online spike sorting.
@@ -50,7 +51,7 @@ class Peeler:
         self.relative_threshold=relative_threshold
         self.peak_span=peak_span
         self.n_peel_level = n_peel_level
-        
+    
     def process_one_chunk(self,  pos, sigs_chunk, seg_num):
         pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
         if preprocessed_chunk is  None:
@@ -65,14 +66,10 @@ class Peeler:
         all_spikes = []
         
         for level in range(self.n_peel_level):
-            #~ print('level', level)
-            
             #detect peaks
             n_peaks, chunk_peaks = self.peakdetectors[level].process_data(pos2, residual)
             if chunk_peaks is  None:
                 chunk_peaks =np.array([], dtype='int64')
-            
-            #~ print('n_peaks', n_peaks)
             
             # relation between inside chunk index and abs index
             shift = pos2-residual.shape[0]
@@ -110,6 +107,12 @@ class Peeler:
             # for output
             good_spikes['index'] += shift
             all_spikes.append(good_spikes)
+            
+            if level == self.n_peel_level-1:
+                bad_spikes = spikes[spikes['label']<0]
+                bad_spikes['index'] += shift
+                all_spikes.append(bad_spikes)
+        
         return np.concatenate(all_spikes)
             
     
@@ -126,7 +129,8 @@ class Peeler:
         SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[signalpreprocessor_engine]
         self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.dataio.nb_channel, chunksize, self.dataio.dtype)
         
-        #there is one peakdetectior by level because each one have its own ringbuffer
+        #there is one peakdetectior by level because each one have
+        # its own ringbuffer for each residual level
         PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
         self.peakdetectors = []
         for level in range(self.n_peel_level):
@@ -325,4 +329,3 @@ def make_prediction_signals(spikes, dtype, shape, catalogue):
         
     return prediction
 
-    

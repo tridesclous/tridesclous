@@ -7,7 +7,8 @@ import time
 
 
 def initialize_catalogueconstructor():
-    filenames = ['kampff/2015_09_09_Pair_6_0/amplifier2015-09-09T17_46_43.bin']
+    #~ filenames = ['kampff/2015_09_09_Pair_6_0/amplifier2015-09-09T17_46_43.bin']
+    filenames = ['/home/samuel/Documents/projet/Data SpikeSorting/kampff/2015_09_09_Pair_6_0/amplifier2015-09-09T17_46_43.bin']
     dataio = RawDataIO(dirname='tridesclous_kampff')
     dataio.set_initial_signals(filenames=filenames, dtype='int16',
                                      total_channel=128, sample_rate=30000.)    
@@ -59,7 +60,7 @@ def extract_waveforms_pca_cluster():
     dataio = RawDataIO(dirname='tridesclous_kampff')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     print('nb_peak', catalogueconstructor.nb_peak)
-    exit()
+    #~ exit()
     
     t1 = time.perf_counter()
     catalogueconstructor.extract_some_waveforms(n_left=-20, n_right=30,  nb_max=5000)
@@ -89,12 +90,43 @@ def open_cataloguewindow():
     win.show()
     
     app.exec_()    
+
+
+def run_peeler():
+    dataio = RawDataIO(dirname='tridesclous_kampff')
+    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    initial_catalogue = catalogueconstructor.load_catalogue()
+
+    peeler = Peeler(dataio)
     
+    peeler.change_params(catalogue=initial_catalogue, n_peel_level=2)
+    
+    peeler.initialize_loop()
+    t1 = time.perf_counter()
+    for seg_num in range(dataio.nb_segment):
+        peeler.run_loop(seg_num=seg_num)
+    t2 = time.perf_counter()
+    print('peeler.run_loop', t2-t1)
+    peeler.finalize_loop()
+    
+def open_PeelerWindow():
+    dataio = RawDataIO(dirname='tridesclous_kampff')
+    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    initial_catalogue = catalogueconstructor.load_catalogue()
+
+    app = pg.mkQApp()
+    win = PeelerWindow(dataio=dataio, catalogue=initial_catalogue)
+    win.show()
+    app.exec_()
 
 
 
 if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
     #~ preprocess_signals_and_peaks()
-    extract_waveforms_pca_cluster()
+    #~ extract_waveforms_pca_cluster()
     #~ open_cataloguewindow()
+    #~ run_peeler()
+    open_PeelerWindow()
+
+    

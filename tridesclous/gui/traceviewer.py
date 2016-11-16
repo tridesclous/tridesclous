@@ -145,13 +145,15 @@ class BaseTraceViewer(WidgetBase):
             self.plot.addItem(label)
             self.channel_labels.append(label)
             
-            tc = pg.InfiniteLine(angle = 0., movable = False, pen = pg.mkPen('w'))
+            #~ tc = pg.InfiniteLine(angle = 0., movable = False, pen = pg.mkPen('w'))
+            tc = pg.InfiniteLine(angle = 0., movable = False, pen = pg.mkPen(color=(128,128,128, 120)))
             tc.setPos(0.)
             self.threshold_lines.append(tc)
             self.plot.addItem(tc)
             tc.hide()
         
-        self.selection_line = pg.InfiniteLine(pos = 0., angle=90, movable=False, pen = pg.mkPen('w'))
+        pen = pg.mkPen(color=(128,0,128, 120), width=3, style=QtCore.Qt.DashLine)
+        self.selection_line = pg.InfiniteLine(pos = 0., angle=90, movable=False, pen = pen)
         self.plot.addItem(self.selection_line)
         self.selection_line.hide()
         
@@ -337,7 +339,7 @@ class CatalogueTraceViewer(BaseTraceViewer):
             else:
                 self.threshold_lines[c].hide()
     
-    def on_peak_selection_changed(self):
+    def on_spike_selection_changed(self):
         n_selected = np.sum(self.controller.spike_selection)
         if self.params['auto_zoom_on_select'] and n_selected==1:
             ind, = np.nonzero(self.controller.spike_selection)
@@ -369,7 +371,7 @@ class CatalogueTraceViewer(BaseTraceViewer):
             
             #~ self.controller.spike_selection.loc[(self.seg_num, x)] = True
             
-            self.peak_selection_changed.emit()
+            self.spike_selection_changed.emit()
             self.refresh()
     
 
@@ -410,9 +412,8 @@ class PeelerTraceViewer(BaseTraceViewer):
         
         keep = (all_spikes['segment']==self.seg_num) & (all_spikes['index']>=ind1) & (all_spikes['index']<ind2)
         spikes = np.array(all_spikes[keep], copy=True)
-        #~ print(spikes)
+
         spikes['index'] -= ind1
-        #~ print(spikes)
         
         inwindow_ind = spikes['index']
         inwindow_label = spikes['label']
@@ -430,6 +431,8 @@ class PeelerTraceViewer(BaseTraceViewer):
             self.selection_line.hide()
 
         for i, k in enumerate(self.controller.cluster_labels):
+            if k<0:
+                continue
             color = self.controller.qcolors.get(k,  self._default_color)
             
             if k not in self.scatters:
@@ -437,15 +440,10 @@ class PeelerTraceViewer(BaseTraceViewer):
                 self.plot.addItem(self.scatters[k])
                 self.scatters[k].sigClicked.connect(self.item_clicked)
             
-            #TODO visible
-            #~ if not self.controller.cluster_visible[k]:
-                #~ self.scatters[k].setData([], [])
-            #~ else:
-            if 1:
+            if not self.controller.cluster_visible[k]:
+                self.scatters[k].setData([], [])
+            else:
                 mask = inwindow_label==k
-                #~ print('mask', mask.shape)
-                #~ print('inwindow_ind', inwindow_ind.shape)
-                #~ print('times_chunk', times_chunk.shape)
                 times_chunk_in = times_chunk[inwindow_ind[mask]]
                 sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
                 c = self.controller.catalogue['max_on_channel'][i]
@@ -453,16 +451,15 @@ class PeelerTraceViewer(BaseTraceViewer):
                 self.scatters[k].setBrush(color)
                 self.scatters[k].setData(times_chunk_in, sigs_chunk_in[:, c]*self.gains[c]+self.offsets[c])
 
-        #~ n = self.dataio.nb_channel
-        #~ for c in range(n):
-            #~ if self.params['plot_threshold']:
-                #~ threshold = self.controller.get_threshold()
-                #~ self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*threshold)
-                #~ self.threshold_lines[c].show()
-            #~ else:
-                #~ self.threshold_lines[c].hide()
+        n = self.controller.dataio.nb_channel
+        for c in range(n):
+            if self.params['plot_threshold']:
+                threshold = self.controller.get_threshold()
+                self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*threshold)
+                self.threshold_lines[c].show()
+            else:
+                self.threshold_lines[c].hide()
 
-        
         #prediction
         prediction = make_prediction_signals(spikes, sigs_chunk.dtype, sigs_chunk.shape, self.controller.catalogue)
         residuals = sigs_chunk - prediction
@@ -482,7 +479,7 @@ class PeelerTraceViewer(BaseTraceViewer):
             if not self.plot_buttons['signals'].isChecked():
                 self.curves[c].setData([], [])
 
-    def on_peak_selection_changed(self):
+    def on_spike_selection_changed(self):
         spikes = self.controller.spikes
         selected = spikes['selected']
         n_selected = np.sum(selected)
@@ -502,11 +499,12 @@ class PeelerTraceViewer(BaseTraceViewer):
     
     def item_clicked(self, plot, points):
         #TODO
-        if self.select_button.isChecked()and len(points)==1:
-            x = points[0].pos().x()
-            self.spikesorter.peak_selection[:] = False
-            self.spikesorter.peak_selection.loc[(self.seg_num, x)] = True
+        pass
+        #~ if self.select_button.isChecked()and len(points)==1:
+            #~ x = points[0].pos().x()
+            #~ self.spikesorter.peak_selection[:] = False
+            #~ self.spikesorter.peak_selection.loc[(self.seg_num, x)] = True
             
-            self.peak_selection_changed.emit()
-            self.refresh()
+            #~ self.spike_selection_changed.emit()
+            #~ self.refresh()
 

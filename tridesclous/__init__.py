@@ -5,8 +5,7 @@ import PyQt5 # this force pyqtgraph to deal with Qt5
 from .datasets import get_dataset
 from .dataio import RawDataIO
 from .catalogueconstructor import CatalogueConstructor
-
-#~ from .spikesorter import SpikeSorter
+from .peeler import Peeler
 
 
 #~ from .mpl_plot import *

@@ -7,7 +7,7 @@ from pyqtgraph.Qt import QtCore, QtGui
 
 from .peelercontroller import PeelerController
 from .traceviewer import PeelerTraceViewer
-from .spikelists import SpikeList
+from .spikelists import SpikeList, ClusterSpikeList
 
 import itertools
 import datetime
@@ -24,23 +24,10 @@ class PeelerWindow(QtGui.QMainWindow):
         
         self.traceviewer = PeelerTraceViewer(controller=self.controller)
         self.spikelist = SpikeList(controller=self.controller)
+        self.clusterlist = ClusterSpikeList(controller=self.controller)
         
-        all = [self.traceviewer, self.spikelist]
+        all = [self.traceviewer, self.spikelist, self.clusterlist]
         
-        #~ for w1, w2 in itertools.combinations(all,2):
-            #~ w1.peak_selection_changed.connect(w2.on_peak_selection_changed)
-            #~ w2.peak_selection_changed.connect(w1.on_peak_selection_changed)
-            
-            #~ w1.peak_cluster_changed.connect(w2.on_peak_cluster_changed)
-            #~ w2.peak_cluster_changed.connect(w1.on_peak_cluster_changed)
-
-            #~ w1.colors_changed.connect(w2.on_colors_changed)
-            #~ w2.colors_changed.connect(w1.on_colors_changed)
-
-            #~ w1.cluster_visibility_changed.connect(w2.on_cluster_visibility_changed)
-            #~ w2.cluster_visibility_changed.connect(w1.on_cluster_visibility_changed)
-        
-
         docks = {}
 
         
@@ -51,5 +38,9 @@ class PeelerWindow(QtGui.QMainWindow):
         docks['spikelist'] = QtGui.QDockWidget('spikelist',self)
         docks['spikelist'].setWidget(self.spikelist)
         self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, docks['spikelist'])
+
+        docks['clusterlist'] = QtGui.QDockWidget('clusterlist',self)
+        docks['clusterlist'].setWidget(self.clusterlist)
+        self.splitDockWidget(docks['spikelist'], docks['clusterlist'], QtCore.Qt.Horizontal)
 
 

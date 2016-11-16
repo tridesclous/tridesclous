@@ -113,6 +113,6 @@ class WaveformViewer(WidgetBase):
         
         
 
-    def on_peak_selection_changed(self):
+    def on_spike_selection_changed(self):
         pass
         #TODO peak the selected peak if only one

@@ -68,17 +68,17 @@ def test_catalogue_constructor():
         
 
         
-        #~ # PCA
-        #~ t1 = time.perf_counter()
-        #~ catalogueconstructor.project(method='IncrementalPCA', n_components=7, batch_size=16384)
-        #~ t2 = time.perf_counter()
-        #~ print('project', t2-t1)
+        # PCA
+        t1 = time.perf_counter()
+        catalogueconstructor.project(method='IncrementalPCA', n_components=7, batch_size=16384)
+        t2 = time.perf_counter()
+        print('project', t2-t1)
         
-        #~ # cluster
-        #~ t1 = time.perf_counter()
-        #~ catalogueconstructor.find_clusters(method='kmeans', n_clusters=11)
-        #~ t2 = time.perf_counter()
-        #~ print('find_clusters', t2-t1)
+        # cluster
+        t1 = time.perf_counter()
+        catalogueconstructor.find_clusters(method='kmeans', n_clusters=11)
+        t2 = time.perf_counter()
+        print('find_clusters', t2-t1)
         
         
         
@@ -159,9 +159,80 @@ def compare_nb_waveforms():
     pyplot.show()        
     
 
+def test_make_catalogue():
+    filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT']
+    dataio = RawDataIO(dirname='test_catalogueconstructor')
+    
+    dataio.set_initial_signals(filenames=filenames, dtype='int16',
+                                     total_channel=16, sample_rate=10000.)    
+    #~ dataio.set_channel_group(range(14))
+    dataio.set_channel_group([5, 6, 7, 8, 9])
+    
+    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+
+    catalogueconstructor.initialize_signalprocessor_loop(chunksize=1024,
+            memory_mode='memmap',
+            
+            #signal preprocessor
+            highpass_freq=300,
+            backward_chunksize=1280,
+            
+            #peak detector
+            peakdetector_engine='peakdetector_numpy',
+            peak_sign='-', relative_threshold=7, peak_span=0.0005,
+            )
+    
+    t1 = time.perf_counter()
+    catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
+    t2 = time.perf_counter()
+    print('estimate_signals_noise', t2-t1)
+    
+    t1 = time.perf_counter()
+    for seg_num in range(dataio.nb_segment):
+        #~ print('seg_num', seg_num)
+        catalogueconstructor.run_signalprocessor_loop(seg_num=seg_num, duration=10.)
+    t2 = time.perf_counter()
+    print('run_signalprocessor_loop', t2-t1)
+
+    t1 = time.perf_counter()
+    catalogueconstructor.finalize_signalprocessor_loop()
+    t2 = time.perf_counter()
+    print('finalize_signalprocessor_loop', t2-t1)
+
+    for seg_num in range(dataio.nb_segment):
+        mask = catalogueconstructor.peak_segment==seg_num
+        print('seg_num', seg_num, np.sum(mask))
+    
+    t1 = time.perf_counter()
+    catalogueconstructor.extract_some_waveforms(n_left=-12, n_right=15,  nb_max=10000)
+    t2 = time.perf_counter()
+    print('extract_some_waveforms', t2-t1)
+    print(catalogueconstructor.peak_waveforms.shape)
+        
+
+    # PCA
+    t1 = time.perf_counter()
+    catalogueconstructor.project(method='IncrementalPCA', n_components=12, batch_size=16384)
+    t2 = time.perf_counter()
+    print('project', t2-t1)
+    
+    # cluster
+    t1 = time.perf_counter()
+    catalogueconstructor.find_clusters(method='kmeans', n_clusters=13)
+    t2 = time.perf_counter()
+    print('find_clusters', t2-t1)
+    
+    # trash_small_cluster
+    catalogueconstructor.trash_small_cluster()
+    
+    catalogueconstructor.make_catalogue()
+    
+
 
     
 if __name__ == '__main__':
-    test_catalogue_constructor()
+    #~ test_catalogue_constructor()
     
     #~ compare_nb_waveforms()
+    
+    test_make_catalogue()

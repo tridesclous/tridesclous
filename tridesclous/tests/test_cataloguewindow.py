@@ -40,11 +40,11 @@ def test_PeakList():
     
     app.exec_()
 
-def test_clusterlist():
+def test_ClusterPeakList():
     controller = get_controller()
     
     app = pg.mkQApp()
-    clusterlist = ClusterList(controller=controller)
+    clusterlist = ClusterPeakList(controller=controller)
     clusterlist.show()
     clusterlist.resize(800,400)
     
@@ -97,7 +97,7 @@ if __name__ == '__main__':
     
     #~ test_CatalogueTraceViewer()
     #~ test_PeakList()
-    #~ test_clusterlist()
+    #~ test_ClusterPeakList()
     #~ test_NDScatter()
     #~ test_WaveformViewer()
     

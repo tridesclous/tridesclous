@@ -3,62 +3,49 @@ from pyqtgraph.Qt import QtCore, QtGui
 
 
 class ControllerBase(QtCore.QObject):
-    peak_selection_changed = QtCore.pyqtSignal()
-    peak_cluster_changed = QtCore.pyqtSignal()
+    spike_selection_changed = QtCore.pyqtSignal()
+    spike_label_changed = QtCore.pyqtSignal()
     colors_changed = QtCore.pyqtSignal()
     cluster_visibility_changed = QtCore.pyqtSignal()
     
     def __init__(self, parent=None):
         QtCore.QObject.__init__(self, parent=parent)
-        self._views = []
+        self.views = []
     
     def declare_a_view(self, new_view):
-        assert new_view not in self._views, 'view already declared {}'.format(self)
-        self._views.append(new_view)
+        assert new_view not in self.views, 'view already declared {}'.format(self)
+        self.views.append(new_view)
         
-        new_view.peak_selection_changed.connect(self.on_peak_selection_changed)
-        new_view.peak_cluster_changed.connect(self.on_peak_cluster_changed)
+        new_view.spike_selection_changed.connect(self.on_spike_selection_changed)
+        new_view.spike_label_changed.connect(self.on_spike_label_changed)
         new_view.colors_changed.connect(self.on_colors_changed)
         new_view.cluster_visibility_changed.connect(self.on_cluster_visibility_changed)
         
-        #~ for view in self._views:
-            #~ view.peak_selection_changed.connect(new_view.on_peak_selection_changed)
-            #~ new_view.peak_selection_changed.connect(view.on_peak_selection_changed)
-
-            #~ view.peak_cluster_changed.connect(new_view.on_peak_cluster_changed)
-            #~ new_view.peak_cluster_changed.connect(view.on_peak_cluster_changed)
-
-            #~ view.colors_changed.connect(new_view.on_colors_changed)
-            #~ new_view.colors_changed.connect(view.on_colors_changed)
-
-            #~ view.cluster_visibility_changed.connect(new_view.on_cluster_visibility_changed)
-            #~ new_view.cluster_visibility_changed.connect(view.on_cluster_visibility_changed)
-
-    def on_peak_selection_changed(self):
-        for view in self._views:
+    def on_spike_selection_changed(self):
+        for view in self.views:
             if view==self.sender(): continue
-            view.on_peak_selection_changed()
+            view.on_spike_selection_changed()
 
-    def on_peak_cluster_changed(self):
-        for view in self._views:
+    def on_spike_label_changed(self):
+        for view in self.views:
             if view==self.sender(): continue
-            view.on_peak_cluster_changed()
+            view.on_spike_label_changed()
     
     def on_colors_changed(self):
-        for view in self._views:
+        for view in self.views:
             if view==self.sender(): continue
             view.on_colors_changed()
     
     def on_cluster_visibility_changed(self):
-        for view in self._views:
+        for view in self.views:
             if view==self.sender(): continue
             view.on_cluster_visibility_changed()
 
 
 
 class WidgetBase(QtGui.QWidget):
-    peak_selection_changed = QtCore.pyqtSignal()
-    peak_cluster_changed = QtCore.pyqtSignal()
+    spike_selection_changed = QtCore.pyqtSignal()
+    spike_label_changed = QtCore.pyqtSignal()
     colors_changed = QtCore.pyqtSignal()
     cluster_visibility_changed = QtCore.pyqtSignal()
     
@@ -71,10 +58,10 @@ class WidgetBase(QtGui.QWidget):
     def refresh(self):
         raise(NotImplementedError)
     
-    def on_peak_selection_changed(self):
+    def on_spike_selection_changed(self):
         self.refresh()
 
-    def on_peak_cluster_changed(self):
+    def on_spike_label_changed(self):
         self.refresh()
         
     def on_colors_changed(self):

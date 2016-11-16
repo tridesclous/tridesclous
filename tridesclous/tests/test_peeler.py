@@ -18,8 +18,8 @@ def setup_catalogue():
     filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT']
     dataio.set_initial_signals(filenames=filenames, dtype='int16',
                                      total_channel=16, sample_rate=10000.)    
-    #~ dataio.set_channel_group(range(14))
-    dataio.set_channel_group([5, 6, 7, 8, 9])
+    dataio.set_channel_group(range(14))
+    #~ dataio.set_channel_group([5, 6, 7, 8, 9])
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
 
@@ -71,9 +71,12 @@ def setup_catalogue():
     
     # cluster
     t1 = time.perf_counter()
-    catalogueconstructor.find_clusters(method='kmeans', n_clusters=12)
+    catalogueconstructor.find_clusters(method='kmeans', n_clusters=13)
     t2 = time.perf_counter()
     print('find_clusters', t2-t1)
+    
+    # trash_small_cluster
+    catalogueconstructor.trash_small_cluster()
 
 
 def open_catalogue_window():
@@ -83,8 +86,7 @@ def open_catalogue_window():
     win = CatalogueWindow(catalogueconstructor)
     win.show()
     app.exec_()
-    
-    
+
 
 def test_peeler():
     dataio = RawDataIO(dirname='test_peeler')
@@ -102,7 +104,17 @@ def test_peeler():
     t2 = time.perf_counter()
     print('peeler.run_loop', t2-t1)
     peeler.finalize_loop()
-    
+
+
+def open_PeelerWindow():
+    dataio = RawDataIO(dirname='test_peeler')
+    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    initial_catalogue = catalogueconstructor.load_catalogue()
+
+    app = pg.mkQApp()
+    win = PeelerWindow(dataio=dataio, catalogue=initial_catalogue)
+    win.show()
+    app.exec_()
     
     
     
@@ -112,4 +124,6 @@ if __name__ =='__main__':
     
     #~ open_catalogue_window()
     
-    test_peeler()
+    #~ test_peeler()
+    
+    open_PeelerWindow()

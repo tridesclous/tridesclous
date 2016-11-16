@@ -5,7 +5,7 @@ from pyqtgraph.Qt import QtCore, QtGui
 
 from .cataloguecontroller import CatalogueController
 from .traceviewer import CatalogueTraceViewer
-from .peaklists import PeakList, ClusterList
+from .peaklists import PeakList, ClusterPeakList
 from .ndscatter import NDScatter
 from .waveformviewer import WaveformViewer
 
@@ -16,31 +16,15 @@ class CatalogueWindow(QtGui.QMainWindow):
     def __init__(self, catalogueconstructor):
         QtGui.QMainWindow.__init__(self)
         
+        self.catalogueconstructor = catalogueconstructor
         self.controller = CatalogueController(catalogueconstructor=catalogueconstructor)
         
         self.traceviewer = CatalogueTraceViewer(controller=self.controller)
         self.peaklist = PeakList(controller=self.controller)
-        self.clusterlist = ClusterList(controller=self.controller)
+        self.clusterlist = ClusterPeakList(controller=self.controller)
         self.ndscatter = NDScatter(controller=self.controller)
         self.waveformviewer = WaveformViewer(controller=self.controller)
         
-        #~ self.all_view = [self.traceviewer, self.peaklist, self.clusterlist, self.ndscatter, self.waveformviewer]
-        #~ self.all_view = [self.traceviewer, self.peaklist, self.clusterlist]
-        
-        #~ for w1, w2 in itertools.combinations(self.all_view,2):
-            #~ w1.peak_selection_changed.connect(w2.on_peak_selection_changed)
-            #~ w2.peak_selection_changed.connect(w1.on_peak_selection_changed)
-            
-            #~ w1.peak_cluster_changed.connect(w2.on_peak_cluster_changed)
-            #~ w2.peak_cluster_changed.connect(w1.on_peak_cluster_changed)
-
-            #~ w1.colors_changed.connect(w2.on_colors_changed)
-            #~ w2.colors_changed.connect(w1.on_colors_changed)
-
-            #~ w1.cluster_visibility_changed.connect(w2.on_cluster_visibility_changed)
-            #~ w2.cluster_visibility_changed.connect(w1.on_cluster_visibility_changed)
-        
-
         docks = {}
 
         docks['waveformviewer'] = QtGui.QDockWidget('waveformviewer',self)
@@ -94,7 +78,7 @@ class CatalogueWindow(QtGui.QMainWindow):
         self.catalogueconstructor.save_catalogue()
     
     def refresh(self):
-        for w in self.all_view:
+        for w in self.controller.all_view:
             w.refresh()
     
     def open_settings(self):

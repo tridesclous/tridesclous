@@ -35,6 +35,9 @@ class PeelerController(ControllerBase):
         
         self.nb_spike = int(self.spikes.size)
         
+        self.cluster_count = { k:np.sum(self.spikes['label']==k) for k in self.cluster_labels}
+        
+        
         self.cluster_visible = {k:True for k  in self.cluster_labels}
         self.spike_selection = np.zeros(self.nb_spike, dtype='bool')
         self.refresh_colors(reset=True)
@@ -70,15 +73,19 @@ class PeelerController(ControllerBase):
     
     @property
     def cluster_labels(self):
-        return self.catalogue['cluster_labels']
-    
+        #TODO find better
+        #~ return self.catalogue['cluster_labels']
+        return np.array(list(self.catalogue['cluster_labels'])+[-10,-11,-12])
+
     def get_threshold(self):
-        threshold = 0.
+        threshold = self.catalogue['params_peakdetector']['relative_threshold']
+        if self.catalogue['params_peakdetector']['peak_sign']=='-':
+            threshold = -threshold
         return threshold
-    
+        
     def update_visible_spikes(self):
         visibles = np.array([k for k, v in self.cluster_visible.items() if v ])
-        self.spikes['visible'][:] = np.in1d(self.controller.spike_label, visibles)
+        self.spikes['visible'][:] = np.in1d(self.spikes['label'], visibles)
 
     def on_cluster_visibility_changed(self):
         self.update_visible_spikes()

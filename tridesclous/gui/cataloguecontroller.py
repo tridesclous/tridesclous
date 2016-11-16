@@ -114,19 +114,10 @@ class CatalogueController(ControllerBase):
 
     
     def refresh_colors(self, reset=True, palette = 'husl'):
-        if reset:
-            self.colors = {}
-        
-        n = self.cluster_labels.size
-        color_table = sns.color_palette(palette, n)
-        for i, k in enumerate(self.cluster_labels):
-            if k not in self.colors:
-                self.colors[k] = color_table[i]
-        
-        self.colors[-1] = (.4, .4, .4)
+        self.cc.refresh_colors(reset=reset, palette=palette)
         
         self.qcolors = {}
-        for k, color in self.colors.items():
+        for k, color in self.cc.colors.items():
             r, g, b = color
             self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
 

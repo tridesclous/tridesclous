@@ -6,12 +6,8 @@ import pickle
 
 import numpy as np
 import scipy.signal
+import scipy.interpolate
 import seaborn as sns
-
-#~ import sklearn
-#~ import sklearn.decomposition
-#~ import sklearn.cluster
-#~ import sklearn.mixture
 
 from . import signalpreprocessor
 from . import  peakdetector
@@ -21,9 +17,10 @@ from . import cluster
 
 from .tools import median_mad
 
-from pyqtgraph.Qt import QtCore, QtGui
 
 from .iotools import ArrayCollection
+
+import matplotlib.pyplot as plt
 
 # TODO auto cut left rigth after first cut
 # TODO improve different of sample waveform
@@ -286,49 +283,6 @@ class CatalogueConstructor:
     
     def on_new_cluster(self):
         self.cluster_labels = np.unique(self.peak_label)
-        
-    #~ def on_new_cluster(self, label_changed=None):
-        #~ """
-        #~ label_changed can be remove/add/modify
-        #~ """
-        #~ if self.peak_pos==[]: return
-        
-        #~ self.cluster_labels = np.unique(self.peak_label)
-        
-        #~ if label_changed is None:
-            #~ #re count evry clusters
-            #~ self.cluster_count = { k:np.sum(self.peak_label==k) for k in self.cluster_labels}
-        #~ else:
-            #~ for k in label_changed:
-                #~ if k in self.cluster_labels:
-                    #~ self.cluster_count[k] = np.sum(self.peak_label==k)
-                #~ else:
-                    #~ self.cluster_count.pop(k)
-        
-        #~ #TODO
-        #~ self.compute_centroid(label_changed=label_changed)
-        
-        #~ self._check_plot_attributes()
-
-    #~ def _check_plot_attributes(self):
-        #~ if not hasattr(self, 'peak_selection'):
-            #~ self.peak_selection = np.zeros(self.nb_peak, dtype='bool')
-        
-        #~ if not hasattr(self, 'cluster_visible'):
-            #~ self.cluster_visible = {}
-        
-        #~ for k in self.cluster_labels:
-            #~ if k not in self.cluster_visible:
-                #~ self.cluster_visible[k] = True
-        #~ for k in list(self.cluster_visible.keys()):
-            #~ if k not in self.cluster_labels:
-                #~ self.cluster_visible.pop(k)
-        
-        #~ if not hasattr(self, 'cluster_colors'):
-            #~ self.refresh_colors(reset=True)
-        #~ else:
-            #~ self.refresh_colors(reset=False)
-
     
     def compute_centroid(self, label_changed=None):
         if label_changed is None:
@@ -353,23 +307,18 @@ class CatalogueConstructor:
         print('compute_centroid', t2-t1)
         
     
-    #~ def refresh_colors(self, reset=True, palette = 'husl'):
-        #~ if reset:
-            #~ self.colors = {}
+    def refresh_colors(self, reset=True, palette = 'husl'):
+        if reset:
+            self.colors = {}
         
-        #~ n = self.cluster_labels.size
-        #~ color_table = sns.color_palette(palette, n)
-        #~ for i, k in enumerate(self.cluster_labels):
-            #~ if k not in self.colors:
-                #~ self.colors[k] = color_table[i]
+        n = self.cluster_labels.size
+        color_table = sns.color_palette(palette, n)
+        for i, k in enumerate(self.cluster_labels):
+            if k not in self.colors:
+                self.colors[k] = color_table[i]
         
-        #~ self.colors[-1] = (.4, .4, .4)
+        self.colors[-1] = (.4, .4, .4)
         
-        #~ self.qcolors = {}
-        #~ for k, color in self.colors.items():
-            #~ r, g, b = color
-            #~ self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
-
     #~ def merge_cluster(self, labels_to_merge):
         #~ #TODO: maybe take the first cluster label instead of new one (except -1)
         #~ new_label = max(self.cluster_labels)+1
@@ -381,10 +330,18 @@ class CatalogueConstructor:
         
         #~ self.on_new_cluster(label_changed=labels_to_merge+[new_label])
     
-    
     def split_cluster(self, label, n, method='kmeans', order_clusters=True, **kargs):
         mask = self.peak_label==label
         self.find_clusters(method=method, n_clusters=n, order_clusters=order_clusters, selection=mask, **kargs)
+    
+    def trash_small_cluster(self, n=10):
+        for k in self.cluster_labels:
+            mask = self.peak_label==k
+            if np.sum(mask)<=n:
+                self.peak_label[mask] = -1
+        self.on_new_cluster()
+        
+        
     
     def order_clusters(self):
         """
@@ -448,9 +405,23 @@ class CatalogueConstructor:
             
             #median and
             #eliminate margin because of border effect of derivative and reshape
-            centers0[i,:,:] = np.median(wf0, axis=0)[2:-2, :]
+            center0 = np.median(wf0, axis=0)
+            centers0[i,:,:] = center0[2:-2, :]
             centers1[i,:,:] = np.median(wf1, axis=0)[2:-2, :]
             centers2[i,:,:] = np.median(wf2, axis=0)[2:-2, :]
+            
+            #interpolate centers0 for reconstruction inbetween bsample when jitter is estimated
+            #~ f = scipy.interpolate.interp1d(np.arange(center0.shape[0]), center0, axis=0, kind='cubic')
+            #~ subsample = np.arange(1.5, center0.shape[0]-2.5, .05)
+            #~ oversampled_center = f(subsample)
+            
+            #~ fig, ax = plt.subplots()
+            #~ ax.plot(np.arange(center0.shape[0]), center0, color='b', marker='o')
+            #~ ax.plot(subsample,oversampled_center, color='c')
+            #~ plt.show()
+            
+            
+            
 
         #find max  channel for each cluster for peak alignement
         self.catalogue['max_on_channel'] = np.zeros_like(self.catalogue['cluster_labels'])
@@ -459,6 +430,8 @@ class CatalogueConstructor:
             self.catalogue['max_on_channel'][i] = np.argmax(np.max(np.abs(center), axis=0))
         
         #colors
+        if not hasattr(self, 'colors'):
+            self.refresh_colors()
         self.catalogue['cluster_colors'] = {}
         self.catalogue['cluster_colors'].update(self.colors)
         
