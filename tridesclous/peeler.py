@@ -138,8 +138,7 @@ class Peeler:
         else:
             length = self.dataio.get_segment_shape(seg_num)[0]
         length -= length%self.chunksize
-        print('length', length)
-        #initialize engines
+                #initialize engines
         
         self.dataio.reset_processed_signals(seg_num=seg_num, dtype=self.internal_dtype)
         self.dataio.reset_spikes(seg_num=seg_num, dtype=_dtype_spike)

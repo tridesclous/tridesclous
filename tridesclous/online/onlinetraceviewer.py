@@ -122,13 +122,12 @@ class OnlineTraceViewer(QOscilloscope):
             peak_times[ind1] += (self.t_vect_full[front] - self.t_vect_full[-1])
             peak_times[ind2] += (self.t_vect_full[front] - self.t_vect_full[0])
         
-        
         for i, k in enumerate(self.catalogue['cluster_labels']):
             keep = k==spikes['label']
             if np.sum(keep)>0:
                 chan = self.catalogue['max_on_channel'][i]
                 if visibles[chan]:
-                    self.scatters[k].setData(peak_times, spikes_amplitude[:, chan])
+                    self.scatters[k].setData(peak_times[keep], spikes_amplitude[keep, chan])
                 else:
                     self.scatters[k].setData([], [])
             else:
