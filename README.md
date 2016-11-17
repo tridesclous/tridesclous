@@ -5,7 +5,7 @@
 Pronouce it [tree day clue] for english speaker.
 
 This module provide some functions and examples of spike sorting.
-It is our material for learning good practices in spike sorting technics.
+It is our material to teach good practices in spike sorting technics.
 
 You can also use it for real data of course. Be courious and try it.
 The forest of spike sorting tools is dense and *tridesclous* is a new tree.

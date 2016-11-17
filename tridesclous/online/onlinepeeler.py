@@ -20,20 +20,13 @@ class PeelerThread(ThreadPollInput):
         self.sample_rate = input_stream.params['sample_rate']
         self.total_channel = self.input_stream().params['shape'][1]
         
-        #~ self.last_pos = None
-        
         #~ self.mutex = Mutex()
     
     def process_data(self, pos, sigs_chunk):
-        #~ if self.last_pos is None:
-            #~ self.last_pos = pos
-        
-        #~ print('PeelerThread.process_data')
-        
+        #TODO maybe remove this
         assert sigs_chunk.shape[0] == self.peeler.chunksize, 'PeelerThread chunksize is BAD!!'
         
         #take only channels concerned
-        #~ print(sigs_chunk.shape)
         sigs_chunk = sigs_chunk[:, self.channel_group]
         
         sig_index, preprocessed_chunk, total_spike, spikes  = self.peeler.process_one_chunk(pos, sigs_chunk)
@@ -78,11 +71,13 @@ class OnlinePeeler(Node):
         self.internal_dtype = internal_dtype
         self.n_peel_level = n_peel_level
         
-        # internal dtype (for waveforms) will also be the output dtype
+        
 
     def after_input_connect(self, inputname):
         self.total_channel = self.input.params['shape'][1]
-
+        self.sample_rate = self.input.params['sample_rate']
+        
+        # internal dtype (for waveforms) will also be the output dtype
         self.outputs['signals'].spec['dtype'] = self.internal_dtype
         self.outputs['signals'].spec['shape'] = (-1, len(self.channel_group))
         self.outputs['signals'].spec['sample_rate'] = self.input.params['sample_rate']
@@ -90,8 +85,6 @@ class OnlinePeeler(Node):
         
     
     def _initialize(self):
-        self.sample_rate = self.input.params['sample_rate']
-        #~ self.buffer_size = int(self.buffer_length*self.sample_rate)
         
         self.peeler = Peeler(dataio=None)
         self.peeler.change_params(catalogue=self.catalogue, n_peel_level=self.n_peel_level,

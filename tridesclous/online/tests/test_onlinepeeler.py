@@ -119,14 +119,14 @@ def test_OnlinePeeler():
     dev.start()
     
     # Node QOscilloscope
-    #~ oscope = QOscilloscope()
-    #~ oscope.configure(with_user_dialog=True)
-    #~ oscope.input.connect(dev.output)
-    #~ oscope.initialize()
-    #~ oscope.show()
-    #~ oscope.start()
-    #~ oscope.params['decimation_method'] = 'min_max'
-    #~ oscope.params['mode'] = 'scan'    
+    oscope = QOscilloscope()
+    oscope.configure(with_user_dialog=True)
+    oscope.input.connect(dev.output)
+    oscope.initialize()
+    oscope.show()
+    oscope.start()
+    oscope.params['decimation_method'] = 'min_max'
+    oscope.params['mode'] = 'scan'    
 
     # Node Peeler
     peeler = OnlinePeeler()
@@ -140,7 +140,7 @@ def test_OnlinePeeler():
     
     # Node traceviewer
     tviewer = OnlineTraceViewer()
-    tviewer.configure(peak_buffer_size = 1000)
+    tviewer.configure(peak_buffer_size = 1000, catalogue=catalogue)
     tviewer.inputs['signals'].connect(peeler.outputs['signals'])
     tviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
     tviewer.initialize()
@@ -171,7 +171,7 @@ def test_OnlinePeeler():
     
     
 if __name__ =='__main__':
-    setup_catalogue()
+    #~ setup_catalogue()
     
-    #~ test_OnlinePeeler()
+    test_OnlinePeeler()
 
