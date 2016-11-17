@@ -1,6 +1,10 @@
 #
-tridesclous/tests/test_catalogueconstructor/*
 tridesclous/tests/test_rawdataio/*
+tridesclous/tests/test_catalogueconstructor/*
+tridesclous/tests/test_peeler/*
+tridesclous/online/tests/test_onlinepeeler/
+example/tridesclous_kampff/
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
