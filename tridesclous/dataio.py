@@ -172,9 +172,8 @@ class RawDataIO(BaseDataIO):
         elif return_type=='pandas':
             raise(NotImplementedError)
     
-    def reset_processed_signals(self, dtype='float32'):
-        for i in range(self.nb_segment):
-            self.arrays_by_seg[i].create_array('processed_signals', dtype, self.get_segment_shape(i), 'memmap')
+    def reset_processed_signals(self, seg_num=0, dtype='float32'):
+        self.arrays_by_seg[seg_num].create_array('processed_signals', dtype, self.get_segment_shape(seg_num), 'memmap')
 
     
     def set_signals_chunk(self,sigs_chunk, seg_num=0, i_start=None, i_stop=None, signal_type='processed'):
@@ -184,22 +183,19 @@ class RawDataIO(BaseDataIO):
             data = self.arrays_by_seg[seg_num].get('processed_signals')
             data[i_start:i_stop, :] = sigs_chunk
         
-    def flush_processed_signals(self):
-        for i in range(self.nb_segment):
-            self.arrays_by_seg[i].flush_array('processed_signals')
+    def flush_processed_signals(self, seg_num=0):
+        self.arrays_by_seg[seg_num].flush_array('processed_signals')
         
-    def reset_spikes(self, dtype=None):
+    def reset_spikes(self, seg_num=0,  dtype=None):
         assert dtype is not None
-        for i in range(self.nb_segment):
-            self.arrays_by_seg[i].initialize_array('spikes', 'memmap', dtype, (-1,))
+        self.arrays_by_seg[seg_num].initialize_array('spikes', 'memmap', dtype, (-1,))
         
     def append_spikes(self, seg_num=0, spikes=None):
         if spikes is None: return
         self.arrays_by_seg[seg_num].append_chunk('spikes', spikes)
         
-    def flush_spikes(self):
-        for i in range(self.nb_segment):
-            self.arrays_by_seg[i].finalize_array('spikes')
+    def flush_spikes(self, seg_num=0):
+        self.arrays_by_seg[seg_num].finalize_array('spikes')
     
     def get_spikes(self, seg_num=0, i_start=None, i_stop=None):
         spikes = self.arrays_by_seg[seg_num].get('spikes')

@@ -1,25 +1,27 @@
 from tridesclous import *
-
-import numpy as np
-import scipy.signal
-import time
+from tridesclous.online import *
 
 import  pyqtgraph as pg
 
-from tridesclous.dataio import RawDataIO
-from tridesclous.catalogueconstructor import CatalogueConstructor
-from tridesclous.peeler import Peeler
+import pyacq
+from pyacq.viewers import QOscilloscope, QTimeFreq
+
+
+import numpy as np
+import time
+
+
 
 
 
 def setup_catalogue():
-    dataio = RawDataIO(dirname='test_peeler')
+    dataio = RawDataIO(dirname='test_onlinepeeler')
     
-    filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT']
+    filenames = ['Tem06c06.IOT']    
     dataio.set_initial_signals(filenames=filenames, dtype='int16',
                                      total_channel=16, sample_rate=10000.)    
-    dataio.set_channel_group(range(14))
-    #~ dataio.set_channel_group([5, 6, 7, 8, 9])
+    channel_group = [5, 6, 7, 8, 9]
+    dataio.set_channel_group(channel_group)
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
 
@@ -79,48 +81,97 @@ def setup_catalogue():
     catalogueconstructor.trash_small_cluster()
 
 
-def open_catalogue_window():
-    dataio = RawDataIO(dirname='test_peeler')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     app = pg.mkQApp()
     win = CatalogueWindow(catalogueconstructor)
     win.show()
     app.exec_()
 
-
-def test_peeler():
-    dataio = RawDataIO(dirname='test_peeler')
-    catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    initial_catalogue = catalogueconstructor.load_catalogue()
-
-    peeler = Peeler(dataio)
     
-    peeler.change_params(catalogue=initial_catalogue, n_peel_level=2, chunksize=1024)
-    
-    t1 = time.perf_counter()
-    peeler.run()
-    t2 = time.perf_counter()
-    print('peeler.run_loop', t2-t1)
 
 
-def open_PeelerWindow():
-    dataio = RawDataIO(dirname='test_peeler')
+def test_OnlinePeeler():
+    dataio = RawDataIO(dirname='test_onlinepeeler')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    initial_catalogue = catalogueconstructor.load_catalogue()
+    catalogue = catalogueconstructor.load_catalogue()
+    #~ print(catalogue)
+    
+    sigs = dataio.initial_data[0]
+    
+    sigs = sigs.astype('float32')
+    sample_rate = dataio.sample_rate
+    channel_group = dataio.channel_group
+    #~ print(channel_group)
+    
+    chunksize = 1024
+    
+    
+    # Device node
+    #~ man = create_manager(auto_close_at_exit=True)
+    #~ ng0 = man.create_nodegroup()
+    ng0 = None
+    dev = make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup=ng0, chunksize=chunksize)
+    
 
+    
     app = pg.mkQApp()
-    win = PeelerWindow(dataio=dataio, catalogue=initial_catalogue)
-    win.show()
+    
+    dev.start()
+    
+    # Node QOscilloscope
+    #~ oscope = QOscilloscope()
+    #~ oscope.configure(with_user_dialog=True)
+    #~ oscope.input.connect(dev.output)
+    #~ oscope.initialize()
+    #~ oscope.show()
+    #~ oscope.start()
+    #~ oscope.params['decimation_method'] = 'min_max'
+    #~ oscope.params['mode'] = 'scan'    
+
+    # Node Peeler
+    peeler = OnlinePeeler()
+    peeler.configure(catalogue=catalogue, channel_group=channel_group, chunksize=chunksize)
+    peeler.input.connect(dev.output)
+    stream_params = dict(protocol='tcp', interface='127.0.0.1', transfermode='plaindata')
+    peeler.outputs['signals'].configure(**stream_params)
+    peeler.outputs['spikes'].configure(**stream_params)
+    peeler.initialize()
+    peeler.start()
+    
+    # Node traceviewer
+    tviewer = OnlineTraceViewer()
+    tviewer.configure(peak_buffer_size = 1000)
+    tviewer.inputs['signals'].connect(peeler.outputs['signals'])
+    tviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
+    tviewer.initialize()
+    tviewer.show()
+    tviewer.start()
+    tviewer.params['xsize'] = 3.
+    tviewer.params['decimation_method'] = 'min_max'
+    tviewer.params['mode'] = 'scan'
+    #~ tviewer.params['mode'] = 'scroll'
+    
+    tviewer.auto_gain_and_offset(mode=1)
+    #~ tviewer.gain_zoom(.3)
+    tviewer.gain_zoom(.1)
+    
+    
+    def terminate():
+        dev.stop()
+        oscope.stop()
+        peeler.stop()
+        tviewer.stop()
+        app.quit()
+    
     app.exec_()
     
     
     
     
+    
+    
 if __name__ =='__main__':
-    #~ setup_catalogue()
+    setup_catalogue()
     
-    #~ open_catalogue_window()
-    
-    test_peeler()
-    
-    #~ open_PeelerWindow()
+    #~ test_OnlinePeeler()
+

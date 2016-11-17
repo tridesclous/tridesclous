@@ -1,13 +1,16 @@
-# trisdesclous
-Tris Des Clous, french touch spike sorting.
-Pronouced [tree day clue] for english speaker.
+# trisdesclous : spike sorting with french touch.
+
+**tris des clous** is a very dishonest translation of **spike sorting** to french.
+
+Pronouce it [tree day clue] for english speaker.
 
 This module provide some functions and examples of spike sorting.
 It is our material for learning good practices in spike sorting technics.
 
-You can also use it for your data!!
+You can also use it for real data of course. Be courious and try it.
+The forest of spike sorting tools is dense and *tridesclous* is a new tree.
 
-It is a complete rewrite of our old tools (SpikeOmatic, OpenElectrophy, ...)
+*tridesclous* is a complete rewrite of our old (and unsuccessful) tools (SpikeOmatic, OpenElectrophy, ...)
 with up-to-date (in 2015) python modules to simplify our codes.
 
 tridesclous:
@@ -16,9 +19,15 @@ tridesclous:
   * offer a simple UI written in Qt for interactive exploration.
   * could be usefull for online spikesorting in a near futur with pyacq.
 
-In short, tridesclous force you to write a script for spike sorting but 
+In short, *tridesclous* force you to write a script for spike sorting but 
 you also benefit of a simple UI for offline spike sorting (and online soon).
 
+Bonus:
+  * Some pieces of algorithm of written both in pure python (numpy/scipy/...) and OpenCL (filter, peak detetion, ...). So *tridesclous* should be efficient for large array (>=64 channel) soon.
+  * Each piece of the algorithm is written with chunk by chunk in mind. So the offline *tridesclous* is not agressive for memory.
+  
+  
+  
 
 Dependencies:
   * numpy
@@ -27,7 +36,6 @@ Dependencies:
   * scipy
   * matplotlib
   * seaborn
-  * pytables
   * PyQt4 (for UI only)
   * pyqtgraph (for UI only)
   * jupyter (for UI only)

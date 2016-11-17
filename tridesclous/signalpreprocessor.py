@@ -20,6 +20,7 @@ class SignalPreprocessor_Numpy:
         self.input_dtype = input_dtype
         
     def process_data(self, pos, data):
+        
         data = data.astype(self.output_dtype)
         
         
@@ -52,7 +53,7 @@ class SignalPreprocessor_Numpy:
         
         self.common_ref_removal = common_ref_removal
         self.highpass_freq = highpass_freq
-        self.output_dtype = output_dtype
+        self.output_dtype = np.dtype(output_dtype)
         self.normalize = normalize
         self.backward_chunksize = backward_chunksize
         

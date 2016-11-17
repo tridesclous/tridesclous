@@ -35,7 +35,7 @@ class CatalogueConstructor:
     
     
     """
-    def __init__(self, dataio, name='initial_catalogue'):
+    def __init__(self, dataio, name='catalogue_constructor'):
         self.dataio = dataio
         
         self.catalogue_path = os.path.join(self.dataio.dirname, name)
@@ -108,7 +108,8 @@ class CatalogueConstructor:
                                                         self.chunksize, internal_dtype)
         
         #TODO make processed data as int32 ???
-        self.dataio.reset_processed_signals(dtype=internal_dtype)
+        for i in range(self.dataio.nb_segment):
+            self.dataio.reset_processed_signals(seg_num=i, dtype=internal_dtype)
         
         self.nb_peak = 0
         
@@ -203,7 +204,7 @@ class CatalogueConstructor:
         
     
     def finalize_signalprocessor_loop(self):
-        self.dataio.flush_processed_signals()
+        self.dataio.flush_processed_signals(seg_num=0)
         
         self.arrays.finalize_array('peak_pos')
         self.arrays.finalize_array('peak_label')

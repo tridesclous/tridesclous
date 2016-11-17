@@ -14,6 +14,12 @@ from . import waveformextractor
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+try:
+    from tqdm import tqdm
+    HAVE_TQDM = True
+except ImportError:
+    HAVE_TQDM = False
+
 _dtype_spike = [('index', 'int64'), ('label', 'int64'), ('jitter', 'float64'),]
 
 
@@ -36,30 +42,26 @@ class Peeler:
     
     """
     def __init__(self, dataio):
+        #for online dataio is None
         self.dataio = dataio
         
-    def change_params(self, catalogue=None,
-                                                relative_threshold=7,
-                                                peak_span=0.0005,
-                                                n_peel_level=2,
-                                                chunk_size=1024,
-                                                
-                                                ):
+    def change_params(self, catalogue=None, n_peel_level=2,chunksize=1024, 
+                                        internal_dtype='float32', 
+                                        signalpreprocessor_engine='signalpreprocessor_numpy',
+                                        peakdetector_engine='peakdetector_numpy'):
         assert catalogue is not None
         self.catalogue = catalogue
-        
-        self.relative_threshold=relative_threshold
-        self.peak_span=peak_span
         self.n_peel_level = n_peel_level
+        self.chunksize = chunksize
+        self.internal_dtype= internal_dtype
+        self.signalpreprocessor_engine = signalpreprocessor_engine
+        self.peakdetector_engine = peakdetector_engine
+        
     
-    def process_one_chunk(self,  pos, sigs_chunk, seg_num):
+    def process_one_chunk(self,  pos, sigs_chunk):
         pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
         if preprocessed_chunk is  None:
             return
-        
-        self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num, i_start=pos2-preprocessed_chunk.shape[0],
-                        i_stop=pos2, signal_type='processed')
-        
         
         residual = preprocessed_chunk.copy()
         
@@ -77,33 +79,10 @@ class Peeler:
             peak_pos2 = chunk_peaks - shift
             
             spikes  = classify_and_align(peak_pos2, residual, self.catalogue)
-            #~ print(spikes)
             good_spikes = spikes[spikes['label']>=0]
-            
-            #~ print(good_spikes)
-            
             prediction = make_prediction_signals(good_spikes, residual.dtype, residual.shape, self.catalogue)
             residual -= prediction
-            
-            ###
-            #DEBUG
-            #~ N=sigs_chunk.shape[1]
-            #~ colors = sns.color_palette('husl', len(self.catalogue['cluster_labels']))
-            #~ fig, axs = plt.subplots(nrows=N, sharex=True, sharey=True, )
-            #~ for ii, k in enumerate(self.catalogue['cluster_labels']):
-                #~ for iii in range(N):
-                    #~ axs[iii].plot(self.catalogue['centers0'][ii, :, iii], color=colors[ii], label='{}'.format(k))
-            #~ axs[0].legend()
-            #~ fig, axs = plt.subplots(nrows=N, sharex=True, sharey=True, )
-            #~ for iii in range(N):
-                #~ axs[iii].plot(prediction[:, iii], color='m')
-                #~ axs[iii].plot(preprocessed_chunk[:, iii], color='g')
-                #~ axs[iii].plot(residual[:, iii], color='y')
-                #~ axs[iii].plot(peak_pos2, preprocessed_chunk[peak_pos2, iii], color='m', marker='o', ls='None')
-            #~ plt.show()
-            #ENDDEBUG
-            ###
-            
+
             # for output
             good_spikes['index'] += shift
             all_spikes.append(good_spikes)
@@ -113,35 +92,26 @@ class Peeler:
                 bad_spikes['index'] += shift
                 all_spikes.append(bad_spikes)
         
-        return np.concatenate(all_spikes)
+        all_spikes = np.concatenate(all_spikes)
+        
+        self.total_spike += all_spikes.size
+        
+        return pos2, preprocessed_chunk, self.total_spike, all_spikes
             
     
     
-    def initialize_loop(self, chunksize=1024,
-                                            signalpreprocessor_engine='signalpreprocessor_numpy',
-                                            peakdetector_engine='peakdetector_numpy',
-                                            internal_dtype='float32'):
-        
-        self.chunksize = chunksize
-        self.dataio.reset_processed_signals(dtype=internal_dtype)
-        self.dataio.reset_spikes(dtype=_dtype_spike)
-        
-        SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[signalpreprocessor_engine]
-        self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.dataio.nb_channel, chunksize, self.dataio.dtype)
+    def _initialize_before_each_segment(self, sample_rate=None, nb_channel=None, input_dtype=None):
+
+        SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[self.signalpreprocessor_engine]
+        self.signalpreprocessor = SignalPreprocessor_class(sample_rate, nb_channel, self.chunksize, input_dtype)
         
         #there is one peakdetectior by level because each one have
         # its own ringbuffer for each residual level
-        PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
+        PeakDetector_class = peakdetector.peakdetector_engines[self.peakdetector_engine]
         self.peakdetectors = []
         for level in range(self.n_peel_level):
-            self.peakdetectors.append(PeakDetector_class(self.dataio.sample_rate, self.dataio.nb_channel, chunksize, internal_dtype))
-        
-    def run_loop(self, seg_num=0, duration=60.):
-        
-        length = int(duration*self.dataio.sample_rate)
-        length -= length%self.chunksize
-        #initialize engines
-        
+            self.peakdetectors.append(PeakDetector_class(sample_rate, nb_channel, self.chunksize, self.internal_dtype))
+
         p = dict(self.catalogue['params_signalpreprocessor'])
         p['normalize'] = True
         p['signals_medians'] = self.catalogue['signals_medians']
@@ -150,19 +120,55 @@ class Peeler:
         
         for level in range(self.n_peel_level):
             self.peakdetectors[level].change_params(**self.catalogue['params_peakdetector'])
+
+        self.total_spike = 0
         
+    def initialize_online_loop(self, sample_rate=None, nb_channel=None, input_dtype=None):
+        self._initialize_before_each_segment(sample_rate=sample_rate, nb_channel=nb_channel, input_dtype=input_dtype)
+    
+    def run_offline_loop_one_segment(self, seg_num=0, duration=None):
+        kargs = {}
+        kargs['sample_rate'] = self.dataio.sample_rate
+        kargs['nb_channel'] = self.dataio.nb_channel
+        kargs['input_dtype'] = self.dataio.dtype
+        self._initialize_before_each_segment(**kargs)
+        
+        if duration is not None:
+            length = int(duration*self.dataio.sample_rate)
+        else:
+            length = self.dataio.get_segment_shape(seg_num)[0]
+        length -= length%self.chunksize
+        print('length', length)
+        #initialize engines
+        
+        self.dataio.reset_processed_signals(seg_num=seg_num, dtype=self.internal_dtype)
+        self.dataio.reset_spikes(seg_num=seg_num, dtype=_dtype_spike)
+
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chunksize=self.chunksize, i_stop=length,
                                                     signal_type='initial', return_type='raw_numpy')
+        if HAVE_TQDM:
+            iterator = tqdm(iterable=iterator, total=length//self.chunksize)
         for pos, sigs_chunk in iterator:
-            spikes = self.process_one_chunk(pos, sigs_chunk, seg_num)
+            #~ print(pos, length, pos/length)
+            sig_index, preprocessed_chunk, total_spike, spikes = self.process_one_chunk(pos, sigs_chunk)
+            
+            # save preprocessed_chunk to file
+            # TODO optional ???
+            self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num,
+                        i_start=sig_index-preprocessed_chunk.shape[0], i_stop=sig_index,
+                        signal_type='processed')
+            
             if spikes is not None and spikes.size>0:
                 self.dataio.append_spikes(seg_num=seg_num, spikes=spikes)
-        
-        
-    def finalize_loop(self):
-        self.dataio.flush_processed_signals()
-        self.dataio.flush_spikes()
 
+        self.dataio.flush_processed_signals(seg_num=seg_num)
+        self.dataio.flush_spikes(seg_num=seg_num)
+
+    def run_offline_all_segment(self):
+        for seg_num in range(self.dataio.nb_segment):
+            self.run_offline_loop_one_segment(seg_num=seg_num, duration=None)
+    
+    run = run_offline_all_segment
 
 
 

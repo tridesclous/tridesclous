@@ -98,16 +98,12 @@ def run_peeler():
     initial_catalogue = catalogueconstructor.load_catalogue()
 
     peeler = Peeler(dataio)
-    
     peeler.change_params(catalogue=initial_catalogue, n_peel_level=2)
     
-    peeler.initialize_loop()
     t1 = time.perf_counter()
-    for seg_num in range(dataio.nb_segment):
-        peeler.run_loop(seg_num=seg_num)
+    peeler.run()
     t2 = time.perf_counter()
     print('peeler.run_loop', t2-t1)
-    peeler.finalize_loop()
     
 def open_PeelerWindow():
     dataio = RawDataIO(dirname='tridesclous_kampff')
