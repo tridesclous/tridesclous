@@ -121,6 +121,6 @@ if __name__ =='__main__':
     
     #~ open_catalogue_window()
     
-    test_peeler()
+    #~ test_peeler()
     
-    #~ open_PeelerWindow()
+    open_PeelerWindow()
