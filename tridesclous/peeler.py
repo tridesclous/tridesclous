@@ -16,12 +16,11 @@ import seaborn as sns
 
 try:
     from tqdm import tqdm
-    HAVE_TQDM = True
+    #~ HAVE_TQDM = True
+    #TODO: put this when finish
+    HAVE_TQDM = False
 except ImportError:
     HAVE_TQDM = False
-
-#TODO: put this when finish
-#~ HAVE_TQDM = False
 
 _dtype_spike = [('index', 'int64'), ('label', 'int64'), ('jitter', 'float64'),]
 
@@ -85,7 +84,8 @@ class Peeler:
             
             local_index = chunk_peaks - shift
             spikes  = classify_and_align(local_index, residual, self.catalogue)
-            good_spikes = spikes[spikes['label']>=0]
+            #~ good_spikes = spikes[spikes['label']>=0]
+            good_spikes = spikes.compress(spikes['label']>=0)
             prediction = make_prediction_signals(good_spikes, residual.dtype, residual.shape, self.catalogue)
             residual -= prediction
 
@@ -94,7 +94,8 @@ class Peeler:
             all_spikes.append(good_spikes)
         
         # append bad spike
-        bad_spikes = spikes[spikes['label']==LABEL_UNSLASSIFIED]
+        #~ bad_spikes = spikes[spikes['label']==LABEL_UNSLASSIFIED]
+        bad_spikes = spikes.compress(spikes['label']==LABEL_UNSLASSIFIED)
         bad_spikes['index'] += shift
         all_spikes.append(bad_spikes)
 
@@ -119,7 +120,9 @@ class Peeler:
             
             #~ print(overlap_residual.shape)
             #~ print('left abs', spikes[spikes['label']==LABEL_LEFT_LIMIT]['index']+shift)
-            index_left = spikes[spikes['label']==LABEL_LEFT_LIMIT]['index'] +shift - shift2
+            #~ index_left = spikes[spikes['label']==LABEL_LEFT_LIMIT]['index'] +shift - shift2
+            index_left = spikes.compress(spikes['label']==LABEL_LEFT_LIMIT)['index'] +shift - shift2
+            
             #~ print('index_left', index_left)
             #~ print('right abs', self.prev_spikes_at_right_limit['index'])
             index_right = self.prev_spikes_at_right_limit['index'] - shift2
@@ -135,21 +138,26 @@ class Peeler:
                     assert np.all(spikes_limit['label']!=LABEL_LEFT_LIMIT), 'hop'#for debug TODO remove it when sur there is no bug at limit
                     assert np.all(spikes_limit['label']!=LABEL_RIGHT_LIMIT), 'hop'#for debug TODO remove it when sur there is no bug at limit
                     
-                    good_spikes_limit = spikes_limit[spikes_limit['label']>=0]
+                    #~ good_spikes_limit = spikes_limit[spikes_limit['label']>=0]
+                    good_spikes_limit = spikes_limit.compress(spikes_limit['label']>=0)
                     good_spikes_limit['index'] += shift2
                     all_spikes.append(good_spikes_limit)
                     # for next level
-                    index_limit = good_spikes_limit[good_spikes_limit['label']==LABEL_UNSLASSIFIED]['index']
+                    #~ index_limit = good_spikes_limit[good_spikes_limit['label']==LABEL_UNSLASSIFIED]['index']
+                    index_limit = good_spikes_limit.compress(good_spikes_limit['label']==LABEL_UNSLASSIFIED)['index']
+                    
             
             bad_mask = (spikes_limit['label']==LABEL_UNSLASSIFIED) | (spikes_limit['label']==LABEL_MAXIMUM_SHIFT)
-            bad_spikes_limit = spikes_limit[bad_mask]
+            #~ bad_spikes_limit = spikes_limit[bad_mask]
+            bad_spikes_limit = spikes_limit.compress(bad_mask)
             bad_spikes_limit['index'] += shift2
             all_spikes.append(bad_spikes_limit)
         
         
         # chunk and spike at right limit for next chunk
         self.prev_preprocessed_chunk = preprocessed_chunk
-        self.prev_spikes_at_right_limit = spikes[spikes['label']==LABEL_RIGHT_LIMIT].copy()
+        #~ self.prev_spikes_at_right_limit = spikes[spikes['label']==LABEL_RIGHT_LIMIT].copy()
+        self.prev_spikes_at_right_limit = spikes.compress(spikes['label']==LABEL_RIGHT_LIMIT)
         self.prev_spikes_at_right_limit['index'] += shift
         #~ print('for next chunk', self.prev_spikes_at_right_limit)
                 
@@ -187,6 +195,23 @@ class Peeler:
         self.total_spike = 0
         self.prev_preprocessed_chunk = None
         self.prev_spikes_at_right_limit = np.zeros(0, dtype=_dtype_spike)
+        
+        # precompute some value for jitter estimation
+        n = self.catalogue['cluster_labels'].size
+        self.catalogue['wf1_norm2'] = np.zeros(n)
+        self.catalogue['wf2_norm2'] = np.zeros(n)
+        self.catalogue['wf1_dot_wf2'] = np.zeros(n)
+        for i, k in enumerate(self.catalogue['cluster_labels']):
+            chan = self.catalogue['max_on_channel'][i]
+            wf0 = self.catalogue['centers0'][i,: , chan]
+            wf1 = self.catalogue['centers1'][i,: , chan]
+            wf2 = self.catalogue['centers2'][i,: , chan]
+
+            self.catalogue['wf1_norm2'][i] = wf1.dot(wf1)
+            self.catalogue['wf2_norm2'][i] = wf2.dot(wf2)
+            self.catalogue['wf1_dot_wf2'][i] = wf1.dot(wf2)
+        
+        
         
     def initialize_online_loop(self, sample_rate=None, nb_channel=None, source_dtype=None):
         self._initialize_before_each_segment(sample_rate=sample_rate, nb_channel=nb_channel, source_dtype=source_dtype)
@@ -265,6 +290,9 @@ def classify_and_align(local_indexes, residual, catalogue, maximum_jitter_shift=
             waveform = residual[ind:ind+width,:]
         
         label, jitter = estimate_one_jitter(waveform, catalogue)
+        #~ jitter = -jitter
+        #TODO debug jitter sign is positive on right and negative to left
+        
         #~ print('label, jitter', label, jitter)
         
         # if more than one sample of jitter
@@ -273,6 +301,7 @@ def classify_and_align(local_indexes, residual, catalogue, maximum_jitter_shift=
         #TODO debug peak shift
         if np.abs(jitter) > 0.5 and label >=0:
             prev_ind, prev_label, prev_jitter = label, jitter, ind
+            
             shift = -int(np.round(jitter))
             #~ print('classify_and_align shift', shift)
             
@@ -341,10 +370,16 @@ def estimate_one_jitter(waveform, catalogue):
     wf = waveform[:, chan]
     #~ print()
     #~ print(wf0.shape, wf.shape)
-    #TODO put that in make_catalogue
-    wf1_norm2 = wf1.dot(wf1)
-    wf2_norm2 = wf2.dot(wf2)
-    wf1_dot_wf2 = wf1.dot(wf2)
+    
+    
+    #it is  precompute that at init speedup 10%!!! yeah
+    #~ wf1_norm2 = wf1.dot(wf1)
+    #~ wf2_norm2 = wf2.dot(wf2)
+    #~ wf1_dot_wf2 = wf1.dot(wf2)
+    wf1_norm2= catalogue['wf1_norm2'][cluster_idx]
+    wf2_norm2 = catalogue['wf2_norm2'][cluster_idx]
+    wf1_dot_wf2 = catalogue['wf1_dot_wf2'][cluster_idx]
+    
     
     h = wf - wf0
     h0_norm2 = h.dot(h)
@@ -382,7 +417,7 @@ def estimate_one_jitter(waveform, catalogue):
         #otherwise the prediction is bad
         #~ print('bad prediction')
         return LABEL_UNSLASSIFIED, 0.
-    
+
 
 def make_prediction_signals(spikes, dtype, shape, catalogue):
     #~ n_left, peak_width, 
@@ -407,20 +442,34 @@ def make_prediction_signals(spikes, dtype, shape, catalogue):
         #~ pred = wf0 +jitter*wf1 + jitter**2/2*wf2
         
         #predict with with precilputed splin
-        #TODO debug this!!!!!
         #~ print()
         r = catalogue['subsample_ratio']
-        int_jitter = int(spikes[i]['jitter']*r) + r//2
         
+        
+        pos = spikes[i]['index'] + catalogue['n_left']
+        jitter = spikes[i]['jitter']
+        #TODO debug that sign
+        shift = -int(np.round(jitter))
+        pos = pos + shift
+        
+        #TODO debug that sign
+        #~ if shift >=1:
+            #~ print('jitter', jitter, 'jitter+shift', jitter+shift, 'shift', shift)
+        #~ int_jitter = int((jitter+shift)*r) + r//2
+        int_jitter = int((jitter+shift)*r) + r//2
+        #~ int_jitter = -int((jitter+shift)*r) + r//2
+        
+        #~ assert int_jitter>=0
+        #~ assert int_jitter<r
         #TODO this is wrong we should move index first
-        int_jitter = max(int_jitter, 0)
-        int_jitter = min(int_jitter, r-1)
+        #~ int_jitter = max(int_jitter, 0)
+        #~ int_jitter = min(int_jitter, r-1)
         
         pred = catalogue['interp_centers0'][cluster_idx, int_jitter::r, :]
         #~ print(pred.shape)
         #~ print(int_jitter, spikes[i]['jitter'])
         
-        pos = spikes[i]['index'] + catalogue['n_left']
+        
         #~ print(prediction[pos:pos+catalogue['peak_width'], :].shape)
         if pos>0 and  pos+catalogue['peak_width']<shape[0]:
             prediction[pos:pos+catalogue['peak_width'], :] += pred

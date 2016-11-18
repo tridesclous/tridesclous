@@ -441,8 +441,7 @@ class CatalogueConstructor:
             #~ ax.plot(np.arange(full_width-4), center0[2:-2, :], color='b', marker='o')
             #~ ax.plot(subsample-2.,oversampled_center, color='c')
             #~ plt.show()
-        
-
+            
         #find max  channel for each cluster for peak alignement
         self.catalogue['max_on_channel'] = np.zeros_like(self.catalogue['cluster_labels'])
         for i, k in enumerate(cluster_labels):
