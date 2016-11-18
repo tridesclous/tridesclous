@@ -9,16 +9,16 @@ import time
 def initialize_catalogueconstructor():
     #~ filenames = ['kampff/2015_09_09_Pair_6_0/amplifier2015-09-09T17_46_43.bin']
     filenames = ['/home/samuel/Documents/projet/Data SpikeSorting/kampff/2015_09_09_Pair_6_0/amplifier2015-09-09T17_46_43.bin']
-    dataio = RawDataIO(dirname='tridesclous_kampff')
-    dataio.set_initial_signals(filenames=filenames, dtype='int16',
+    dataio = DataIO(dirname='tridesclous_kampff')
+    dataio.set_data_source(type='RawData', filenames=filenames, dtype='uint16',
                                      total_channel=128, sample_rate=30000.)    
-    dataio.set_channel_group(range(128))
-    #~ print(dataio.segments_path)
+    dataio.set_channel_group(range(50,90))
+    print(dataio)
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
 
 def preprocess_signals_and_peaks():
-    dataio = RawDataIO(dirname='tridesclous_kampff')
+    dataio = DataIO(dirname='tridesclous_kampff')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     print('shape', dataio.get_segment_shape(seg_num=0))
     print('duration', dataio.get_segment_shape(seg_num=0)[0]/dataio.sample_rate)
@@ -57,7 +57,7 @@ def preprocess_signals_and_peaks():
     print('nb_peak', catalogueconstructor.nb_peak)
 
 def extract_waveforms_pca_cluster():
-    dataio = RawDataIO(dirname='tridesclous_kampff')
+    dataio = DataIO(dirname='tridesclous_kampff')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     print('nb_peak', catalogueconstructor.nb_peak)
     #~ exit()
@@ -82,7 +82,7 @@ def extract_waveforms_pca_cluster():
 
 
 def open_cataloguewindow():
-    dataio = RawDataIO(dirname='tridesclous_kampff')
+    dataio = DataIO(dirname='tridesclous_kampff')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
     app = pg.mkQApp()
@@ -93,7 +93,7 @@ def open_cataloguewindow():
 
 
 def run_peeler():
-    dataio = RawDataIO(dirname='tridesclous_kampff')
+    dataio = DataIO(dirname='tridesclous_kampff')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     initial_catalogue = catalogueconstructor.load_catalogue()
 
@@ -106,7 +106,7 @@ def run_peeler():
     print('peeler.run_loop', t2-t1)
     
 def open_PeelerWindow():
-    dataio = RawDataIO(dirname='tridesclous_kampff')
+    dataio = DataIO(dirname='tridesclous_kampff')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     initial_catalogue = catalogueconstructor.load_catalogue()
 

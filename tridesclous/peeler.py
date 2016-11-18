@@ -14,14 +14,14 @@ from . import waveformextractor
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-#~ try:
-    #~ from tqdm import tqdm
-    #~ HAVE_TQDM = True
-#~ except ImportError:
-    #~ HAVE_TQDM = False
+try:
+    from tqdm import tqdm
+    HAVE_TQDM = True
+except ImportError:
+    HAVE_TQDM = False
 
 #TODO: put this when finish
-HAVE_TQDM = False
+#~ HAVE_TQDM = False
 
 _dtype_spike = [('index', 'int64'), ('label', 'int64'), ('jitter', 'float64'),]
 
@@ -29,6 +29,7 @@ LABEL_TRASH = -1
 LABEL_UNSLASSIFIED = -10
 LABEL_LEFT_LIMIT = -11
 LABEL_RIGHT_LIMIT = -12
+LABEL_MAXIMUM_SHIFT = -13
 # good label are >=0
 
 
@@ -109,35 +110,39 @@ class Peeler:
             #~ print('Spike at limits')
             #~ print('abs_head_index', abs_head_index)
             #~ print('abs_head_index - local_size', abs_head_index-local_size)
-            #~ print('n_left', n_left,'n_right', n_right)
+            #~ print('n_left', n_left,'n_right', n_right, 'peak_width', peak_width)
             
-            overlap_residual = np.concatenate([self.prev_preprocessed_chunk[-peak_width-2:, :], 
-                                                                preprocessed_chunk[:peak_width+2]], axis=0)
-            shift2 = abs_head_index - local_size - peak_width -2
+            maximum_jitter_shift = 4
+            overlap_residual = np.concatenate([self.prev_preprocessed_chunk[-peak_width-maximum_jitter_shift-2:, :], 
+                                                                preprocessed_chunk[:peak_width+maximum_jitter_shift+2]], axis=0)
+            shift2 = abs_head_index - local_size - peak_width - maximum_jitter_shift - 2
             
             #~ print(overlap_residual.shape)
             #~ print('left abs', spikes[spikes['label']==LABEL_LEFT_LIMIT]['index']+shift)
-            
             index_left = spikes[spikes['label']==LABEL_LEFT_LIMIT]['index'] +shift - shift2
+            #~ print('index_left', index_left)
             #~ print('right abs', self.prev_spikes_at_right_limit['index'])
             index_right = self.prev_spikes_at_right_limit['index'] - shift2
+            #~ print('index_right', index_right)
             index_limit = np.concatenate([index_left, index_right])
             #~ print('index_limit', index_limit)
             #~ print('shift2', shift2)
             for level in range(self.n_peel_level):
                 #~ print('level', level)
-                spikes_limit  = classify_and_align(index_limit, overlap_residual, self.catalogue)
+                spikes_limit  = classify_and_align(index_limit, overlap_residual, self.catalogue, maximum_jitter_shift=maximum_jitter_shift)
                 if spikes_limit.size>0:
                     #~ print('spikes_limit', spikes_limit)
-                    assert np.all(spikes_limit['label']!=LABEL_LEFT_LIMIT), 'hop'#for debug
-                    assert np.all(spikes_limit['label']!=LABEL_RIGHT_LIMIT), 'hop'#for debug
+                    assert np.all(spikes_limit['label']!=LABEL_LEFT_LIMIT), 'hop'#for debug TODO remove it when sur there is no bug at limit
+                    assert np.all(spikes_limit['label']!=LABEL_RIGHT_LIMIT), 'hop'#for debug TODO remove it when sur there is no bug at limit
+                    
                     good_spikes_limit = spikes_limit[spikes_limit['label']>=0]
                     good_spikes_limit['index'] += shift2
                     all_spikes.append(good_spikes_limit)
                     # for next level
                     index_limit = good_spikes_limit[good_spikes_limit['label']==LABEL_UNSLASSIFIED]['index']
-        
-            bad_spikes_limit = spikes_limit[spikes_limit['label']==LABEL_UNSLASSIFIED]
+            
+            bad_mask = (spikes_limit['label']==LABEL_UNSLASSIFIED) | (spikes_limit['label']==LABEL_MAXIMUM_SHIFT)
+            bad_spikes_limit = spikes_limit[bad_mask]
             bad_spikes_limit['index'] += shift2
             all_spikes.append(bad_spikes_limit)
         
@@ -231,7 +236,7 @@ class Peeler:
 
 
 
-def classify_and_align(local_indexes, residual, catalogue):
+def classify_and_align(local_indexes, residual, catalogue, maximum_jitter_shift=4):
     """
     local_indexes is index of peaks inside residual and not
     the absolute peak_pos. So time scaling must be done outside.
@@ -270,6 +275,13 @@ def classify_and_align(local_indexes, residual, catalogue):
             prev_ind, prev_label, prev_jitter = label, jitter, ind
             shift = -int(np.round(jitter))
             #~ print('classify_and_align shift', shift)
+            
+            if np.abs(shift) >maximum_jitter_shift:
+                #~ print('     LABEL_MAXIMUM_SHIFT avec shift')
+                spikes['label'][i] = LABEL_MAXIMUM_SHIFT
+                continue
+            
+            
             ind = ind + shift
             if ind+width>=residual.shape[0]:
                 #~ print('     LABEL_RIGHT_LIMIT avec shift')

@@ -40,10 +40,17 @@ def test_DataIO():
         shutil.rmtree('test_DataIO')
         
     dataio = DataIO(dirname='test_DataIO')
+    print(dataio)
+    
+    
     filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT']
     params = dict(filenames=filenames, dtype='int16', total_channel=16, sample_rate=10000.)
     dataio.set_data_source(type='RawData', **params)
+    #~ dataio.set_channel_group(range(4))
     dataio.set_channel_group(range(14))
+    print(dataio)
+    exit()
+    
     
     for seg_num in range(dataio.nb_segment):
         for i_stop, sigs_chunk in dataio.iter_over_chunk(seg_num=seg_num, chunksize=1024):
@@ -64,9 +71,9 @@ def test_DataIO():
     
     
 if __name__=='__main__':
-    test_InMemoryDataSource()
+    #~ test_InMemoryDataSource()
     #~ test_RawDataSource()
     
-    #~ test_DataIO()
+    test_DataIO()
     
     

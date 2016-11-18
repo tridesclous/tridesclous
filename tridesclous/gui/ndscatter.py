@@ -125,8 +125,9 @@ class NDScatter(WidgetBase):
             if self.controller.cluster_count[k]>m:
                 self.peak_visible[mask] = False
                 visible, = np.nonzero(mask)
-                visible = np.random.choice(visible, size=m)
-                self.peak_visible[visible] = True
+                if visible.size>0:
+                    visible = np.random.choice(visible, size=m)
+                    self.peak_visible[visible] = True
             else:
                 self.peak_visible[mask] = True
         

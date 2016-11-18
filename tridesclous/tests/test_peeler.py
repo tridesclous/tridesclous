@@ -56,17 +56,20 @@ def setup_catalogue():
     catalogueconstructor.finalize_signalprocessor_loop()
     t2 = time.perf_counter()
     print('finalize_signalprocessor_loop', t2-t1)
+    
+    
 
     for seg_num in range(dataio.nb_segment):
         mask = catalogueconstructor.peak_segment==seg_num
         print('seg_num', seg_num, np.sum(mask))
     
     t1 = time.perf_counter()
-    catalogueconstructor.extract_some_waveforms(n_left=-12, n_right=15,  nb_max=10000)
+    #~ catalogueconstructor.extract_some_waveforms(n_left=-12, n_right=15,  nb_max=10000)
+    catalogueconstructor.extract_some_waveforms(n_left=-12, n_right=15,  nb_max=1000)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
     print(catalogueconstructor.peak_waveforms.shape)
-        
+    
 
     # PCA
     t1 = time.perf_counter()
@@ -95,6 +98,7 @@ def open_catalogue_window():
 
 def test_peeler():
     dataio = DataIO(dirname='test_peeler')
+    print(dataio)
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     initial_catalogue = catalogueconstructor.load_catalogue()
 

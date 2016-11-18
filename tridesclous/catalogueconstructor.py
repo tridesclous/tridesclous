@@ -22,6 +22,10 @@ from .iotools import ArrayCollection
 
 import matplotlib.pyplot as plt
 
+LABEL_TRASH = -1
+LABEL_UNSLASSIFIED = -10
+
+
 # TODO auto cut left rigth after first cut
 # TODO improve different of sample waveform
 # TODO make a clear distinct between all peak and sample peak/waveform/features (because different sizes) CF ndscatter!!!!!
@@ -169,7 +173,7 @@ class CatalogueConstructor:
         
         peak_pos = chunk_peaks
         peak_segment = np.ones(peak_pos.size, dtype='int64') * seg_num
-        peak_label = np.zeros(peak_pos.size, dtype='int32')
+        peak_label = np.ones(peak_pos.size, dtype='int32') * LABEL_UNSLASSIFIED
         
         self.arrays.append_chunk('peak_pos',  peak_pos)
         self.arrays.append_chunk('peak_label',  peak_label)
@@ -312,13 +316,16 @@ class CatalogueConstructor:
         if reset:
             self.colors = {}
         
-        n = self.cluster_labels.size
+        labels_ok = self.cluster_labels[self.cluster_labels>=0]
+        n = labels_ok.size
         color_table = sns.color_palette(palette, n)
-        for i, k in enumerate(self.cluster_labels):
+        for i, k in enumerate(labels_ok):
             if k not in self.colors:
                 self.colors[k] = color_table[i]
         
-        self.colors[-1] = (.4, .4, .4)
+        self.colors[LABEL_TRASH] = (.4, .4, .4)
+        self.colors[LABEL_UNSLASSIFIED] = (.4, .4, .4)
+        
         
     #~ def merge_cluster(self, labels_to_merge):
         #~ #TODO: maybe take the first cluster label instead of new one (except -1)
@@ -470,6 +477,7 @@ class CatalogueConstructor:
     
     def load_catalogue(self):
         filename = os.path.join(self.catalogue_path, 'initial_catalogue.pickle')
+        assert os.path.exists(filename), 'No catalogue file is found'
         with open(filename, mode='rb') as f:
             self.catalogue = pickle.load(f)
         return self.catalogue
