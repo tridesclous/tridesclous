@@ -99,7 +99,7 @@ class CatalogueConstructor:
         self.params_signalpreprocessor = dict(highpass_freq=highpass_freq, backward_chunksize=backward_chunksize,
                     common_ref_removal=common_ref_removal, output_dtype=internal_dtype)
         SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[signalpreprocessor_engine]
-        self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.dataio.nb_channel, chunksize, self.dataio.dtype)
+        self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.dataio.nb_channel, chunksize, self.dataio.source_dtype)
         
         
         self.params_peakdetector = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span=peak_span)
@@ -397,7 +397,10 @@ class CatalogueConstructor:
         
         print('peak_width', self.catalogue['peak_width'])
         
+        self.catalogue['label_to_index'] = {}
         for i, k in enumerate(cluster_labels):
+            self.catalogue['label_to_index'][k] = i
+            
             #print('construct_catalogue', k)
             # take peak of this cluster
             # and reshaape (nb_peak, nb_channel, nb_csample)

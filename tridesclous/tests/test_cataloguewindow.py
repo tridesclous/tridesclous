@@ -6,7 +6,7 @@ from matplotlib import pyplot
 
 
 def get_controller():
-    dataio = RawDataIO(dirname='test_catalogueconstructor')
+    dataio = DataIO(dirname='test_catalogueconstructor')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     controller = CatalogueController(catalogueconstructor=catalogueconstructor)
     return controller
@@ -73,7 +73,7 @@ def test_WaveformViewer():
 
 
 def test_CatalogueWindow():
-    dataio = RawDataIO(dirname='test_catalogueconstructor')
+    dataio = DataIO(dirname='test_catalogueconstructor')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
     app = pg.mkQApp()

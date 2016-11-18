@@ -430,7 +430,7 @@ class PeelerTraceViewer(BaseTraceViewer):
         else:
             self.selection_line.hide()
 
-        for i, k in enumerate(self.controller.cluster_labels):
+        for k in self.controller.cluster_labels:
             if k<0:
                 continue
             color = self.controller.qcolors.get(k,  self._default_color)
@@ -446,7 +446,8 @@ class PeelerTraceViewer(BaseTraceViewer):
                 mask = inwindow_label==k
                 times_chunk_in = times_chunk[inwindow_ind[mask]]
                 sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
-                c = self.controller.catalogue['max_on_channel'][i]
+                cluster_idx = self.controller.catalogue['label_to_index'][k]
+                c = self.controller.catalogue['max_on_channel'][cluster_idx]
                 
                 self.scatters[k].setBrush(color)
                 self.scatters[k].setData(times_chunk_in, sigs_chunk_in[:, c]*self.gains[c]+self.offsets[c])

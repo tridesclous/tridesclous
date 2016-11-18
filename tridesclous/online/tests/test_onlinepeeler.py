@@ -9,17 +9,20 @@ from pyacq.viewers import QOscilloscope, QTimeFreq
 
 import numpy as np
 import time
-
+import os
+import shutil
 
 
 
 
 def setup_catalogue():
-    dataio = RawDataIO(dirname='test_onlinepeeler')
+    if os.path.exists('test_onlinepeeler'):
+        shutil.rmtree('test_onlinepeeler')
     
-    filenames = ['Tem06c06.IOT']    
-    dataio.set_initial_signals(filenames=filenames, dtype='int16',
-                                     total_channel=16, sample_rate=10000.)    
+    dataio = DataIO(dirname='test_onlinepeeler')
+    filenames = ['Tem06c06.IOT']
+    dataio.set_data_source(type='RawData', filenames=filenames,
+                    dtype='int16', total_channel=16, sample_rate=10000.)
     channel_group = [5, 6, 7, 8, 9]
     dataio.set_channel_group(channel_group)
     
@@ -91,12 +94,12 @@ def setup_catalogue():
 
 
 def test_OnlinePeeler():
-    dataio = RawDataIO(dirname='test_onlinepeeler')
+    dataio = DataIO(dirname='test_onlinepeeler')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     catalogue = catalogueconstructor.load_catalogue()
     #~ print(catalogue)
     
-    sigs = dataio.initial_data[0]
+    sigs = dataio.datasource.array_sources[0]
     
     sigs = sigs.astype('float32')
     sample_rate = dataio.sample_rate

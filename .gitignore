@@ -1,5 +1,5 @@
 #
-tridesclous/tests/test_rawdataio/*
+tridesclous/tests/test_DataIo/*
 tridesclous/tests/test_catalogueconstructor/*
 tridesclous/tests/test_peeler/*
 tridesclous/online/tests/test_onlinepeeler/

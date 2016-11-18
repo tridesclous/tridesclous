@@ -158,10 +158,10 @@ class Peeler:
             
     
     
-    def _initialize_before_each_segment(self, sample_rate=None, nb_channel=None, input_dtype=None):
+    def _initialize_before_each_segment(self, sample_rate=None, nb_channel=None, source_dtype=None):
 
         SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[self.signalpreprocessor_engine]
-        self.signalpreprocessor = SignalPreprocessor_class(sample_rate, nb_channel, self.chunksize, input_dtype)
+        self.signalpreprocessor = SignalPreprocessor_class(sample_rate, nb_channel, self.chunksize, source_dtype)
         
         #there is one peakdetectior by level because each one have
         # its own ringbuffer for each residual level
@@ -183,14 +183,14 @@ class Peeler:
         self.prev_preprocessed_chunk = None
         self.prev_spikes_at_right_limit = np.zeros(0, dtype=_dtype_spike)
         
-    def initialize_online_loop(self, sample_rate=None, nb_channel=None, input_dtype=None):
-        self._initialize_before_each_segment(sample_rate=sample_rate, nb_channel=nb_channel, input_dtype=input_dtype)
+    def initialize_online_loop(self, sample_rate=None, nb_channel=None, source_dtype=None):
+        self._initialize_before_each_segment(sample_rate=sample_rate, nb_channel=nb_channel, source_dtype=source_dtype)
     
     def run_offline_loop_one_segment(self, seg_num=0, duration=None):
         kargs = {}
         kargs['sample_rate'] = self.dataio.sample_rate
         kargs['nb_channel'] = self.dataio.nb_channel
-        kargs['input_dtype'] = self.dataio.dtype
+        kargs['source_dtype'] = self.dataio.source_dtype
         self._initialize_before_each_segment(**kargs)
         
         if duration is not None:
@@ -380,7 +380,9 @@ def make_prediction_signals(spikes, dtype, shape, catalogue):
         k = spikes[i]['label']
         if k<0: continue
         
-        cluster_idx = np.nonzero(catalogue['cluster_labels']==k)[0][0]
+        #~ cluster_idx = np.nonzero(catalogue['cluster_labels']==k)[0][0]
+        cluster_idx = catalogue['label_to_index'][k]
+        
         #~ print('make_prediction_signals', 'k', k, 'cluster_idx', cluster_idx)
         
         # prediction with no interpolation

@@ -97,7 +97,7 @@ class OnlinePeeler(Node):
     def _start(self):
         self.peeler.initialize_online_loop(sample_rate=self.input.params['sample_rate'],
                                             nb_channel=len(self.channel_group),
-                                            input_dtype=self.input.params['dtype'])
+                                            source_dtype=self.input.params['dtype'])
         self.thread.start()
         
     def _stop(self):

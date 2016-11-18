@@ -34,6 +34,7 @@ class PeelerController(ControllerBase):
         self.spikes = np.concatenate(self.spikes)
         
         self.nb_spike = int(self.spikes.size)
+        self.cluster_labels = np.unique(self.spikes['label'])
         
         self.cluster_count = { k:np.sum(self.spikes['label']==k) for k in self.cluster_labels}
         
@@ -71,11 +72,11 @@ class PeelerController(ControllerBase):
             r, g, b = color
             self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
     
-    @property
-    def cluster_labels(self):
+    #~ @property
+    #~ def cluster_labels(self):
         #TODO find better
         #~ return self.catalogue['cluster_labels']
-        return np.array(list(self.catalogue['cluster_labels'])+[-10,-11,-12])
+        #~ return np.array(list(self.catalogue['cluster_labels'])+[-10,-11,-12])
 
     def get_threshold(self):
         threshold = self.catalogue['params_peakdetector']['relative_threshold']

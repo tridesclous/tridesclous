@@ -8,7 +8,6 @@ def make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup = None, chunksize
     length -= length%chunksize
     sigs = sigs[:length, :]
     dtype = sigs.dtype
-    print(sigs.shape, sigs.dtype)
     
     if nodegroup is None:
         dev = NumpyDeviceBuffer()

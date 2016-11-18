@@ -3,22 +3,27 @@ from tridesclous import *
 import numpy as np
 import scipy.signal
 import time
+import os
+import shutil
 
 import  pyqtgraph as pg
 
-from tridesclous.dataio import RawDataIO
+from tridesclous.dataio import DataIO
 from tridesclous.catalogueconstructor import CatalogueConstructor
 from tridesclous.peeler import Peeler
 
 
 
 def setup_catalogue():
-    dataio = RawDataIO(dirname='test_peeler')
-    
+    if os.path.exists('test_peeler'):
+        shutil.rmtree('test_peeler')
+        
+    dataio = DataIO(dirname='test_peeler')
     filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT']
-    dataio.set_initial_signals(filenames=filenames, dtype='int16',
-                                     total_channel=16, sample_rate=10000.)    
+    dataio.set_data_source(type='RawData', filenames=filenames,
+                    dtype='int16', total_channel=16, sample_rate=10000.)
     dataio.set_channel_group(range(14))
+    
     #~ dataio.set_channel_group([5, 6, 7, 8, 9])
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
@@ -80,7 +85,7 @@ def setup_catalogue():
 
 
 def open_catalogue_window():
-    dataio = RawDataIO(dirname='test_peeler')
+    dataio = DataIO(dirname='test_peeler')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     app = pg.mkQApp()
     win = CatalogueWindow(catalogueconstructor)
@@ -89,7 +94,7 @@ def open_catalogue_window():
 
 
 def test_peeler():
-    dataio = RawDataIO(dirname='test_peeler')
+    dataio = DataIO(dirname='test_peeler')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     initial_catalogue = catalogueconstructor.load_catalogue()
 
@@ -104,7 +109,7 @@ def test_peeler():
 
 
 def open_PeelerWindow():
-    dataio = RawDataIO(dirname='test_peeler')
+    dataio = DataIO(dirname='test_peeler')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     initial_catalogue = catalogueconstructor.load_catalogue()
 

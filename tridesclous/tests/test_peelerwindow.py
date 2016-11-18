@@ -5,7 +5,7 @@ from matplotlib import pyplot
 
 
 def get_controller():
-    dataio = RawDataIO(dirname='test_peeler')
+    dataio = DataIO(dirname='test_peeler')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     initial_catalogue = catalogueconstructor.load_catalogue()
     controller = PeelerController(dataio=dataio,catalogue=initial_catalogue)

@@ -1,20 +1,26 @@
 import numpy as np
 import time
+import os
+import shutil
 
 from tridesclous import get_dataset
-from tridesclous.dataio import RawDataIO
+from tridesclous.dataio import DataIO
 from tridesclous.catalogueconstructor import CatalogueConstructor
 
 from matplotlib import pyplot
 
 def test_catalogue_constructor():
+    if os.path.exists('test_catalogueconstructor'):
+        shutil.rmtree('test_catalogueconstructor')
+
     filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT']
     #~ filenames = ['Tem06c06.IOT']
-    dataio = RawDataIO(dirname='test_catalogueconstructor')
-    dataio.set_initial_signals(filenames=filenames, dtype='int16',
-                                     total_channel=16, sample_rate=10000.)    
+    dataio = DataIO(dirname='test_catalogueconstructor')
+    dataio.set_data_source(type='RawData', filenames=filenames,
+                    dtype='int16', total_channel=16, sample_rate=10000.)
     dataio.set_channel_group(range(14))
-    print(dataio.segments_path)
+        
+    #~ print(dataio.segments_path)
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
@@ -93,12 +99,14 @@ def test_catalogue_constructor():
     
     
 def compare_nb_waveforms():
+    if os.path.exists('test_catalogueconstructor'):
+        shutil.rmtree('test_catalogueconstructor')
+
     filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT']
-    dataio = RawDataIO(dirname='test_catalogueconstructor')
-    dataio.set_initial_signals(filenames=filenames, dtype='int16',
-                                     total_channel=16, sample_rate=10000.)    
+    dataio = DataIO(dirname='test_catalogueconstructor')
+    dataio.set_data_source(type='RawData', filenames=filenames,
+                    dtype='int16', total_channel=16, sample_rate=10000.)
     dataio.set_channel_group(range(14))
-    #~ print(dataio.segments_path)
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
 
@@ -160,11 +168,13 @@ def compare_nb_waveforms():
     
 
 def test_make_catalogue():
-    filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT']
-    dataio = RawDataIO(dirname='test_catalogueconstructor')
+    if os.path.exists('test_catalogueconstructor'):
+        shutil.rmtree('test_catalogueconstructor')
     
-    dataio.set_initial_signals(filenames=filenames, dtype='int16',
-                                     total_channel=16, sample_rate=10000.)    
+    filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT']
+    dataio = DataIO(dirname='test_catalogueconstructor')
+    dataio.set_data_source(type='RawData', filenames=filenames,
+                    dtype='int16', total_channel=16, sample_rate=10000.)
     #~ dataio.set_channel_group(range(14))
     dataio.set_channel_group([5, 6, 7, 8, 9])
     
