@@ -1,24 +1,72 @@
 import numpy as np
 import os
+import sys
+import inspect
 from urllib.request import urlretrieve
 
 
-def read_bulbe_olfactive():
-    """
-    Dataset from Nathalie Buonvison BO.
-    """
-    localdir = os.path.dirname(__file__)
-    data = np.memmap(os.path.join(localdir, 'Tem06c08.IOT'), dtype='int16').reshape(-1, 16)
-    #~ data = (data.astype('float32') - 2**15.) / 2**15
-    sample_rate = 10000.
-    return data[:, :14], sample_rate
+# Now all file are in raw binary format
 
-
-
-def get_dataset(name='BO'):
-    if name=='BO':
-        return read_bulbe_olfactive()
+datasets_info = {
+    'locust':{
+        'url': 'https://raw.githubusercontent.com/tridesclous/tridesclous_datasets/master/locust/',
+        'filenames': ['locust_trial_01.raw', 'locust_trial_02.raw'],
+        'shape' : (-1,4),
+        'dtype': 'int16',
+        'sample_rate': 15000.,
+    },
     
+    'olfactory_bulb':{
+        'url': 'https://raw.githubusercontent.com/tridesclous/tridesclous_datasets/master/olfactory_bulb/',
+        'filenames': ['OB_file1.raw', 'OB_file2.raw', 'OB_file3.raw'],
+        'shape' : (-1,16),
+        'dtype': 'int16',
+        'sample_rate': 10000.,
+    }
+}
+
+
+def download_dataset(name='locust', localdir=None):
+    assert name in datasets_info
+    
+    if localdir is None:
+        # get path of the calling function see
+        #http://stackoverflow.com/questions/11757801/get-the-file-of-the-function-one-level-up-in-the-stack
+        localdir = os.path.abspath(os.path.dirname(inspect.getfile(sys._getframe(1))))
+        if not os.access(localdir, os.W_OK):
+            localdir = tempfile.gettempdir()
+        localdir = os.path.join(localdir, name)
+    
+    if not os.path.exists(localdir):
+        os.mkdir(localdir)
+    
+    info = datasets_info[name]
+    
+    filenames = info['filenames']
+    
+    for filename in filenames:
+        localfile = os.path.join(localdir, filename)
+        if not os.path.exists(localfile):
+            distantfile = info['url'] + filename
+            urlretrieve(distantfile, localfile)
+    
+    return localdir, filenames
+
+def get_dataset(name='locust', localdir=None, seg_num=0):
+    assert name in datasets_info
+    
+    localdir, filenames = download_dataset(name=name, localdir=localdir)
+    filename = filenames[seg_num]
+    
+    sample_rate = datasets_info[name]['sample_rate']
+    dtype = datasets_info[name]['dtype']
+    shape = datasets_info[name]['shape']
+    data = np.memmap(os.path.join(localdir, filename), dtype=dtype).reshape(shape)
+    
+    return data, sample_rate
+    
+
+
 
 
 #~ def download_locust(trial_names = ['trial_01']):

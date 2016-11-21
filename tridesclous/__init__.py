@@ -2,7 +2,7 @@ from .version import version as __version__
 
 import PyQt5 # this force pyqtgraph to deal with Qt5
 
-from .datasets import get_dataset
+from .datasets import download_dataset, get_dataset
 from .dataio import DataIO
 from .catalogueconstructor import CatalogueConstructor
 from .peeler import Peeler
