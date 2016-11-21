@@ -32,10 +32,20 @@ LABEL_UNSLASSIFIED = -10
 # TODO make some label for insorted type
 
 
+#~ _persitent_arrays = ['peak_pos', 'peak_segment', 'peak_label',
+                    #~ 'peak_waveforms', 'peak_waveforms_index', 'features',
+                    #~ 'signals_medians','signals_mads', ]
+
+_persitent_arrays = ['all_peaks', 'some_peaks_index', 'some_waveforms', 
+                    'some_features', 'signals_medians','signals_mads', ]
+
+_dtype_peak = [('index', 'int64'), ('label', 'int64'), ('segment', 'int64'),]
+
+
 class CatalogueConstructor:
     """
     CatalogueConstructor scan a smal part of the dataset to construct the catalogue.
-    Catalogue are the centroid (median+mad) of each cluster.
+    
     
     
     """
@@ -57,15 +67,18 @@ class CatalogueConstructor:
             with open(self.info_filename, 'r', encoding='utf8') as f:
                 self.info = json.load(f)
         
-        for name in ['peak_pos', 'peak_segment', 'peak_label',
-                    'peak_waveforms', 'peak_waveforms_index', 'features',
-                    'signals_medians','signals_mads', ]:
+        
+        for name in _persitent_arrays:
             # this set attribute to class if exsits
             self.arrays.load_if_exists(name)
-        #~ print(' __init__ self.peak_pos', self.peak_pos)
-        if self.peak_pos is not None:
-            self.nb_peak = self.peak_pos.size
+        
+        #~ if self.peak_pos is not None:
+        if self.all_peaks is not None:
+            #~ self.nb_peak = self.peak_pos.size
+            self.nb_peak = self.all_peaks.size
             self.memory_mode='memmap'
+        
+        self.projector = None
     
     def flush_info(self):
         with open(self.info_filename, 'w', encoding='utf8') as f:
@@ -94,10 +107,11 @@ class CatalogueConstructor:
         self.chunksize = chunksize
         self.memory_mode = memory_mode
         
-        for name, dtype in [('peak_pos', 'int64'),
-                                        ('peak_segment', 'int64'),
-                                        ('peak_label', 'int32')]:
-            self.arrays.initialize_array(name, self.memory_mode,  dtype, (-1, ))
+        #~ for name, dtype in [('peak_pos', 'int64'),
+                                        #~ ('peak_segment', 'int64'),
+                                        #~ ('peak_label', 'int32')]:
+            #~ self.arrays.initialize_array(name, self.memory_mode,  dtype, (-1, ))
+        self.arrays.initialize_array('all_peaks', self.memory_mode,  _dtype_peak, (-1, ))
         
         
         self.params_signalpreprocessor = dict(highpass_freq=highpass_freq, backward_chunksize=backward_chunksize,
@@ -145,18 +159,18 @@ class CatalogueConstructor:
             if preprocessed_chunk is not None:
                 filtered_sigs[pos2-preprocessed_chunk.shape[0]:pos2, :] = preprocessed_chunk
         
+
+        #create  persistant arrays
+        self.arrays.create_array('signals_medians', self.info['internal_dtype'], (self.dataio.nb_channel,), 'memmap')
+        self.arrays.create_array('signals_mads', self.info['internal_dtype'], (self.dataio.nb_channel,), 'memmap')
         
-        signals_medians = np.median(filtered_sigs, axis=0)
-        signals_mads = np.median(np.abs(filtered_sigs-signals_medians),axis=0)*1.4826
+        self.signals_medians[:] = signals_medians = np.median(filtered_sigs, axis=0)
+        self.signals_mads[:] = np.median(np.abs(filtered_sigs-signals_medians),axis=0)*1.4826
         
+        #detach filetered signals even if the file remains.
+        # TODO : maybe remove the file ????
         self.arrays.detach_array(name)
         
-        #make theses persistant
-        self.arrays.create_array('signals_medians', self.info['internal_dtype'], signals_medians.shape, 'memmap')
-        self.arrays.create_array('signals_mads', self.info['internal_dtype'], signals_mads.shape, 'memmap')
-        self.signals_medians[:] = signals_medians
-        self.signals_mads[:] = signals_mads
-
 
     def signalprocessor_one_chunk(self, pos, sigs_chunk, seg_num):
 
@@ -168,19 +182,30 @@ class CatalogueConstructor:
                         i_stop=pos2, signal_type='processed')
         
         n_peaks, chunk_peaks = self.peakdetector.process_data(pos2, preprocessed_chunk)
-        if chunk_peaks is  None:
-            chunk_peaks = np.array([], dtype='int64')
         
-        peak_pos = chunk_peaks
-        peak_segment = np.ones(peak_pos.size, dtype='int64') * seg_num
-        peak_label = np.ones(peak_pos.size, dtype='int32') * LABEL_UNSLASSIFIED
+        #~ if chunk_peaks is  None:
+            #~ chunk_peaks = np.array([], dtype='int64')
         
-        self.arrays.append_chunk('peak_pos',  peak_pos)
-        self.arrays.append_chunk('peak_label',  peak_label)
-        self.arrays.append_chunk('peak_segment',  peak_segment)
+        #~ peak_pos = chunk_peaks
+        #~ peak_segment = np.ones(peak_pos.size, dtype='int64') * seg_num
+        #~ peak_label = np.ones(peak_pos.size, dtype='int32') * LABEL_UNSLASSIFIED
+        
+        #~ self.arrays.append_chunk('peak_pos',  peak_pos)
+        #~ self.arrays.append_chunk('peak_label',  peak_label)
+        #~ self.arrays.append_chunk('peak_segment',  peak_segment)
 
-        self.nb_peak += peak_pos.size
-
+        #~ self.nb_peak += peak_pos.size
+        
+        if chunk_peaks is not None:
+        
+            peaks = np.zeros(chunk_peaks.size, dtype=_dtype_peak)
+            peaks['index'] = chunk_peaks
+            peaks['segment'][:] = seg_num
+            peaks['label'][:] = LABEL_UNSLASSIFIED
+            self.arrays.append_chunk('all_peaks',  peaks)
+            
+            self.nb_peak += peaks.size
+        
 
         
     def run_signalprocessor_loop(self, seg_num=0, duration=60.):
@@ -202,54 +227,72 @@ class CatalogueConstructor:
         for pos, sigs_chunk in iterator:
             #~ print(seg_num, pos, sigs_chunk.shape)
             self.signalprocessor_one_chunk(pos, sigs_chunk, seg_num)
-        
-        
-        
-        
+    
     
     def finalize_signalprocessor_loop(self):
         self.dataio.flush_processed_signals(seg_num=0)
         
-        self.arrays.finalize_array('peak_pos')
-        self.arrays.finalize_array('peak_label')
-        self.arrays.finalize_array('peak_segment')
-        #~ self.on_new_cluster()
-    
-    
-    def extract_some_waveforms(self, n_left=-20, n_right=30,  nb_max=10000):
+        #~ self.arrays.finalize_array('peak_pos')
+        #~ self.arrays.finalize_array('peak_label')
+        #~ self.arrays.finalize_array('peak_segment')
         
+        self.arrays.finalize_array('all_peaks')
+        
+    
+    
+    def extract_some_waveforms(self, n_left=-20, n_right=30, index=None, mode='rand', nb_max=10000):
+        """
+        
+        """
+
+        #~ 'some_peaks_index', 'some_waveforms', 
+                    #~ 'some_features', 
+
         peak_width = - n_left + n_right
-
-        if self.nb_peak>nb_max:
-            take_mask = np.zeros(self.nb_peak, dtype='bool')
-            take_index = np.random.choice(self.nb_peak, size=nb_max).astype('int64')
-            take_mask[take_index] = True
+        
+        if index is not None:
+            some_peaks_index = index
         else:
-            take_index = np.arange(self.nb_peak, dtype='int64')
-            take_mask = np.ones(self.nb_peak, dtype='bool')
+            if mode=='rand' and self.nb_peak>nb_max:
+                some_peaks_index = np.random.choice(self.nb_peak, size=nb_max).astype('int64')
+            elif mode=='rand' and self.nb_peak<=nb_max:
+                some_peaks_index = np.arange(self.nb_peak, dtype='int64')
+            elif mode=='all':
+                some_peaks_index = np.arange(self.nb_peak, dtype='int64')
+            else:
+                raise(NotImplementedError, 'unknown mode')
         
-        nb_peak_waveforms = take_index.size
-        self.arrays.create_array('peak_waveforms_index', 'int64', (nb_peak_waveforms,), self.memory_mode)
-        self.peak_waveforms_index[:] = take_index
         
-        shape=(nb_peak_waveforms, peak_width, self.dataio.nb_channel)
-        self.arrays.create_array('peak_waveforms', self.info['internal_dtype'], shape, self.memory_mode)
+        some_peak_mask = np.zeros(self.nb_peak, dtype='bool')
+        some_peak_mask[some_peaks_index] = True
+        
+        nb = some_peaks_index.size
+        
+        # make it persitent
+        self.arrays.create_array('some_peaks_index', 'int64', (nb,), self.memory_mode)
+        self.some_peaks_index[:] = some_peaks_index
+        
+        shape=(nb, peak_width, self.dataio.nb_channel)
+        self.arrays.create_array('some_waveforms', self.info['internal_dtype'], shape, self.memory_mode)
 
-        seg_nums = np.unique(self.peak_segment)
+        seg_nums = np.unique(self.all_peaks['segment'])
         n = 0
         for seg_num in seg_nums:
-            insegmen_peak_pos = self.peak_pos[take_mask & (self.peak_segment==seg_num)]
-            for pos in insegmen_peak_pos:
-                i_start = pos+n_left
+            insegment_peaks  = self.all_peaks[some_peak_mask & (self.all_peaks['segment']==seg_num)]
+            for peak in insegment_peaks:
+                i_start = peak['index']+n_left
                 i_stop = i_start+peak_width
                 wf = self.dataio.get_signals_chunk(seg_num=seg_num, i_start=i_start, i_stop=i_stop, signal_type='processed')
-                self.peak_waveforms[n, :, :] = wf
+                self.some_waveforms[n, :, :] = wf
                 n +=1
-                #~ print(n, seg_num)
         
         self.info['params_waveformextractor'] = dict(n_left=n_left, n_right=n_right,  nb_max=nb_max)
         self.flush_info()
         
+        if self.projector is not None:
+            self.apply_projection()
+        else:
+            self.some_features = None
 
     def project(self, method='pca', selection = None, n_components=5, **params):
         """
@@ -257,29 +300,45 @@ class CatalogueConstructor:
         n_components
         
         """
-        wf = self.peak_waveforms.reshape(self.peak_waveforms.shape[0], -1)
+        #TODO selection
+        
+        #~ wf = self.some_waveforms.reshape(self.some_waveforms.shape[0], -1)
         params['n_components'] = n_components
-        features = decomposition.project_waveforms(self.peak_waveforms, method=method, selection=None,
+        features, self.projector = decomposition.project_waveforms(self.some_waveforms, method=method, selection=None,
                     catalogueconstructor=self, **params)
         
         #trick to make it persistant
-        self.arrays.create_array('features', self.info['internal_dtype'], features.shape, self.memory_mode)
-        self.features[:] = features
+        self.arrays.create_array('some_features', self.info['internal_dtype'], features.shape, self.memory_mode)
+        self.some_features[:] = features
     
+    def apply_projection(self):
+        assert self.projector is not None
+        wf = self.some_waveforms.reshape(self.some_waveforms.shape[0], -1)
+        features = self.projector.transform(wf)
+        
+        #trick to make it persistant
+        self.arrays.create_array('some_features', self.info['internal_dtype'], features.shape, self.memory_mode)
+        self.some_features[:] = features
+        
+        
+        
+        
     
     def find_clusters(self, method='kmeans', n_clusters=1, order_clusters=True, selection=None, **kargs):
         #TODO clustering on all peaks
         
         if selection is None:
-            labels = cluster.find_clusters(self.features, method=method, n_clusters=n_clusters, **kargs)
-            self.peak_label[self.peak_waveforms_index] = labels
+            labels = cluster.find_clusters(self.some_features, method=method, n_clusters=n_clusters, **kargs)
+            #~ self.peak_label[self.peak_waveforms_index] = labels
+            self.peaks[self.some_peaks_index['label'] = labels
         else:
+            #TODO
             
-            sel = selection[self.peak_waveforms_index]
-            features = self.features[sel]
-            labels = cluster.find_clusters(features, method=method, n_clusters=n_clusters, **kargs)
-            labels += max(self.cluster_labels)+1
-            self.peak_label[sel] = labels
+            #~ sel = selection[self.peak_waveforms_index]
+            #~ features = self.features[sel]
+            #~ labels = cluster.find_clusters(features, method=method, n_clusters=n_clusters, **kargs)
+            #~ labels += max(self.cluster_labels)+1
+            #~ self.peak_label[sel] = labels
         
         self.on_new_cluster()
         

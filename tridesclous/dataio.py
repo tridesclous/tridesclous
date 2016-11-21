@@ -127,7 +127,7 @@ class DataIO:
                 return_type='raw_numpy'):
         
         if signal_type=='initial':
-            data = self.datasource.get_signals_chunk(seg_num=0, i_start=i_start, i_stop=i_stop)
+            data = self.datasource.get_signals_chunk(seg_num=seg_num, i_start=i_start, i_stop=i_stop)
             data = data[:, self.channel_group]
         elif signal_type=='processed':
             data = self.arrays_by_seg[seg_num].get('processed_signals')[i_start:i_stop, :]

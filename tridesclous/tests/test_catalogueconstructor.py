@@ -18,7 +18,6 @@ def test_catalogue_constructor():
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
     dataio.set_channel_group(range(14))
     
-    
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
     for memory_mode in ['ram', 'memmap']:
@@ -58,17 +57,19 @@ def test_catalogue_constructor():
         catalogueconstructor.finalize_signalprocessor_loop()
         t2 = time.perf_counter()
         print('finalize_signalprocessor_loop', t2-t1)
-
+        
         for seg_num in range(dataio.nb_segment):
-            mask = catalogueconstructor.peak_segment==seg_num
+            mask = catalogueconstructor.all_peaks['segment']==seg_num
             print('seg_num', seg_num, np.sum(mask))
         
-        t1 = time.perf_counter()
-        catalogueconstructor.extract_some_waveforms(n_left=-20, n_right=30,  nb_max=5000)
-        t2 = time.perf_counter()
-        print('extract_some_waveforms', t2-t1)
-        print(catalogueconstructor.peak_waveforms.shape)
         
+        t1 = time.perf_counter()
+        catalogueconstructor.extract_some_waveforms(n_left=-20, n_right=30, mode='rand', nb_max=5000)
+        t2 = time.perf_counter()
+        print('extract_some_waveforms rand', t2-t1)
+        print(catalogueconstructor.some_waveforms.shape)
+        print(catalogueconstructor.some_peaks_index)
+
 
         
         # PCA
@@ -76,12 +77,27 @@ def test_catalogue_constructor():
         catalogueconstructor.project(method='IncrementalPCA', n_components=7, batch_size=16384)
         t2 = time.perf_counter()
         print('project', t2-t1)
+        print(catalogueconstructor.some_features.shape)
+
+
+        t1 = time.perf_counter()
+        catalogueconstructor.extract_some_waveforms(n_left=-20, n_right=30, index=np.arange(1000))
+        t2 = time.perf_counter()
+        print('extract_some_waveforms others', t2-t1)
+        print(catalogueconstructor.some_waveforms.shape)
+        print(catalogueconstructor.some_features.shape)
+        print(catalogueconstructor.some_peaks_index)
+        
+        continue
+
         
         # cluster
         t1 = time.perf_counter()
         catalogueconstructor.find_clusters(method='kmeans', n_clusters=11)
         t2 = time.perf_counter()
         print('find_clusters', t2-t1)
+        
+        continue
         
         
         
@@ -236,8 +252,8 @@ def test_make_catalogue():
 
     
 if __name__ == '__main__':
-    #~ test_catalogue_constructor()
+    test_catalogue_constructor()
     
     #~ compare_nb_waveforms()
     
-    test_make_catalogue()
+    #~ test_make_catalogue()

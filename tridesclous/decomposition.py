@@ -5,7 +5,7 @@ import sklearn.decomposition
 
 
 
-def project_waveforms(peak_waveforms, method='IncrementalPCA', selection=None, catalogueconstructor=None, **params):
+def project_waveforms(peak_waveforms, method='pca', selection=None, catalogueconstructor=None, **params):
     """
     
     
@@ -21,12 +21,13 @@ def project_waveforms(peak_waveforms, method='IncrementalPCA', selection=None, c
         else:
             pca.fit(flatten_waveforms[selection])
         features = pca.transform(flatten_waveforms)
+        projector = pca
     elif method=='peak_max':
-        ind_peak = catalogueconstructor.info['params_waveformextractor']['n_left']+1
+        ind_peak = -catalogueconstructor.info['params_waveformextractor']['n_left']+1
         features = peak_waveforms[:, ind_peak, : ].copy()
-        
+        projector = None
     else:
         Raise(NotImplementedError)
     
     
-    return features
+    return features, projector

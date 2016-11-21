@@ -44,8 +44,10 @@ def download_dataset(name='locust', localdir=None):
     
     for filename in info['filenames']:
         localfile = os.path.join(localdir, filename)
+        
         if not os.path.exists(localfile):
             distantfile = info['url'] + filename
+            print('download_dataset', localfile, 'from', distantfile)
             urlretrieve(distantfile, localfile)
     
     filenames = [os.path.join(localdir, f) for f in info['filenames']]
