@@ -1,6 +1,8 @@
 #
 tridesclous/tests/locust/*
 tridesclous/tests/olfactory_bulb/*
+tridesclous/online/tests/locust/*
+tridesclous/online/tests/olfactory_bulb/*
 tridesclous/tests/test_DataIo/*
 tridesclous/tests/test_catalogueconstructor/*
 tridesclous/tests/test_peeler/*

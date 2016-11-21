@@ -20,9 +20,10 @@ def setup_catalogue():
         shutil.rmtree('test_onlinepeeler')
     
     dataio = DataIO(dirname='test_onlinepeeler')
-    filenames = ['Tem06c06.IOT']
-    dataio.set_data_source(type='RawData', filenames=filenames,
-                    dtype='int16', total_channel=16, sample_rate=10000.)
+    
+    localdir, filenames, params = download_dataset(name='olfactory_bulb')
+    filenames = filenames[:1] #only first file
+    dataio.set_data_source(type='RawData', filenames=filenames, **params)
     channel_group = [5, 6, 7, 8, 9]
     dataio.set_channel_group(channel_group)
     
