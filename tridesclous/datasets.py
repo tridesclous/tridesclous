@@ -5,13 +5,12 @@ import inspect
 from urllib.request import urlretrieve
 
 
-# Now all file are in raw binary format
-
+# For now, all testing file are in raw binary format
 datasets_info = {
     'locust':{
         'url': 'https://raw.githubusercontent.com/tridesclous/tridesclous_datasets/master/locust/',
         'filenames': ['locust_trial_01.raw', 'locust_trial_02.raw'],
-        'shape' : (-1,4),
+        'total_channel': 4,
         'dtype': 'int16',
         'sample_rate': 15000.,
     },
@@ -19,9 +18,10 @@ datasets_info = {
     'olfactory_bulb':{
         'url': 'https://raw.githubusercontent.com/tridesclous/tridesclous_datasets/master/olfactory_bulb/',
         'filenames': ['OB_file1.raw', 'OB_file2.raw', 'OB_file3.raw'],
-        'shape' : (-1,16),
+        'total_channel': 16,
         'dtype': 'int16',
         'sample_rate': 10000.,
+        'channel_group': list(range(14))
     }
 }
 
@@ -42,53 +42,28 @@ def download_dataset(name='locust', localdir=None):
     
     info = datasets_info[name]
     
-    filenames = info['filenames']
-    
-    for filename in filenames:
+    for filename in info['filenames']:
         localfile = os.path.join(localdir, filename)
         if not os.path.exists(localfile):
             distantfile = info['url'] + filename
             urlretrieve(distantfile, localfile)
     
-    return localdir, filenames
+    filenames = [os.path.join(localdir, f) for f in info['filenames']]
+    params = {k: datasets_info[name][k] for k in ('dtype', 'sample_rate', 'total_channel')}
+    return localdir, filenames, params
+
 
 def get_dataset(name='locust', localdir=None, seg_num=0):
     assert name in datasets_info
     
-    localdir, filenames = download_dataset(name=name, localdir=localdir)
+    localdir, filenames, params = download_dataset(name=name, localdir=localdir)
     filename = filenames[seg_num]
+    data = np.memmap(os.path.join(localdir, filename), dtype=params['dtype'])
+    data = data.reshape(-1, params['total_channel'])
     
-    sample_rate = datasets_info[name]['sample_rate']
-    dtype = datasets_info[name]['dtype']
-    shape = datasets_info[name]['shape']
-    data = np.memmap(os.path.join(localdir, filename), dtype=dtype).reshape(shape)
+    if 'channel_group' in datasets_info[name]:
+        data = data[:, datasets_info[name]['channel_group']]
     
-    return data, sample_rate
+    return data, params['sample_rate']
     
 
-
-
-
-#~ def download_locust(trial_names = ['trial_01']):
-    #~ name = 'locust20010201.hdf5'
-    #~ distantfile = 'https://zenodo.org/record/21589/files/'+name
-    #~ localdir = os.path.dirname(os.path.abspath(__file__))
-    
-    #~ if not os.access(localdir, os.W_OK):
-        #~ localdir = tempfile.gettempdir()
-    #~ localfile = os.path.join(os.path.dirname(__file__), name)
-    
-    #~ if not os.path.exists(localfile):
-        #~ urlretrieve(distantfile, localfile)
-    #~ hdf = h5py.File(localfile,'r')
-    #~ ch_names = ['ch09','ch11','ch13','ch16']
-    
-    #~ sigs_by_trials = []
-    #~ for trial_name in trial_names:
-        #~ sigs = np.array([hdf['Continuous_1'][trial_name][name][...] for name in ch_names]).transpose()
-        #~ sigs = (sigs.astype('float32') - 2**15.) / 2**15
-        #~ sigs_by_trials.append(sigs)
-    
-    #~ sampling_rate = 15000.
-    
-    #~ return sigs_by_trials, sampling_rate, ch_names

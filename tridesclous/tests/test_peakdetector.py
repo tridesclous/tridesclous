@@ -1,4 +1,4 @@
-from tridesclous import (get_dataset, )
+from tridesclous import get_dataset
 from tridesclous.peakdetector import peakdetector_engines
 
 import time
@@ -53,13 +53,9 @@ def test_compare_offline_online_engines():
         engines = ['peakdetector_numpy']
 
     # get sigs
-    get_dataset(name='BO')
-    
-    
-    sigs, sample_rate = get_dataset()
-    #~ sigs = sigs[:, [0]]
+    sigs, sample_rate = get_dataset(name='olfactory_bulb')
     nb_channel = sigs.shape[1]
-    print('nb_channel', nb_channel)
+    
     
     #params
     chunksize = 1024

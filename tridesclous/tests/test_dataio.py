@@ -2,6 +2,7 @@ import pytest
 import os, tempfile, shutil
 import numpy as np
 
+from tridesclous import download_dataset
 from tridesclous import DataIO
 from tridesclous.dataio import RawDataSource,InMemoryDataSource
 
@@ -20,9 +21,9 @@ def test_InMemoryDataSource():
     
 
 def test_RawDataSource():
-    filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT']
-    datasource = RawDataSource(filenames=filenames, 
-                    dtype='int16', total_channel=16, sample_rate=10000.)
+    localdir, filenames, params = download_dataset(name='olfactory_bulb')
+    datasource = RawDataSource(filenames=filenames, **params)
+    
     assert datasource.total_channel == 16
     assert datasource.sample_rate == 10000.
     assert datasource.nb_segment==3
@@ -41,11 +42,10 @@ def test_DataIO():
         
     dataio = DataIO(dirname='test_DataIO')
     print(dataio)
-    
-    
-    filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT']
-    params = dict(filenames=filenames, dtype='int16', total_channel=16, sample_rate=10000.)
-    dataio.set_data_source(type='RawData', **params)
+
+
+    localdir, filenames, params = download_dataset(name='olfactory_bulb')
+    dataio.set_data_source(type='RawData', filenames=filenames,  **params)
     #~ dataio.set_channel_group(range(4))
     dataio.set_channel_group(range(14))
     print(dataio)

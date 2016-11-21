@@ -6,7 +6,7 @@ import time
 from tridesclous import get_dataset
 from tridesclous.signalpreprocessor import SignalPreprocessor_Numpy
 from tridesclous.peakdetector import PeakDetectorEngine_Numpy
-from tridesclous.waveformextractor import WaveformExtractor, cut_full
+from tridesclous.waveformextractor import OnlineWaveformExtractor, cut_full
 
 
 
@@ -62,8 +62,8 @@ def test_compare_offline_online_engines():
     sigs_for_noise = offline_signal_preprocessor(sigs, sample_rate, **params2)
     medians = np.median(sigs_for_noise, axis=0)
     mads = np.median(np.abs(sigs_for_noise-medians),axis=0)*1.4826
-    preprocess_params['medians'] = medians
-    preprocess_params['mads'] = mads
+    preprocess_params['signals_medians'] = medians
+    preprocess_params['signals_mads'] = mads
     #
     
     
@@ -73,7 +73,7 @@ def test_compare_offline_online_engines():
     peakdetector = PeakDetectorEngine_Numpy(sample_rate, nb_channel, chunksize, 'float32')
     peakdetector.change_params(**peak_params)
             
-    waveformextractor = WaveformExtractor(nb_channel, chunksize)
+    waveformextractor = OnlineWaveformExtractor(nb_channel, chunksize)
     waveformextractor.change_params(**waveforms_params)
     
 

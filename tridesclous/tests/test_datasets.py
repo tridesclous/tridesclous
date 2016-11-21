@@ -12,11 +12,11 @@ def test_get_dataset():
     assert sample_rate == 15000.0
     
     data, sample_rate = get_dataset(name='olfactory_bulb')
-    assert data.shape == (150000, 16)
+    assert data.shape == (150000, 14)
     assert sample_rate == 10000.0
 
 
 
 if __name__ == '__main__':
-    #~ test_download_dataset()
+    test_download_dataset()
     test_get_dataset()

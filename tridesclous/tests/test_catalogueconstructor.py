@@ -3,7 +3,7 @@ import time
 import os
 import shutil
 
-from tridesclous import get_dataset
+from tridesclous import download_dataset
 from tridesclous.dataio import DataIO
 from tridesclous.catalogueconstructor import CatalogueConstructor
 
@@ -12,15 +12,12 @@ from matplotlib import pyplot
 def test_catalogue_constructor():
     if os.path.exists('test_catalogueconstructor'):
         shutil.rmtree('test_catalogueconstructor')
-
-    filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT']
-    #~ filenames = ['Tem06c06.IOT']
-    dataio = DataIO(dirname='test_catalogueconstructor')
-    dataio.set_data_source(type='RawData', filenames=filenames,
-                    dtype='int16', total_channel=16, sample_rate=10000.)
-    dataio.set_channel_group(range(14))
         
-    #~ print(dataio.segments_path)
+    dataio = DataIO(dirname='test_catalogueconstructor')
+    localdir, filenames, params = download_dataset(name='olfactory_bulb')
+    dataio.set_data_source(type='RawData', filenames=filenames, **params)
+    dataio.set_channel_group(range(14))
+    
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
@@ -101,13 +98,12 @@ def test_catalogue_constructor():
 def compare_nb_waveforms():
     if os.path.exists('test_catalogueconstructor'):
         shutil.rmtree('test_catalogueconstructor')
-
-    filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT']
+        
     dataio = DataIO(dirname='test_catalogueconstructor')
-    dataio.set_data_source(type='RawData', filenames=filenames,
-                    dtype='int16', total_channel=16, sample_rate=10000.)
+    localdir, filenames, params = download_dataset(name='olfactory_bulb')
+    dataio.set_data_source(type='RawData', filenames=filenames, **params)
     dataio.set_channel_group(range(14))
-    
+
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
 
     memory_mode ='memmap'
@@ -170,14 +166,13 @@ def compare_nb_waveforms():
 def test_make_catalogue():
     if os.path.exists('test_catalogueconstructor'):
         shutil.rmtree('test_catalogueconstructor')
-    
-    filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT']
+        
     dataio = DataIO(dirname='test_catalogueconstructor')
-    dataio.set_data_source(type='RawData', filenames=filenames,
-                    dtype='int16', total_channel=16, sample_rate=10000.)
+    localdir, filenames, params = download_dataset(name='olfactory_bulb')
+    dataio.set_data_source(type='RawData', filenames=filenames, **params)
     #~ dataio.set_channel_group(range(14))
     dataio.set_channel_group([5, 6, 7, 8, 9])
-    
+
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
 
     catalogueconstructor.initialize_signalprocessor_loop(chunksize=1024,

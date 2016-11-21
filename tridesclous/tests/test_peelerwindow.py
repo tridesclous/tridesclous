@@ -51,7 +51,7 @@ def test_ClusterSpikeList():
 
 
 def test_PeelerWindow():
-    dataio = RawDataIO(dirname='test_peeler')
+    dataio = DataIO(dirname='test_peeler')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     initial_catalogue = catalogueconstructor.load_catalogue()
 

@@ -47,9 +47,9 @@ def test_compare_offline_online_engines():
     else:
         engines = ['signalpreprocessor_numpy']
 
-    
-    sigs, sample_rate = get_dataset()
-    #~ sigs = sigs[:, [0]]
+
+    # get sigs
+    sigs, sample_rate = get_dataset(name='olfactory_bulb')
     nb_channel = sigs.shape[1]
     print('nb_channel', nb_channel)
     
@@ -77,8 +77,8 @@ def test_compare_offline_online_engines():
     sigs_for_noise = offline_signal_preprocessor(sigs, sample_rate, **params2)
     medians = np.median(sigs_for_noise, axis=0)
     mads = np.median(np.abs(sigs_for_noise-medians),axis=0)*1.4826
-    params['medians'] = medians
-    params['mads'] = mads
+    params['signals_medians'] = medians
+    params['signals_mads'] = mads
     
     
     online_sigs = {}

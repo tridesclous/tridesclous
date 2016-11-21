@@ -8,6 +8,7 @@ class OnlineWaveformExtractor:
     Class for extracting waveforms around peak on the fly.
     This class deal with peaks that are near the border.
     
+    At this moment this class is USELESS!!!
     
     """
     
