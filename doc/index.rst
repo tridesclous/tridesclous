@@ -6,17 +6,24 @@
 Welcome to tridesclous's documentation!
 =======================================
 
-Contents:
+The doc is under construction.
 
-.. toctree::
-   :maxdepth: 2
+For the moment please refer to this example only:
+https://github.com/tridesclous/tridesclous/blob/master/example/example_locust_dataset.ipynb
+
+
+..
+    Contents:
+
+    .. toctree::
+       :maxdepth: 2
 
 
 
-Indices and tables
-==================
+    Indices and tables
+    ==================
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+    * :ref:`genindex`
+    * :ref:`modindex`
+    * :ref:`search`
 

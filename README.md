@@ -4,6 +4,8 @@
 
 Pronouce it [tree day clue] for english speaker.
 
+Documentation is here: http://tridesclous.readthedocs.io/
+
 This module provide some functions and examples of spike sorting.
 It is our material to teach good practices in spike sorting technics.
 
