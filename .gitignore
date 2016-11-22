@@ -13,7 +13,7 @@ example/kampff/*
 example/locust/*
 example/tridesclous_olfactory_bulb/*
 example/.ipynb_checkpoints/*
-
+doc/_build
 
 
 # Byte-compiled / optimized / DLL files
