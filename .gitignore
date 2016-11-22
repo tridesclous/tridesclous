@@ -1,3 +1,21 @@
+#
+tridesclous/tests/locust/*
+tridesclous/tests/olfactory_bulb/*
+tridesclous/online/tests/locust/*
+tridesclous/online/tests/olfactory_bulb/*
+tridesclous/tests/test_DataIo/*
+tridesclous/tests/test_catalogueconstructor/*
+tridesclous/tests/test_peeler/*
+tridesclous/online/tests/test_onlinepeeler/
+example/tridesclous_kampff/*
+example/tridesclous_locust/*
+example/kampff/*
+example/locust/*
+example/tridesclous_olfactory_bulb/*
+example/.ipynb_checkpoints/*
+
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

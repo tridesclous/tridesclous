@@ -1,59 +1,44 @@
 import numpy as np
-import pandas as pd
 
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 
-from ..dataio import DataIO
-from ..spikesorter import SpikeSorter
-from .traceviewer import TraceViewer
-from .lists import PeakList, ClusterList
+from .cataloguecontroller import CatalogueController
+from .traceviewer import CatalogueTraceViewer
+from .peaklists import PeakList, ClusterPeakList
 from .ndscatter import NDScatter
 from .waveformviewer import WaveformViewer
+
+from .tools import ParamDialog
+
 
 import itertools
 import datetime
 
 class CatalogueWindow(QtGui.QMainWindow):
-    def __init__(self, spikesorter, mode='memory'):
+    def __init__(self, catalogueconstructor):
         QtGui.QMainWindow.__init__(self)
         
-        self.spikesorter = spikesorter
-        self.mode = mode
+        self.catalogueconstructor = catalogueconstructor
+        self.controller = CatalogueController(catalogueconstructor=catalogueconstructor)
         
-        self.traceviewer = TraceViewer(spikesorter=spikesorter, mode=self.mode)
-        self.peaklist = PeakList(spikesorter=spikesorter)
-        self.clusterlist = ClusterList(spikesorter=spikesorter)
-        self.ndscatter = NDScatter(spikesorter=spikesorter)
-        self.WaveformViewer = WaveformViewer(spikesorter=spikesorter)
+        self.traceviewer = CatalogueTraceViewer(controller=self.controller)
+        self.peaklist = PeakList(controller=self.controller)
+        self.clusterlist = ClusterPeakList(controller=self.controller)
+        self.ndscatter = NDScatter(controller=self.controller)
+        self.waveformviewer = WaveformViewer(controller=self.controller)
         
-        self.all_view = [self.traceviewer, self.peaklist, self.clusterlist, self.ndscatter, self.WaveformViewer]
-        
-        for w1, w2 in itertools.combinations(self.all_view,2):
-            w1.peak_selection_changed.connect(w2.on_peak_selection_changed)
-            w2.peak_selection_changed.connect(w1.on_peak_selection_changed)
-            
-            w1.peak_cluster_changed.connect(w2.on_peak_cluster_changed)
-            w2.peak_cluster_changed.connect(w1.on_peak_cluster_changed)
-
-            w1.colors_changed.connect(w2.on_colors_changed)
-            w2.colors_changed.connect(w1.on_colors_changed)
-
-            w1.cluster_visibility_changed.connect(w2.on_cluster_visibility_changed)
-            w2.cluster_visibility_changed.connect(w1.on_cluster_visibility_changed)
-        
-
         docks = {}
 
-        docks['WaveformViewer'] = QtGui.QDockWidget('WaveformViewer',self)
-        docks['WaveformViewer'].setWidget(self.WaveformViewer)
-        #~ self.tabifyDockWidget(docks['ndscatter'], docks['WaveformViewer'])
-        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, docks['WaveformViewer'])
+        docks['waveformviewer'] = QtGui.QDockWidget('waveformviewer',self)
+        docks['waveformviewer'].setWidget(self.waveformviewer)
+        #self.tabifyDockWidget(docks['ndscatter'], docks['waveformviewer'])
+        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, docks['waveformviewer'])
         
         docks['traceviewer'] = QtGui.QDockWidget('traceviewer',self)
         docks['traceviewer'].setWidget(self.traceviewer)
-        #~ self.addDockWidget(QtCore.Qt.RightDockWidgetArea, docks['traceviewer'])
-        self.tabifyDockWidget(docks['WaveformViewer'], docks['traceviewer'])
+        #self.addDockWidget(QtCore.Qt.RightDockWidgetArea, docks['traceviewer'])
+        self.tabifyDockWidget(docks['waveformviewer'], docks['traceviewer'])
         
         docks['peaklist'] = QtGui.QDockWidget('peaklist',self)
         docks['peaklist'].setWidget(self.peaklist)
@@ -70,7 +55,6 @@ class CatalogueWindow(QtGui.QMainWindow):
         self.create_actions()
         self.create_toolbar()
         
-        self.spikesorter.refresh_colors()
         
     def create_actions(self):
         self.act_save = QtGui.QAction(u'Save catalogue', self,checkable = False, icon=QtGui.QIcon.fromTheme("document-save"))
@@ -79,15 +63,12 @@ class CatalogueWindow(QtGui.QMainWindow):
         self.act_refresh = QtGui.QAction(u'Refresh', self,checkable = False, icon=QtGui.QIcon.fromTheme("view-refresh"))
         self.act_refresh.triggered.connect(self.refresh)
 
-        self.act_decimate = QtGui.QAction(u'Random decimate', self,checkable = False, icon=QtGui.QIcon.fromTheme("roll"))
-        self.act_decimate.triggered.connect(self.random_decimate)
-
         self.act_setting = QtGui.QAction(u'Settings', self,checkable = False, icon=QtGui.QIcon.fromTheme("preferences-other"))
         self.act_setting.triggered.connect(self.open_settings)
 
-    
-    
-    
+        self.act_new_waveforms = QtGui.QAction(u'New waveforms', self,checkable = False, icon=QtGui.QIcon.fromTheme("TODO"))
+        self.act_new_waveforms.triggered.connect(self.new_waveforms)
+
     def create_toolbar(self):
         self.toolbar = QtGui.QToolBar('Tools')
         self.toolbar.setToolButtonStyle(QtCore.Qt.ToolButtonTextUnderIcon)
@@ -96,38 +77,29 @@ class CatalogueWindow(QtGui.QMainWindow):
         
         self.toolbar.addAction(self.act_save)
         self.toolbar.addAction(self.act_refresh)
-        self.toolbar.addAction(self.act_decimate)
         self.toolbar.addAction(self.act_setting)
+        #TODO with correct settings (left and right)
+        self.toolbar.addAction(self.act_new_waveforms)
     
-    @classmethod
-    def from_classes(cls, peakdetector, waveformextractor, clustering, dataio =None):
-        if dataio is None:
-            name = 'test_tri_des_clous_'+datetime.datetime.now().strftime('%A, %d. %B %Y %Ih%M%pm%S')
-            print('Create DataIO : ', name)
-            dataio = DataIO(name)
-            dataio.append_signals(peakdetector.sigs,  seg_num=0, signal_type = 'filtered')
-        spikesorter = SpikeSorter(dataio = dataio)
-        
-        spikesorter.threshold = peakdetector.threshold
-        spikesorter.peak_selection = pd.Series(name = 'selected', index = clustering.labels.index, dtype = bool)
-        spikesorter.peak_selection[:] = False
-        spikesorter.all_waveforms  = waveformextractor.get_ajusted_waveforms()
-        spikesorter.clustering = clustering
-        
-        spikesorter.on_new_cluster()
-        spikesorter.refresh_colors()
-        
-        return CatalogueWindow(spikesorter)
 
     def save_catalogue(self):
-        self.spikesorter.dataio.save_catalogue(self.spikesorter.clustering.catalogue, self.spikesorter.limit_left, self.spikesorter.limit_right)
+        self.catalogueconstructor.save_catalogue()
     
     def refresh(self):
-        for w in self.all_view:
+        for w in self.controller.views:
             w.refresh()
     
-    def random_decimate(self):
-        pass
-    
     def open_settings(self):
+        _params = [{'name' : 'nb_waveforms', 'type' : 'int', 'value' : 10000}]
+        dialog1 = ParamDialog(_params, title = 'Settings', parent = self)
+        if not dialog1.exec_():
+            return None, None
+        
+        self.settings = dialog1.get()
+    
+    def new_waveforms(self):
         pass
+        #~ self.catalogueconstructor.extract_some_waveforms(n_left=-12, n_right=15, mode='rand', nb_max=10000)
+        #~ self.controller.on_new_cluster()
+        #~ self.refresh()
+

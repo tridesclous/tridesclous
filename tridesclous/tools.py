@@ -1,28 +1,22 @@
-import pandas as pd
 import numpy as np
 
 
-def median_mad(df, axis=0):
+def median_mad(data, axis=0):
     """
-    Compute along axis the median and the med.
-    Note: median is already included in pandas (df.median()) but not the mad
-    This take care of constructing a Series for the mad.
+    Compute along axis the median and the mad.
     
     Arguments
     ----------------
-    df : pandas.DataFrame
+    data : np.ndarray
     
     
     Returns
     -----------
-    med: pandas.Series
-    mad: pandas.Series
+    med: np.ndarray
+    mad: np.ndarray
     
     
     """
-    med = df.median(axis=axis)
-    mad = np.median(np.abs(df-med),axis=axis)*1.4826
-    mad = pd.Series(mad, index = med.index)
+    med = np.median(data, axis=axis)
+    mad = np.median(np.abs(data-med),axis=axis)*1.4826
     return med, mad
- 
-    

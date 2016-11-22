@@ -1,367 +1,259 @@
 import os
-import pandas as pd
-import numpy as np
 import json
 from collections import OrderedDict
+import numpy as np
+import pandas as pd
 
-try:
-    import neo
-    HAVE_NEO = True
-except ImportError:
-    HAVE_NEO = False
+from .iotools import ArrayCollection
 
+_signal_types = ['initial', 'processed']
 
-_signal_types = ['filtered', 'unfiltered']
 
 class DataIO:
     """
-    This class handle data for each step of spike sorting: raw data, filtered data, peaks position,
-    waveform, ....
-    
-    All data are copy in a directory in several hdf5 (pandas+pytables) files so a spike sorting
-    can be continued/verifiyed later on without need to recompute all steps.
-    
-    Internally the hdf5 (pytables formated) contains:
-    'info' : a Series that contains sampling_rate, nb_channels, ...
-    ''segment_0/unfiltered_signals' : non filetred signals of segment 0
-    ''segment_0/signals' : filetred signals of segment 0
-    
-    Usage:
-    
-    dataio = DataIO(dirname = 'test', complib = 'blosc', complevel= 9)
-    
     
     """
-    def __init__(self, dirname = 'test', complib = 'blosc', complevel= 9):
+    def __init__(self, dirname='test'):
         self.dirname = dirname
-        
         if not os.path.exists(dirname):
             os.mkdir(dirname)
         
-        self.data_filename = os.path.join(self.dirname, 'data.h5')
-        if not os.path.exists(self.data_filename):
-            #TODO some initilisation_list
-            pass
-        
-        self.store = pd.HDFStore(self.data_filename, complib = complib, complevel = complevel,  mode = 'a')
-        
-        if 'info' in self.store:
-            self.info = self.store['info']
+        self.info_filename = os.path.join(self.dirname, 'info.json')
+        if not os.path.exists(self.info_filename):
+            #first init
+            self.info = {}
+            self.flush_info()
+            self.datasource = None
         else:
-            self.info = None
-        
-        if 'segments_range' in self.store:
-            self.segments_range = self.store['segments_range']
-        else:
-            columns = pd.MultiIndex.from_product([_signal_types, ['t_start', 't_stop']])
-            self.segments_range = pd.DataFrame(columns = columns, dtype = 'float64')
-        
-    @property
-    def sampling_rate(self):
-        if self.info is not None:
-            return float(self.info['sampling_rate'])
-
-    @property
-    def nb_channel(self):
-        if self.info is not None:
-            return int(self.info['nb_channel'])
-    
-    @property
-    def nb_segments(self):
-        if self.segments_range is not None:
-            return len(self.segments_range)
-    
-    def summary(self, level=1):
-        t = """DataIO <{}>
-Workdir: {}""".format(id(self), self.data_filename)
-        if self.info is None:
-            t  += "\nNot initialized"
-            return t
-        t += """
-sampling_rate: {}
-nb_channel: {}
-nb_segments: {}""".format(self.sampling_rate, self.nb_channel, self.nb_segments)
-        if level==0:
-            return t
-        
-        if level==1:
-            t += "\n"
-            for seg_num in self.segments_range.index:
-                t += 'Segment {}\n'.format(seg_num)
-                for signal_type in _signal_types:
-                    t+= self.summary_segment(seg_num, signal_type = signal_type)
-                
-        return t
-    
-    def summary_segment(self, seg_num, signal_type = 'filtered'):
-        t_start, t_stop = self.segments_range.loc[seg_num, (signal_type,'t_start')], self.segments_range.loc[seg_num, (signal_type,'t_stop')]
-        t = """  {}
-    duration : {}s.
-    times range : {} - {}
-""".format(signal_type, t_stop-t_start, t_start, t_stop)
-
-        path = 'segment_{}/peaks'.format(seg_num)
-        if path in self.store and self.store[path] is not None:
-            t+= "    nb_peaks : {}\n".format(self.store[path].shape[0])
-        
-        return t
-    
+            with open(self.info_filename, 'r', encoding='utf8') as f:
+                self.info = json.load(f)
+            try:
+                self.reload_info()
+                self._reload_data_source()
+                self._open_processed_data()
+            except:
+                self.info = {}
+                self.flush_info()
+                self.datasource = None
+ 
     def __repr__(self):
-        return self.summary(level=0)
-    
-    def initialize(self, sampling_rate = None, channels = None):
-        """
-        Initialise the Datamanager.
+        t = "DataIO <id: {}> \n  workdir: {}\n".format(id(self), self.dirname)
+        if len(self.info) ==0 or self.datasource is None:
+            t  += "\n  Not datasource is set yet"
+            return t
         
-        Arguments
-        -----------------
-        sampling_rate: float
-            The sampling rate in Hz
-        channels: list of str
-            Channel labels
-        """
-        assert sampling_rate is not None, 'You must provide a sampling rate'
-        assert channels is not None, 'You provide a list of channels'
+        t += "  sample_rate: {}\n".format(self.sample_rate)
+        t += "  nb_segment: {}\n".format(self.nb_segment)
+        t += "  total_channel: {}\n".format(self.total_channel)
+        t += "  nb_channel: {}\n".format(self.nb_channel)
+        if self.nb_channel<12:
+            t += "  channel_group: {}\n".format(self.channel_group)
+        else:
+            t += "  channel_group: [{} ... {}]\n".format(' '.join(str(e) for e in self.channel_group[:4]),
+                                                                                        ' '.join(str(e) for e in self.channel_group[-4:]))
+        if self.nb_segment<5:
+            lengths = [ self.get_segment_shape(i)[0] for i in range(self.nb_segment)]
+            t += '  length: '+' '.join('{}'.format(l) for l in lengths)+'\n'
+            t += '  durations: '+' '.join('{:0.1f}'.format(l/self.sample_rate) for l in lengths)+' s.\n'
         
-        if self.info is None:
-            self.info = pd.Series()
-        self.info['sampling_rate'] = sampling_rate
-        self.info['channels'] = np.array(channels, dtype = 'S')
-        self.info['nb_channel'] = len(channels)
-        
-        self.flush_info()
+        return t
 
+ 
     def flush_info(self):
-        self.store['info'] = self.info
-        self.store['segments_range'] = self.segments_range
-        self.store.flush()
+        with open(self.info_filename, 'w', encoding='utf8') as f:
+            json.dump(self.info, f, indent=4)
     
-    def append_signals(self, signals,  seg_num=0, signal_type = 'filtered'):
-        """
-        Append signals in the store. The input is pd.dataFrame
-        If the segment do not exist it is created in the store.
-        Else the signals chunk is append to the previsous one.
+    def reload_info(self):
+        if 'channel_group' in self.info:
+            self.channel_group = self.info['channel_group']
         
-        
-        """
-        assert isinstance(signals, pd.DataFrame), 'Signals must a DataFrame'
-        
-        path = 'segment_{}/{}_signals'.format(seg_num, signal_type)
-        
-        times = signals.index.values
-
-        
-        if seg_num in self.segments_range.index:
-            #this check overlap if trying to write an already exisiting chunk
-            # theorically this should work but the index will unefficient when self.store.select
-            t_start = self.segments_range.loc[seg_num, (signal_type, 't_start')]
-            t_stop = self.segments_range.loc[seg_num, (signal_type, 't_stop')]
-            #~ assert np.all(~((times>=t_start) & (times<=t_stop))), 'data already in store for seg_num {}'.format(seg_num)
-
-        
-        if self.info is None:
-            sampling_rate = 1./np.median(np.diff(times[:1000]))
-            self.initialize(sampling_rate = sampling_rate, channels = signals.columns.values)
-
-
-        signals.to_hdf(self.store, path, format = 'table', append=True)
-        
-        if seg_num in self.segments_range.index:
-            self.segments_range.loc[seg_num, (signal_type, 't_start')] = min( times[0], self.segments_range.loc[seg_num, (signal_type, 't_start')])
-            self.segments_range.loc[seg_num,  (signal_type, 't_stop')] =  max(times[-1], self.segments_range.loc[seg_num,  (signal_type, 't_stop')])
-        else:
-            self.segments_range.loc[seg_num,  (signal_type, 't_start')] = times[0]
-            self.segments_range.loc[seg_num,  (signal_type, 't_stop')] = times[-1]
+        self.nb_channel  = len(self.channel_group)
+    
+    def set_data_source(self, type='RawData', **kargs):
+        assert type in data_source_classes, 'this source type do not exists yet!!'
+        assert 'datasource_type' not in self.info, 'datasource is already set'
+        self.info['datasource_type'] = type
+        self.info['datasource_kargs'] = kargs
+        self._reload_data_source()
+        # be default chennel group all channels
+        self.set_channel_group(np.arange(self.total_channel))
         self.flush_info()
-        
-        self.store.create_table_index(path, optlevel=9, kind='full')
-        
-        
+        # this create segment path
+        self._open_processed_data()
     
-    def append_signals_from_numpy(self, signals, seg_num=0, sampling_rate = None, t_start = 0., signal_type = 'filtered', channels = None):
-        """
-        Append numpy.ndarray signals segment in the store.
+    def _reload_data_source(self):
+        assert 'datasource_type' in self.info
+        kargs = self.info['datasource_kargs']
         
-        Arguments
-        -----------------
-        signals: np.ndarray
-            Signals 2D array shape (nb_sampleXnb_channel).
-        seg_num: int
-            The segment num.
-        t_start: float 
-            Time stamp of the first sample.
-        channels : list of str
-            Channels labels
-        
-        """
-        if signals.ndim==1:
-            signals = signals[:, None]
-        
-        if self.info is None:
-            self.initialize(sampling_rate = sampling_rate, channels = channels)
-        else:
-            assert sampling_rate==self.info['sampling_rate']
-
-        assert signals.shape[1]==self.info['nb_channel'], 'Wrong shape {} ({} chans)'.format(signals.shape, self.info['nb_channel'])
-        assert sampling_rate == self.info['sampling_rate'], 'Wrong sampling_rate {} {}'.format(sampling_rate, self.info['sampling_rate'])
-        
-        times = np.arange(signals.shape[0], dtype = 'float64')/self.sampling_rate + t_start
-        df = pd.DataFrame(signals, index = times, columns = self.info['channels'])
-        
-        self.append_signals(df,  seg_num=seg_num, signal_type = signal_type)
+        self.datasource = data_source_classes[self.info['datasource_type']](**kargs)
+        self.total_channel = self.datasource.total_channel
+        self.nb_segment = self.datasource.nb_segment
+        self.sample_rate = self.datasource.sample_rate
+        self.source_dtype = self.datasource.dtype
     
-    def append_signals_from_neo(self, blocks, channel_indexes = None, signal_type = 'filtered'):
-        """
-        Append signals from a list of neo.Block.
-        So all format readable by neo can be used.
-        
-        This loop over all neo.Segment inside neo.Block and append
-        AnalogSignal into the datasets.
-        
-        
-        Arguments
-        ---------------
-        blocks: list of neo.Block (or neo.Block
-            data to append
-        channel_indexes: list or None
-            list of channel if None all channel are taken.
-        
-        """
-        assert HAVE_NEO, 'neo must be installed'
-        if isinstance(blocks, neo.Block):
-            blocks = [blocks]
-        
-        if self.segments_range.index.size==0:
-            seg_num=0
-        else:
-            seg_num= np.max(self.segments_range.index.values)+1
-        
-        for block in blocks:
-            for seg in block.segments:
-                if channel_indexes is not None:
-                    analogsignals = []
-                    for anasig in seg.analogsignals:
-                        if anasig.channel_index in channel_indexes:
-                            analogsignals.append(anasig)
-                else:
-                    analogsignals = seg.analogsignals
-                
-                if analogsignals[0].name is not None:
-                    channels = [anasig.name for anasig in analogsignals]
-                else:
-                    channels = [ 'ch{}'.format(anasig.channel_index) for anasig in analogsignals]
-                
-                all_sr = [float(anasig.sampling_rate.rescale('Hz').magnitude) for anasig in analogsignals]
-                all_t_start = [float(anasig.t_start.rescale('S').magnitude) for anasig in analogsignals]
-                assert np.unique(all_sr).size == 1, 'Analogsignal do not have the same sampling_rate'
-                assert np.unique(all_t_start).size == 1, 'Analogsignal do not have the same t_start'
-                
-                sigs = np.concatenate([anasig.magnitude[:, None] for anasig in analogsignals], axis = 1)
-                
-                sampling_rate = np.unique(all_sr)
-                t_start = np.unique(all_t_start)
-                
-                self.append_signals_from_numpy(sigs, seg_num=seg_num, sampling_rate = sampling_rate, t_start = t_start,
-                        signal_type = signal_type, channels = channels)
-                
-                seg_num += 1
-    
-    def have_signals(self, seg_num=0,signal_type = 'filtered'):
-        path = 'segment_{}/{}_signals'.format(seg_num, signal_type)
-        return path in self.store
-
-    
-    def get_signals(self, seg_num=0, t_start = None, t_stop = None, signal_type = 'filtered'):
-        """
-        Get a chunk of signals in the dataset.
-        This internally use self.store.select from pandas.
-        This should be efficient... and avoid loading everything in memory.
-        
-        Arguments
-        -----------------
-        seg_num: int
-        
-        """
-        path = 'segment_{}/{}_signals'.format(seg_num, signal_type)
-        
-        if path not in self.store:
-            return None
-        
-        if t_start is None and t_stop is None:
-            query = None
-        elif t_start is not None and t_stop is None:
-            query = 'index>=t_start'
-        elif t_start is None and t_stop is not None:
-            query = 'index<t_stop'
-        elif t_start is not None and t_stop is not None:
-            query = 'index>=t_start & index<t_stop'
-        
-        return self.store.select(path, query)
-    
-    #~ def append_peaks(self, peaks, seg_num=0, append = False):
-        #~ """
-        #~ Append detected peaks in the store.
-        
-        #~ Arguments
-        #~ -----------------
-        #~ peaks: pd.DataFrame
-            #~ DataFrame of peaks:
-                #~ * index : MultiIndex (seg_num, peak_times)
-                #~ * columns : 'peak_index', 'labels'
-                #~ *
-        #~ seg_num: int
-            #~ The segment num.
-        #~ append: bool, default True
-            #~ If True append to existing peaks for the segment.
-            #~ If False overwrite.
-        #~ """
-        
-        #~ path = 'segment_{}/peaks'.format(seg_num)
-        #~ peaks.to_hdf(self.store, path, format = 'table', append=append)
-        
-    
-    #~ def get_peaks(self, seg_num=0):
-        #~ path = 'segment_{}/peaks'.format(seg_num)
-        #~ if path in self.store:
-            #~ return self.store[path]
-    
-    def save_catalogue(self, catalogue, limit_left, limit_right):
-        assert len(catalogue)>0, 'empty catalogue'
-        index = list(catalogue.keys())
-        columns = list(catalogue[index[0]].keys())
-        catalogue2 = pd.DataFrame(index = index, columns = columns)
-        
-        for k in index:
-            for col in columns:
-                catalogue2.loc[k, col] = catalogue[k][col]
-        
-        path = 'catalogue'
-        catalogue2.to_hdf(self.store, path, append = False)
-        
-        self.info['limit_left'] = limit_left
-        self.info['limit_right'] = limit_right
+    def set_channel_group(self, channel_group=[]):
+        if isinstance(channel_group, np.ndarray):
+            channel_group =channel_group.tolist()
+        self.channel_group = list(channel_group)
+        self.info['channel_group'] = self.channel_group
+        self.nb_channel  = len(self.channel_group)
+        self.info['nb_channel'] = self.nb_channel
         self.flush_info()
+
+    def _open_processed_data(self):
+        self.segments_path = []
+        for i in range(self.nb_segment):
+            segment_path = os.path.join(self.dirname, 'segment_{}'.format(i))
+            if not os.path.exists(segment_path):
+                os.mkdir(segment_path)
+                #~ with open(os.path.join(segment_path, 'info.txt'), 'w', encoding='utf8') as f:
+                    #~ f.write('initial filename: '.format(self.filenames[i]))
+            self.segments_path.append(segment_path)
+        self.arrays_by_seg = []
+        for i in range(self.nb_segment):
+            arrays = ArrayCollection(parent=None, dirname=self.segments_path[i])
+            self.arrays_by_seg.append(arrays)
+            
+            for name in ['processed_signals', 'spikes']:
+                self.arrays_by_seg[i].load_if_exists(name)
         
-    def get_catalogue(self):
-        path = 'catalogue'
-        if path in self.store:
-            catalogue = OrderedDict()
-            catalogue2 = self.store['catalogue']
-            for k in catalogue2.index:
-                catalogue[k] = {}
-                for col in catalogue2.columns:
-                    catalogue[k][col] = catalogue2.loc[k, col]
-            return catalogue, self.info['limit_left'], self.info['limit_right']
-        else:
-            return {}, None, None
+    def get_segment_shape(self, seg_num):
+        full_shape =  self.datasource.get_segment_shape(seg_num)
+        #~ shape = self.array_sources[seg_num].shape
+        shape = (full_shape[0],self.nb_channel,)
+        return shape
     
-    def save_spiketrains(self, spiketrains, seg_num = 0):
-        path = 'segment_{}/spiketrains'.format(seg_num)
-        spiketrains.to_hdf(self.store, path, format = 'table', append=False)
+    def get_signals_chunk(self, seg_num=0, i_start=None, i_stop=None, signal_type='initial',
+                return_type='raw_numpy'):
+        
+        if signal_type=='initial':
+            data = self.datasource.get_signals_chunk(seg_num=seg_num, i_start=i_start, i_stop=i_stop)
+            data = data[:, self.channel_group]
+        elif signal_type=='processed':
+            data = self.arrays_by_seg[seg_num].get('processed_signals')[i_start:i_stop, :]
+        else:
+            raise(ValueError, 'signal_type is not valide')
+        
+        if return_type=='raw_numpy':
+            return data
+        elif return_type=='on_scale_numpy':
+            raise(NotImplementedError)
+        elif return_type=='pandas':
+            raise(NotImplementedError)
 
-    def get_spiketrains(self, seg_num = 0):
-        path = 'segment_{}/spiketrains'.format(seg_num)
-        if path in self.store:
-            return self.store[path]
+    def iter_over_chunk(self, seg_num=0, i_stop=None, chunksize=1024, **kargs):
+        
+        if i_stop is not None:
+            length = min(self.get_segment_shape(seg_num)[0], i_stop)
+        else:
+            
+            length = self.get_segment_shape(seg_num)[0]
+        
+        #TODO for last chunk append some zeros: maybe: ????
+        nloop = length//chunksize
+        for i in range(nloop):
+            i_stop = (i+1)*chunksize
+            i_start = i_stop - chunksize
+            sigs_chunk = self.get_signals_chunk(seg_num=seg_num, i_start=i_start, i_stop=i_stop, **kargs)
+            yield  i_stop, sigs_chunk
+    
+    def reset_processed_signals(self, seg_num=0, dtype='float32'):
+        self.arrays_by_seg[seg_num].create_array('processed_signals', dtype, self.get_segment_shape(seg_num), 'memmap')
+    
+    def set_signals_chunk(self,sigs_chunk, seg_num=0, i_start=None, i_stop=None, signal_type='processed'):
+        assert signal_type != 'initial'
+        if signal_type=='processed':
+            data = self.arrays_by_seg[seg_num].get('processed_signals')
+            data[i_start:i_stop, :] = sigs_chunk
+        
+    def flush_processed_signals(self, seg_num=0):
+        self.arrays_by_seg[seg_num].flush_array('processed_signals')
+        
+    def reset_spikes(self, seg_num=0,  dtype=None):
+        assert dtype is not None
+        self.arrays_by_seg[seg_num].initialize_array('spikes', 'memmap', dtype, (-1,))
+        
+    def append_spikes(self, seg_num=0, spikes=None):
+        if spikes is None: return
+        self.arrays_by_seg[seg_num].append_chunk('spikes', spikes)
+        
+    def flush_spikes(self, seg_num=0):
+        self.arrays_by_seg[seg_num].finalize_array('spikes')
+    
+    def get_spikes(self, seg_num=0, i_start=None, i_stop=None):
+        spikes = self.arrays_by_seg[seg_num].get('spikes')
+        return spikes[i_start:i_stop]
 
+
+
+
+
+class DataSourceBase:
+    def __init__(self):
+        # important total_channel != nb_channel becausenb_channel=len(channel_group)
+        self.total_channel = None 
+        self.sample_rate = None
+        self.nb_segment = None
+    
+    def get_segment_shape(self, seg_num):
+        raise NotImplementedError
+    
+    
+class InMemoryDataSource(DataSourceBase):
+    """
+    DataSource in memory numpy array.
+    This is for debugging  or fast testing.
+    """
+    def __init__(self, nparrays=[], sample_rate=None):
+        DataSourceBase.__init__(self)
+        
+        self.nparrays = nparrays
+        self.nb_segment = len(self.nparrays)
+        self.total_channel = self.nparrays[0].shape[1]
+        self.sample_rate = sample_rate
+        self.dtype = self.nparrays[0].dtype
+    
+    def get_segment_shape(self, seg_num):
+        full_shape = self.nparrays[seg_num].shape
+        return full_shape
+    
+    def get_signals_chunk(self, seg_num=0, i_start=None, i_stop=None):
+            data = self.nparrays[seg_num][i_start:i_stop, :]
+            return data        
+
+    
+class RawDataSource(DataSourceBase):
+    """
+    DataSource from raw binary file. Easy case.
+    """
+    def __init__(self, filenames=[], dtype='int16', total_channel=0,
+                        sample_rate=0.):
+        DataSourceBase.__init__(self)
+        
+        self.filenames = filenames
+        if isinstance(self.filenames, str):
+            self.filenames = [self.filenames]
+        assert all([os.path.exists(f) for f in self.filenames]), 'files does not exist'
+        self.nb_segment = len(self.filenames)
+
+        self.total_channel = total_channel
+        self.sample_rate = sample_rate
+        self.dtype = np.dtype(dtype)
+
+        self.array_sources = []
+        for filename in self.filenames:
+            data = np.memmap(filename, dtype=self.dtype, mode='r').reshape(-1, self.total_channel)
+            self.array_sources.append(data)
+    
+    def get_segment_shape(self, seg_num):
+        full_shape = self.array_sources[seg_num].shape
+        return full_shape
+    
+    def get_signals_chunk(self, seg_num=0, i_start=None, i_stop=None):
+            data = self.array_sources[seg_num][i_start:i_stop, :]
+            return data
+
+
+    
+data_source_classes = {'InMemory':InMemoryDataSource, 'RawData':RawDataSource}
 

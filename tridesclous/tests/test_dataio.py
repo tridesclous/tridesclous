@@ -1,94 +1,79 @@
 import pytest
-import h5py
-import os, tempfile
+import os, tempfile, shutil
 import numpy as np
 
-
+from tridesclous import download_dataset
 from tridesclous import DataIO
-from urllib.request import urlretrieve
-
-def download_locust(trial_names = ['trial_01']):
-    name = 'locust20010201.hdf5'
-    distantfile = 'https://zenodo.org/record/21589/files/'+name
-    localdir = os.path.dirname(os.path.abspath(__file__))
-    
-    if not os.access(localdir, os.W_OK):
-        localdir = tempfile.gettempdir()
-    localfile = os.path.join(os.path.dirname(__file__), name)
-    
-    if not os.path.exists(localfile):
-        urlretrieve(distantfile, localfile)
-    hdf = h5py.File(localfile,'r')
-    ch_names = ['ch09','ch11','ch13','ch16']
-    
-    sigs_by_trials = []
-    for trial_name in trial_names:
-        sigs = np.array([hdf['Continuous_1'][trial_name][name][...] for name in ch_names]).transpose()
-        sigs = (sigs.astype('float32') - 2**15.) / 2**15
-        sigs_by_trials.append(sigs)
-    
-    sampling_rate = 15000.
-    
-    return sigs_by_trials, sampling_rate, ch_names
+from tridesclous.dataio import RawDataSource,InMemoryDataSource
 
 
 
-def test_dataio():
-    if os.path.exists('datatest/data.h5'):
-        os.remove('datatest/data.h5')
-    dataio = DataIO(dirname = 'datatest')
-    #~ print(data)
-    #data from locust
-    sigs_by_trials, sampling_rate, ch_names = download_locust(trial_names = ['trial_01', 'trial_02', 'trial_03'])
+
+def test_InMemoryDataSource():
+    nparrays = [np.random.randn(10000, 2) for i in range(5) ]
+    datasource = InMemoryDataSource(nparrays=nparrays, sample_rate=5000.)
+    assert datasource.total_channel == 2
+    assert datasource.sample_rate == 5000.
+    assert datasource.nb_segment==5
+    assert datasource.get_segment_shape(0) == (10000, 2)
+    data = datasource.get_signals_chunk(seg_num=0)
+    assert data.shape==datasource.get_segment_shape(0)
     
+
+def test_RawDataSource():
+    localdir, filenames, params = download_dataset(name='olfactory_bulb')
+    datasource = RawDataSource(filenames=filenames, **params)
     
-    for seg_num in range(3):
-        sigs = sigs_by_trials[seg_num]
-        dataio.append_signals_from_numpy(sigs, seg_num = seg_num,t_start = 0.+5*seg_num, sampling_rate =  sampling_rate,
-                    signal_type = 'filtered', channels = ch_names)
-    
-    #~ print(data)
-    #~ print(data.segments)
-    #~ print(data.store)
-    print(dataio.summary(level=0))
-    print(dataio.summary(level=1))
-    
-    #~ assert data.get_signals(seg_num=0).shape == (431548, 4)
-    #~ assert data.get_signals(seg_num=0, t_start=3.).shape==(386548, 4)
-    #~ assert data.get_signals(seg_num=0, t_stop=5.).shape == (75000, 4)
-    #~ assert data.get_signals(seg_num=0, t_start=3., t_stop = 5.).shape == (30000, 4)
-    
-    
-def test_dataio_with_neo():
-    if os.path.exists('datatest_neo/data.h5'):
-        os.remove('datatest_neo/data.h5')
-    dataio = DataIO(dirname = 'datatest_neo')
-    
-    import neo
-    import quantities as pq
-    
-    filenames = ['Tem06c06.IOT', 'Tem06c07.IOT', 'Tem06c08.IOT', ]
-    for filename in filenames:
-        blocks = neo.RawBinarySignalIO(filename).read(sampling_rate = 10.*pq.kHz,
-                        t_start = 0. *pq.S, unit = pq.V, nbchannel = 16, bytesoffset = 0,
-                        dtype = 'int16', rangemin = -10, rangemax = 10)
-        channel_indexes = np.arange(14)
-        dataio.append_signals_from_neo(blocks, channel_indexes = channel_indexes, signal_type = 'unfiltered')
-    print(dataio.summary(level=1))
+    assert datasource.total_channel == 16
+    assert datasource.sample_rate == 10000.
+    assert datasource.nb_segment==3
+    assert datasource.get_segment_shape(0) == (150000, 16)
+    data = datasource.get_signals_chunk(seg_num=0)
+    assert data.shape==datasource.get_segment_shape(0)
 
     
+
+def test_DataIO():
     
     
+    # initialze dataio
+    if os.path.exists('test_DataIO'):
+        shutil.rmtree('test_DataIO')
+        
+    dataio = DataIO(dirname='test_DataIO')
+    print(dataio)
+
+
+    localdir, filenames, params = download_dataset(name='olfactory_bulb')
+    dataio.set_data_source(type='RawData', filenames=filenames,  **params)
+    #~ dataio.set_channel_group(range(4))
+    dataio.set_channel_group(range(14))
+    print(dataio)
+    exit()
     
     
+    for seg_num in range(dataio.nb_segment):
+        for i_stop, sigs_chunk in dataio.iter_over_chunk(seg_num=seg_num, chunksize=1024):
+            assert sigs_chunk.shape[0] == 1024
+            assert sigs_chunk.shape[1] == 14
+            #~ print(seg_num, i_stop, sigs_chunk.shape)
+    
+    #reopen existing
+    dataio = DataIO(dirname='test_DataIO')
+    #~ print(dataio.info)
+    for seg_num in range(dataio.nb_segment):
+        #~ print('seg_num', seg_num)
+        for i_stop, sigs_chunk in dataio.iter_over_chunk(seg_num=seg_num, chunksize=1024):
+            assert sigs_chunk.shape[0] == 1024
+            assert sigs_chunk.shape[1] == 14
     
     
     
     
 if __name__=='__main__':
-    test_dataio()
-    #~ test_dataio_with_neo()
+    #~ test_InMemoryDataSource()
+    #~ test_RawDataSource()
     
-    
+    test_DataIO()
     
     

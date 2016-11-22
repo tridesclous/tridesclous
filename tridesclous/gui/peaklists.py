@@ -2,27 +2,25 @@ import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 
 import numpy as np
-import pandas as pd
 
 from .base import WidgetBase
 from .tools import ParamDialog
 
 
 class PeakModel(QtCore.QAbstractItemModel):
-    def __init__(self, parent =None, spikesorter = None):
+    def __init__(self, parent =None, controller=None):
         QtCore.QAbstractItemModel.__init__(self,parent)
-        self.spikesorter = spikesorter
-        self.io = self.spikesorter.dataio
+        self.controller = controller
         self.refresh_colors()
     
     def columnCount(self , parentIndex):
         return 4
         
     def rowCount(self, parentIndex):
-        if not parentIndex.isValid() and self.spikesorter.peak_labels is not None:
-            v = self.spikesorter.cluster_visible[self.spikesorter.cluster_visible]
-            self.visible_peak_labels = self.spikesorter.peak_labels[self.spikesorter.peak_labels.isin(v.index)]
-            return self.visible_peak_labels.shape[0]
+        if not parentIndex.isValid() and self.controller.spike_label is not None:
+            self.visible_ind, = np.nonzero(self.controller.spike_visible)
+            n = self.visible_ind.size
+            return n
         else :
             return 0
         
@@ -46,24 +44,32 @@ class PeakModel(QtCore.QAbstractItemModel):
         
         col = index.column()
         row = index.row()
-        ind = self.visible_peak_labels.index[row]
-        label =  self.visible_peak_labels.iloc[row]
+        #~ ind = self.visible_peak_labels.index[row]
+        #~ label =  self.visible_peak_labels.iloc[row]
+        #~ t_start = 0.
+        
+        abs_ind = self.visible_ind[row]
+        
+        seg_num = self.controller.spike_segment[abs_ind]
+        peak_pos = self.controller.spike_index[abs_ind]
+        peak_time = peak_pos/self.controller.dataio.sample_rate
+        peak_label = self.controller.spike_label[abs_ind]
         
         if role ==QtCore.Qt.DisplayRole :
             if col == 0:
-                return '{}'.format(row)
+                return '{}'.format(abs_ind)
             elif col == 1:
-                return '{}'.format(int(ind[0]))
+                return '{}'.format(seg_num)
             elif col == 2:
-                return '{:.4f}'.format(ind[1])
+                return '{:.4f}'.format(peak_time)
             elif col == 3:
-                return '{}'.format(label)
+                return '{}'.format(peak_label)
             else:
                 return None
         elif role == QtCore.Qt.DecorationRole :
             if col != 0: return None
-            if label in self.icons:
-                return self.icons[label]
+            if peak_label in self.icons:
+                return self.icons[peak_label]
             else:
                 return None
         else :
@@ -81,8 +87,8 @@ class PeakModel(QtCore.QAbstractItemModel):
     
     def refresh_colors(self):
         self.icons = { }
-        for k in self.spikesorter.qcolors:
-            color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
+        for k in self.controller.qcolors:
+            color = self.controller.qcolors.get(k, QtGui.QColor( 'white'))
             pix = QtGui.QPixmap(10,10 )
             pix.fill(color)
             self.icons[k] = QtGui.QIcon(pix)
@@ -93,16 +99,13 @@ class PeakModel(QtCore.QAbstractItemModel):
         
         
 class PeakList(WidgetBase):
-    def __init__(self, spikesorter = None, parent=None):
-        WidgetBase.__init__(self, parent)
-        
-        self.spikesorter = spikesorter
-        self.dataio = self.spikesorter.dataio
+    def __init__(self, controller=None, parent=None):
+        WidgetBase.__init__(self, parent=parent, controller=controller)
         
         self.layout = QtGui.QVBoxLayout()
         self.setLayout(self.layout)
         
-        self.layout.addWidget(QtGui.QLabel('<b>All spikes</b>') )
+        self.layout.addWidget(QtGui.QLabel('<b>All peaks</b>') )
         
         self.tree = QtGui.QTreeView(minimumWidth = 100, uniformRowHeights = True,
                     selectionMode= QtGui.QAbstractItemView.ExtendedSelection, selectionBehavior = QtGui.QTreeView.SelectRows,
@@ -111,7 +114,7 @@ class PeakList(WidgetBase):
         self.layout.addWidget(self.tree)
         self.tree.customContextMenuRequested.connect(self.open_context_menu)
         
-        self.model = PeakModel(spikesorter = spikesorter)
+        self.model = PeakModel(controller = controller)
         self.tree.setModel(self.model)
         self.tree.selectionModel().selectionChanged.connect(self.on_tree_selection)
 
@@ -123,38 +126,35 @@ class PeakList(WidgetBase):
         self.model.refresh_colors()
     
     def on_tree_selection(self):
-        self.spikesorter.peak_selection[:] = False
+        self.controller.spike_selection[:] = False
         for index in self.tree.selectedIndexes():
             if index.column() == 0:
-                ind = self.model.visible_peak_labels.index[index.row()]
-                self.spikesorter.peak_selection.loc[ind] = True
-        self.peak_selection_changed.emit()
+                ind = self.model.visible_ind[index.row()]
+                self.controller.spike_selection[ind] = True
+        self.spike_selection_changed.emit()
     
-    def on_peak_selection_changed(self):
+    def on_spike_selection_changed(self):
         self.tree.selectionModel().selectionChanged.disconnect(self.on_tree_selection)
         
-        v = self.spikesorter.cluster_visible[self.spikesorter.cluster_visible]
-        selected_peaks = self.spikesorter.peak_selection.iloc[self.spikesorter.peak_labels.isin(v.index).values]
-        selected_peaks = selected_peaks[selected_peaks]
+        row_selected, = np.nonzero(self.controller.spike_selection[self.model.visible_mask])
         
-        if selected_peaks.shape[0]>100:#otherwise this is verry slow
-            selected_peaks = selected_peaks.iloc[:10]
-        rows = [self.model.visible_peak_labels.index.get_loc(ind) for ind in selected_peaks.index]
+        if row_selected.size>100:#otherwise this is verry slow
+            row_selected = row_selected[:10]
         
         # change selection
         self.tree.selectionModel().clearSelection()
-        flags = QtGui.QItemSelectionModel.Select #| QItemSelectionModel.Rows
-        itemsSelection = QtGui.QItemSelection()
-        for r in rows:
+        flags = QtCore.QItemSelectionModel.Select #| QItemSelectionModel.Rows
+        itemsSelection = QtCore.QItemSelection()
+        for r in row_selected:
             for c in range(2):
                 index = self.tree.model().index(r,c,QtCore.QModelIndex())
-                ir = QtGui.QItemSelectionRange( index )
+                ir = QtCore.QItemSelectionRange( index )
                 itemsSelection.append(ir)
         self.tree.selectionModel().select(itemsSelection , flags)
 
         # set selection visible
-        if len(rows)>=1:
-            index = self.tree.model().index(rows[0],0,QtCore.QModelIndex())
+        if len(row_selected)>=1:
+            index = self.tree.model().index(row_selected[0],0,QtCore.QModelIndex())
             self.tree.scrollTo(index)
 
         self.tree.selectionModel().selectionChanged.connect(self.on_tree_selection)        
@@ -168,20 +168,15 @@ class PeakList(WidgetBase):
         menu.exec_(self.cursor().pos())
     
     def move_selection_to_trash(self):
-        self.spikesorter.peak_labels[self.spikesorter.peak_selection] = -1
-        self.spikesorter.on_new_cluster()
-        self.spikesorter.refresh_colors(reset = False)
+        self.controller.change_spike_label(self.controller.spike_selection, -1)
         self.refresh()
-        self.peak_cluster_changed.emit()
+        self.spike_label_changed.emit()
 
 
-class ClusterList(WidgetBase):
+class ClusterPeakList(WidgetBase):
     
-    def __init__(self, spikesorter = None, parent=None):
-        WidgetBase.__init__(self, parent)
-        
-        self.spikesorter = spikesorter
-        self.dataio = self.spikesorter.dataio
+    def __init__(self, controller=None, parent=None):
+        WidgetBase.__init__(self, parent=parent, controller=controller)
         
         self.layout = QtGui.QVBoxLayout()
         self.setLayout(self.layout)
@@ -193,8 +188,10 @@ class ClusterList(WidgetBase):
         self.refresh()
 
     def refresh(self):
+        #~ self.cc._check_plot_attributes()
+        
         self.table.itemChanged.disconnect(self.on_item_changed)
-        sps = self.spikesorter
+        
         self.table.clear()
         labels = ['label', 'show/hide', 'nb_peaks']
         self.table.setColumnCount(len(labels))
@@ -206,10 +203,10 @@ class ClusterList(WidgetBase):
         self.table.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
         self.table.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
         
-        self.table.setRowCount(self.spikesorter.cluster_labels.size)
+        self.table.setRowCount(self.controller.cluster_labels.size)
         
-        for i, k in enumerate(self.spikesorter.cluster_labels):
-            color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
+        for i, k in enumerate(self.controller.cluster_labels):
+            color = self.controller.qcolors.get(k, QtGui.QColor( 'white'))
             pix = QtGui.QPixmap(10,10)
             pix.fill(color)
             icon = QtGui.QIcon(pix)
@@ -222,10 +219,11 @@ class ClusterList(WidgetBase):
             
             item = QtGui.QTableWidgetItem('')
             item.setFlags(QtCore.Qt.ItemIsEnabled|QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsUserCheckable)
-            item.setCheckState({ False: QtCore.Qt.Unchecked, True : QtCore.Qt.Checked}[self.spikesorter.cluster_visible[k]])
+            
+            item.setCheckState({ False: QtCore.Qt.Unchecked, True : QtCore.Qt.Checked}[self.controller.cluster_visible[k]])
             self.table.setItem(i,1, item)
 
-            item = QtGui.QTableWidgetItem('{}'.format(self.spikesorter.cluster_count[k]))
+            item = QtGui.QTableWidgetItem('{}'.format(self.controller.cluster_count[k]))
             item.setFlags(QtCore.Qt.ItemIsEnabled|QtCore.Qt.ItemIsSelectable)
             self.table.setItem(i,2, item)
         
@@ -236,17 +234,23 @@ class ClusterList(WidgetBase):
     def on_item_changed(self, item):
         if item.column() != 1: return
         sel = {QtCore.Qt.Unchecked : False, QtCore.Qt.Checked : True}[item.checkState()]
-        k = self.spikesorter.cluster_labels[item.row()]
-        self.spikesorter.cluster_visible[k] = item.checkState()
+        k = self.controller.cluster_labels[item.row()]
+        self.controller.cluster_visible[k] = bool(item.checkState())
         self.cluster_visibility_changed.emit()
     
     def selected_cluster(self):
         selected = []
         for index in self.table.selectedIndexes():
             if index.column() !=0: continue
-            selected.append(self.spikesorter.cluster_labels[index.row()])
+            selected.append(self.controller.cluster_labels[index.row()])
         return selected
-
+    
+    def _selected_spikes(self):
+        selection = np.zeros(self.controller.spike_label.shape[0], dtype = bool)
+        for k in self.selected_cluster():
+            selection |= self.controller.spike_label == k
+        return selection
+    
     def open_context_menu(self):
         n = len(self.selected_cluster())
         menu = QtGui.QMenu()
@@ -254,8 +258,6 @@ class ClusterList(WidgetBase):
         if n>=0: 
             act = menu.addAction('Reset colors')
             act.triggered.connect(self.reset_colors)
-            act = menu.addAction('Sort by ascending waveform power')
-            act.triggered.connect(self.sort_clusters)
             act = menu.addAction('Show all')
             act.triggered.connect(self.show_all)
             act = menu.addAction('Hide all')
@@ -264,10 +266,10 @@ class ClusterList(WidgetBase):
             act.triggered.connect(self.order_clusters)
             
         if n>=1:
-            act = menu.addAction('PCA projection with all')
-            act.triggered.connect(self.pca_project_all)
-            act = menu.addAction('PCA projection with selection')
-            act.triggered.connect(self.pca_project_selection)
+            act = menu.addAction('PC projection with all')
+            act.triggered.connect(self.pc_project_all)
+            act = menu.addAction('PC projection with selection')
+            act.triggered.connect(self.pc_project_selection)
             act = menu.addAction('Move selection to trash')
             act.triggered.connect(self.move_selection_to_trash)
             act = menu.addAction('Merge selection')
@@ -285,103 +287,97 @@ class ClusterList(WidgetBase):
         
     
     def reset_colors(self):
-        self.spikesorter.refresh_colors(reset = True)
+        self.controller.refresh_colors(reset = True)
         self.refresh()
         self.colors_changed.emit()
     
-    def sort_clusters(self):
-        pass
-        
     def show_all(self):
-        self.spikesorter.cluster_visible[:] = True
+        for k in self.controller.cluster_visible:
+            self.controller.cluster_visible[k] = True
         self.refresh()
         self.cluster_visibility_changed.emit()
     
     def hide_all(self):
-        self.spikesorter.cluster_visible[:] = False
+        for k in self.controller.cluster_visible:
+            self.controller.cluster_visible[k] = False
         self.refresh()
         self.cluster_visibility_changed.emit()
     
     def order_clusters(self):
-        self.spikesorter.order_clusters()
-        self.spikesorter.on_new_cluster()
-        self.spikesorter.refresh_colors(reset = True)
+        self.controller.order_clusters()
         self.refresh()
-        self.peak_cluster_changed.emit()
+        self.spike_label_changed.emit()
     
-    def pca_project_all(self):
-        self.spikesorter.clustering.project(method = 'pca', n_components = self.spikesorter.clustering._pca.n_components)
-        self.refresh()
-        self.peak_cluster_changed.emit()
-    
-    def pca_project_selection(self):
-        selection = np.zeros(self.spikesorter.peak_labels.shape[0], dtype = bool)
-        for k in self.selected_cluster():
-            selection |= self.spikesorter.peak_labels == k
-        self.spikesorter.clustering.project(method = 'pca', n_components = self.spikesorter.clustering._pca.n_components,
-                                        selection = selection)
-        self.peak_cluster_changed.emit()
-    
-    def move_selection_to_trash(self):
-        for k in self.selected_cluster():
-            take = self.spikesorter.peak_labels == k
-            self.spikesorter.peak_labels[take] = -1
-        self.spikesorter.on_new_cluster()
-        self.spikesorter.refresh_colors(reset = False)
-        self.refresh()
-        self.peak_cluster_changed.emit()
-    
-    def merge_selection(self):
-        new_label = max(self.spikesorter.cluster_labels)+1
-        for k in self.selected_cluster():
-            take = self.spikesorter.peak_labels == k
-            self.spikesorter.peak_labels[take] = new_label
-        self.spikesorter.on_new_cluster()
-        self.spikesorter.refresh_colors(reset = False)
-        self.refresh()
-        self.peak_cluster_changed.emit()
-    
-    def split_selection(self):
-        k = self.selected_cluster()[0]
-        
-        _params = [{'name' : 'method', 'type' : 'list', 'values' : ['kmeans', 'gmm']}]
+    def _dialog_methods(self, methods, _params_by_method):
+        _params = [{'name' : 'method', 'type' : 'list', 'values' : methods}]
         dialog1 = ParamDialog(_params, title = 'Which method ?', parent = self)
         if not dialog1.exec_():
-            return
+            return None, None
 
         method = dialog1.params['method']
         
-        if  method=='kmeans':
-            _params =  [{'name' : 'n', 'type' : 'int', 'value' : 2}]
-            dialog2 = ParamDialog(_params, title = 'kmeans parameters', parent = self)
-            if not dialog2.exec_():
-                return
-            kargs = dialog2.get()
+        _params =  _params_by_method[method]
+        dialog2 = ParamDialog(_params, title = '{} parameters'.format(method), parent = self)
+        if not dialog2.exec_():
+            return None, None
+        kargs = dialog2.get()
         
-        elif method=='gmm':
-            _params =  [{'name' : 'n', 'type' : 'int', 'value' : 2},
+        return method, kargs
+        
+
+    
+    def pc_project_all(self, selection=None):
+
+        
+        methods = ['pca', 'peak_max']
+        _params_by_method = {
+            'pca' : [{'name' : 'n_components', 'type' : 'int', 'value' : 5},],
+            'peak_max' : [],
+        }
+        method, kargs = self._dialog_methods(methods, _params_by_method)
+        if method is None: return
+        
+        self.controller.project(method=method, selection=selection, **kargs)
+        self.refresh()
+        self.spike_label_changed.emit()
+    
+    def pc_project_selection(self):
+        self.pc_project_all(selection=self._selected_spikes())
+    
+    def move_selection_to_trash(self):
+        for k in self.selected_cluster():
+            mask = self.controller.spike_label == k
+            self.controller.change_spike_label(mask, -1)
+        self.refresh()
+        self.spike_label_changed.emit()
+    
+    def merge_selection(self):
+        label_to_merge = self.selected_cluster()
+        self.controller.merge_cluster(label_to_merge)
+        self.refresh()
+        self.spike_label_changed.emit()
+    
+    def split_selection(self):
+        label_to_split = self.selected_cluster()[0]
+        
+        methods = ['kmeans', 'gmm']
+        _params_by_method = {
+            'kmeans' : [{'name' : 'n', 'type' : 'int', 'value' : 2}],
+            'gmm' : [{'name' : 'n', 'type' : 'int', 'value' : 2},
                                 {'name' : 'covariance_type', 'type' : 'list', 'values' : ['full']},
-                                {'name' : 'n_init', 'type' : 'int', 'value' : 10},
-                                ]
-            dialog2 = ParamDialog(_params, title = 'kmeans parameters', parent = self)
-            if not dialog2.exec_():
-                return
-            kargs = dialog2.get()
+                                {'name' : 'n_init', 'type' : 'int', 'value' : 10},],
+        }
+        method, kargs = self._dialog_methods(methods, _params_by_method)
+        if method is None: return
         
         n = kargs.pop('n')
-        self.spikesorter.clustering.split_cluster(k, n, method=method, order_clusters = True, **kargs)
-
-        self.spikesorter.on_new_cluster()
-        self.spikesorter.refresh_colors(reset = False)
+        
+        self.controller.split_cluster(label_to_split, n, method=method, order_clusters=True, **kargs)
         self.refresh()
-        self.peak_cluster_changed.emit()
+        self.spike_label_changed.emit()
 
     
     def select_peaks_of_clusters(self):
-        self.spikesorter.peak_selection[:] = False
-        for k in self.selected_cluster():
-            self.spikesorter.peak_selection[self.spikesorter.peak_labels == k] = True
-            
+        self.controller.spike_selection[:] = self._selected_spikes()
         self.refresh()
-        self.peak_selection_changed.emit()
-
+        self.spike_selection_changed.emit()

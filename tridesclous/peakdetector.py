@@ -1,144 +1,246 @@
+"""
+Here 2 version for 
+
+"""
+
 import numpy as np
-import pandas as pd
-import scipy.signal
+
+from pyacq.core.stream.ringbuffer import RingBuffer
+
+try:
+    import pyopencl
+    mf = pyopencl.mem_flags
+    HAVE_PYOPENCL = True
+except ImportError:
+    HAVE_PYOPENCL = False
 
 
-"""
-Some function for estimation of the noise and detection of peak.
 
-
-"""
-
-
-def normalize_signals(signals, med = None, mad = None):
-    """
-    Normalize signals = zscore but with median and mad.
-    
-    Arguments
-    --------------
-    signals: pandas.DataFrame
-        Signals: index is time columns are channels
-    med: optional
-        Can give the median to avoid recomputation.
-    mad: mad
-        Can give the mad to avoid recomputation.
-    
-    Returns
-    ----------
-        pandas.DataFrame
+class PeakDetectorEngine_Numpy:
+    def __init__(self, sample_rate, nb_channel, chunksize, dtype,):
+        self.sample_rate = sample_rate
+        self.nb_channel = nb_channel
+        self.chunksize = chunksize
+        self.dtype = dtype
         
-    
-    """
-    if med is None:
-        med = signals.median(axis=0)
-    if mad is None:
-        mad = np.median(np.abs(signals-med),axis=0)*1.4826
-    normed_sigs = (signals - med)/mad
-    return normed_sigs
-    
-
-def derivative_signals(signals):
-    """
-    Apply a derivate along time axis for each channel.
-    
-    """
-    kernel = np.array([1,0,-1])/2.
-    kernel = kernel[:,None]
-    np_array = scipy.signal.fftconvolve(signals,kernel,'same')
-    return pd.DataFrame(np_array, index = signals.index, columns = signals.columns)
-
-
-def rectify_signals(normed_sigs, threshold, copy = True):
-    """
-    Return signals with 0 under threshold.
-    Need normed_sigs as input
-    """
-    if copy:
-        normed_sigs = normed_sigs.copy()
-    if threshold<0.:
-        normed_sigs[normed_sigs>threshold] = 0.
-    else:
-        normed_sigs[normed_sigs<threshold] = 0.
-    return normed_sigs
-
-
-def detect_peak_method_span(rectified_signals, peak_sign='-', n_span = 2):
-    """
-    Detect peak on rectified signals.
-    When there are several peak it take the best ones in a short neighborhood.
-    
-    Argument
-    --------------
-    rectified_signals: pandas.dataFrame
-        rectified signals see normalize_signals and rectify_signals
-    peak_sign: '+' or '-'
-        sign of the peak
-    n_span : int
-        Number of sample arround each side of the peak that exclude other smaller peak.
-    
-    Return
-    ----------
-    peaks_pos: np.array
-        position in sample of peaks.
-    """
-    k = n_span
-    sig = rectified_signals.sum(axis=1).values #np.array
-    sig_center = sig[k:-k]
-    if peak_sign == '+':
-        peaks = sig_center>1.
-        for i in range(k):
-            peaks &= sig_center>sig[i:i+sig_center.size]
-            peaks &= sig_center>=sig[k+i+1:k+i+1+sig_center.size]
-    elif peak_sign == '-':
-        peaks = sig_center<-1.
-        for i in range(k):
-            peaks &= sig_center<sig[i:i+sig_center.size]
-            peaks &= sig_center<=sig[k+i+1:k+i+1+sig_center.size]
-    peaks_pos,  = np.where(peaks)
-    peaks_pos += k
-    return peaks_pos
-
-
-
-
-
-class PeakDetector_:
-    """
-    This is helper to estimated noise and threshold and detect peak on signals.
-    It take as entry a DataFrame with signals given by DataManager.get_signals(...).    
-    """
-    def __init__(self, signals, seg_num = 0, already_normed = False):
-        self.sigs = signals
-        self.seg_num = seg_num
+        self.n_peak = 0
         
-        if already_normed:
-            self.normed_sigs = signals
+    def process_data(self, pos, newbuf):
+        newbuf = newbuf.copy()
+        
+        if self.peak_sign == '+':
+            newbuf[newbuf<self.relative_threshold] = 0.
         else:
-            self.estimate_noise()
-            self.normed_sigs = normalize_signals(self.sigs, med = self.med, mad = self.mad)
-    
-    def estimate_noise(self):
-        """
-        This compute median and mad of each channel.
-        """
-        self.med = self.sigs.median(axis=0)
-        self.mad = np.median(np.abs(self.sigs-self.med),axis=0)*1.4826
-    
-    def detect_peaks(self, threshold = -5, peak_sign = '-', n_span = 2):
-        self.threshold = threshold
-        self.rectified_sigs = rectify_signals(self.normed_sigs, threshold, copy = True)
+            newbuf[newbuf>-self.relative_threshold] = 0.
+
+        if self.nb_channel>1:
+            sum_rectified = np.sum(newbuf, axis=1)
+        else:
+            sum_rectified = newbuf[:,0]
         
-        self.peak_pos = detect_peak_method_span(self.rectified_sigs, peak_sign=peak_sign, n_span = n_span)
-        #peak index combine (seg_num, peak_time)
-        self.peak_index = pd.MultiIndex.from_arrays([np.ones(self.peak_pos.size)*self.seg_num, self.sigs.index[self.peak_pos]])
+        self.ring_sum.new_chunk(sum_rectified, index=pos)
         
-        return self.peak_pos
+        k = self.n_span
+        if pos-(newbuf.shape[0]+2*k)<0:
+            # the very first buffer is sacrified because of peak span
+            return None, None
+        
+        sig = self.ring_sum.get_data(pos-(newbuf.shape[0]+2*k), pos)
+
+        sig_center = sig[k:-k]
+        if self.peak_sign == '+':
+            peaks = sig_center>self.relative_threshold
+            for i in range(k):
+                peaks &= sig_center>sig[i:i+sig_center.size]
+                peaks &= sig_center>=sig[k+i+1:k+i+1+sig_center.size]
+        elif self.peak_sign == '-':
+            peaks = sig_center<-self.relative_threshold
+            for i in range(k):
+                peaks &= sig_center<sig[i:i+sig_center.size]
+                peaks &= sig_center<=sig[k+i+1:k+i+1+sig_center.size]
+        
+        ind_peaks,  = np.where(peaks)
+        
+        if ind_peaks.size>0:
+            ind_peaks = ind_peaks + pos - newbuf.shape[0] - k
+            self.n_peak += ind_peaks.size
+            #~ peaks = np.zeros(ind_peaks.size, dtype = [('index', 'int64'), ('code', 'int64')])
+            #~ peaks['index'] = ind_peaks
+            #~ self.output_stream().send(peaks, index=self.n)
+            #~ return self.n_peak, peaks
+            return self.n_peak, ind_peaks
+        
+        return None, None
+        
+    def change_params(self, peak_sign=None, relative_threshold=None, peak_span=None):
+        self.peak_sign = peak_sign
+        self.relative_threshold = relative_threshold
+        self.peak_span = peak_span
+        
+        self.n_span = int(self.sample_rate*self.peak_span)//2
+        self.n_span = max(1, self.n_span)
+        
+        self.ring_sum = RingBuffer((self.chunksize*2,), self.dtype, double=True)
+        
 
 
+class PeakDetectorEngine_OpenCL:
+    """
+    Same as PeakDetectorEngine but implemented with OpenCl.
+    With a strong GPU  perf a little bit better than on CPU.
+    For standard GPU PeakDetectorEngine implemented with numpy is faster.
+    I wasted my time here....
+    """
+    def __init__(self, sample_rate, nb_channel, chunksize, dtype,):
+        assert HAVE_PYOPENCL
+        
+        self.sample_rate = sample_rate
+        self.nb_channel = nb_channel
+        self.chunksize = chunksize
+        self.dtype = np.dtype(dtype)
+        
+        self.n_peak = 0
 
-from .mpl_plot import PeakDetectorPlot
-class PeakDetector(PeakDetector_, PeakDetectorPlot):
-    pass
+        self.ctx = pyopencl.create_some_context()
+        #~ print(self.ctx)
+        #TODO : add arguments gpu_platform_index/gpu_device_index
+        #self.devices =  [pyopencl.get_platforms()[self.gpu_platform_index].get_devices()[self.gpu_device_index] ]
+        #self.ctx = pyopencl.Context(self.devices)        
+        self.queue = pyopencl.CommandQueue(self.ctx)
 
+    def process_data(self, pos, newbuf):
+        assert newbuf.shape[0] ==self.chunksize
+
+        if not newbuf.flags['C_CONTIGUOUS']:
+            newbuf = newbuf.copy()
+
+        pyopencl.enqueue_copy(self.queue,  self.sigs_cl, newbuf)
+        event = self.kern_detect_peaks(self.queue,  (self.chunksize,), (self.max_wg_size,),
+                                self.sigs_cl, self.ring_sum_cl, self.peaks_cl)
+        event.wait()
+        
+        if pos-(newbuf.shape[0]+2*self.n_span)<0:
+            # the very first buffer is sacrified because of peak span
+            return None, None
+        
+        pyopencl.enqueue_copy(self.queue,  self.peaks, self.peaks_cl)
+        ind_peaks,  = np.nonzero(self.peaks)
+        
+        if ind_peaks.size>0:
+            ind_peaks += pos - newbuf.shape[0] - self.n_span
+            self.n_peak += ind_peaks.size
+            #~ peaks = np.zeros(ind_peaks.size, dtype = [('index', 'int64'), ('code', 'int64')])
+            #~ peaks['index'] = ind_peaks
+            #~ return self.n_peak, peaks
+            return self.n_peak, ind_peaks
+        
+        return None, None
+        
+    def change_params(self, peak_sign=None, relative_threshold=None, peak_span=None):
+        self.peak_sign = peak_sign
+        self.relative_threshold = relative_threshold
+        self.peak_span = peak_span
+        
+        self.n_span = int(self.sample_rate*self.peak_span)//2
+        self.n_span = max(1, self.n_span)
+        
+        chunksize2=self.chunksize+2*self.n_span
+        
+        self.sum_rectified = np.zeros((self.chunksize), dtype=self.dtype)
+        self.peaks = np.zeros((self.chunksize), dtype='uint8')
+        ring_sum = np.zeros((chunksize2), dtype=self.dtype)
+        
+        #GPU buffers
+        self.sigs_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE, size=self.nb_channel*self.chunksize*self.dtype.itemsize)
+        
+        self.ring_sum_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=ring_sum)
+        self.peaks_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=self.peaks)
+        
+        kernel = self.kernel%dict(chunksize=self.chunksize, nb_channel=self.nb_channel, n_span=self.n_span,
+                    relative_threshold=relative_threshold, peak_sign={'+':1, '-':-1}[self.peak_sign])
+        
+        prg = pyopencl.Program(self.ctx, kernel)
+        self.opencl_prg = prg.build(options='-cl-mad-enable')
+        
+        self.max_wg_size = self.ctx.devices[0].get_info(pyopencl.device_info.MAX_WORK_GROUP_SIZE)
+
+
+        self.kern_detect_peaks = getattr(self.opencl_prg, 'detect_peaks')
+
+    kernel = """
+    #define chunksize %(chunksize)d
+    #define n_span %(n_span)d
+    #define nb_channel %(nb_channel)d
+    #define relative_threshold %(relative_threshold)d
+    #define peak_sign %(peak_sign)d
+    
+    __kernel void detect_peaks(__global  float *sigs,
+                                                __global  float *ring_sum,
+                                                __global  uchar *peaks){
+    
+        int pos = get_global_id(0);
+        
+        int idx;
+        float v;
+
+        // roll_ring_sum and wait for friends
+        if (pos<(n_span*2)){
+            ring_sum[pos] = ring_sum[pos+chunksize];
+        }
+        barrier(CLK_GLOBAL_MEM_FENCE);
+
+        
+        // sum all channels
+        float sum=0;
+        for (int chan=0; chan<nb_channel; chan++){
+            idx = pos*nb_channel + chan;
+            
+            v = sigs[idx];
+            
+            //retify signals
+            if(peak_sign==1){
+                if (v<relative_threshold){v=0;}
+            }
+            else if(peak_sign==-1){
+                if (v>-relative_threshold){v=0;}
+            }
+            
+            sum = sum + v;
+            
+        }
+        ring_sum[pos+2*n_span] = sum;
+        
+        barrier(CLK_GLOBAL_MEM_FENCE);
+        
+        
+        // peaks span
+        int pos2 = pos + n_span;
+        
+        uchar peak=0;
+        
+        if(peak_sign==1){
+            if (ring_sum[pos2]>relative_threshold){
+                peak=1;
+                for (int i=1; i<=n_span; i++){
+                    peak = peak && (ring_sum[pos2]>ring_sum[pos2-i]) && (ring_sum[pos2]>=ring_sum[pos2+i]);
+                }
+            }
+        }
+        else if(peak_sign==-1){
+            if (ring_sum[pos2]<-relative_threshold){
+                peak=1;
+                for (int i=1; i<=n_span; i++){
+                    peak = peak && (ring_sum[pos2]<ring_sum[pos2-i]) && (ring_sum[pos2]<=ring_sum[pos2+i]);
+                }
+            }
+        }
+        peaks[pos]=peak;
+    
+    }
+    
+    """
+
+
+peakdetector_engines = { 'peakdetector_numpy' : PeakDetectorEngine_Numpy, 'peakdetector_opencl' : PeakDetectorEngine_OpenCL}
 
 

@@ -11,11 +11,8 @@ class MyViewBox(pg.ViewBox):
     pass
 
 class WaveformViewer(WidgetBase):
-    
-    def __init__(self, spikesorter = None, parent=None):
-        WidgetBase.__init__(self, parent)
-    
-        self.spikesorter = spikesorter
+    def __init__(self, controller=None, parent=None):
+        WidgetBase.__init__(self, parent=parent, controller=controller)
         
         self.layout = QtGui.QVBoxLayout()
         self.setLayout(self.layout)
@@ -52,23 +49,22 @@ class WaveformViewer(WidgetBase):
         #~ self.viewBox.gain_zoom.connect(self.gain_zoom)
         #~ self.viewBox.xsize_zoom.connect(self.xsize_zoom)    
     
-    @property
-    def catalogue(self):
-        return self.spikesorter.clustering.catalogue
     
     def refresh(self):
         self.plot1.clear()
         self.plot2.clear()
         
-        if not hasattr(self.spikesorter, 'all_waveforms'):
+        if self.controller.spike_index ==[]:
             return
         
         #lines
         def addSpan(plot):
         
-            nb_channel = self.spikesorter.dataio.nb_channel
-            samples = self.spikesorter.all_waveforms.columns.levels[1]
-            n_left, n_right = min(samples)+2, max(samples)-1
+            nb_channel = self.controller.dataio.nb_channel
+            #~ n_left, n_right = min(samples)+2, max(samples)-1
+            
+            d = self.controller.info['params_waveformextractor']
+            n_left, n_right = d['n_left'], d['n_right']
             white = pg.mkColor(255, 255, 255, 20)
             width = n_right - n_left
             for i in range(nb_channel):
@@ -85,13 +81,13 @@ class WaveformViewer(WidgetBase):
         addSpan(self.plot2)
         
         #waveforms
-        for i,k in enumerate(self.catalogue):
-            if not self.spikesorter.cluster_visible[k]:
+        for i,k in enumerate(self.controller.centroids):
+            if not self.controller.cluster_visible[k]:
                 continue
-            wf0 = self.catalogue[k]['center']
-            mad = self.catalogue[k]['mad']
+            wf0 = self.controller.centroids[k]['median'].T.flatten()
+            mad = self.controller.centroids[k]['mad'].T.flatten()
             
-            color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
+            color = self.controller.qcolors.get(k, QtGui.QColor( 'white'))
             curve = pg.PlotCurveItem(np.arange(wf0.size), wf0, pen=pg.mkPen(color, width=2))
             self.plot1.addItem(curve)
             
@@ -117,6 +113,6 @@ class WaveformViewer(WidgetBase):
         
         
 
-    def on_peak_selection_changed(self):
+    def on_spike_selection_changed(self):
         pass
         #TODO peak the selected peak if only one

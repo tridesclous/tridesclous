@@ -3,20 +3,27 @@ import os
 
 import tridesclous
 
+install_requires = [
+                    'numpy',
+                    'scipy',
+                    'pandas',
+                    'sklearn',
+                    'matplotlib',
+                    'seaborn',
+                    'tables',
+                    ]
+extras_require={ 'gui' : ['PyQt5', 'pyqtgraph', 'matplotlib'],
+                            'online' : 'pyacq',
+                        }
+
 long_description = ""
 
 setup(
     name = "tridesclous",
     version = tridesclous.__version__,
     packages = ['tridesclous', ],
-    install_requires=[
-                    'numpy',
-                    'pandas',
-                    'sklearn',
-                    'matplotlib',
-                    'seaborn',
-                    'tables',
-                    ],
+    install_requires=install_requires,
+    extras_require = extras_require,
     author = "C. Pouzat, S.Garcia",
     author_email = "",
     description = "Simple Framework for spike sorting python.",

@@ -42,10 +42,8 @@ class MyViewBox(pg.ViewBox):
 
 
 class NDScatter(WidgetBase):
-    def __init__(self, spikesorter = None, parent=None):
-        WidgetBase.__init__(self, parent)
-        
-        self.spikesorter = spikesorter
+    def __init__(self, controller=None, parent=None):
+        WidgetBase.__init__(self, parent=parent, controller=controller)
         
         self.layout = QtGui.QHBoxLayout()
         self.setLayout(self.layout)
@@ -60,7 +58,9 @@ class NDScatter(WidgetBase):
         self.toolbar.addWidget(self.graphicsview2)
 
         _params = [{'name': 'refresh_interval', 'type': 'float', 'value': 100 },
-                           {'name': 'nb_step', 'type': 'int', 'value':  10, 'limits' : [5, 100] },]
+                           {'name': 'nb_step', 'type': 'int', 'value':  10, 'limits' : [5, 100] },
+                           {'name': 'max_visible_by_cluster', 'type': 'int', 'value':  1000, 'limits' : [10, 10000], 'step':50 },
+                           ]
         self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
         self.tree_params = pg.parametertree.ParameterTree(parent  = self)
         self.tree_params.header().hide()
@@ -92,6 +92,11 @@ class NDScatter(WidgetBase):
         but = QtGui.QPushButton('settings')
         but.clicked.connect(self.open_settings)
         tb.addWidget(but)
+        but = QtGui.QPushButton('random decimate', icon=QtGui.QIcon.fromTheme("roll"))
+        but.clicked.connect(self.by_cluster_random_decimate)
+        tb.addWidget(but)
+        
+        
         
 
     def open_settings(self):
@@ -100,12 +105,46 @@ class NDScatter(WidgetBase):
         else:
             self.tree_params.hide()        
     
+    # this handle data with propties so model change shoudl not affect so much teh code
     @property
     def data(self):
-        try:
-            return self.spikesorter.clustering.features
-        except:
-            return None
+        return self.controller.some_features
+    
+    def data_by_label(self, k):
+        if len(self.peak_visible) != self.data.shape[0]:
+            self.peak_visible = np.zeros(self.data.shape[0], dtype=bool)
+            self.by_cluster_random_decimate()
+        
+        if k=='sel':
+            data = self.data[self.controller.spike_selection[self.controller.some_peaks_index]]
+        else:
+            data = self.data[(self.controller.spike_label[self.controller.some_peaks_index]==k) & self.peak_visible]
+            
+        return data
+    
+    def by_cluster_random_decimate(self, clicked=None, refresh=True):
+        m = self.params['max_visible_by_cluster']
+        for k in self.controller.cluster_labels:
+            mask = self.controller.spike_label[self.controller.some_peaks_index]==k
+            if self.controller.cluster_count[k]>m:
+                self.peak_visible[mask] = False
+                visible, = np.nonzero(mask)
+                if visible.size>0:
+                    visible = np.random.choice(visible, size=m)
+                    self.peak_visible[visible] = True
+            else:
+                self.peak_visible[mask] = True
+        
+        if refresh:
+            self.refresh()
+        
+    def get_color(self, k):
+        color = self.controller.qcolors.get(k, QtGui.QColor( 'white'))
+        return color
+    
+    def is_cluster_visible(self, k):
+        return self.controller.cluster_visible[k]
+
     
     def initialize(self):
         self.viewBox = MyViewBox()
@@ -124,7 +163,7 @@ class NDScatter(WidgetBase):
         
         #~ m = np.max(np.abs(self.data.values))
         med, mad = median_mad(self.data)
-        m = 4.*np.max(mad.values)
+        m = 4.*np.max(mad)
         self.limit = m
         self.plot.setXRange(-m, m)
         self.plot.setYRange(-m, m)
@@ -133,6 +172,9 @@ class NDScatter(WidgetBase):
         self.projection = np.zeros( (ndim, 2))
         self.projection[0,0] = 1.
         self.projection[1,1] = 1.
+        
+        self.peak_visible = np.zeros(self.data.shape[0], dtype=bool)
+        self.by_cluster_random_decimate(refresh=False)
         
         self.plot2 = pg.PlotItem(viewBox=MyViewBox(lockAspect=True))
         self.graphicsview2.setCentralItem(self.plot2)
@@ -147,7 +189,8 @@ class NDScatter(WidgetBase):
         self.plot2.setYRange(-1, 1)
         self.proj_labels = []
         for i in range(ndim):
-            label = pg.TextItem(self.data.columns[i], color=(1,1,1), anchor=(0.5, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
+            text = 'PC{}'.format(i)
+            label = pg.TextItem(text, color=(1,1,1), anchor=(0.5, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
             self.proj_labels.append(label)
             self.plot2.addItem(label)
         
@@ -182,14 +225,22 @@ class NDScatter(WidgetBase):
         if self.timer_tour.isActive():
             self.tour_step == 0
         self.refresh()
+
+
     
     def refresh(self):
+        if not hasattr(self, 'viewBox'):
+            self.initialize()
+        
         for k, scatter in self.scatters.items():
             #~ if k not in visible_labels:
             scatter.setData([], [])
         
-        for k in self.spikesorter.cluster_labels:
-            color = self.spikesorter.qcolors.get(k, QtGui.QColor( 'white'))
+        if self.data.shape[1] != self.projection.shape[0]:
+            self.initialize()
+        
+        for k in self.controller.cluster_labels:
+            color = self.get_color(k)
             if k not in self.scatters:
                 self.scatters[k] = pg.ScatterPlotItem(pen=None, brush=color, size=2, pxMode = True)
                 self.plot.addItem(self.scatters[k])
@@ -197,14 +248,14 @@ class NDScatter(WidgetBase):
             else:
                 self.scatters[k].setBrush(color)
             
-            if self.spikesorter.cluster_visible.loc[k]:
-                data = self.data[self.spikesorter.peak_labels==k].values
+            if self.is_cluster_visible(k):
+                data = self.data_by_label(k)
                 projected = np.dot(data, self.projection )
                 self.scatters[k].setData(projected[:,0], projected[:,1])
             else:
                 self.scatters[k].setData([], [])
         
-        data = self.data[self.spikesorter.peak_selection]
+        data = self.data_by_label('sel')
         projected = np.dot(data, self.projection )
         self.scatters['sel'].setData(projected[:,0], projected[:,1])
         
