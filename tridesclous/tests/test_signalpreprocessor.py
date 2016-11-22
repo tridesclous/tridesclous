@@ -114,7 +114,7 @@ def test_compare_offline_online_engines():
         online_sig = online_sigs[engine]
         residual = np.abs((online_sig.astype('float64')-offline_sig.astype('float64'))/np.mean(np.abs(offline_sig.astype('float64'))))
 
-        print(np.max(residual))
+        #~ print(np.max(residual))
         #~ print(np.mean(np.abs(offline_sig.astype('float64'))))
         assert np.max(residual)<5e-5, 'online differt from offline'
     
