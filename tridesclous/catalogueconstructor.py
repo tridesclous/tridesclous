@@ -30,10 +30,10 @@ LABEL_UNSLASSIFIED = -10
 # TODO improve different of sample waveform
 # TODO make a clear distinct between all peak and sample peak/waveform/features (because different sizes) CF ndscatter!!!!!
 # TODO make some label for insorted type
-
+# TODO extract some noise
 
 #~ _persitent_arrays = ['peak_pos', 'peak_segment', 'peak_label',
-                    #~ 'peak_waveforms', 'peak_waveforms_index', 'features',
+                    #~ 'peak_waveforms', 'some_peaks_index', 'features',
                     #~ 'signals_medians','signals_mads', ]
 
 _persitent_arrays = ['all_peaks', 'some_peaks_index', 'some_waveforms', 
@@ -84,9 +84,34 @@ class CatalogueConstructor:
         with open(self.info_filename, 'w', encoding='utf8') as f:
             json.dump(self.info, f, indent=4)
     
+    def __repr__(self):
+        t = "CatalogueConstructor <id: {}> \n  workdir: {}\n".format(id(self), self.dataio.dirname)
+        if self.all_peaks is None:
+            t += '  Signal pre-processing not done yet'
+            return t
+        
+        t += "  nb_peak: {}\n".format(self.nb_peak)
+        nb_peak_by_segment = [ np.sum(self.all_peaks['segment']==i)  for i in range(self.dataio.nb_segment)]
+        t += '  nb_peak_by_segment: '+', '.join('{}'.format(n) for n in nb_peak_by_segment)+'\n'
+
+        if self.some_waveforms is not None:
+            t += '  n_left {} n_right {}\n'.format(self.info['params_waveformextractor']['n_left'],
+                                                self.info['params_waveformextractor']['n_right'])
+            t += '  some_waveforms.shape: {}\n'.format(self.some_waveforms.shape)
+            
+        if self.some_features is not None:
+            t += '  some_features.shape: {}\n'.format(self.some_features.shape)
+        
+        if hasattr(self, 'cluster_labels'):
+            t += '  cluster_labels {}\n'.format(self.cluster_labels)
+        
+        
+        return t
     
-    def initialize_signalprocessor_loop(self, chunksize=1024,
-            memory_mode='ram',
+    
+    
+    def set_preprocessor_params(self, chunksize=1024,
+            memory_mode='memmap',
             
             internal_dtype = 'float32',
             
@@ -182,7 +207,8 @@ class CatalogueConstructor:
                         i_stop=pos2, signal_type='processed')
         
         n_peaks, chunk_peaks = self.peakdetector.process_data(pos2, preprocessed_chunk)
-        
+        #~ print(n_peaks)
+        #~ print(chunk_peaks)
         #~ if chunk_peaks is  None:
             #~ chunk_peaks = np.array([], dtype='int64')
         
@@ -208,7 +234,7 @@ class CatalogueConstructor:
         
 
         
-    def run_signalprocessor_loop(self, seg_num=0, duration=60.):
+    def run_signalprocessor_loop_one_segment(self, seg_num=0, duration=60.):
         
         length = int(duration*self.dataio.sample_rate)
         length -= length%self.chunksize
@@ -237,17 +263,25 @@ class CatalogueConstructor:
         #~ self.arrays.finalize_array('peak_segment')
         
         self.arrays.finalize_array('all_peaks')
+        self.on_new_cluster()
+    
+    def run_signalprocessor(self, duration=60.):
+        for seg_num in range(self.dataio.nb_segment):
+            self.run_signalprocessor_loop_one_segment(seg_num=seg_num, duration=duration)
+        self.finalize_signalprocessor_loop()
         
     
     
-    def extract_some_waveforms(self, n_left=-20, n_right=30, index=None, mode='rand', nb_max=10000):
+    
+    def extract_some_waveforms(self, n_left=None, n_right=None, index=None, mode='rand', nb_max=10000):
         """
         
         """
-
-        #~ 'some_peaks_index', 'some_waveforms', 
-                    #~ 'some_features', 
-
+        if n_left is None or n_right is None:
+            assert  'params_waveformextractor' in self.info
+            n_left = self.info['params_waveformextractor']['n_left']
+            n_right = self.info['params_waveformextractor']['n_right']
+        
         peak_width = - n_left + n_right
         
         if index is not None:
@@ -262,6 +296,7 @@ class CatalogueConstructor:
             else:
                 raise(NotImplementedError, 'unknown mode')
         
+        some_peaks_index = np.unique(some_peaks_index)# this is important to not take 2 times the sames, this leads to bad mad/median
         
         some_peak_mask = np.zeros(self.nb_peak, dtype='bool')
         some_peak_mask[some_peaks_index] = True
@@ -290,9 +325,65 @@ class CatalogueConstructor:
         self.flush_info()
         
         if self.projector is not None:
-            self.apply_projection()
+            try:
+                self.apply_projection()
+            except:
+                print('can not project new waveforms maybe shape hace change')
+                self.some_features = None
         else:
             self.some_features = None
+    
+    def find_good_limits(self, mad_threshold = 1.1, channel_percent=0.3, extract=True):
+        """
+        Find goods limits for the waveform.
+        Where the MAD is above noise level (=1.)
+        
+        The technics constists in finding continuous samples
+        above 10% of backgroud noise for at least 30% of channels
+        
+        Parameters
+        ----------
+        mad_threshold: (default 1.1) threshold noise
+        channel_percent:  (default 0.3) percent of channel above this noise.
+        """
+        
+        old_n_left = self.info['params_waveformextractor']['n_left']
+        old_n_right = self.info['params_waveformextractor']['n_right']
+
+        median, mad = median_mad(self.some_waveforms, axis = 0)
+        # any channel above MAD mad_threshold
+        nb_above = np.sum(mad>=mad_threshold, axis=1)
+        #~ print('nb_above', nb_above)
+        #~ print('self.dataio.nb_channel*channel_percent', self.dataio.nb_channel*channel_percent)
+        above = nb_above>=self.dataio.nb_channel*channel_percent
+        #find max consequitive point that are True
+        #~ print('above', above)
+        
+        
+        up, = np.where(np.diff(above.astype(int))==1)
+        down, = np.where(np.diff(above.astype(int))==-1)
+        
+        
+        if len(up)==0 or len(down)==0:
+            return None, None
+        else:
+            up = up[up<max(down)]
+            down = down[down>min(up)]
+            if len(up)==0 or len(down)==0:
+                return None, None
+            else:
+                best = np.argmax(down-up)
+                n_left = int(self.info['params_waveformextractor']['n_left'] + up[best])
+                n_right = int(self.info['params_waveformextractor']['n_left'] + down[best]+1)
+                #~ print(old_n_left, old_n_right)
+                #~ print(n_left, n_right)
+                
+                if extract:
+                    self.projector = None
+                    self.extract_some_waveforms(n_left=n_left, n_right=n_right, index=self.some_peaks_index)
+                
+                return n_left, n_right
+
 
     def project(self, method='pca', selection = None, n_components=5, **params):
         """
@@ -313,32 +404,28 @@ class CatalogueConstructor:
     
     def apply_projection(self):
         assert self.projector is not None
-        wf = self.some_waveforms.reshape(self.some_waveforms.shape[0], -1)
-        features = self.projector.transform(wf)
+        features = self.projector.transform(self.some_waveforms)
         
         #trick to make it persistant
         self.arrays.create_array('some_features', self.info['internal_dtype'], features.shape, self.memory_mode)
         self.some_features[:] = features
-        
-        
-        
-        
+    
     
     def find_clusters(self, method='kmeans', n_clusters=1, order_clusters=True, selection=None, **kargs):
         #TODO clustering on all peaks
         
         if selection is None:
             labels = cluster.find_clusters(self.some_features, method=method, n_clusters=n_clusters, **kargs)
-            #~ self.peak_label[self.peak_waveforms_index] = labels
-            self.peaks[self.some_peaks_index['label'] = labels
+            #~ self.peak_label[self.some_peaks_index] = labels
+            self.all_peaks['label'][:] = LABEL_UNSLASSIFIED
+            self.all_peaks['label'][self.some_peaks_index] = labels
         else:
             #TODO
-            
-            #~ sel = selection[self.peak_waveforms_index]
-            #~ features = self.features[sel]
-            #~ labels = cluster.find_clusters(features, method=method, n_clusters=n_clusters, **kargs)
-            #~ labels += max(self.cluster_labels)+1
-            #~ self.peak_label[sel] = labels
+            sel = selection[self.some_peaks_index]
+            features = self.some_features[sel]
+            labels = cluster.find_clusters(features, method=method, n_clusters=n_clusters, **kargs)
+            labels += max(self.cluster_labels)+1
+            self.all_peaks['label'][sel] = labels
         
         self.on_new_cluster()
         
@@ -346,7 +433,7 @@ class CatalogueConstructor:
             #~ self.order_clusters()
     
     def on_new_cluster(self):
-        self.cluster_labels = np.unique(self.peak_label)
+        self.cluster_labels = np.unique(self.all_peaks['label'])
     
     def compute_centroid(self, label_changed=None):
         if label_changed is None:
@@ -359,7 +446,7 @@ class CatalogueConstructor:
             if k not in self.cluster_labels:
                 self.centroids.pop(k)
                 continue
-            wf = self.peak_waveforms[self.peak_label[self.peak_waveforms_index]==k]
+            wf = self.some_waveforms[self.all_peaks['label'][self.some_peaks_index]==k]
             median, mad = median_mad(wf, axis = 0)
             mean, std = np.mean(wf, axis=0), np.std(wf, axis=0)
             max_on_channel = np.argmax(np.max(np.abs(mean), axis=0))
@@ -398,14 +485,14 @@ class CatalogueConstructor:
         #~ self.on_new_cluster(label_changed=labels_to_merge+[new_label])
     
     def split_cluster(self, label, n, method='kmeans', order_clusters=True, **kargs):
-        mask = self.peak_label==label
+        mask = self.all_peaks['label']==label
         self.find_clusters(method=method, n_clusters=n, order_clusters=order_clusters, selection=mask, **kargs)
     
     def trash_small_cluster(self, n=10):
         for k in self.cluster_labels:
-            mask = self.peak_label==k
+            mask = self.all_peaks['label']==k
             if np.sum(mask)<=n:
-                self.peak_label[mask] = -1
+                self.all_peaks['label'][mask] = -1
         self.on_new_cluster()
         
         
@@ -427,10 +514,10 @@ class CatalogueConstructor:
         
         #reassign labels
         N = int(max(cluster_labels)*10)
-        self.peak_label[self.peak_label>=0] += N
+        self.all_peaks['label'][self.all_peaks['label']>=0] += N
         for new, old in enumerate(sorted_labels+N):
-            #~ self.peak_label[self.peak_label==old] = cluster_labels[new]
-            self.peak_label[self.peak_label==old] = new
+            #~ self.all_peaks['label'][self.all_peaks['label']==old] = cluster_labels[new]
+            self.all_peaks['label'][self.all_peaks['label']==old] = new
         
         self.on_new_cluster()
     
@@ -448,7 +535,7 @@ class CatalogueConstructor:
         cluster_labels = self.cluster_labels[self.cluster_labels>=0]
         self.catalogue['cluster_labels'] = cluster_labels
         
-        n, full_width, nchan = self.peak_waveforms.shape
+        n, full_width, nchan = self.some_waveforms.shape
         centers0 = np.zeros((cluster_labels.size, full_width - 4, nchan), dtype=self.info['internal_dtype'])
         centers1 = np.zeros_like(centers0)
         centers2 = np.zeros_like(centers0)
@@ -470,8 +557,8 @@ class CatalogueConstructor:
             #print('construct_catalogue', k)
             # take peak of this cluster
             # and reshaape (nb_peak, nb_channel, nb_csample)
-            #~ wf = self.peak_waveforms[self.peak_label==k]
-            wf0 = self.peak_waveforms[self.peak_label[self.peak_waveforms_index]==k]
+            #~ wf = self.some_waveforms[self.all_peaks['label']==k]
+            wf0 = self.some_waveforms[self.all_peaks['label'][self.some_peaks_index]==k]
             
             
             #compute first and second derivative on dim=1 (time)

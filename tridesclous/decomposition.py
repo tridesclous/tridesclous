@@ -5,29 +5,47 @@ import sklearn.decomposition
 
 
 
-def project_waveforms(peak_waveforms, method='pca', selection=None, catalogueconstructor=None, **params):
+def project_waveforms(waveforms, method='pca', selection=None,  catalogueconstructor=None, **params):
     """
     
     
     """
+    if selection is None:
+        waveforms2 = waveforms
+    else:
+        waveforms2 = waveforms[selection]
+    
     if method=='pca':
-       method='IncrementalPCA' 
-    
-    if method=='IncrementalPCA':
-        flatten_waveforms = peak_waveforms.reshape(peak_waveforms.shape[0], -1)
-        pca =  sklearn.decomposition.IncrementalPCA(**params)
-        if selection is None:
-            pca.fit(flatten_waveforms)
-        else:
-            pca.fit(flatten_waveforms[selection])
-        features = pca.transform(flatten_waveforms)
-        projector = pca
+        projector = FullPCA(waveforms2, **params)
     elif method=='peak_max':
-        ind_peak = -catalogueconstructor.info['params_waveformextractor']['n_left']+1
-        features = peak_waveforms[:, ind_peak, : ].copy()
-        projector = None
+        projector = PeakMaxOnChannel(waveforms2, catalogueconstructor=catalogueconstructor, **params)
     else:
         Raise(NotImplementedError)
     
-    
+    features = projector.transform(waveforms2)
     return features, projector
+
+
+class FullPCA:
+    def __init__(self, waveforms, selection=None, **params):
+        self.waveforms = waveforms
+        flatten_waveforms = waveforms.reshape(waveforms.shape[0], -1)
+        self.pca =  sklearn.decomposition.IncrementalPCA(**params)
+        self.pca.fit(flatten_waveforms)
+
+
+    def transform(self, waveforms):
+        flatten_waveforms = waveforms.reshape(waveforms.shape[0], -1)
+        return self.pca.transform(flatten_waveforms)
+
+
+class PeakMaxOnChannel:
+    def __init__(self, waveforms, catalogueconstructor=None, **params):
+        self.waveforms = waveforms
+        self.ind_peak = -catalogueconstructor.info['params_waveformextractor']['n_left']+1
+        print('PeakMaxOnChannel self.ind_peak', self.ind_peak)
+        
+    def transform(self, waveforms):
+        print('ici', waveforms.shape, self.ind_peak)
+        features = waveforms[:, self.ind_peak, : ].copy()
+        return features

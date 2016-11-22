@@ -108,20 +108,24 @@ class NDScatter(WidgetBase):
     # this handle data with propties so model change shoudl not affect so much teh code
     @property
     def data(self):
-        return self.controller.features
+        return self.controller.some_features
     
     def data_by_label(self, k):
+        if len(self.peak_visible) != self.data.shape[0]:
+            self.peak_visible = np.zeros(self.data.shape[0], dtype=bool)
+            self.by_cluster_random_decimate()
+        
         if k=='sel':
-            data = self.data[self.controller.spike_selection[self.controller.peak_waveforms_index]]
+            data = self.data[self.controller.spike_selection[self.controller.some_peaks_index]]
         else:
-            data = self.data[(self.controller.spike_label[self.controller.peak_waveforms_index]==k) & self.peak_visible]
+            data = self.data[(self.controller.spike_label[self.controller.some_peaks_index]==k) & self.peak_visible]
             
         return data
     
     def by_cluster_random_decimate(self, clicked=None, refresh=True):
         m = self.params['max_visible_by_cluster']
         for k in self.controller.cluster_labels:
-            mask = self.controller.spike_label[self.controller.peak_waveforms_index]==k
+            mask = self.controller.spike_label[self.controller.some_peaks_index]==k
             if self.controller.cluster_count[k]>m:
                 self.peak_visible[mask] = False
                 visible, = np.nonzero(mask)

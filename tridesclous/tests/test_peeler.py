@@ -24,8 +24,9 @@ def setup_catalogue():
     dataio.set_channel_group([5, 6, 7, 8, 9])
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    #~ print(catalogueconstructor)
 
-    catalogueconstructor.initialize_signalprocessor_loop(chunksize=1024,
+    catalogueconstructor.set_preprocessor_params(chunksize=1024,
             memory_mode='memmap',
             
             #signal preprocessor
@@ -42,41 +43,39 @@ def setup_catalogue():
     t2 = time.perf_counter()
     print('estimate_signals_noise', t2-t1)
     
+    
     t1 = time.perf_counter()
-    for seg_num in range(dataio.nb_segment):
-        #~ print('seg_num', seg_num)
-        catalogueconstructor.run_signalprocessor_loop(seg_num=seg_num, duration=10.)
+    catalogueconstructor.run_signalprocessor()
     t2 = time.perf_counter()
-    print('run_signalprocessor_loop', t2-t1)
-
-    t1 = time.perf_counter()
-    catalogueconstructor.finalize_signalprocessor_loop()
-    t2 = time.perf_counter()
-    print('finalize_signalprocessor_loop', t2-t1)
+    print('run_signalprocessor', t2-t1)
     
+    print(catalogueconstructor)
     
-
-    for seg_num in range(dataio.nb_segment):
-        mask = catalogueconstructor.peak_segment==seg_num
-        print('seg_num', seg_num, np.sum(mask))
     
     t1 = time.perf_counter()
-    #~ catalogueconstructor.extract_some_waveforms(n_left=-12, n_right=15,  nb_max=10000)
-    catalogueconstructor.extract_some_waveforms(n_left=-12, n_right=15,  nb_max=1000)
+    catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40,  nb_max=10000)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
-    print(catalogueconstructor.peak_waveforms.shape)
+
+    t1 = time.perf_counter()
+    n_left, n_right = catalogueconstructor.find_good_limits()
+    t2 = time.perf_counter()
+    print('find_good_limits', t2-t1)
+    print(n_left, n_right)
+    print(catalogueconstructor.some_waveforms.shape)
     
 
     # PCA
     t1 = time.perf_counter()
-    catalogueconstructor.project(method='IncrementalPCA', n_components=12, batch_size=16384)
+    catalogueconstructor.project(method='pca', n_components=12, batch_size=16384)
     t2 = time.perf_counter()
     print('project', t2-t1)
     
+    
+    
     # cluster
     t1 = time.perf_counter()
-    catalogueconstructor.find_clusters(method='kmeans', n_clusters=13)
+    catalogueconstructor.find_clusters(method='kmeans', n_clusters=12)
     t2 = time.perf_counter()
     print('find_clusters', t2-t1)
     
@@ -123,10 +122,10 @@ def open_PeelerWindow():
     
     
 if __name__ =='__main__':
-    #~ setup_catalogue()
+    setup_catalogue()
     
     #~ open_catalogue_window()
     
     #~ test_peeler()
     
-    open_PeelerWindow()
+    #~ open_PeelerWindow()

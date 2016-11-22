@@ -9,6 +9,9 @@ from .peaklists import PeakList, ClusterPeakList
 from .ndscatter import NDScatter
 from .waveformviewer import WaveformViewer
 
+from .tools import ParamDialog
+
+
 import itertools
 import datetime
 
@@ -63,6 +66,9 @@ class CatalogueWindow(QtGui.QMainWindow):
         self.act_setting = QtGui.QAction(u'Settings', self,checkable = False, icon=QtGui.QIcon.fromTheme("preferences-other"))
         self.act_setting.triggered.connect(self.open_settings)
 
+        self.act_new_waveforms = QtGui.QAction(u'New waveforms', self,checkable = False, icon=QtGui.QIcon.fromTheme("TODO"))
+        self.act_new_waveforms.triggered.connect(self.new_waveforms)
+
     def create_toolbar(self):
         self.toolbar = QtGui.QToolBar('Tools')
         self.toolbar.setToolButtonStyle(QtCore.Qt.ToolButtonTextUnderIcon)
@@ -72,17 +78,28 @@ class CatalogueWindow(QtGui.QMainWindow):
         self.toolbar.addAction(self.act_save)
         self.toolbar.addAction(self.act_refresh)
         self.toolbar.addAction(self.act_setting)
+        #TODO with correct settings (left and right)
+        self.toolbar.addAction(self.act_new_waveforms)
     
 
     def save_catalogue(self):
         self.catalogueconstructor.save_catalogue()
     
     def refresh(self):
-        for w in self.controller.all_view:
+        for w in self.controller.views:
             w.refresh()
     
     def open_settings(self):
-        #TODO
-        pass
-
+        _params = [{'name' : 'nb_waveforms', 'type' : 'int', 'value' : 10000}]
+        dialog1 = ParamDialog(_params, title = 'Settings', parent = self)
+        if not dialog1.exec_():
+            return None, None
+        
+        self.settings = dialog1.get()
     
+    def new_waveforms(self):
+        pass
+        #~ self.catalogueconstructor.extract_some_waveforms(n_left=-12, n_right=15, mode='rand', nb_max=10000)
+        #~ self.controller.on_new_cluster()
+        #~ self.refresh()
+

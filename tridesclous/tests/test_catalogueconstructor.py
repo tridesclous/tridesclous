@@ -64,31 +64,46 @@ def test_catalogue_constructor():
         
         
         t1 = time.perf_counter()
-        catalogueconstructor.extract_some_waveforms(n_left=-20, n_right=30, mode='rand', nb_max=5000)
+        catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40, mode='rand', nb_max=5000)
         t2 = time.perf_counter()
         print('extract_some_waveforms rand', t2-t1)
         print(catalogueconstructor.some_waveforms.shape)
-        print(catalogueconstructor.some_peaks_index)
+
+        t1 = time.perf_counter()
+        catalogueconstructor.find_good_limits()
+        t2 = time.perf_counter()
+        print('find_good_limits', t2-t1)
+        print(catalogueconstructor.some_waveforms.shape)
+
+        t1 = time.perf_counter()
+        catalogueconstructor.extract_some_waveforms(n_left=None, n_right=None, mode='rand', nb_max=2000)
+        t2 = time.perf_counter()
+        print('extract_some_waveforms rand', t2-t1)
+        print(catalogueconstructor.some_waveforms.shape)
+
+
+        #~ break
 
 
         
         # PCA
         t1 = time.perf_counter()
-        catalogueconstructor.project(method='IncrementalPCA', n_components=7, batch_size=16384)
+        catalogueconstructor.project(method='pca', n_components=7, batch_size=16384)
         t2 = time.perf_counter()
-        print('project', t2-t1)
-        print(catalogueconstructor.some_features.shape)
+        print('project pca', t2-t1)
 
+        # peak_max
+        #~ t1 = time.perf_counter()
+        #~ catalogueconstructor.project(method='peak_max')
+        #~ t2 = time.perf_counter()
+        #~ print('project peak_max', t2-t1)
+        #~ print(catalogueconstructor.some_features.shape)
 
         t1 = time.perf_counter()
-        catalogueconstructor.extract_some_waveforms(n_left=-20, n_right=30, index=np.arange(1000))
+        catalogueconstructor.extract_some_waveforms(index=np.arange(1000))
         t2 = time.perf_counter()
         print('extract_some_waveforms others', t2-t1)
         print(catalogueconstructor.some_waveforms.shape)
-        print(catalogueconstructor.some_features.shape)
-        print(catalogueconstructor.some_peaks_index)
-        
-        continue
 
         
         # cluster
@@ -97,13 +112,11 @@ def test_catalogue_constructor():
         t2 = time.perf_counter()
         print('find_clusters', t2-t1)
         
-        continue
-        
         
         
         #plot
-        #~ wf = catalogueconstructor.peak_waveforms
-        #~ wf = wf.reshape(wf.shape[0], -1)
+        #~ wf = catalogueconstructor.some_waveforms
+        #~ wf = wf.swapaxes(1,2).reshape(wf.shape[0], -1)
         
         #~ fig, ax = pyplot.subplots()
         #~ ax.plot(np.median(wf, axis=0), color='b')
@@ -154,7 +167,7 @@ def compare_nb_waveforms():
     print('finalize_signalprocessor_loop', t2-t1)
 
     for seg_num in range(dataio.nb_segment):
-        mask = catalogueconstructor.peak_segment==seg_num
+        mask = catalogueconstructor.all_peaks['label']==seg_num
         print('seg_num', seg_num, np.sum(mask))
     
     
@@ -166,8 +179,8 @@ def compare_nb_waveforms():
         catalogueconstructor.extract_some_waveforms(n_left=-20, n_right=30,  nb_max=nb_max)
         t2 = time.perf_counter()
         print('extract_some_waveforms', nb_max,  t2-t1)
-        print(catalogueconstructor.peak_waveforms.shape)
-        wf = catalogueconstructor.peak_waveforms
+        print(catalogueconstructor.some_waveforms.shape)
+        wf = catalogueconstructor.some_waveforms
         wf = wf.swapaxes(1,2).reshape(wf.shape[0], -1)
         axs[0].plot(np.median(wf, axis=0), color=colors[i], label='nb_max {}'.format(nb_max))
         
@@ -221,19 +234,18 @@ def test_make_catalogue():
     print('finalize_signalprocessor_loop', t2-t1)
 
     for seg_num in range(dataio.nb_segment):
-        mask = catalogueconstructor.peak_segment==seg_num
+        mask = catalogueconstructor.all_peaks['label']==seg_num
         print('seg_num', seg_num, np.sum(mask))
     
     t1 = time.perf_counter()
     catalogueconstructor.extract_some_waveforms(n_left=-12, n_right=15,  nb_max=10000)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
-    print(catalogueconstructor.peak_waveforms.shape)
-        
+
 
     # PCA
     t1 = time.perf_counter()
-    catalogueconstructor.project(method='IncrementalPCA', n_components=12, batch_size=16384)
+    catalogueconstructor.project(method='pca', n_components=12, batch_size=16384)
     t2 = time.perf_counter()
     print('project', t2-t1)
     

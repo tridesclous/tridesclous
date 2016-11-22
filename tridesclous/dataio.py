@@ -37,24 +37,24 @@ class DataIO:
                 self.datasource = None
  
     def __repr__(self):
-        t = "DataIO <id: {}> \nWorkdir: {}\n".format(id(self), self.dirname)
+        t = "DataIO <id: {}> \n  workdir: {}\n".format(id(self), self.dirname)
         if len(self.info) ==0 or self.datasource is None:
-            t  += "\nNot datasource is set yet"
+            t  += "\n  Not datasource is set yet"
             return t
         
-        t += "sample_rate: {}\n".format(self.sample_rate)
-        t += "nb_segment: {}\n".format(self.nb_segment)
-        t += "total_channel: {}\n".format(self.total_channel)
-        t += "nb_channel: {}\n".format(self.nb_channel)
+        t += "  sample_rate: {}\n".format(self.sample_rate)
+        t += "  nb_segment: {}\n".format(self.nb_segment)
+        t += "  total_channel: {}\n".format(self.total_channel)
+        t += "  nb_channel: {}\n".format(self.nb_channel)
         if self.nb_channel<12:
-            t += "channel_group: {}\n".format(self.channel_group)
+            t += "  channel_group: {}\n".format(self.channel_group)
         else:
-            t += "channel_group: [{} ... {}]\n".format(' '.join(str(e) for e in self.channel_group[:4]),
+            t += "  channel_group: [{} ... {}]\n".format(' '.join(str(e) for e in self.channel_group[:4]),
                                                                                         ' '.join(str(e) for e in self.channel_group[-4:]))
         if self.nb_segment<5:
             lengths = [ self.get_segment_shape(i)[0] for i in range(self.nb_segment)]
-            t += 'length: '+' '.join('{}'.format(l) for l in lengths)+'\n'
-            t += 'durations: '+' '.join('{:0.1f}'.format(l/self.sample_rate) for l in lengths)+' s.\n'
+            t += '  length: '+' '.join('{}'.format(l) for l in lengths)+'\n'
+            t += '  durations: '+' '.join('{:0.1f}'.format(l/self.sample_rate) for l in lengths)+' s.\n'
         
         return t
 

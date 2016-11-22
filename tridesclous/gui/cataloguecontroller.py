@@ -24,7 +24,7 @@ class CatalogueController(ControllerBase):
     
     def init_plot_attributes(self):
         self.cluster_visible = {k:True for k  in self.cluster_labels}
-        self.cluster_count = { k:np.sum(self.cc.peak_label==k) for k in self.cluster_labels}
+        self.cluster_count = { k:np.sum(self.cc.all_peaks['label']==k) for k in self.cluster_labels}
         self.spike_selection = np.zeros(self.cc.nb_peak, dtype='bool')
         self.spike_visible = np.ones(self.cc.nb_peak, dtype='bool')
         self.refresh_colors(reset=True)
@@ -49,23 +49,26 @@ class CatalogueController(ControllerBase):
         
     @property
     def spike_index(self):
-        return self.cc.peak_pos
+        #~ return self.cc.peak_pos
+        return self.cc.all_peaks['index']
     
     @property
     def spike_label(self):
-        return self.cc.peak_label
+        #~ return self.cc.peak_label
+        return self.cc.all_peaks['label']
 
     @property
     def spike_segment(self):
-        return self.cc.peak_segment
+        #~ return self.cc.peak_segment
+        return self.cc.all_peaks['segment']
     
     @property
-    def features(self):
-        return self.cc.features
+    def some_features(self):
+        return self.cc.some_features
     
     @property
-    def peak_waveforms_index(self):
-        return self.cc.peak_waveforms_index
+    def some_peaks_index(self):
+        return self.cc.some_peaks_index
     
     @property
     def centroids(self):
@@ -75,11 +78,11 @@ class CatalogueController(ControllerBase):
     def info(self):
         return self.cc.info
     
-    
     def change_spike_label(self, mask, label, on_new_cluster=True):
-        label_changed = np.unique(self.cc.peak_label[mask]).tolist() + [label]
+        label_changed = np.unique(self.cc.all_peaks['label'][mask]).tolist() + [label]
         label_changed = np.unique(label_changed)
-        self.cc.peak_label[mask] = label
+        self.cc.all_peaks['label'][mask] = label
+        
         if on_new_cluster:
             self.on_new_cluster(label_changed=label_changed)
             self.refresh_colors(reset=False)
@@ -94,16 +97,16 @@ class CatalogueController(ControllerBase):
         """
         label_changed can be remove/add/modify
         """
-        if self.cc.peak_pos==[]: return
+        if self.cc.all_peaks['index']==[]: return
         self.cc.on_new_cluster()
         
         if label_changed is None:
             #re count evry clusters
-            self.cluster_count = { k:np.sum(self.cc.peak_label==k) for k in self.cluster_labels}
+            self.cluster_count = { k:np.sum(self.cc.all_peaks['label']==k) for k in self.cluster_labels}
         else:
             for k in label_changed:
                 if k in self.cluster_labels:
-                    self.cluster_count[k] = np.sum(self.cc.peak_label==k)
+                    self.cluster_count[k] = np.sum(self.cc.all_peaks['label']==k)
                 else:
                     if k in self.cluster_count:
                         self.cluster_count.pop(k)
