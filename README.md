@@ -61,4 +61,5 @@ git pull
 Authors: Christophe Pouzat and Samuel Garcia
 
 
-![snapshot](snapshot.png)
+![snapshot](doc/img/snapshot_cataloguewindow.png)
+![snapshot](doc/img/snapshot_peelerwindow.png)

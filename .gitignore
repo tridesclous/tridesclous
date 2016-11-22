@@ -9,6 +9,8 @@ tridesclous/tests/test_peeler/*
 tridesclous/online/tests/test_onlinepeeler/
 example/tridesclous_kampff/*
 example/tridesclous_locust/*
+example/kampff/*
+example/locust/*
 example/tridesclous_olfactory_bulb/*
 example/.ipynb_checkpoints/*
 
