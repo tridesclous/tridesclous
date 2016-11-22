@@ -333,7 +333,7 @@ class CatalogueConstructor:
         else:
             self.some_features = None
     
-    def find_good_limits(self, mad_threshold = 1.1, channel_percent=0.3, extract=True):
+    def find_good_limits(self, mad_threshold = 1.1, channel_percent=0.3, extract=True, min_left=-5, max_right=5):
         """
         Find goods limits for the waveform.
         Where the MAD is above noise level (=1.)
@@ -375,8 +375,12 @@ class CatalogueConstructor:
                 best = np.argmax(down-up)
                 n_left = int(self.info['params_waveformextractor']['n_left'] + up[best])
                 n_right = int(self.info['params_waveformextractor']['n_left'] + down[best]+1)
-                #~ print(old_n_left, old_n_right)
-                #~ print(n_left, n_right)
+                print(old_n_left, old_n_right)
+                print(n_left, n_right)
+                
+                n_left = min(n_left, min_left)
+                n_right = max(n_right, max_right)
+                print(n_left, n_right)
                 
                 if extract:
                     self.projector = None

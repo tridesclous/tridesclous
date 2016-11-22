@@ -122,10 +122,10 @@ def open_PeelerWindow():
     
     
 if __name__ =='__main__':
-    setup_catalogue()
+    #~ setup_catalogue()
     
     #~ open_catalogue_window()
     
     #~ test_peeler()
     
-    #~ open_PeelerWindow()
+    open_PeelerWindow()

@@ -51,13 +51,8 @@ class Peeler:
     def __repr__(self):
         t = "Peeler <id: {}> \n  workdir: {}\n".format(id(self), self.dataio.dirname)
         
-        
-        
         return t
 
-
-
-        
     def change_params(self, catalogue=None, n_peel_level=2,chunksize=1024, 
                                         internal_dtype='float32', 
                                         signalpreprocessor_engine='signalpreprocessor_numpy',

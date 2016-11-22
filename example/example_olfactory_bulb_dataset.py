@@ -12,11 +12,11 @@ from matplotlib import pyplot
 import time
 
 
-dirname = 'tridesclous_locust'
+dirname = 'tridesclous_olfactory_bulb'
 
 def initialize_catalogueconstructor():
     #download dataset
-    localdir, filenames, params = download_dataset(name='locust')
+    localdir, filenames, params = download_dataset(name='olfactory_bulb')
     print(filenames)
     print(params)
 
@@ -32,8 +32,8 @@ def initialize_catalogueconstructor():
     # feed DataIO
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
 
-    #The dataset contains 4 channels : we use them all
-    dataio.set_channel_group([0, 1, 2, 3])
+    #The dataset contains 16 channels but 14 and 15 are respiration and trigs.
+    dataio.set_channel_group(range(14))
 
     print(dataio)
 
@@ -47,7 +47,7 @@ def preprocess_signals_and_peaks():
             
             #signal preprocessor
             highpass_freq=300, 
-            common_ref_removal=False,
+            common_ref_removal=True,
             backward_chunksize=1280,
             
             #peak detector
@@ -78,7 +78,7 @@ def extract_waveforms_pca_cluster():
     
     
     t1 = time.perf_counter()
-    catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40,  nb_max=10000)
+    catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40,  nb_max=20000)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
     #~ print(catalogueconstructor.some_waveforms.shape)
@@ -93,7 +93,7 @@ def extract_waveforms_pca_cluster():
     
     
     t1 = time.perf_counter()
-    catalogueconstructor.project(method='pca', n_components=7)
+    catalogueconstructor.project(method='pca', n_components=16)
     t2 = time.perf_counter()
     print('project', t2-t1)
     print(catalogueconstructor)
@@ -150,6 +150,6 @@ if __name__ =='__main__':
     #~ preprocess_signals_and_peaks()
     #~ extract_waveforms_pca_cluster()
     #~ open_cataloguewindow()
-    run_peeler()
-    #~ open_PeelerWindow()
+    #~ run_peeler()
+    open_PeelerWindow()
     
