@@ -25,7 +25,7 @@ def test_catalogue_constructor():
     
         print()
         print(memory_mode)
-        catalogueconstructor.initialize_signalprocessor_loop(chunksize=1024,
+        catalogueconstructor.set_preprocessor_params(chunksize=1024,
                 memory_mode=memory_mode,
                 
                 #signal preprocessor
@@ -34,7 +34,7 @@ def test_catalogue_constructor():
                 #~ backward_chunksize=1024*2,
                 
                 #peak detector
-                peakdetector_engine='peakdetector_numpy',
+                peakdetector_engine='numpy',
                 peak_sign='-', relative_threshold=7, peak_span=0.0005,
                 
                 #waveformextractor
@@ -49,7 +49,7 @@ def test_catalogue_constructor():
         t1 = time.perf_counter()
         for seg_num in range(dataio.nb_segment):
             #~ print('seg_num', seg_num)
-            catalogueconstructor.run_signalprocessor_loop(seg_num=seg_num, duration=10.)
+            catalogueconstructor.run_signalprocessor_loop_one_segment(seg_num=seg_num, duration=10.)
         t2 = time.perf_counter()
         print('run_signalprocessor_loop', t2-t1)
 
@@ -135,19 +135,15 @@ def compare_nb_waveforms():
 
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
 
-    memory_mode ='memmap'
-
-    catalogueconstructor.initialize_signalprocessor_loop(chunksize=1024,
-            memory_mode=memory_mode,
+    catalogueconstructor.set_preprocessor_params(chunksize=1024,
             
-            #signal preprocessor
-            highpass_freq=300,
-            backward_chunksize=1280,
-            
-            #peak detector
-            peakdetector_engine='peakdetector_numpy',
-            peak_sign='-', relative_threshold=7, peak_span=0.0005,
-            )
+                                #signal preprocessor
+                                highpass_freq=300,
+                                backward_chunksize=1280,
+                                
+                                #peak detector
+                                peak_sign='-', relative_threshold=7, peak_span=0.0005,
+                                )
     
     t1 = time.perf_counter()
     catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
@@ -155,21 +151,11 @@ def compare_nb_waveforms():
     print('estimate_signals_noise', t2-t1)
     
     t1 = time.perf_counter()
-    for seg_num in range(dataio.nb_segment):
-        #~ print('seg_num', seg_num)
-        catalogueconstructor.run_signalprocessor_loop(seg_num=seg_num)
+    catalogueconstructor.run_signalprocessor()
     t2 = time.perf_counter()
-    print('run_signalprocessor_loop', t2-t1)
-
-    t1 = time.perf_counter()
-    catalogueconstructor.finalize_signalprocessor_loop()
-    t2 = time.perf_counter()
-    print('finalize_signalprocessor_loop', t2-t1)
-
-    for seg_num in range(dataio.nb_segment):
-        mask = catalogueconstructor.all_peaks['label']==seg_num
-        print('seg_num', seg_num, np.sum(mask))
+    print('run_signalprocessor', t2-t1)
     
+    print(catalogueconstructor)
     
     fig, axs = pyplot.subplots(nrows=2)
     
@@ -204,17 +190,15 @@ def test_make_catalogue():
 
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
 
-    catalogueconstructor.initialize_signalprocessor_loop(chunksize=1024,
-            memory_mode='memmap',
+    catalogueconstructor.set_preprocessor_params(chunksize=1024,
             
-            #signal preprocessor
-            highpass_freq=300,
-            backward_chunksize=1280,
-            
-            #peak detector
-            peakdetector_engine='peakdetector_numpy',
-            peak_sign='-', relative_threshold=7, peak_span=0.0005,
-            )
+                                    #signal preprocessor
+                                    highpass_freq=300,
+                                    backward_chunksize=1280,
+                                    
+                                    #peak detector
+                                    peak_sign='-', relative_threshold=7, peak_span=0.0005,
+                                    )
     
     t1 = time.perf_counter()
     catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
@@ -222,20 +206,11 @@ def test_make_catalogue():
     print('estimate_signals_noise', t2-t1)
     
     t1 = time.perf_counter()
-    for seg_num in range(dataio.nb_segment):
-        #~ print('seg_num', seg_num)
-        catalogueconstructor.run_signalprocessor_loop(seg_num=seg_num, duration=10.)
+    catalogueconstructor.run_signalprocessor()
     t2 = time.perf_counter()
-    print('run_signalprocessor_loop', t2-t1)
+    print('run_signalprocessor', t2-t1)
 
-    t1 = time.perf_counter()
-    catalogueconstructor.finalize_signalprocessor_loop()
-    t2 = time.perf_counter()
-    print('finalize_signalprocessor_loop', t2-t1)
-
-    for seg_num in range(dataio.nb_segment):
-        mask = catalogueconstructor.all_peaks['label']==seg_num
-        print('seg_num', seg_num, np.sum(mask))
+    print(catalogueconstructor)
     
     t1 = time.perf_counter()
     catalogueconstructor.extract_some_waveforms(n_left=-12, n_right=15,  nb_max=10000)
@@ -264,8 +239,8 @@ def test_make_catalogue():
 
     
 if __name__ == '__main__':
-    test_catalogue_constructor()
+    #~ test_catalogue_constructor()
     
-    #~ compare_nb_waveforms()
+    compare_nb_waveforms()
     
     #~ test_make_catalogue()

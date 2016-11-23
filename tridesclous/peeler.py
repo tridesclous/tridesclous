@@ -55,8 +55,8 @@ class Peeler:
 
     def change_params(self, catalogue=None, n_peel_level=2,chunksize=1024, 
                                         internal_dtype='float32', 
-                                        signalpreprocessor_engine='signalpreprocessor_numpy',
-                                        peakdetector_engine='peakdetector_numpy'):
+                                        signalpreprocessor_engine='numpy',
+                                        peakdetector_engine='numpy'):
         assert catalogue is not None
         self.catalogue = catalogue
         self.n_peel_level = n_peel_level
@@ -64,7 +64,6 @@ class Peeler:
         self.internal_dtype= internal_dtype
         self.signalpreprocessor_engine = signalpreprocessor_engine
         self.peakdetector_engine = peakdetector_engine
-        
     
     def process_one_chunk(self,  pos, sigs_chunk):
         abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)

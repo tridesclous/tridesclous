@@ -51,7 +51,6 @@ def preprocess_signals_and_peaks():
             backward_chunksize=1280,
             
             #peak detector
-            peakdetector_engine='peakdetector_numpy',
             peak_sign='-', 
             relative_threshold=4,
             peak_span=0.0005,
@@ -150,6 +149,6 @@ if __name__ =='__main__':
     #~ preprocess_signals_and_peaks()
     #~ extract_waveforms_pca_cluster()
     #~ open_cataloguewindow()
-    #~ run_peeler()
-    open_PeelerWindow()
+    run_peeler()
+    #~ open_PeelerWindow()
     

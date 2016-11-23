@@ -61,6 +61,7 @@ def get_dataset(name='locust', localdir=None, seg_num=0):
     localdir, filenames, params = download_dataset(name=name, localdir=localdir)
     filename = filenames[seg_num]
     data = np.memmap(os.path.join(localdir, filename), dtype=params['dtype'])
+    
     data = data.reshape(-1, params['total_channel'])
     
     if 'channel_group' in datasets_info[name]:

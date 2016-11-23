@@ -46,15 +46,19 @@ def offline_peak_detect(normed_sigs, sample_rate, peak_sign='-',relative_thresho
 def test_compare_offline_online_engines():
     HAVE_PYOPENCL = True
     if HAVE_PYOPENCL:
-        engines = ['peakdetector_numpy', 'peakdetector_opencl']
-        #~ engines = ['peakdetector_numpy']
-        #~ engines = ['peakdetector_opencl']
+        engines = ['numpy', 'opencl']
+        #~ engines = [ 'opencl']
+        #~ engines = ['numpy']
     else:
-        engines = ['peakdetector_numpy']
+        engines = ['numpy']
 
     # get sigs
     sigs, sample_rate = get_dataset(name='olfactory_bulb')
+    #~ sigs = np.tile(sigs, (1, 20)) #for testing large channels num
+    
     nb_channel = sigs.shape[1]
+    print('nb_channel', nb_channel)
+
     
     
     #params

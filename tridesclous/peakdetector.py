@@ -246,6 +246,6 @@ class PeakDetectorEngine_OpenCL:
     """
 
 
-peakdetector_engines = { 'peakdetector_numpy' : PeakDetectorEngine_Numpy, 'peakdetector_opencl' : PeakDetectorEngine_OpenCL}
+peakdetector_engines = { 'numpy' : PeakDetectorEngine_Numpy, 'opencl' : PeakDetectorEngine_OpenCL}
 
 

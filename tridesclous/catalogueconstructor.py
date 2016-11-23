@@ -116,12 +116,12 @@ class CatalogueConstructor:
             internal_dtype = 'float32',
             
             #signal preprocessor
-            signalpreprocessor_engine='signalpreprocessor_numpy',
+            signalpreprocessor_engine='numpy',
             highpass_freq=300, backward_chunksize=1280,
             common_ref_removal=True,
             
             #peak detector
-            peakdetector_engine='peakdetector_numpy',
+            peakdetector_engine='numpy',
             peak_sign='-', relative_threshold=7, peak_span=0.0005,
             
             ):
