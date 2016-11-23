@@ -46,10 +46,8 @@ def test_DataIO():
 
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     dataio.set_data_source(type='RawData', filenames=filenames,  **params)
-    #~ dataio.set_channel_group(range(4))
-    dataio.set_channel_group(range(14))
-    print(dataio)
-    exit()
+    #~ dataio.set_channels(range(4))
+    dataio.set_channels(range(14))
     
     
     for seg_num in range(dataio.nb_segment):
@@ -67,6 +65,17 @@ def test_DataIO():
             assert sigs_chunk.shape[0] == 1024
             assert sigs_chunk.shape[1] == 14
     
+    
+    probe_filename = 'A4x8-5mm-100-400-413-A32.prb'
+    dataio.download_probe(probe_filename)
+    dataio.download_probe('A4x8-5mm-100-400-413-A32')
+    
+    #~ print(dataio.channel_groups)
+    #~ print(dataio.channels)
+    #~ print(dataio.info['probe_filename'])
+    assert len(dataio.channels) == 8
+    assert len(dataio.nb_channel) == 8
+    assert probe_filename == dataio.info['probe_filename']
     
     
     

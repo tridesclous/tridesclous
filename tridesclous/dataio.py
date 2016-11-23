@@ -3,6 +3,7 @@ import json
 from collections import OrderedDict
 import numpy as np
 import pandas as pd
+from urllib.request import urlretrieve
 
 from .iotools import ArrayCollection
 
@@ -47,10 +48,10 @@ class DataIO:
         t += "  total_channel: {}\n".format(self.total_channel)
         t += "  nb_channel: {}\n".format(self.nb_channel)
         if self.nb_channel<12:
-            t += "  channel_group: {}\n".format(self.channel_group)
+            t += "  channels: {}\n".format(self.channels)
         else:
-            t += "  channel_group: [{} ... {}]\n".format(' '.join(str(e) for e in self.channel_group[:4]),
-                                                                                        ' '.join(str(e) for e in self.channel_group[-4:]))
+            t += "  channels: [{} ... {}]\n".format(' '.join(str(e) for e in self.channels[:4]),
+                                                                                        ' '.join(str(e) for e in self.channels[-4:]))
         if self.nb_segment<5:
             lengths = [ self.get_segment_shape(i)[0] for i in range(self.nb_segment)]
             t += '  length: '+' '.join('{}'.format(l) for l in lengths)+'\n'
@@ -64,10 +65,10 @@ class DataIO:
             json.dump(self.info, f, indent=4)
     
     def reload_info(self):
-        if 'channel_group' in self.info:
-            self.channel_group = self.info['channel_group']
+        if 'channels' in self.info:
+            self.channels = self.info['channels']
         
-        self.nb_channel  = len(self.channel_group)
+        self.nb_channel  = len(self.channels)
     
     def set_data_source(self, type='RawData', **kargs):
         assert type in data_source_classes, 'this source type do not exists yet!!'
@@ -76,7 +77,7 @@ class DataIO:
         self.info['datasource_kargs'] = kargs
         self._reload_data_source()
         # be default chennel group all channels
-        self.set_channel_group(np.arange(self.total_channel))
+        self.set_channels(np.arange(self.total_channel))
         self.flush_info()
         # this create segment path
         self._open_processed_data()
@@ -91,15 +92,38 @@ class DataIO:
         self.sample_rate = self.datasource.sample_rate
         self.source_dtype = self.datasource.dtype
     
-    def set_channel_group(self, channel_group=[]):
-        if isinstance(channel_group, np.ndarray):
-            channel_group =channel_group.tolist()
-        self.channel_group = list(channel_group)
-        self.info['channel_group'] = self.channel_group
-        self.nb_channel  = len(self.channel_group)
+    def set_channels(self, channels=[]):
+        if isinstance(channels, np.ndarray):
+            channels =channels.tolist()
+        self.channels = list(channels)
+        self.info['channels'] = self.channels
+        self.nb_channel  = len(self.channels)
         self.info['nb_channel'] = self.nb_channel
         self.flush_info()
-
+    
+    def set_probe_file(self, probe_filename):
+        d={}
+        exec(open(probe_filename).read(), None, d)
+        self.channel_groups = d['channel_groups']
+        index = min(self.channel_groups.keys())
+        self.select_channel_group(index)
+        self.info['probe_filename'] = os.path.basename(probe_filename)
+        self.flush_info()
+    
+    def download_probe(self, probe_name):
+        #Max Hunter made a list off neuronexus probes
+        baseurl = 'https://raw.githubusercontent.com/kwikteam/probes/master/neuronexus/'
+        if not probe_name.endswith('.prb'):
+            probe_name += '.prb'
+        probe_filename = os.path.join(self.dirname,probe_name)
+        urlretrieve(baseurl+probe_name, probe_filename)
+        self.set_probe_file(probe_filename)
+    
+    def select_channel_group(self, index):
+        self.info['channel_group_index'] = index
+        channels = self.channel_groups[index]['channels']
+        self.set_channels(channels)
+    
     def _open_processed_data(self):
         self.segments_path = []
         for i in range(self.nb_segment):
@@ -128,7 +152,7 @@ class DataIO:
         
         if signal_type=='initial':
             data = self.datasource.get_signals_chunk(seg_num=seg_num, i_start=i_start, i_stop=i_stop)
-            data = data[:, self.channel_group]
+            data = data[:, self.channels]
         elif signal_type=='processed':
             data = self.arrays_by_seg[seg_num].get('processed_signals')[i_start:i_stop, :]
         else:
@@ -190,7 +214,7 @@ class DataIO:
 
 class DataSourceBase:
     def __init__(self):
-        # important total_channel != nb_channel becausenb_channel=len(channel_group)
+        # important total_channel != nb_channel because nb_channel=len(channels)
         self.total_channel = None 
         self.sample_rate = None
         self.nb_segment = None
