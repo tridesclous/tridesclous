@@ -29,7 +29,7 @@ class FifoBuffer:
     continuous in memory.
     
     This is not efficient if shape[0]is lot greater than chunksize.
-    But if shape[0]=chunksize+small memory it should be OK.
+    But if shape[0]=chunksize+smallsize, it should be OK.
     
     
     """

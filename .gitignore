@@ -7,7 +7,7 @@ tridesclous/tests/test_DataIo/*
 tridesclous/tests/test_catalogueconstructor/*
 tridesclous/tests/test_peeler/*
 tridesclous/online/tests/test_onlinepeeler/
-example/tridesclous_kampff/*
+example/tridesclous_kampff_2014_11_25_Pair_3_0/*
 example/tridesclous_locust/*
 example/tridesclous_olfactory_bulb/*
 example/kampff/*

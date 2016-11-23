@@ -105,8 +105,8 @@ def run_peeler():
 
     peeler = Peeler(dataio)
     peeler.change_params(catalogue=initial_catalogue, n_peel_level=2,
-                #~ signalpreprocessor_engine='numpy',
-                signalpreprocessor_engine='opencl',
+                signalpreprocessor_engine='numpy',
+                #~ signalpreprocessor_engine='opencl',
                 
                 peakdetector_engine='numpy',
                 #~ peakdetector_engine='opencl',
@@ -134,7 +134,7 @@ if __name__ =='__main__':
     #~ preprocess_signals_and_peaks()
     #~ extract_waveforms_pca_cluster()
     #~ open_cataloguewindow()
-    #~ run_peeler()
-    open_PeelerWindow()
+    run_peeler()
+    #~ open_PeelerWindow()
 
     

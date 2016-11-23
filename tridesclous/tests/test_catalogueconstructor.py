@@ -239,8 +239,8 @@ def test_make_catalogue():
 
     
 if __name__ == '__main__':
-    #~ test_catalogue_constructor()
+    test_catalogue_constructor()
     
-    compare_nb_waveforms()
+    #~ compare_nb_waveforms()
     
     #~ test_make_catalogue()

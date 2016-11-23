@@ -253,6 +253,10 @@ class RawDataSource(DataSourceBase):
             data = self.array_sources[seg_num][i_start:i_stop, :]
             return data
 
+#TODO implement KWIK and OpenEphys
+#https://open-ephys.atlassian.net/wiki/display/OEW/Data+format
+# https://github.com/open-ephys/analysis-tools/tree/master/Python3
+
 
     
 data_source_classes = {'InMemory':InMemoryDataSource, 'RawData':RawDataSource}
