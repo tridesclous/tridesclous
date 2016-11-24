@@ -134,7 +134,7 @@ class BaseTraceViewer(WidgetBase):
         self.channel_labels = []
         self.threshold_lines =[]
         self.scatters = {}
-        for c in range(self.dataio.nb_channel):
+        for c in range(self.controller.nb_channel):
             color = '#7FFF00'  # TODO
             curve = pg.PlotCurveItem(pen=color)
             self.plot.addItem(curve)
@@ -232,15 +232,15 @@ class BaseTraceViewer(WidgetBase):
 
         elif self.signal_type=='processed':
             #in that case it should be already normalize
-            self.med = np.zeros(self.dataio.nb_channel, dtype='float32')
-            self.mad = np.ones(self.dataio.nb_channel, dtype='float32')
+            self.med = np.zeros(self.controller.nb_channel, dtype='float32')
+            self.mad = np.ones(self.controller.nb_channel, dtype='float32')
         
         self.factor = 1.
         self.gain_zoom(15.)
     
     def gain_zoom(self, factor_ratio):
         self.factor *= factor_ratio
-        n = self.dataio.nb_channel
+        n = self.controller.nb_channel
         self.gains = np.ones(n, dtype=float) * 1./(self.factor*max(self.mad))
         self.offsets = np.arange(n)[::-1] - self.med*self.gains
         self.refresh()
@@ -267,16 +267,16 @@ class BaseTraceViewer(WidgetBase):
 
         #signal chunk
         times_chunk = np.arange(sigs_chunk.shape[0], dtype='float32')/self.dataio.sample_rate+max(t1, 0)
-        for c in range(self.dataio.nb_channel):
+        for c in range(self.controller.nb_channel):
             self.curves[c].setData(times_chunk, sigs_chunk[:, c]*self.gains[c]+self.offsets[c])
-            self.channel_labels[c].setPos(t1, self.dataio.nb_channel-c-1)
+            self.channel_labels[c].setPos(t1, self.controller.nb_channel-c-1)
         
         # plot peaks or spikes or prediction or residuals ...
         self._plot_specific_items(ind1, ind2, sigs_chunk, times_chunk)
         
         #ranges
         self.plot.setXRange( t1, t2, padding = 0.0)
-        self.plot.setYRange(-.5, self.dataio.nb_channel-.5, padding = 0.0)
+        self.plot.setYRange(-.5, self.controller.nb_channel-.5, padding = 0.0)
 
 
 
@@ -330,7 +330,7 @@ class CatalogueTraceViewer(BaseTraceViewer):
                 self.scatters[k].setBrush(color)
                 self.scatters[k].setData(times_chunk_in, sigs_chunk_in[:, c]*self.gains[c]+self.offsets[c])
 
-        n = self.dataio.nb_channel
+        n = self.controller.nb_channel
         for c in range(n):
             if self.params['plot_threshold']:
                 threshold = self.controller.get_threshold()
@@ -393,7 +393,7 @@ class PeelerTraceViewer(BaseTraceViewer):
     def _initialize_plot(self):
         self.curves_prediction = []
         self.curves_residuals = []
-        for c in range(self.controller.dataio.nb_channel):
+        for c in range(self.controller.nb_channel):
             color = '#FF00FF'  # TODO
             curve = pg.PlotCurveItem(pen=color)
             self.plot.addItem(curve)
@@ -452,7 +452,7 @@ class PeelerTraceViewer(BaseTraceViewer):
                 self.scatters[k].setBrush(color)
                 self.scatters[k].setData(times_chunk_in, sigs_chunk_in[:, c]*self.gains[c]+self.offsets[c])
 
-        n = self.controller.dataio.nb_channel
+        n = self.controller.nb_channel
         for c in range(n):
             if self.params['plot_threshold']:
                 threshold = self.controller.get_threshold()
@@ -466,7 +466,7 @@ class PeelerTraceViewer(BaseTraceViewer):
         residuals = sigs_chunk - prediction
         
        
-        for c in range(self.controller.dataio.nb_channel):
+        for c in range(self.controller.nb_channel):
             if self.plot_buttons['prediction'].isChecked():
                 self.curves_prediction[c].setData(times_chunk, prediction[:, c]*self.gains[c]+self.offsets[c])
             else:

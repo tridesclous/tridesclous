@@ -21,7 +21,7 @@ def setup_catalogue():
     dataio = DataIO(dirname='test_peeler')
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
-    dataio.set_channel_group([5, 6, 7, 8, 9])
+    dataio.set_manual_channel_group([5, 6, 7, 8, 9])
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     #~ print(catalogueconstructor)
@@ -34,7 +34,6 @@ def setup_catalogue():
             backward_chunksize=1280,
             
             #peak detector
-            peakdetector_engine='peakdetector_numpy',
             peak_sign='-', relative_threshold=7, peak_span=0.0005,
             )
     

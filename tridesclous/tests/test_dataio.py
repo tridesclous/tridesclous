@@ -47,7 +47,7 @@ def test_DataIO():
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     dataio.set_data_source(type='RawData', filenames=filenames,  **params)
     #~ dataio.set_channels(range(4))
-    dataio.set_channels(range(14))
+    dataio.set_manual_channel_group(range(14))
     
     
     for seg_num in range(dataio.nb_segment):
@@ -56,15 +56,32 @@ def test_DataIO():
             assert sigs_chunk.shape[1] == 14
             #~ print(seg_num, i_stop, sigs_chunk.shape)
     
+    
     #reopen existing
     dataio = DataIO(dirname='test_DataIO')
-    #~ print(dataio.info)
+    print(dataio)
+    
+    #~ exit()
+    
     for seg_num in range(dataio.nb_segment):
         #~ print('seg_num', seg_num)
         for i_stop, sigs_chunk in dataio.iter_over_chunk(seg_num=seg_num, chunksize=1024):
             assert sigs_chunk.shape[0] == 1024
             assert sigs_chunk.shape[1] == 14
-    
+
+
+
+def test_DataIO_probes():
+    # initialze dataio
+    if os.path.exists('test_DataIO'):
+        shutil.rmtree('test_DataIO')
+        
+    dataio = DataIO(dirname='test_DataIO')
+    print(dataio)
+
+
+    localdir, filenames, params = download_dataset(name='olfactory_bulb')
+    dataio.set_data_source(type='RawData', filenames=filenames,  **params)
     
     probe_filename = 'A4x8-5mm-100-400-413-A32.prb'
     dataio.download_probe(probe_filename)
@@ -73,9 +90,12 @@ def test_DataIO():
     #~ print(dataio.channel_groups)
     #~ print(dataio.channels)
     #~ print(dataio.info['probe_filename'])
-    assert len(dataio.channels) == 8
-    assert len(dataio.nb_channel) == 8
+    
+    assert dataio.nb_channel(0) == 8
     assert probe_filename == dataio.info['probe_filename']
+    
+    dataio = DataIO(dirname='test_DataIO')
+    print(dataio)
     
     
     
@@ -83,6 +103,8 @@ if __name__=='__main__':
     #~ test_InMemoryDataSource()
     #~ test_RawDataSource()
     
-    test_DataIO()
+    #~ test_DataIO()
+    
+    test_DataIO_probes()
     
     

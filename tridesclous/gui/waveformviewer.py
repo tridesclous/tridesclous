@@ -60,7 +60,7 @@ class WaveformViewer(WidgetBase):
         #lines
         def addSpan(plot):
         
-            nb_channel = self.controller.dataio.nb_channel
+            nb_channel = self.controller.nb_channel
             #~ n_left, n_right = min(samples)+2, max(samples)-1
             
             d = self.controller.info['params_waveformextractor']

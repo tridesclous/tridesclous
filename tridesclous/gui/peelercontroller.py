@@ -9,10 +9,14 @@ from .base import ControllerBase
 
 
 class PeelerController(ControllerBase):
-    def __init__(self, parent=None, dataio=None, catalogue=None):
+    def __init__(self,chan_grp=0, parent=None, dataio=None, catalogue=None):
         ControllerBase.__init__(self, parent=parent)
         self.dataio=dataio
         self.catalogue=catalogue
+        
+        self.chan_grp = chan_grp
+        self.nb_channel = self.dataio.nb_channel(self.chan_grp)
+        
         
         self.init_plot_attributes()
     

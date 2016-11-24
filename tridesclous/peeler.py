@@ -220,10 +220,10 @@ class Peeler:
     def initialize_online_loop(self, sample_rate=None, nb_channel=None, source_dtype=None):
         self._initialize_before_each_segment(sample_rate=sample_rate, nb_channel=nb_channel, source_dtype=source_dtype)
     
-    def run_offline_loop_one_segment(self, seg_num=0, duration=None):
+    def run_offline_loop_one_segment(self, seg_num=0, chan_grp=0, duration=None):
         kargs = {}
         kargs['sample_rate'] = self.dataio.sample_rate
-        kargs['nb_channel'] = self.dataio.nb_channel
+        kargs['nb_channel'] = self.dataio.nb_channel(chan_grp)
         kargs['source_dtype'] = self.dataio.source_dtype
         self._initialize_before_each_segment(**kargs)
         
@@ -234,11 +234,11 @@ class Peeler:
         length -= length%self.chunksize
                 #initialize engines
         
-        self.dataio.reset_processed_signals(seg_num=seg_num, dtype=self.internal_dtype)
-        self.dataio.reset_spikes(seg_num=seg_num, dtype=_dtype_spike)
+        self.dataio.reset_processed_signals(seg_num=seg_num, chan_grp=chan_grp, dtype=self.internal_dtype)
+        self.dataio.reset_spikes(seg_num=seg_num, chan_grp=chan_grp, dtype=_dtype_spike)
 
-        iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chunksize=self.chunksize, i_stop=length,
-                                                    signal_type='initial', return_type='raw_numpy')
+        iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=chan_grp, chunksize=self.chunksize, 
+                                                    i_stop=length, signal_type='initial', return_type='raw_numpy')
         if HAVE_TQDM:
             iterator = tqdm(iterable=iterator, total=length//self.chunksize)
         for pos, sigs_chunk in iterator:
@@ -247,19 +247,19 @@ class Peeler:
             
             # save preprocessed_chunk to file
             # TODO optional ???
-            self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num,
+            self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num,chan_grp=chan_grp,
                         i_start=sig_index-preprocessed_chunk.shape[0], i_stop=sig_index,
                         signal_type='processed')
             
             if spikes is not None and spikes.size>0:
-                self.dataio.append_spikes(seg_num=seg_num, spikes=spikes)
+                self.dataio.append_spikes(seg_num=seg_num, chan_grp=chan_grp, spikes=spikes)
 
-        self.dataio.flush_processed_signals(seg_num=seg_num)
-        self.dataio.flush_spikes(seg_num=seg_num)
+        self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=chan_grp)
+        self.dataio.flush_spikes(seg_num=seg_num, chan_grp=chan_grp)
 
-    def run_offline_all_segment(self):
+    def run_offline_all_segment(self, chan_grp=0):
         for seg_num in range(self.dataio.nb_segment):
-            self.run_offline_loop_one_segment(seg_num=seg_num, duration=None)
+            self.run_offline_loop_one_segment(seg_num=seg_num, chan_grp=chan_grp, duration=None)
     
     run = run_offline_all_segment
 

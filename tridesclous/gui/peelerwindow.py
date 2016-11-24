@@ -17,10 +17,10 @@ import datetime
     
 
 class PeelerWindow(QtGui.QMainWindow):
-    def __init__(self, parent=None, dataio=None,catalogue=None):
+    def __init__(self, parent=None, dataio=None, chan_grp=0, catalogue=None):
         QtGui.QMainWindow.__init__(self, parent=None)
         
-        self.controller = PeelerController(dataio=dataio,catalogue=catalogue)
+        self.controller = PeelerController(dataio=dataio,chan_grp=chan_grp, catalogue=catalogue)
         
         self.traceviewer = PeelerTraceViewer(controller=self.controller)
         self.spikelist = SpikeList(controller=self.controller)
