@@ -8,6 +8,7 @@ import numpy as np
 import scipy.signal
 import scipy.interpolate
 import seaborn as sns
+sns.set_style("white")
 
 from . import signalpreprocessor
 from . import  peakdetector

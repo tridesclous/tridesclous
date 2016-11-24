@@ -187,7 +187,7 @@ class BaseTraceViewer(WidgetBase):
         
 
         t_start=0.
-        t_stop = self.dataio.get_segment_shape(self.seg_num)[0]/self.dataio.sample_rate
+        t_stop = self.dataio.get_segment_length(self.seg_num)/self.dataio.sample_rate
         self.timeseeker.set_start_stop(t_start, t_stop, seek = False)
         
         if self.isVisible():
@@ -256,7 +256,8 @@ class BaseTraceViewer(WidgetBase):
         ind1 = max(0, int((t1-t_start)*sr))
         ind2 = int((t2-t_start)*sr)
 
-        sigs_chunk = self.dataio.get_signals_chunk(seg_num=self.seg_num, i_start=ind1, i_stop=ind2, signal_type=self.signal_type,
+        sigs_chunk = self.dataio.get_signals_chunk(seg_num=self.seg_num, chan_grp=self.controller.chan_grp,
+                i_start=ind1, i_stop=ind2, signal_type=self.signal_type,
                 return_type='raw_numpy')
         
         if sigs_chunk is None: 

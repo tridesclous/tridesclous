@@ -16,11 +16,11 @@ import itertools
 import datetime
 
 class CatalogueWindow(QtGui.QMainWindow):
-    def __init__(self, catalogueconstructor, chan_grp=0):
+    def __init__(self, catalogueconstructor):
         QtGui.QMainWindow.__init__(self)
         
         self.catalogueconstructor = catalogueconstructor
-        self.controller = CatalogueController(catalogueconstructor=catalogueconstructor, chan_grp=chan_grp)
+        self.controller = CatalogueController(catalogueconstructor=catalogueconstructor)
         
         self.traceviewer = CatalogueTraceViewer(controller=self.controller)
         self.peaklist = PeakList(controller=self.controller)

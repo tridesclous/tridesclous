@@ -58,9 +58,10 @@ class DataIO:
         #~ else:
             #~ t += "  channels: [{} ... {}]\n".format(' '.join(str(e) for e in self.channels[:4]),
                                                                                         #~ ' '.join(str(e) for e in self.channels[-4:]))
+        
         t += "  nb_segment: {}\n".format(self.nb_segment)
         if self.nb_segment<5:
-            lengths = [ self.get_segment_shape(i)[0] for i in range(self.nb_segment)]
+            lengths = [ self.datasource.get_segment_shape(i)[0] for i in range(self.nb_segment)]
             t += '  length: '+' '.join('{}'.format(l) for l in lengths)+'\n'
             t += '  durations: '+' '.join('{:0.1f}'.format(l/self.sample_rate) for l in lengths)+' s.\n'
         
@@ -179,9 +180,12 @@ class DataIO:
             
                 for name in ['processed_signals', 'spikes']:
                     self.arrays[chan_grp][i].load_if_exists(name)
-        
+    
+    def get_segment_length(self, seg_num):
+        full_shape =  self.datasource.get_segment_shape(seg_num)
+        return full_shape[0]
+    
     def get_segment_shape(self, seg_num, chan_grp=0):
-        
         full_shape =  self.datasource.get_segment_shape(seg_num)
         shape = (full_shape[0], self.nb_channel(chan_grp))
         return shape
