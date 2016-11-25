@@ -23,7 +23,7 @@ class OnlineTraceViewer(QOscilloscope):
     def __init__(self, **kargs):
         QOscilloscope.__init__(self, **kargs)
 
-    def _configure(self, peak_buffer_size = 5000, catalogue=None, **kargs):
+    def _configure(self, peak_buffer_size = 10000, catalogue=None, **kargs):
         QOscilloscope._configure(self, **kargs)
         self.peak_buffer_size = peak_buffer_size
         self.catalogue = catalogue

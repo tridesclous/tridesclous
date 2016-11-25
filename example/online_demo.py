@@ -86,7 +86,6 @@ def setup_catalogue():
 
 def test_OnlinePeeler():
     dataio = DataIO(dirname='test_onlinepeeler')
-    
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     catalogue = catalogueconstructor.load_catalogue()
     #~ print(catalogue)

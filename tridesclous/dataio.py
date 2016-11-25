@@ -30,7 +30,10 @@ class DataIO:
         else:
             with open(self.info_filename, 'r', encoding='utf8') as f:
                 self.info = json.load(f)
-            
+            #~ print('*'*50)
+            #~ print(self.info_filename)
+            #~ print(self.info)
+            #~ print('*'*50)
             #~ try:
             if 1:
                 self.reload_info()
@@ -73,8 +76,9 @@ class DataIO:
             json.dump(self.info, f, indent=4)
     
     def reload_info(self):
-        if 'channels' in self.info:
-            self.channels = self.info['channels']
+        #~ if 'channels' in self.info:
+            #~ self.channels = self.info['channels']
+        
         
         if 'channel_groups' in self.info:
             #hack because channel_group are int  and json put them str
@@ -84,8 +88,9 @@ class DataIO:
                 self.info['channel_groups'][int(k)] = v
             self.channel_groups = self.info['channel_groups']
             
+            print('ici', self.channel_groups)
             #same thing foe channel key in geomtry
-            for chan_grp, channel_group in self.info['channel_groups'].items():
+            for chan_grp, channel_group in self.channel_groups.items():
                 keys = list(channel_group['geometry'].keys())
                 for k in keys:
                     v = channel_group['geometry'].pop(k)

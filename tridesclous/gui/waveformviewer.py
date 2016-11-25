@@ -170,6 +170,9 @@ class WaveformViewer(WidgetBase):
 
         
         self.viewBox1.gain_zoom.connect(self.gain_zoom)
+        
+        self.viewBox1.doubleclicked.connect(self.open_settings)
+        
         #~ self.viewBox.xsize_zoom.connect(self.xsize_zoom)    
     
 
