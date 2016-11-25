@@ -13,20 +13,14 @@ def plot_waveforms(waveforms, channels, geometry):
     fig, ax = plt.subplots()
     for chan in channels:
         x, y = geometry[chan]
-        print(x, y)
         ax.plot([x], [y], marker='o', color='w')
         ax.text(x, y, str(chan))
 
-    #~ fig, ax = plt.subplots()
-    
-    
-    
     wf = waveforms.copy()
     if wf.ndim ==2:
         wf = wf[None, : ,:]
     
     width = wf.shape[1]
-    
     
     delta = 5.
     vect =np.zeros(wf.shape[1]*wf.shape[2])
@@ -38,8 +32,6 @@ def plot_waveforms(waveforms, channels, geometry):
     
     wf[:, 0,:] = np.nan
     wf = wf.swapaxes(1,2).reshape(wf.shape[0], -1).T
-    print(wf.shape)
-    print(vect.shape)
     
     ax.plot(vect, wf)
     

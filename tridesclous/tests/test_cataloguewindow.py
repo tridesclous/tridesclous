@@ -99,7 +99,7 @@ if __name__ == '__main__':
     #~ test_PeakList()
     #~ test_ClusterPeakList()
     #~ test_NDScatter()
-    #~ test_WaveformViewer()
+    test_WaveformViewer()
     
-    test_CatalogueWindow()
+    #~ test_CatalogueWindow()
 

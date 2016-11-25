@@ -27,15 +27,8 @@ LABEL_TRASH = -1
 LABEL_UNSLASSIFIED = -10
 
 
-# TODO auto cut left rigth after first cut
-# TODO improve different of sample waveform
-# TODO make a clear distinct between all peak and sample peak/waveform/features (because different sizes) CF ndscatter!!!!!
-# TODO make some label for insorted type
 # TODO extract some noise
 
-#~ _persitent_arrays = ['peak_pos', 'peak_segment', 'peak_label',
-                    #~ 'peak_waveforms', 'some_peaks_index', 'features',
-                    #~ 'signals_medians','signals_mads', ]
 
 _persitent_arrays = ['all_peaks', 'some_peaks_index', 'some_waveforms', 
                     'some_features', 'signals_medians','signals_mads', ]
@@ -385,12 +378,12 @@ class CatalogueConstructor:
                 best = np.argmax(down-up)
                 n_left = int(self.info['params_waveformextractor']['n_left'] + up[best])
                 n_right = int(self.info['params_waveformextractor']['n_left'] + down[best]+1)
-                print(old_n_left, old_n_right)
-                print(n_left, n_right)
+                #~ print(old_n_left, old_n_right)
+                #~ print(n_left, n_right)
                 
                 n_left = min(n_left, min_left)
                 n_right = max(n_right, max_right)
-                print(n_left, n_right)
+                #~ print(n_left, n_right)
                 
                 if extract:
                     self.projector = None
@@ -469,7 +462,7 @@ class CatalogueConstructor:
                         'mean': mean, 'std': std}
         
         t2 = time.perf_counter()
-        print('compute_centroid', t2-t1)
+        #~ print('compute_centroid', t2-t1)
         
     
     def refresh_colors(self, reset=True, palette = 'husl'):
@@ -562,7 +555,7 @@ class CatalogueConstructor:
         interp_centers0 = np.zeros((cluster_labels.size, subsample.size, nchan), dtype=self.info['internal_dtype'])
         self.catalogue['interp_centers0'] = interp_centers0
         
-        print('peak_width', self.catalogue['peak_width'])
+        #~ print('peak_width', self.catalogue['peak_width'])
         
         self.catalogue['label_to_index'] = {}
         for i, k in enumerate(cluster_labels):

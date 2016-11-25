@@ -9,13 +9,13 @@ from ..peeler import _dtype_spike
 
 
 class PeelerThread(ThreadPollInput):
-    def __init__(self, input_stream, output_streams, peeler,channel_group,
+    def __init__(self, input_stream, output_streams, peeler,in_group_channels,
                         timeout = 200, parent = None):
         
         ThreadPollInput.__init__(self, input_stream,  timeout=timeout, return_data=True, parent = parent)
         self.output_streams = output_streams
         self.peeler = peeler
-        self.channel_group = channel_group
+        self.in_group_channels = in_group_channels
         
         self.sample_rate = input_stream.params['sample_rate']
         self.total_channel = self.input_stream().params['shape'][1]
@@ -27,7 +27,7 @@ class PeelerThread(ThreadPollInput):
         assert sigs_chunk.shape[0] == self.peeler.chunksize, 'PeelerThread chunksize is BAD!!'
         
         #take only channels concerned
-        sigs_chunk = sigs_chunk[:, self.channel_group]
+        sigs_chunk = sigs_chunk[:, self.in_group_channels]
         
         sig_index, preprocessed_chunk, total_spike, spikes  = self.peeler.process_one_chunk(pos, sigs_chunk)
         #~ print('total_spike', total_spike, len(spikes))
@@ -58,12 +58,12 @@ class OnlinePeeler(Node):
     def __init__(self , **kargs):
         Node.__init__(self, **kargs)
     
-    def _configure(self, channel_group=None, catalogue=None, chunksize=None,
-                                    signalpreprocessor_engine='signalpreprocessor_numpy',
-                                    peakdetector_engine='peakdetector_numpy',
+    def _configure(self, in_group_channels=None, catalogue=None, chunksize=None,
+                                    signalpreprocessor_engine='numpy',
+                                    peakdetector_engine='numpy',
                                     internal_dtype='float32', n_peel_level=2):
         
-        self.channel_group = channel_group
+        self.in_group_channels = in_group_channels
         self.catalogue = catalogue
         self.chunksize = chunksize
         self.signalpreprocessor_engine = signalpreprocessor_engine
@@ -79,7 +79,7 @@ class OnlinePeeler(Node):
         
         # internal dtype (for waveforms) will also be the output dtype
         self.outputs['signals'].spec['dtype'] = self.internal_dtype
-        self.outputs['signals'].spec['shape'] = (-1, len(self.channel_group))
+        self.outputs['signals'].spec['shape'] = (-1, len(self.in_group_channels))
         self.outputs['signals'].spec['sample_rate'] = self.input.params['sample_rate']
         
         
@@ -92,11 +92,11 @@ class OnlinePeeler(Node):
                                         signalpreprocessor_engine=self.signalpreprocessor_engine,
                                         peakdetector_engine=self.peakdetector_engine)
         
-        self.thread = PeelerThread(self.input, self.outputs, self.peeler, self.channel_group)
+        self.thread = PeelerThread(self.input, self.outputs, self.peeler, self.in_group_channels)
         
     def _start(self):
         self.peeler.initialize_online_loop(sample_rate=self.input.params['sample_rate'],
-                                            nb_channel=len(self.channel_group),
+                                            nb_channel=len(self.in_group_channels),
                                             source_dtype=self.input.params['dtype'])
         self.thread.start()
         

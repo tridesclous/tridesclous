@@ -25,11 +25,11 @@ def setup_catalogue():
     filenames = filenames[:1] #only first file
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
     channel_group = [5, 6, 7, 8, 9]
-    dataio.set_channel_group(channel_group)
+    dataio.set_manual_channel_group(channel_group)
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
 
-    catalogueconstructor.initialize_signalprocessor_loop(chunksize=1024,
+    catalogueconstructor.set_preprocessor_params(chunksize=1024,
             memory_mode='memmap',
             
             #signal preprocessor
@@ -37,7 +37,7 @@ def setup_catalogue():
             backward_chunksize=1280,
             
             #peak detector
-            peakdetector_engine='peakdetector_numpy',
+            peakdetector_engine='numpy',
             peak_sign='-', relative_threshold=7, peak_span=0.0005,
             )
     
@@ -47,31 +47,21 @@ def setup_catalogue():
     print('estimate_signals_noise', t2-t1)
     
     t1 = time.perf_counter()
-    for seg_num in range(dataio.nb_segment):
-        #~ print('seg_num', seg_num)
-        catalogueconstructor.run_signalprocessor_loop(seg_num=seg_num, duration=10.)
+    catalogueconstructor.run_signalprocessor()
     t2 = time.perf_counter()
-    print('run_signalprocessor_loop', t2-t1)
+    print('run_signalprocessor', t2-t1)
 
-    t1 = time.perf_counter()
-    catalogueconstructor.finalize_signalprocessor_loop()
-    t2 = time.perf_counter()
-    print('finalize_signalprocessor_loop', t2-t1)
-
-    for seg_num in range(dataio.nb_segment):
-        mask = catalogueconstructor.peak_segment==seg_num
-        print('seg_num', seg_num, np.sum(mask))
     
     t1 = time.perf_counter()
     catalogueconstructor.extract_some_waveforms(n_left=-12, n_right=15,  nb_max=10000)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
-    print(catalogueconstructor.peak_waveforms.shape)
+    print(catalogueconstructor)
         
 
     # PCA
     t1 = time.perf_counter()
-    catalogueconstructor.project(method='IncrementalPCA', n_components=12, batch_size=16384)
+    catalogueconstructor.project(method='pca', n_components=12, batch_size=16384)
     t2 = time.perf_counter()
     print('project', t2-t1)
     
@@ -104,7 +94,7 @@ def test_OnlinePeeler():
     
     sigs = sigs.astype('float32')
     sample_rate = dataio.sample_rate
-    channel_group = dataio.channel_group
+    in_group_channels = dataio.channel_groups[0]['channels']
     #~ print(channel_group)
     
     chunksize = 1024
@@ -134,7 +124,7 @@ def test_OnlinePeeler():
 
     # Node Peeler
     peeler = OnlinePeeler()
-    peeler.configure(catalogue=catalogue, channel_group=channel_group, chunksize=chunksize)
+    peeler.configure(catalogue=catalogue, in_group_channels=in_group_channels, chunksize=chunksize)
     peeler.input.connect(dev.output)
     stream_params = dict(protocol='tcp', interface='127.0.0.1', transfermode='plaindata')
     peeler.outputs['signals'].configure(**stream_params)

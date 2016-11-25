@@ -16,7 +16,9 @@ def test_catalogue_constructor():
     dataio = DataIO(dirname='test_catalogueconstructor')
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
-    dataio.set_manual_channel_group(range(14))
+    
+    channels=range(14)
+    dataio.set_manual_channel_group(channels, chan_grp=0)
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     

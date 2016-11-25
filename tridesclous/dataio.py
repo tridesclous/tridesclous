@@ -83,6 +83,13 @@ class DataIO:
                 v = self.info['channel_groups'].pop(k)
                 self.info['channel_groups'][int(k)] = v
             self.channel_groups = self.info['channel_groups']
+            
+            #same thing foe channel key in geomtry
+            for chan_grp, channel_group in self.info['channel_groups'].items():
+                keys = list(channel_group['geometry'].keys())
+                for k in keys:
+                    v = channel_group['geometry'].pop(k)
+                    channel_group['geometry'][int(k)] = v
         
     
     def set_data_source(self, type='RawData', **kargs):
@@ -140,9 +147,14 @@ class DataIO:
         #~ self.info['nb_channel'] = self.nb_channel
         #~ self.flush_info()
 
-    def set_manual_channel_group(self, channels=[], chan_grp=0):
+    def set_manual_channel_group(self, channels=[], chan_grp=0, geometry=None):
+        if geometry is None:
+            # assume that it is a linear probes
+            geometry = { int(c): [0, i] for i, c in enumerate(channels) }
+        
         self.channel_groups = {}
-        self.channel_groups[chan_grp] = {'channels': np.array(channels).tolist()}
+        self.channel_groups[chan_grp] = {'channels': np.array(channels).tolist(), 'geometry':geometry}
+        
         self.info['channel_groups'] = self.channel_groups
         self.info['probe_filename'] = None
         self.flush_info()

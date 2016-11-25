@@ -25,8 +25,7 @@ def test_plot_waveforms():
     
     
     plt.show()
-    
-    
+
     
 if __name__ == '__main__':
     test_plot_waveforms()
