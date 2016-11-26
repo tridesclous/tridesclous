@@ -14,7 +14,7 @@ def make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup = None, chunksize
     else:
         dev = nodegroup.create_node('NumpyDeviceBuffer')
     dev.configure(nb_channel=nb_channel, sample_interval=1./sample_rate, chunksize=chunksize, buffer=sigs)
-    dev.output.configure(protocol='tcp', interface='127.0.0.1', transfermode='plaindata', dtype=dtype)
+    dev.output.configure(protocol='tcp', interface='127.0.0.1', transfermode='plaindata')
     dev.initialize()
     
     return dev

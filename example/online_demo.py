@@ -101,7 +101,7 @@ def test_OnlinePeeler():
     
     
     # Device node
-    #~ man = create_manager(auto_close_at_exit=True)
+    #~ man = pyacq.create_manager(auto_close_at_exit=True)
     #~ ng0 = man.create_nodegroup()
     ng0 = None
     dev = make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup=ng0, chunksize=chunksize)
