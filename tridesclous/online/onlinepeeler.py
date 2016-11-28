@@ -24,10 +24,13 @@ class PeelerThread(ThreadPollInput):
     
     def process_data(self, pos, sigs_chunk):
         #TODO maybe remove this
+        #~ print(sigs_chunk.shape[0], self.peeler.chunksize)
         assert sigs_chunk.shape[0] == self.peeler.chunksize, 'PeelerThread chunksize is BAD!!'
+        
         
         #take only channels concerned
         sigs_chunk = sigs_chunk[:, self.in_group_channels]
+        #~ print('pos', pos)
         
         sig_index, preprocessed_chunk, total_spike, spikes  = self.peeler.process_one_chunk(pos, sigs_chunk)
         #~ print('total_spike', total_spike, len(spikes))
@@ -108,4 +111,4 @@ class OnlinePeeler(Node):
     def _close(self):
         pass
 
-register_node_type(OnlinePeeler)
+#~ register_node_type(OnlinePeeler)

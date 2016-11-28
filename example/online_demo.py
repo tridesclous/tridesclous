@@ -2,7 +2,7 @@ from tridesclous import *
 from tridesclous.online import *
 
 import  pyqtgraph as pg
-
+from pyqtgraph.Qt import QtCore, QtGui
 import pyacq
 from pyacq.viewers import QOscilloscope, QTimeFreq
 
@@ -90,6 +90,21 @@ def test_OnlinePeeler():
     catalogue = catalogueconstructor.load_catalogue()
     #~ print(catalogue)
     
+    #~ def print_dict(d):
+        #~ for k, v in d.items():
+            #~ if type(v) is dict:
+                #~ print('k', k, 'dict')
+                #~ print_dict(v)
+            #~ else:
+                #~ print('k', k, type(v))
+        
+    #~ print_dict(catalogue)
+    
+    #~ from pyacq.core.rpc.serializer import MsgpackSerializer
+    #~ serializer = MsgpackSerializer()
+    #~ serializer.dumps(catalogue)
+    #~ exit()
+    
     sigs = dataio.datasource.array_sources[0]
     
     sigs = sigs.astype('float32')
@@ -101,9 +116,13 @@ def test_OnlinePeeler():
     
     
     # Device node
-    #~ man = pyacq.create_manager(auto_close_at_exit=True)
-    #~ ng0 = man.create_nodegroup()
-    ng0 = None
+    man = pyacq.create_manager(auto_close_at_exit=True)
+    ng0 = man.create_nodegroup()
+    #~ ng0 = None
+    ng1 = man.create_nodegroup()
+    #~ ng1 = None
+    
+    
     dev = make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup=ng0, chunksize=chunksize)
     
 
@@ -123,8 +142,14 @@ def test_OnlinePeeler():
     oscope.params['mode'] = 'scan'    
 
     # Node Peeler
-    peeler = OnlinePeeler()
+    if ng1 is None:
+        peeler = OnlinePeeler()
+    else:
+        ng1.register_node_type_from_module('tridesclous.online', 'OnlinePeeler')
+        peeler = ng1.create_node('OnlinePeeler')
+    
     peeler.configure(catalogue=catalogue, in_group_channels=in_group_channels, chunksize=chunksize)
+    
     peeler.input.connect(dev.output)
     stream_params = dict(protocol='tcp', interface='127.0.0.1', transfermode='plaindata')
     peeler.outputs['signals'].configure(**stream_params)
@@ -149,6 +174,14 @@ def test_OnlinePeeler():
     #~ tviewer.gain_zoom(.3)
     tviewer.gain_zoom(.1)
     
+    
+    
+    def ajust_yrange():
+        oscope.auto_gain_and_offset(mode=1)
+    
+    timer = QtCore.QTimer(interval=1000, singleShot=True)
+    timer.timeout.connect(ajust_yrange)
+    timer.start()
     
     def terminate():
         dev.stop()

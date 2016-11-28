@@ -33,7 +33,7 @@ def initialize_catalogueconstructor():
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
 
     #The dataset contains 16 channels but 14 and 15 are respiration and trigs.
-    dataio.set_channel_group(range(14))
+    dataio.set_manual_channel_group(range(14))
 
     print(dataio)
 

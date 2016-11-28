@@ -88,7 +88,7 @@ class DataIO:
                 self.info['channel_groups'][int(k)] = v
             self.channel_groups = self.info['channel_groups']
             
-            print('ici', self.channel_groups)
+            #~ print('ici', self.channel_groups)
             #same thing foe channel key in geomtry
             for chan_grp, channel_group in self.channel_groups.items():
                 keys = list(channel_group['geometry'].keys())

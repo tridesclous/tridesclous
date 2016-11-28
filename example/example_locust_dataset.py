@@ -33,7 +33,7 @@ def initialize_catalogueconstructor():
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
 
     #The dataset contains 4 channels : we use them all
-    dataio.set_channel_group([0, 1, 2, 3])
+    dataio.set_manual_channel_group([0, 1, 2, 3])
 
     print(dataio)
 

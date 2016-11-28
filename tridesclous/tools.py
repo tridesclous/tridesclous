@@ -35,10 +35,11 @@ class FifoBuffer:
     """
     def __init__(self, shape, dtype):
         self.buffer = np.zeros(shape, dtype=dtype)
-        self.last_index = 0
+        self.last_index = None
         
     def new_chunk(self, data, index):
-        assert self.last_index+data.shape[0]==index
+        if self.last_index is not None:
+            assert self.last_index+data.shape[0]==index
         
         n = self.buffer.shape[0]-data.shape[0]
         #roll the end

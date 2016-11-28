@@ -535,15 +535,15 @@ class CatalogueConstructor:
         self.catalogue = {}
         
         self.catalogue = {}
-        self.catalogue['n_left'] = self.info['params_waveformextractor']['n_left'] +2
-        self.catalogue['n_right'] = self.info['params_waveformextractor']['n_right'] -2
+        self.catalogue['n_left'] = int(self.info['params_waveformextractor']['n_left'] +2)
+        self.catalogue['n_right'] = int(self.info['params_waveformextractor']['n_right'] -2)
         self.catalogue['peak_width'] = self.catalogue['n_right'] - self.catalogue['n_left']
         
-        cluster_labels = self.cluster_labels[self.cluster_labels>=0]
+        cluster_labels = np.array(self.cluster_labels[self.cluster_labels>=0], copy=True)
         self.catalogue['cluster_labels'] = cluster_labels
         
         n, full_width, nchan = self.some_waveforms.shape
-        centers0 = np.zeros((cluster_labels.size, full_width - 4, nchan), dtype=self.info['internal_dtype'])
+        centers0 = np.zeros((len(cluster_labels), full_width - 4, nchan), dtype=self.info['internal_dtype'])
         centers1 = np.zeros_like(centers0)
         centers2 = np.zeros_like(centers0)
         self.catalogue['centers0'] = centers0 # median of wavforms
@@ -552,7 +552,7 @@ class CatalogueConstructor:
         
         subsample = np.arange(1.5, full_width-2.5, 1/20.)
         self.catalogue['subsample_ratio'] = 20
-        interp_centers0 = np.zeros((cluster_labels.size, subsample.size, nchan), dtype=self.info['internal_dtype'])
+        interp_centers0 = np.zeros((len(cluster_labels), subsample.size, nchan), dtype=self.info['internal_dtype'])
         self.catalogue['interp_centers0'] = interp_centers0
         
         #~ print('peak_width', self.catalogue['peak_width'])
@@ -610,8 +610,8 @@ class CatalogueConstructor:
         #params
         self.catalogue['params_signalpreprocessor'] = dict(self.info['params_signalpreprocessor'])
         self.catalogue['params_peakdetector'] = dict(self.info['params_peakdetector'])
-        self.catalogue['signals_medians'] = self.signals_medians
-        self.catalogue['signals_mads'] = self.signals_mads        
+        self.catalogue['signals_medians'] = np.array(self.signals_medians, copy=True)
+        self.catalogue['signals_mads'] = np.array(self.signals_mads, copy=True)
 
         
         
