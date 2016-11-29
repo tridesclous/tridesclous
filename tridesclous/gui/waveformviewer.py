@@ -145,9 +145,15 @@ class WaveformViewer(WidgetBase):
                 
                 xpos = self.arr_geometry[:,0]
                 ypos = self.arr_geometry[:,1]
-                self.delta_x = np.min(np.diff(np.sort(np.unique(xpos))))
-                self.delta_y = np.min(np.diff(np.sort(np.unique(ypos))))
                 
+                if np.unique(xpos).size>1:
+                    self.delta_x = np.min(np.diff(np.sort(np.unique(xpos))))
+                else:
+                    self.delta_x = np.unique(xpos)[0]
+                if np.unique(ypos).size>1:
+                    self.delta_y = np.min(np.diff(np.sort(np.unique(ypos))))
+                else:
+                    self.delta_y = np.unique(ypos)[0]
                 self.factor_y = .3
                 
                 if self.delta_x>0.:
