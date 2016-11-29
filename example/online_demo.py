@@ -53,7 +53,7 @@ def setup_catalogue():
 
     
     t1 = time.perf_counter()
-    catalogueconstructor.extract_some_waveforms(n_left=-12, n_right=15,  nb_max=10000)
+    catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=35,  nb_max=10000)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
     print(catalogueconstructor)

@@ -129,6 +129,7 @@ class DataIO:
         #~ self.select_channel_group(chan_grp)
         self.info['probe_filename'] = os.path.basename(probe_filename)
         self.flush_info()
+        self._open_processed_data()
     
     def download_probe(self, probe_name):
         #Max Hunter made a list of neuronexus probes, many thanks
@@ -139,19 +140,6 @@ class DataIO:
         urlretrieve(baseurl+probe_name, probe_filename)
         self.set_probe_file(probe_filename)
     
-    def nb_channel(self, chan_grp=0):
-        return len(self.channel_groups[chan_grp]['channels'])
-    
-    
-    #~ def select_channel_group(self, chan_grp):
-        #~ self.channels = self.channel_groups[chan_grp]['channels']
-        #~ self.nb_channel  = len(self.channels)
-        #~ self.info['actual_channel_group'] = chan_grp
-        #~ self.info['channels'] = list(self.channels)
-        #~ self.nb_channel  = len(self.channels)
-        #~ self.info['nb_channel'] = self.nb_channel
-        #~ self.flush_info()
-
     def set_manual_channel_group(self, channels=[], chan_grp=0, geometry=None):
         if geometry is None:
             # assume that it is a linear probes
@@ -163,14 +151,12 @@ class DataIO:
         self.info['channel_groups'] = self.channel_groups
         self.info['probe_filename'] = None
         self.flush_info()
-        
-        #~ self.select_channel_group(chan_grp)
-        
-        #~ self.channels = list(channels)
-        #~ self.info['channels'] = self.channels
-        #~ self.nb_channel  = len(self.channels)
-        #~ self.info['nb_channel'] = self.nb_channel
-        #~ self.flush_info()
+        self._open_processed_data()
+
+    def nb_channel(self, chan_grp=0):
+        #~ print('DataIO.nb_channel', self.channel_groups)
+        return len(self.channel_groups[chan_grp]['channels'])
+
     
     def _open_processed_data(self):
         self.channel_group_path = {}

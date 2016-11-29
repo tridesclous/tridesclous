@@ -33,7 +33,6 @@ Bonus:
 
 Dependencies:
   * numpy
-  * pandas
   * sklearn
   * scipy
   * matplotlib

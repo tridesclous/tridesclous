@@ -92,7 +92,7 @@ def extract_waveforms_pca_cluster():
     
     
     t1 = time.perf_counter()
-    catalogueconstructor.project(method='pca', n_components=16)
+    catalogueconstructor.project(method='pca', n_components=5)
     t2 = time.perf_counter()
     print('project', t2-t1)
     print(catalogueconstructor)
@@ -102,6 +102,10 @@ def extract_waveforms_pca_cluster():
     t2 = time.perf_counter()
     print('find_clusters', t2-t1)
     print(catalogueconstructor)
+    
+    catalogueconstructor.trash_small_cluster(n=5)
+    
+    catalogueconstructor.order_clusters()
 
 
 
@@ -134,6 +138,7 @@ def run_peeler():
     
 def open_PeelerWindow():
     dataio = DataIO(dirname=dirname)
+    print(dataio)
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     initial_catalogue = catalogueconstructor.load_catalogue()
 

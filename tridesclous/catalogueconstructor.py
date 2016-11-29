@@ -510,6 +510,10 @@ class CatalogueConstructor:
         The higher power the smaller label.
         Negative labels are not reassigned.
         """
+        
+        if not hasattr(self, 'centroids'):
+            self.compute_centroid()
+        
         cluster_labels = self.cluster_labels.copy()
         cluster_labels.sort()
         cluster_labels =  cluster_labels[cluster_labels>=0]

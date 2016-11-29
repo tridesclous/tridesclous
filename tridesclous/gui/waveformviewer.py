@@ -145,8 +145,8 @@ class WaveformViewer(WidgetBase):
                 
                 xpos = self.arr_geometry[:,0]
                 ypos = self.arr_geometry[:,1]
-                self.delta_x = np.min(np.diff(np.sort(xpos)))
-                self.delta_y = np.min(np.diff(np.sort(ypos)))
+                self.delta_x = np.min(np.diff(np.sort(np.unique(xpos))))
+                self.delta_y = np.min(np.diff(np.sort(np.unique(ypos))))
                 
                 self.factor_y = .3
                 
@@ -157,6 +157,7 @@ class WaveformViewer(WidgetBase):
                 for i, chan in enumerate(channel_group['channels']):
                     self.xvect[i*width:(i+1)*width] = np.linspace(x-espx, x+espx, num=width)
                 self.arr_geometry = np.array(self.arr_geometry)
+
                 
                 
             

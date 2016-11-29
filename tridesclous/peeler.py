@@ -230,7 +230,7 @@ class Peeler:
         if duration is not None:
             length = int(duration*self.dataio.sample_rate)
         else:
-            length = self.dataio.get_segment_shape(seg_num)[0]
+            length = self.dataio.get_segment_length(seg_num)
         length -= length%self.chunksize
                 #initialize engines
         
@@ -257,9 +257,10 @@ class Peeler:
         self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=chan_grp)
         self.dataio.flush_spikes(seg_num=seg_num, chan_grp=chan_grp)
 
-    def run_offline_all_segment(self, chan_grp=0):
+    def run_offline_all_segment(self, chan_grp=0, duration=None):
+        #~ print('run_offline_all_segment', chan_grp)
         for seg_num in range(self.dataio.nb_segment):
-            self.run_offline_loop_one_segment(seg_num=seg_num, chan_grp=chan_grp, duration=None)
+            self.run_offline_loop_one_segment(seg_num=seg_num, chan_grp=chan_grp, duration=duration)
     
     run = run_offline_all_segment
 
