@@ -41,15 +41,17 @@ def offline_signal_preprocessor(sigs, sample_rate, common_ref_removal=True,
 def test_compare_offline_online_engines():
     HAVE_PYOPENCL = True
     if HAVE_PYOPENCL:
-        #~ engines = ['signalpreprocessor_numpy', 'signalpreprocessor_opencl']
-        engines = ['signalpreprocessor_numpy']
-        
+        engines = ['numpy', 'opencl']
+        #~ engines = [ 'opencl']
+        #~ engines = ['numpy']
     else:
-        engines = ['signalpreprocessor_numpy']
+        engines = ['numpy']
 
 
     # get sigs
     sigs, sample_rate = get_dataset(name='olfactory_bulb')
+    #~ sigs = np.tile(sigs, (1, 20)) #for testing large channels num
+    
     nb_channel = sigs.shape[1]
     print('nb_channel', nb_channel)
     
@@ -61,7 +63,8 @@ def test_compare_offline_online_engines():
     print('sig duration', sigs.shape[0]/sample_rate)
     
     highpass_freq = 300.
-    params = {'common_ref_removal' : True,
+    params = {
+                'common_ref_removal' : True,
                 'highpass_freq': highpass_freq, 'output_dtype': 'float32',
                 'normalize' : True,
                 'backward_chunksize':chunksize+chunksize//4}
@@ -116,7 +119,7 @@ def test_compare_offline_online_engines():
 
         print(np.max(residual))
         #~ print(np.mean(np.abs(offline_sig.astype('float64'))))
-        assert np.max(residual)<5e-5, 'online differt from offline'
+        assert np.max(residual)<7e-5, 'online differt from offline'
     
         # plot
         #~ fig, axs = pyplot.subplots(nrows=nb_channel, sharex=True)

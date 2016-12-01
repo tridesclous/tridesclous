@@ -11,9 +11,14 @@ from .base import ControllerBase
 import time
 
 class CatalogueController(ControllerBase):
-    def __init__(self, parent=None, catalogueconstructor=None):
+    def __init__(self, catalogueconstructor=None,parent=None):
         ControllerBase.__init__(self, parent=parent)
+        
         self.dataio = catalogueconstructor.dataio
+        self.chan_grp = catalogueconstructor.chan_grp
+        print('CatalogueController', self.chan_grp)
+        self.nb_channel = self.dataio.nb_channel(self.chan_grp)
+        
         self.cc = catalogueconstructor = catalogueconstructor
         self.cc.on_new_cluster()
         

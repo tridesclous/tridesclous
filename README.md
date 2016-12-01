@@ -1,4 +1,4 @@
-# trisdesclous : spike sorting with french touch.
+# trisdesclous : spike sorting with [french touch](https://fr.wikipedia.org/wiki/French_touch_(informatique)).
 
 **tris des clous** is a very dishonest translation of **spike sorting** to french.
 
@@ -33,7 +33,6 @@ Bonus:
 
 Dependencies:
   * numpy
-  * pandas
   * sklearn
   * scipy
   * matplotlib

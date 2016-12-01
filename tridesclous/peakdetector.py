@@ -5,7 +5,8 @@ Here 2 version for
 
 import numpy as np
 
-from pyacq.core.stream.ringbuffer import RingBuffer
+#~ from pyacq.core.stream.ringbuffer import RingBuffer
+from .tools import FifoBuffer
 
 try:
     import pyopencl
@@ -38,14 +39,16 @@ class PeakDetectorEngine_Numpy:
         else:
             sum_rectified = newbuf[:,0]
         
-        self.ring_sum.new_chunk(sum_rectified, index=pos)
+        #~ self.ring_sum.new_chunk(sum_rectified, index=pos)
+        self.fifo_sum.new_chunk(sum_rectified, pos)
         
         k = self.n_span
         if pos-(newbuf.shape[0]+2*k)<0:
             # the very first buffer is sacrified because of peak span
             return None, None
         
-        sig = self.ring_sum.get_data(pos-(newbuf.shape[0]+2*k), pos)
+        #~ sig = self.ring_sum.get_data(pos-(newbuf.shape[0]+2*k), pos)
+        sig = self.fifo_sum.get_data(pos-(newbuf.shape[0]+2*k), pos)
 
         sig_center = sig[k:-k]
         if self.peak_sign == '+':
@@ -80,7 +83,9 @@ class PeakDetectorEngine_Numpy:
         self.n_span = int(self.sample_rate*self.peak_span)//2
         self.n_span = max(1, self.n_span)
         
-        self.ring_sum = RingBuffer((self.chunksize*2,), self.dtype, double=True)
+        #~ self.ring_sum = RingBuffer((self.chunksize*2,), self.dtype, double=True)
+        self.fifo_sum = FifoBuffer((self.chunksize*2,), self.dtype)
+        
         
 
 
@@ -241,6 +246,6 @@ class PeakDetectorEngine_OpenCL:
     """
 
 
-peakdetector_engines = { 'peakdetector_numpy' : PeakDetectorEngine_Numpy, 'peakdetector_opencl' : PeakDetectorEngine_OpenCL}
+peakdetector_engines = { 'numpy' : PeakDetectorEngine_Numpy, 'opencl' : PeakDetectorEngine_OpenCL}
 
 

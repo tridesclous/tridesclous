@@ -51,17 +51,12 @@ class Peeler:
     def __repr__(self):
         t = "Peeler <id: {}> \n  workdir: {}\n".format(id(self), self.dataio.dirname)
         
-        
-        
         return t
 
-
-
-        
     def change_params(self, catalogue=None, n_peel_level=2,chunksize=1024, 
                                         internal_dtype='float32', 
-                                        signalpreprocessor_engine='signalpreprocessor_numpy',
-                                        peakdetector_engine='peakdetector_numpy'):
+                                        signalpreprocessor_engine='numpy',
+                                        peakdetector_engine='numpy'):
         assert catalogue is not None
         self.catalogue = catalogue
         self.n_peel_level = n_peel_level
@@ -69,7 +64,6 @@ class Peeler:
         self.internal_dtype= internal_dtype
         self.signalpreprocessor_engine = signalpreprocessor_engine
         self.peakdetector_engine = peakdetector_engine
-        
     
     def process_one_chunk(self,  pos, sigs_chunk):
         abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
@@ -226,25 +220,25 @@ class Peeler:
     def initialize_online_loop(self, sample_rate=None, nb_channel=None, source_dtype=None):
         self._initialize_before_each_segment(sample_rate=sample_rate, nb_channel=nb_channel, source_dtype=source_dtype)
     
-    def run_offline_loop_one_segment(self, seg_num=0, duration=None):
+    def run_offline_loop_one_segment(self, seg_num=0, chan_grp=0, duration=None):
         kargs = {}
         kargs['sample_rate'] = self.dataio.sample_rate
-        kargs['nb_channel'] = self.dataio.nb_channel
+        kargs['nb_channel'] = self.dataio.nb_channel(chan_grp)
         kargs['source_dtype'] = self.dataio.source_dtype
         self._initialize_before_each_segment(**kargs)
         
         if duration is not None:
             length = int(duration*self.dataio.sample_rate)
         else:
-            length = self.dataio.get_segment_shape(seg_num)[0]
+            length = self.dataio.get_segment_length(seg_num)
         length -= length%self.chunksize
                 #initialize engines
         
-        self.dataio.reset_processed_signals(seg_num=seg_num, dtype=self.internal_dtype)
-        self.dataio.reset_spikes(seg_num=seg_num, dtype=_dtype_spike)
+        self.dataio.reset_processed_signals(seg_num=seg_num, chan_grp=chan_grp, dtype=self.internal_dtype)
+        self.dataio.reset_spikes(seg_num=seg_num, chan_grp=chan_grp, dtype=_dtype_spike)
 
-        iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chunksize=self.chunksize, i_stop=length,
-                                                    signal_type='initial', return_type='raw_numpy')
+        iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=chan_grp, chunksize=self.chunksize, 
+                                                    i_stop=length, signal_type='initial', return_type='raw_numpy')
         if HAVE_TQDM:
             iterator = tqdm(iterable=iterator, total=length//self.chunksize)
         for pos, sigs_chunk in iterator:
@@ -253,19 +247,20 @@ class Peeler:
             
             # save preprocessed_chunk to file
             # TODO optional ???
-            self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num,
+            self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num,chan_grp=chan_grp,
                         i_start=sig_index-preprocessed_chunk.shape[0], i_stop=sig_index,
                         signal_type='processed')
             
             if spikes is not None and spikes.size>0:
-                self.dataio.append_spikes(seg_num=seg_num, spikes=spikes)
+                self.dataio.append_spikes(seg_num=seg_num, chan_grp=chan_grp, spikes=spikes)
 
-        self.dataio.flush_processed_signals(seg_num=seg_num)
-        self.dataio.flush_spikes(seg_num=seg_num)
+        self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=chan_grp)
+        self.dataio.flush_spikes(seg_num=seg_num, chan_grp=chan_grp)
 
-    def run_offline_all_segment(self):
+    def run_offline_all_segment(self, chan_grp=0, duration=None):
+        #~ print('run_offline_all_segment', chan_grp)
         for seg_num in range(self.dataio.nb_segment):
-            self.run_offline_loop_one_segment(seg_num=seg_num, duration=None)
+            self.run_offline_loop_one_segment(seg_num=seg_num, chan_grp=chan_grp, duration=duration)
     
     run = run_offline_all_segment
 

@@ -8,6 +8,7 @@ import numpy as np
 import scipy.signal
 import scipy.interpolate
 import seaborn as sns
+sns.set_style("white")
 
 from . import signalpreprocessor
 from . import  peakdetector
@@ -26,15 +27,8 @@ LABEL_TRASH = -1
 LABEL_UNSLASSIFIED = -10
 
 
-# TODO auto cut left rigth after first cut
-# TODO improve different of sample waveform
-# TODO make a clear distinct between all peak and sample peak/waveform/features (because different sizes) CF ndscatter!!!!!
-# TODO make some label for insorted type
 # TODO extract some noise
 
-#~ _persitent_arrays = ['peak_pos', 'peak_segment', 'peak_label',
-                    #~ 'peak_waveforms', 'some_peaks_index', 'features',
-                    #~ 'signals_medians','signals_mads', ]
 
 _persitent_arrays = ['all_peaks', 'some_peaks_index', 'some_waveforms', 
                     'some_features', 'signals_medians','signals_mads', ]
@@ -49,10 +43,19 @@ class CatalogueConstructor:
     
     
     """
-    def __init__(self, dataio, name='catalogue_constructor'):
+    def __init__(self, dataio, chan_grp=None, name='catalogue_constructor'):
         self.dataio = dataio
         
-        self.catalogue_path = os.path.join(self.dataio.dirname, name)
+        
+        
+        
+        if chan_grp is None:
+            chan_grp = min(self.dataio.channel_groups.keys())
+        self.chan_grp = chan_grp
+        self.nb_channel = self.dataio.nb_channel(chan_grp = self.chan_grp)
+        
+        self.catalogue_path = os.path.join(self.dataio.channel_group_path[chan_grp], name)
+        
         if not os.path.exists(self.catalogue_path):
             os.mkdir(self.catalogue_path)
         #~ print('self.catalogue_path', self.catalogue_path)
@@ -85,7 +88,7 @@ class CatalogueConstructor:
             json.dump(self.info, f, indent=4)
     
     def __repr__(self):
-        t = "CatalogueConstructor <id: {}> \n  workdir: {}\n".format(id(self), self.dataio.dirname)
+        t = "CatalogueConstructor <id: {}> \n  workdir: {}\n".format(id(self), self.catalogue_path)
         if self.all_peaks is None:
             t += '  Signal pre-processing not done yet'
             return t
@@ -116,12 +119,12 @@ class CatalogueConstructor:
             internal_dtype = 'float32',
             
             #signal preprocessor
-            signalpreprocessor_engine='signalpreprocessor_numpy',
+            signalpreprocessor_engine='numpy',
             highpass_freq=300, backward_chunksize=1280,
             common_ref_removal=True,
             
             #peak detector
-            peakdetector_engine='peakdetector_numpy',
+            peakdetector_engine='numpy',
             peak_sign='-', relative_threshold=7, peak_span=0.0005,
             
             ):
@@ -142,17 +145,17 @@ class CatalogueConstructor:
         self.params_signalpreprocessor = dict(highpass_freq=highpass_freq, backward_chunksize=backward_chunksize,
                     common_ref_removal=common_ref_removal, output_dtype=internal_dtype)
         SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[signalpreprocessor_engine]
-        self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.dataio.nb_channel, chunksize, self.dataio.source_dtype)
+        self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.nb_channel, chunksize, self.dataio.source_dtype)
         
         
         self.params_peakdetector = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span=peak_span)
         PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
-        self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.dataio.nb_channel,
+        self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.nb_channel,
                                                         self.chunksize, internal_dtype)
         
         #TODO make processed data as int32 ???
         for i in range(self.dataio.nb_segment):
-            self.dataio.reset_processed_signals(seg_num=i, dtype=internal_dtype)
+            self.dataio.reset_processed_signals(seg_num=i, chan_grp=self.chan_grp, dtype=internal_dtype)
         
         self.nb_peak = 0
         
@@ -169,7 +172,7 @@ class CatalogueConstructor:
         length -= length%self.chunksize
         
         name = 'filetered_sigs_for_noise_estimation_seg_{}'.format(seg_num)
-        shape=(length, self.dataio.nb_channel)
+        shape=(length, self.nb_channel)
         filtered_sigs = self.arrays.create_array(name, self.info['internal_dtype'], shape, 'memmap')
         
         params2 = dict(self.params_signalpreprocessor)
@@ -177,7 +180,7 @@ class CatalogueConstructor:
         self.signalpreprocessor.change_params(**params2)
         
         
-        iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chunksize=self.chunksize, i_stop=length,
+        iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp, chunksize=self.chunksize, i_stop=length,
                                                     signal_type='initial',  return_type='raw_numpy')
         for pos, sigs_chunk in iterator:
             pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
@@ -186,8 +189,8 @@ class CatalogueConstructor:
         
 
         #create  persistant arrays
-        self.arrays.create_array('signals_medians', self.info['internal_dtype'], (self.dataio.nb_channel,), 'memmap')
-        self.arrays.create_array('signals_mads', self.info['internal_dtype'], (self.dataio.nb_channel,), 'memmap')
+        self.arrays.create_array('signals_medians', self.info['internal_dtype'], (self.nb_channel,), 'memmap')
+        self.arrays.create_array('signals_mads', self.info['internal_dtype'], (self.nb_channel,), 'memmap')
         
         self.signals_medians[:] = signals_medians = np.median(filtered_sigs, axis=0)
         self.signals_mads[:] = np.median(np.abs(filtered_sigs-signals_medians),axis=0)*1.4826
@@ -203,8 +206,8 @@ class CatalogueConstructor:
         if preprocessed_chunk is  None:
             return
         
-        self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num, i_start=pos2-preprocessed_chunk.shape[0],
-                        i_stop=pos2, signal_type='processed')
+        self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num, chan_grp=self.chan_grp,
+                        i_start=pos2-preprocessed_chunk.shape[0], i_stop=pos2, signal_type='processed')
         
         n_peaks, chunk_peaks = self.peakdetector.process_data(pos2, preprocessed_chunk)
         #~ print(n_peaks)
@@ -248,7 +251,7 @@ class CatalogueConstructor:
         
         self.peakdetector.change_params(**self.params_peakdetector)
         
-        iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chunksize=self.chunksize, i_stop=length,
+        iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp, chunksize=self.chunksize, i_stop=length,
                                                     signal_type='initial', return_type='raw_numpy')
         for pos, sigs_chunk in iterator:
             #~ print(seg_num, pos, sigs_chunk.shape)
@@ -256,7 +259,7 @@ class CatalogueConstructor:
     
     
     def finalize_signalprocessor_loop(self):
-        self.dataio.flush_processed_signals(seg_num=0)
+        self.dataio.flush_processed_signals(seg_num=0, chan_grp=self.chan_grp)
         
         #~ self.arrays.finalize_array('peak_pos')
         #~ self.arrays.finalize_array('peak_label')
@@ -307,7 +310,7 @@ class CatalogueConstructor:
         self.arrays.create_array('some_peaks_index', 'int64', (nb,), self.memory_mode)
         self.some_peaks_index[:] = some_peaks_index
         
-        shape=(nb, peak_width, self.dataio.nb_channel)
+        shape=(nb, peak_width, self.nb_channel)
         self.arrays.create_array('some_waveforms', self.info['internal_dtype'], shape, self.memory_mode)
 
         seg_nums = np.unique(self.all_peaks['segment'])
@@ -317,7 +320,7 @@ class CatalogueConstructor:
             for peak in insegment_peaks:
                 i_start = peak['index']+n_left
                 i_stop = i_start+peak_width
-                wf = self.dataio.get_signals_chunk(seg_num=seg_num, i_start=i_start, i_stop=i_stop, signal_type='processed')
+                wf = self.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.chan_grp, i_start=i_start, i_stop=i_stop, signal_type='processed')
                 self.some_waveforms[n, :, :] = wf
                 n +=1
         
@@ -333,7 +336,7 @@ class CatalogueConstructor:
         else:
             self.some_features = None
     
-    def find_good_limits(self, mad_threshold = 1.1, channel_percent=0.3, extract=True):
+    def find_good_limits(self, mad_threshold = 1.1, channel_percent=0.3, extract=True, min_left=-5, max_right=5):
         """
         Find goods limits for the waveform.
         Where the MAD is above noise level (=1.)
@@ -354,8 +357,8 @@ class CatalogueConstructor:
         # any channel above MAD mad_threshold
         nb_above = np.sum(mad>=mad_threshold, axis=1)
         #~ print('nb_above', nb_above)
-        #~ print('self.dataio.nb_channel*channel_percent', self.dataio.nb_channel*channel_percent)
-        above = nb_above>=self.dataio.nb_channel*channel_percent
+        #~ print('self.nb_channel*channel_percent', self.nb_channel*channel_percent)
+        above = nb_above>=self.nb_channel*channel_percent
         #find max consequitive point that are True
         #~ print('above', above)
         
@@ -376,6 +379,10 @@ class CatalogueConstructor:
                 n_left = int(self.info['params_waveformextractor']['n_left'] + up[best])
                 n_right = int(self.info['params_waveformextractor']['n_left'] + down[best]+1)
                 #~ print(old_n_left, old_n_right)
+                #~ print(n_left, n_right)
+                
+                n_left = min(n_left, min_left)
+                n_right = max(n_right, max_right)
                 #~ print(n_left, n_right)
                 
                 if extract:
@@ -455,7 +462,7 @@ class CatalogueConstructor:
                         'mean': mean, 'std': std}
         
         t2 = time.perf_counter()
-        print('compute_centroid', t2-t1)
+        #~ print('compute_centroid', t2-t1)
         
     
     def refresh_colors(self, reset=True, palette = 'husl'):
@@ -503,6 +510,10 @@ class CatalogueConstructor:
         The higher power the smaller label.
         Negative labels are not reassigned.
         """
+        
+        if not hasattr(self, 'centroids'):
+            self.compute_centroid()
+        
         cluster_labels = self.cluster_labels.copy()
         cluster_labels.sort()
         cluster_labels =  cluster_labels[cluster_labels>=0]
@@ -528,15 +539,15 @@ class CatalogueConstructor:
         self.catalogue = {}
         
         self.catalogue = {}
-        self.catalogue['n_left'] = self.info['params_waveformextractor']['n_left'] +2
-        self.catalogue['n_right'] = self.info['params_waveformextractor']['n_right'] -2
+        self.catalogue['n_left'] = int(self.info['params_waveformextractor']['n_left'] +2)
+        self.catalogue['n_right'] = int(self.info['params_waveformextractor']['n_right'] -2)
         self.catalogue['peak_width'] = self.catalogue['n_right'] - self.catalogue['n_left']
         
-        cluster_labels = self.cluster_labels[self.cluster_labels>=0]
+        cluster_labels = np.array(self.cluster_labels[self.cluster_labels>=0], copy=True)
         self.catalogue['cluster_labels'] = cluster_labels
         
         n, full_width, nchan = self.some_waveforms.shape
-        centers0 = np.zeros((cluster_labels.size, full_width - 4, nchan), dtype=self.info['internal_dtype'])
+        centers0 = np.zeros((len(cluster_labels), full_width - 4, nchan), dtype=self.info['internal_dtype'])
         centers1 = np.zeros_like(centers0)
         centers2 = np.zeros_like(centers0)
         self.catalogue['centers0'] = centers0 # median of wavforms
@@ -545,10 +556,10 @@ class CatalogueConstructor:
         
         subsample = np.arange(1.5, full_width-2.5, 1/20.)
         self.catalogue['subsample_ratio'] = 20
-        interp_centers0 = np.zeros((cluster_labels.size, subsample.size, nchan), dtype=self.info['internal_dtype'])
+        interp_centers0 = np.zeros((len(cluster_labels), subsample.size, nchan), dtype=self.info['internal_dtype'])
         self.catalogue['interp_centers0'] = interp_centers0
         
-        print('peak_width', self.catalogue['peak_width'])
+        #~ print('peak_width', self.catalogue['peak_width'])
         
         self.catalogue['label_to_index'] = {}
         for i, k in enumerate(cluster_labels):
@@ -603,8 +614,8 @@ class CatalogueConstructor:
         #params
         self.catalogue['params_signalpreprocessor'] = dict(self.info['params_signalpreprocessor'])
         self.catalogue['params_peakdetector'] = dict(self.info['params_peakdetector'])
-        self.catalogue['signals_medians'] = self.signals_medians
-        self.catalogue['signals_mads'] = self.signals_mads        
+        self.catalogue['signals_medians'] = np.array(self.signals_medians, copy=True)
+        self.catalogue['signals_mads'] = np.array(self.signals_mads, copy=True)
 
         
         

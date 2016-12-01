@@ -1,3 +1,9 @@
+"""
+This script is equivalent of the jupyter notebook example_locust_dataset.ipynb
+but in a standard python script.
+
+"""
+
 from tridesclous import *
 import pyqtgraph as pg
 
@@ -27,7 +33,7 @@ def initialize_catalogueconstructor():
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
 
     #The dataset contains 4 channels : we use them all
-    dataio.set_channel_group([0, 1, 2, 3])
+    dataio.set_manual_channel_group([0, 1, 2, 3])
 
     print(dataio)
 
@@ -41,11 +47,11 @@ def preprocess_signals_and_peaks():
             
             #signal preprocessor
             highpass_freq=300, 
-            common_ref_removal=True,
+            common_ref_removal=False,
             backward_chunksize=1280,
             
             #peak detector
-            peakdetector_engine='peakdetector_numpy',
+            peakdetector_engine='numpy',
             peak_sign='-', 
             relative_threshold=4,
             peak_span=0.0005,
@@ -144,5 +150,6 @@ if __name__ =='__main__':
     #~ preprocess_signals_and_peaks()
     #~ extract_waveforms_pca_cluster()
     #~ open_cataloguewindow()
-    run_peeler()
-    #~ open_PeelerWindow()
+    #~ run_peeler()
+    open_PeelerWindow()
+    

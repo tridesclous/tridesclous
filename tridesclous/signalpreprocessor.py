@@ -1,9 +1,16 @@
 import scipy.signal
 import numpy as np
 
+try:
+    import pyopencl
+    mf = pyopencl.mem_flags
+    HAVE_PYOPENCL = True
+except ImportError:
+    HAVE_PYOPENCL = False
 
-from pyacq.dsp.overlapfiltfilt import SosFiltfilt_Scipy
 
+#~ from pyacq.dsp.overlapfiltfilt import SosFiltfilt_Scipy
+from .tools import FifoBuffer
 
 class SignalPreprocessor_Numpy:
     """
@@ -21,20 +28,45 @@ class SignalPreprocessor_Numpy:
         
     def process_data(self, pos, data):
         
-        data = data.astype(self.output_dtype)
         
-        
-        pos2, data2 = self.filtfilt_engine.compute_one_chunk(pos, data)
+
         #TODO this cause problem for peakdetector_opencl
         # because pos is not multiple  chunksize
 
+        #~ data = data.astype(self.output_dtype)
+        #~ pos2, data2 = self.filtfilt_engine.compute_one_chunk(pos, data)
+        #~ if pos2 is None:
+            #~ return None, None
         
-        if pos2 is None:
+        #Online filtfilt
+        chunk = data.astype(self.output_dtype)
+        forward_chunk_filtered, self.zi = scipy.signal.sosfilt(self.coefficients, chunk, zi=self.zi, axis=0)
+        forward_chunk_filtered = forward_chunk_filtered.astype(self.output_dtype)
+        self.forward_buffer.new_chunk(forward_chunk_filtered, index=pos)
+        start = pos-self.backward_chunksize
+        if start<-self.overlapsize:
             return None, None
-
+        if start>0:
+            backward_chunk = self.forward_buffer.get_data(start,pos)
+        else:
+            backward_chunk = self.forward_buffer.get_data(0,pos)
+        backward_filtered = scipy.signal.sosfilt(self.coefficients, backward_chunk[::-1, :], zi=None, axis=0)
+        backward_filtered = backward_filtered[::-1, :]
+        backward_filtered = backward_filtered.astype(self.output_dtype)
+        if start>0:
+            backward_filtered = backward_filtered[:self.chunksize]
+        else:
+            backward_filtered = backward_filtered[:-self.overlapsize]
+        data2 = backward_filtered
+        pos2 = pos-self.overlapsize
+        #~ print('pos', pos, 'pos2', pos2, data2.shape)
+        
+        
+        # removal ref
         if self.common_ref_removal:
             data2 -= np.median(data2, axis=1)[:, None]
         
+        #normalize
         if self.normalize:
             data2 -= self.signals_medians
             data2 /= self.signals_mads
@@ -62,21 +94,252 @@ class SignalPreprocessor_Numpy:
         self.coefficients = scipy.signal.iirfilter(5, highpass_freq/self.sample_rate*2, analog=False,
                                     btype = 'highpass', ftype = 'butter', output = 'sos')
         
-        overlapsize = self.backward_chunksize - self.chunksize
-        self.filtfilt_engine = SosFiltfilt_Scipy(self.coefficients, self.nb_channel, output_dtype, self.chunksize, overlapsize)
+        self.overlapsize = self.backward_chunksize - self.chunksize
+        #~ self.filtfilt_engine = SosFiltfilt_Scipy(self.coefficients, self.nb_channel, output_dtype, self.chunksize, overlapsize)
+        self.nb_section =self. coefficients.shape[0]
+        self.forward_buffer = FifoBuffer((self.backward_chunksize, self.nb_channel), self.output_dtype)
+        self.zi = np.zeros((self.nb_section, 2, self.nb_channel), dtype= self.output_dtype)
+        
         
         
 
 
 
 class SignalPreprocessor_OpenCL:
-    def __init__(self):
-        pass
-    def process_data(self, pos, newbuf):
-        pass
-    def change_params(self,):
-        pass
+    """
+    Implementation in OpenCL depending on material and nb_channel
+    this can lead to a smal speed improvement...
+    
+    """
+    def __init__(self,sample_rate, nb_channel, chunksize, input_dtype):
+        self.sample_rate = sample_rate
+        self.nb_channel = nb_channel
+        self.chunksize = chunksize
+        self.input_dtype = input_dtype        
+        
+        self.ctx = pyopencl.create_some_context()
+        #~ print(self.ctx)
+        #TODO : add arguments gpu_platform_index/gpu_device_index
+        #self.devices =  [pyopencl.get_platforms()[self.gpu_platform_index].get_devices()[self.gpu_device_index] ]
+        #self.ctx = pyopencl.Context(self.devices)        
+        self.queue = pyopencl.CommandQueue(self.ctx)
+    
+    
+    def process_data(self, pos, data):
+        
+        assert data.shape[0]==self.chunksize
+        
+        
+        
+        if not data.flags['C_CONTIGUOUS'] or data.dtype!=self.output_dtype:
+            chunk = np.ascontiguousarray(data, dtype=self.output_dtype)
+        
+        
+        #Online filtfilt
+        
+        #forward filter
+        event = pyopencl.enqueue_copy(self.queue,  self.input_cl, chunk)
+        event.wait()
+        event = self.kern_forward_filter(self.queue,  (self.nb_channel,), (self.nb_channel,),
+                                self.input_cl, self.output_forward_cl, self.coefficients_cl, self.zi1_cl)
+        event.wait()
+        
+        #roll and add to bacward fifo
+        event = self.kern_roll_fifo(self.queue,  (self.nb_channel, self.overlapsize), (self.nb_channel, 1),
+                                self.fifo_input_backward_cl)
+        event.wait()
+        
+        event = self.kern_new_chunk_fifo(self.queue,  (self.nb_channel, self.chunksize), (self.nb_channel, 1),
+                                self.fifo_input_backward_cl,  self.output_forward_cl)
+        event.wait()
+        
+        # backwward
+        self.zi2[:]=0
+        pyopencl.enqueue_copy(self.queue,  self.zi2_cl, self.zi2)
+        event = self.kern_backward_filter(self.queue,  (self.nb_channel,), (self.nb_channel,),
+                                self.fifo_input_backward_cl, self.output_backward_cl, self.coefficients_cl, self.zi2_cl)
+        event.wait()
+        
+        event = pyopencl.enqueue_copy(self.queue,  self.output_backward, self.output_backward_cl)
+        event.wait()
+        
+        start = pos-self.backward_chunksize
+        if start<-self.overlapsize:
+            return None, None
+        
+        if start>0:
+            data2 = self.output_backward[:self.chunksize, :]
+        else:
+            data2 = self.output_backward[self.overlapsize:self.chunksize, :]
+        
+        data2 = data2.copy()
+        pos2 = pos-self.overlapsize
+
+        #~ print('pos', pos, 'start', start, 'pos2', pos2, data2.shape)
+        
+        #TODO make OpenCL for this
+        # removal ref
+        if self.common_ref_removal:
+            data2 -= np.median(data2, axis=1)[:, None]
+        
+        #TODO make OpenCL for this
+        #normalize
+        if self.normalize:
+            data2 -= self.signals_medians
+            data2 /= self.signals_mads
+        
+        return pos2, data2        
+        
+        
+    def change_params(self,common_ref_removal=True,
+                                            highpass_freq=300.,
+                                            output_dtype='float32', 
+                                            normalize=True,
+                                            backward_chunksize=None,
+                                            signals_medians=None, signals_mads=None):
+        
+        assert output_dtype=='float32', 'SignalPreprocessor_OpenCL support only float32 at the moment'
+        
+        
+        self.signals_medians = signals_medians
+        self.signals_mads = signals_mads
+        
+        self.common_ref_removal = common_ref_removal
+        self.highpass_freq = highpass_freq
+        self.output_dtype = np.dtype(output_dtype)
+        self.normalize = normalize
+        self.backward_chunksize = backward_chunksize
+
+        self.overlapsize = self.backward_chunksize - self.chunksize
+        
+        
+        assert self.backward_chunksize>self.chunksize
+        assert self.overlapsize<self.chunksize, 'OpenCL fifo work only for self.overlapsize<self.chunksize'
+        
+        
+        self.coefficients = scipy.signal.iirfilter(5, highpass_freq/self.sample_rate*2, analog=False,
+                                    btype = 'highpass', ftype = 'butter', output = 'sos')
+        self.coefficients = np.ascontiguousarray(self.coefficients, dtype=self.output_dtype)
+        
+        self.nb_section =self. coefficients.shape[0]
+        
+        self.zi1 = np.zeros((self.nb_channel, self.nb_section, 2), dtype= self.output_dtype)
+        self.zi2 = np.zeros((self.nb_channel, self.nb_section, 2), dtype= self.output_dtype)
+        self.output_forward = np.zeros((self.chunksize, self.nb_channel), dtype= self.output_dtype)
+        self.fifo_input_backward = np.zeros((self.backward_chunksize, self.nb_channel), dtype= self.output_dtype)
+        self.output_backward = np.zeros((self.backward_chunksize, self.nb_channel), dtype= self.output_dtype)
+        
+        #GPU buffers
+        self.coefficients_cl = pyopencl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.coefficients)
+        self.zi1_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=self.zi1)
+        self.zi2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=self.zi2)
+        self.input_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE, size=self.output_forward.nbytes)
+        self.output_forward_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE, size=self.output_forward.nbytes)
+        self.fifo_input_backward_cl = pyopencl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.fifo_input_backward)
+        self.output_backward_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE, size=self.output_backward.nbytes)
+
+        #CL prog
+        kernel = self.kernel%dict(forward_chunksize=self.chunksize, backward_chunksize=self.backward_chunksize,
+                        overlapsize=self.overlapsize, nb_section=self.nb_section, nb_channel=self.nb_channel)
+        #~ print(kernel)
+        #~ exit()
+        prg = pyopencl.Program(self.ctx, kernel)
+        self.opencl_prg = prg.build(options='-cl-mad-enable')
+        
+        self.max_wg_size = self.ctx.devices[0].get_info(pyopencl.device_info.MAX_WORK_GROUP_SIZE)
 
 
-signalpreprocessor_engines = { 'signalpreprocessor_numpy' : SignalPreprocessor_Numpy,
-                                                'signalpreprocessor_opencl' : SignalPreprocessor_OpenCL}
+        self.kern_roll_fifo = getattr(self.opencl_prg, 'roll_fifo')
+        self.kern_new_chunk_fifo = getattr(self.opencl_prg, 'new_chunk_fifo')
+        self.kern_forward_filter = getattr(self.opencl_prg, 'forward_filter')
+        self.kern_backward_filter = getattr(self.opencl_prg, 'backward_filter')
+
+    kernel = """
+    #define forward_chunksize %(forward_chunksize)d
+    #define backward_chunksize %(backward_chunksize)d
+    #define overlapsize %(overlapsize)d
+    #define nb_section %(nb_section)d
+    #define nb_channel %(nb_channel)d
+
+
+    __kernel void roll_fifo(__global  float *fifo){
+    
+        int chan = get_global_id(0);
+        int pos = get_global_id(1);
+        
+        fifo[(pos)*nb_channel+chan] = fifo[(pos+forward_chunksize)*nb_channel+chan];
+    }
+    
+    __kernel void new_chunk_fifo(__global  float *fifo, __global  float *input){
+
+        int chan = get_global_id(0);
+        int pos = get_global_id(1);
+        
+        fifo[(pos+overlapsize)*nb_channel+chan] = input[(pos)*nb_channel+chan];
+        
+    }
+    
+
+
+    __kernel void sos_filter(__global  float *input, __global  float *output, __constant  float *coefficients, 
+                                                                            __global float *zi, int chunksize, int direction) {
+
+        int chan = get_global_id(0); //channel indice
+        
+        int offset_filt2;  //offset channel within section
+        int offset_zi = chan*nb_section*2;
+        
+        int idx;
+
+        float w0, w1,w2;
+        float res;
+        
+        for (int section=0; section<nb_section; section++){
+        
+            //offset_filt2 = chan*nb_section*6+section*6;
+            offset_filt2 = section*6;
+            
+            w1 = zi[offset_zi+section*2+0];
+            w2 = zi[offset_zi+section*2+1];
+            
+            for (int s=0; s<chunksize;s++){
+                
+                if (direction==1) {idx = s*nb_channel+chan;}
+                else if (direction==-1) {idx = (chunksize-s-1)*nb_channel+chan;}
+                
+                if (section==0)  {w0 = input[idx];}
+                else {w0 = output[idx];}
+                
+                w0 -= coefficients[offset_filt2+4] * w1;
+                w0 -= coefficients[offset_filt2+5] * w2;
+                res = coefficients[offset_filt2+0] * w0 + coefficients[offset_filt2+1] * w1 +  coefficients[offset_filt2+2] * w2;
+                w2 = w1; w1 =w0;
+                
+                output[idx] = res;
+            }
+            
+            zi[offset_zi+section*2+0] = w1;
+            zi[offset_zi+section*2+1] = w2;
+
+        }
+       
+    }
+    
+    __kernel void forward_filter(__global  float *input, __global  float *output, __constant  float *coefficients, __global float *zi){
+        sos_filter(input, output, coefficients, zi, forward_chunksize, 1);
+    }
+
+    __kernel void backward_filter(__global  float *input, __global  float *output, __constant  float *coefficients, __global float *zi) {
+        sos_filter(input, output, coefficients, zi, backward_chunksize, -1);
+    }
+    
+    """
+
+
+
+
+
+
+
+signalpreprocessor_engines = { 'numpy' : SignalPreprocessor_Numpy,
+                                                'opencl' : SignalPreprocessor_OpenCL}
