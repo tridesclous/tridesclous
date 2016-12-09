@@ -10,6 +10,9 @@ from .iotools import ArrayCollection
 _signal_types = ['initial', 'processed']
 
 
+#TODO copy prb file into dir to avoid  json problem in info.json
+
+
 class DataIO:
     """
     
@@ -301,7 +304,7 @@ class RawDataSource(DataSourceBase):
     DataSource from raw binary file. Easy case.
     """
     def __init__(self, filenames=[], dtype='int16', total_channel=0,
-                        sample_rate=0.):
+                        sample_rate=0., offset=0):
         DataSourceBase.__init__(self)
         
         self.filenames = filenames
@@ -316,7 +319,7 @@ class RawDataSource(DataSourceBase):
 
         self.array_sources = []
         for filename in self.filenames:
-            data = np.memmap(filename, dtype=self.dtype, mode='r').reshape(-1, self.total_channel)
+            data = np.memmap(filename, dtype=self.dtype, mode='r', offset=offset).reshape(-1, self.total_channel)
             self.array_sources.append(data)
     
     def get_segment_shape(self, seg_num):
