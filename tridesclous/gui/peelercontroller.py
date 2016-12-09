@@ -25,7 +25,7 @@ class PeelerController(ControllerBase):
         self.spikes = []
         
         for i in range(self.dataio.nb_segment):
-            local_spikes = self.dataio.get_spikes(seg_num=i)
+            local_spikes = self.dataio.get_spikes(seg_num=i, chan_grp=self.chan_grp)
             _dtype_spike = [('index', 'int64'), ('label', 'int64'), ('jitter', 'float64'),]
             _dtype_complement = [('segment', 'int64'), ('visible', 'bool'), ('selected', 'bool')]
             spikes = np.zeros(local_spikes.shape, dtype=_dtype_spike+_dtype_complement)

@@ -129,23 +129,27 @@ class BaseTraceViewer(WidgetBase):
         self.viewBox.gain_zoom.connect(self.gain_zoom)
         self.viewBox.xsize_zoom.connect(self.xsize_zoom)
         
+        self.visible_channels = np.zeros(self.controller.nb_channel, dtype='bool')
+        if self.controller.nb_channel>16:
+            self.visible_channels[:16] = True
+        else:
+            self.visible_channels[:] = True
+            
         
-        self.curves = []
+        
+        self.signals_curve = pg.PlotCurveItem(pen='#7FFF00', connect='finite')
+        self.plot.addItem(self.signals_curve)
+        
+        self.scatters = {}
+        
         self.channel_labels = []
         self.threshold_lines =[]
-        self.scatters = {}
         for c in range(self.controller.nb_channel):
-            color = '#7FFF00'  # TODO
-            curve = pg.PlotCurveItem(pen=color)
-            self.plot.addItem(curve)
-            self.curves.append(curve)
-            #~ label = pg.TextItem(str(self.dataio.info['channels'][c]), color=color, anchor=(0, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
             #TODO label channels
-            label = pg.TextItem('chan{}'.format(c), color=color, anchor=(0, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
+            label = pg.TextItem('chan{}'.format(c), color='#7FFF00', anchor=(0, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
             self.plot.addItem(label)
             self.channel_labels.append(label)
             
-            #~ tc = pg.InfiniteLine(angle = 0., movable = False, pen = pg.mkPen('w'))
             tc = pg.InfiniteLine(angle = 0., movable = False, pen = pg.mkPen(color=(128,128,128, 120)))
             tc.setPos(0.)
             self.threshold_lines.append(tc)
@@ -240,9 +244,12 @@ class BaseTraceViewer(WidgetBase):
     
     def gain_zoom(self, factor_ratio):
         self.factor *= factor_ratio
-        n = self.controller.nb_channel
+        #~ n = self.controller.nb_channel
+        n = np.sum(self.visible_channels)
+        
         self.gains = np.ones(n, dtype=float) * 1./(self.factor*max(self.mad))
-        self.offsets = np.arange(n)[::-1] - self.med*self.gains
+        self.offsets = np.arange(n)[::-1] - self.med[self.visible_channels]*self.gains
+        
         self.refresh()
 
     def seek(self, t):
@@ -266,18 +273,34 @@ class BaseTraceViewer(WidgetBase):
         if self.gains is None:
             self.estimate_auto_scale()
 
-        #signal chunk
+        
+        nb_visible = np.sum(self.visible_channels)
+        
+        data_curves = sigs_chunk[:, self.visible_channels].T.copy()
+        data_curves *= self.gains[self.visible_channels, None]
+        data_curves += self.offsets[self.visible_channels, None]
+        data_curves[:,0] = np.nan
+        data_curves = data_curves.flatten()
         times_chunk = np.arange(sigs_chunk.shape[0], dtype='float32')/self.dataio.sample_rate+max(t1, 0)
+        times_chunk_tile = np.tile(times_chunk, nb_visible)
+        self.signals_curve.setData(times_chunk_tile, data_curves)
+        
+        
+        #labels
         for c in range(self.controller.nb_channel):
-            self.curves[c].setData(times_chunk, sigs_chunk[:, c]*self.gains[c]+self.offsets[c])
-            self.channel_labels[c].setPos(t1, self.controller.nb_channel-c-1)
+            if self.visible_channels[c]:
+                self.channel_labels[c].setPos(t1, nb_visible-c-1)
+                self.channel_labels[c].show()
+            else:
+                self.channel_labels[c].hide()
+            
         
         # plot peaks or spikes or prediction or residuals ...
         self._plot_specific_items(ind1, ind2, sigs_chunk, times_chunk)
         
         #ranges
         self.plot.setXRange( t1, t2, padding = 0.0)
-        self.plot.setYRange(-.5, self.controller.nb_channel-.5, padding = 0.0)
+        self.plot.setYRange(-.5, nb_visible-.5, padding = 0.0)
 
 
 
@@ -327,13 +350,17 @@ class CatalogueTraceViewer(BaseTraceViewer):
                 mask = inwindow_label==k
                 times_chunk_in = times_chunk[inwindow_ind[mask]]
                 sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
+                
                 c = self.controller.centroids[k]['max_on_channel']
-                self.scatters[k].setBrush(color)
-                self.scatters[k].setData(times_chunk_in, sigs_chunk_in[:, c]*self.gains[c]+self.offsets[c])
+                if self.visible_channels[c]:
+                    self.scatters[k].setBrush(color)
+                    self.scatters[k].setData(times_chunk_in, sigs_chunk_in[:, c]*self.gains[c]+self.offsets[c])
+                else:
+                    self.scatters[k].setData([], [])
 
-        n = self.controller.nb_channel
+        n = np.sum(self.visible_channels)
         for c in range(n):
-            if self.params['plot_threshold']:
+            if self.params['plot_threshold'] and self.visible_channels[c]:
                 threshold = self.controller.get_threshold()
                 self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*threshold)
                 self.threshold_lines[c].show()
@@ -392,23 +419,13 @@ class PeelerTraceViewer(BaseTraceViewer):
                 but.setChecked(True)
     
     def _initialize_plot(self):
-        self.curves_prediction = []
-        self.curves_residuals = []
-        for c in range(self.controller.nb_channel):
-            color = '#FF00FF'  # TODO
-            curve = pg.PlotCurveItem(pen=color)
-            self.plot.addItem(curve)
-            self.curves_prediction.append(curve)
-
-            color = '#FFFF00'  # TODO
-            curve = pg.PlotCurveItem(pen=color)
-            self.plot.addItem(curve)
-            self.curves_residuals.append(curve)
-
+        self.curve_predictions = pg.PlotCurveItem(pen='#FF00FF', connect='finite')
+        self.plot.addItem(self.curve_predictions)
+        self.curve_residuals = pg.PlotCurveItem(pen='#FFFF00', connect='finite')
+        self.plot.addItem(self.curve_residuals)
    
     def _plot_specific_items(self, ind1, ind2, sigs_chunk, times_chunk):
         
-        #~ all_spikes = self.controller.dataio.get_spikes(seg_num=self.seg_num, i_start=None, i_stop=None)
         all_spikes = self.controller.spikes
         
         keep = (all_spikes['segment']==self.seg_num) & (all_spikes['index']>=ind1) & (all_spikes['index']<ind2)
@@ -449,37 +466,53 @@ class PeelerTraceViewer(BaseTraceViewer):
                 sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
                 cluster_idx = self.controller.catalogue['label_to_index'][k]
                 c = self.controller.catalogue['max_on_channel'][cluster_idx]
-                
-                self.scatters[k].setBrush(color)
-                self.scatters[k].setData(times_chunk_in, sigs_chunk_in[:, c]*self.gains[c]+self.offsets[c])
+                if self.visible_channels[c]:
+                    self.scatters[k].setBrush(color)
+                    self.scatters[k].setData(times_chunk_in, sigs_chunk_in[:, c]*self.gains[c]+self.offsets[c])
+                else:
+                    self.scatters[k].setData([], [])
 
-        n = self.controller.nb_channel
+
+        n = np.sum(self.visible_channels)
         for c in range(n):
-            if self.params['plot_threshold']:
+            if self.params['plot_threshold'] and self.visible_channels[c]:
                 threshold = self.controller.get_threshold()
                 self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*threshold)
                 self.threshold_lines[c].show()
             else:
                 self.threshold_lines[c].hide()
 
+
         #prediction
+        #TODO make prediction only on visible!!!! 
         prediction = make_prediction_signals(spikes, sigs_chunk.dtype, sigs_chunk.shape, self.controller.catalogue)
         residuals = sigs_chunk - prediction
         
-       
-        for c in range(self.controller.nb_channel):
-            if self.plot_buttons['prediction'].isChecked():
-                self.curves_prediction[c].setData(times_chunk, prediction[:, c]*self.gains[c]+self.offsets[c])
-            else:
-                self.curves_prediction[c].setData([], [])
+        # plots
+        nb_visible = np.sum(self.visible_channels)
+        times_chunk_tile = np.tile(times_chunk, nb_visible)
+        
+        def plot_curves(curve, data):
+            data = data[:, self.visible_channels].T.copy()
+            data *= self.gains[self.visible_channels, None]
+            data += self.offsets[self.visible_channels, None]
+            data[:,0] = np.nan
+            data = data.flatten()
+            curve.setData(times_chunk_tile, data)
+        
+        if self.plot_buttons['prediction'].isChecked():
+            plot_curves(self.curve_predictions, prediction)
+        else:
+            self.curve_predictions.setData([], [])
+
+        if self.plot_buttons['residual'].isChecked():
+            plot_curves(self.curve_residuals, residuals)
+        else:
+            self.curve_residuals.setData([], [])
+        
+        if not self.plot_buttons['signals'].isChecked():
+            self.signals_curve.setData([], [])
             
-            if self.plot_buttons['residual'].isChecked():
-                self.curves_residuals[c].setData(times_chunk, residuals[:, c]*self.gains[c]+self.offsets[c])
-            else:
-                self.curves_residuals[c].setData([], [])
-                
-            if not self.plot_buttons['signals'].isChecked():
-                self.curves[c].setData([], [])
 
     def on_spike_selection_changed(self):
         spikes = self.controller.spikes
