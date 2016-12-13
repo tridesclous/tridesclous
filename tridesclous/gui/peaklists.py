@@ -136,7 +136,7 @@ class PeakList(WidgetBase):
     def on_spike_selection_changed(self):
         self.tree.selectionModel().selectionChanged.disconnect(self.on_tree_selection)
         
-        row_selected, = np.nonzero(self.controller.spike_selection[self.model.visible_mask])
+        row_selected, = np.nonzero(self.controller.spike_selection[self.model.visible_ind])
         
         if row_selected.size>100:#otherwise this is verry slow
             row_selected = row_selected[:10]

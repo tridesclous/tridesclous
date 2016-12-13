@@ -136,7 +136,7 @@ class BaseTraceViewer(WidgetBase):
         self.viewBox.xsize_zoom.connect(self.xsize_zoom)
         
         self.visible_channels = np.zeros(self.controller.nb_channel, dtype='bool')
-        self.max_channel = 5
+        self.max_channel = 16
         if self.controller.nb_channel>self.max_channel:
             self.visible_channels[:self.max_channel] = True
             self.scrollbar.show()
@@ -161,7 +161,9 @@ class BaseTraceViewer(WidgetBase):
             label = pg.TextItem('chan{}'.format(c), color='#7FFF00', anchor=(0, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
             self.plot.addItem(label)
             self.channel_labels.append(label)
-            
+        
+        
+        for i in range(self.max_channel):
             tc = pg.InfiniteLine(angle = 0., movable = False, pen = pg.mkPen(color=(128,128,128, 120)))
             tc.setPos(0.)
             self.threshold_lines.append(tc)
@@ -320,6 +322,17 @@ class BaseTraceViewer(WidgetBase):
                 self.channel_labels[c].hide()
             
         
+
+        n = np.sum(self.visible_channels)
+        index_visible, = np.nonzero(self.visible_channels)
+        for i, c in enumerate(index_visible):
+            if self.params['plot_threshold']:
+                threshold = self.controller.get_threshold()
+                self.threshold_lines[i].setPos(n-i-1 + self.gains[c]*threshold)
+                self.threshold_lines[i].show()
+            else:
+                self.threshold_lines[i].hide()        
+        
         # plot peaks or spikes or prediction or residuals ...
         self._plot_specific_items(ind1, ind2, sigs_chunk, times_chunk)
         
@@ -383,14 +396,14 @@ class CatalogueTraceViewer(BaseTraceViewer):
                 else:
                     self.scatters[k].setData([], [])
 
-        n = np.sum(self.visible_channels)
-        for c in range(n):
-            if self.params['plot_threshold'] and self.visible_channels[c]:
-                threshold = self.controller.get_threshold()
-                self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*threshold)
-                self.threshold_lines[c].show()
-            else:
-                self.threshold_lines[c].hide()
+        #~ n = np.sum(self.visible_channels)
+        #~ for c in range(n):
+            #~ if self.params['plot_threshold'] and self.visible_channels[c]:
+                #~ threshold = self.controller.get_threshold()
+                #~ self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*threshold)
+                #~ self.threshold_lines[c].show()
+            #~ else:
+                #~ self.threshold_lines[c].hide()
     
     def on_spike_selection_changed(self):
         n_selected = np.sum(self.controller.spike_selection)
@@ -411,9 +424,10 @@ class CatalogueTraceViewer(BaseTraceViewer):
             
             label = self.controller.spike_label[ind]
             c = self.controller.centroids[label]['max_on_channel']
+            #~ print('max_on_channel', self.controller.centroids[label]['max_on_channel'])
             c -= self.max_channel//2
             c = min(max(c, 0), self.controller.nb_channel-self.max_channel)
-            print('c', c, 'label', label)
+            #~ print('c', c, 'label', label)
             self.scrollbar.valueChanged.disconnect(self.on_scrollbar)
             self.scrollbar.setValue(c)
             self.scrollbar.valueChanged.connect(self.on_scrollbar)
@@ -422,7 +436,7 @@ class CatalogueTraceViewer(BaseTraceViewer):
             self.visible_channels[c:c+self.max_channel] = True
             self.gain_zoom(1)
             
-            self.seek(peak_time)#TODO
+            self.seek(peak_time)
             
         else:
             self.refresh()
@@ -517,14 +531,14 @@ class PeelerTraceViewer(BaseTraceViewer):
                     self.scatters[k].setData([], [])
 
 
-        n = np.sum(self.visible_channels)
-        for c in range(n):
-            if self.params['plot_threshold'] and self.visible_channels[c]:
-                threshold = self.controller.get_threshold()
-                self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*threshold)
-                self.threshold_lines[c].show()
-            else:
-                self.threshold_lines[c].hide()
+        #~ n = np.sum(self.visible_channels)
+        #~ for c in range(n):
+            #~ if self.params['plot_threshold'] and self.visible_channels[c]:
+                #~ threshold = self.controller.get_threshold()
+                #~ self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*threshold)
+                #~ self.threshold_lines[c].show()
+            #~ else:
+                #~ self.threshold_lines[c].hide()
 
 
         #prediction
@@ -570,7 +584,29 @@ class PeelerTraceViewer(BaseTraceViewer):
 
             if seg_num != self.seg_num:
                 self.combo_seg.setCurrentIndex(seg_num)
+
+            self.spinbox_xsize.sigValueChanged.disconnect(self.xsize_changed)
             self.spinbox_xsize.setValue(self.params['zoom_size'])
+            self.xsize = self.params['zoom_size']
+            self.spinbox_xsize.sigValueChanged.connect(self.xsize_changed)
+            
+            label = self.controller.spikes[ind]['label']
+            if label in self.controller.catalogue['label_to_index']:
+                cluster_idx = self.controller.catalogue['label_to_index'][label]
+                c = self.controller.catalogue['max_on_channel'][cluster_idx]
+                #~ print('max_on_channel', c)
+                c -= self.max_channel//2
+                c = min(max(c, 0), self.controller.nb_channel-self.max_channel)
+                #~ print('c', c, 'label', label)
+                self.scrollbar.valueChanged.disconnect(self.on_scrollbar)
+                self.scrollbar.setValue(c)
+                self.scrollbar.valueChanged.connect(self.on_scrollbar)
+                
+                self.visible_channels[:] = False
+                self.visible_channels[c:c+self.max_channel] = True
+                self.gain_zoom(1)
+
+            
             self.seek(peak_time)
         else:
             self.refresh()
