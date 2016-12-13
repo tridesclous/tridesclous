@@ -49,9 +49,15 @@ class BaseTraceViewer(WidgetBase):
         self.create_toolbar()
         self.layout.addWidget(self.toolbar)
         
+        h = QtGui.QHBoxLayout()
+        self.layout.addLayout(h)
+        self.scrollbar = QtGui.QScrollBar()
+        h.addWidget(self.scrollbar)
+        self.scrollbar.valueChanged.connect(self.on_scrollbar)
+        
         # create graphic view and plot item
         self.graphicsview = pg.GraphicsView()
-        self.layout.addWidget(self.graphicsview)
+        h.addWidget(self.graphicsview)
         self.initialize_plot()
             
         #handle time by segments
@@ -130,10 +136,16 @@ class BaseTraceViewer(WidgetBase):
         self.viewBox.xsize_zoom.connect(self.xsize_zoom)
         
         self.visible_channels = np.zeros(self.controller.nb_channel, dtype='bool')
-        if self.controller.nb_channel>16:
-            self.visible_channels[:16] = True
+        self.max_channel = 5
+        if self.controller.nb_channel>self.max_channel:
+            self.visible_channels[:self.max_channel] = True
+            self.scrollbar.show()
+            self.scrollbar.setMinimum(0)
+            self.scrollbar.setMaximum(self.controller.nb_channel-self.max_channel)
+            self.scrollbar.setPageStep(self.max_channel)
         else:
             self.visible_channels[:] = True
+            self.scrollbar.hide()
             
         
         
@@ -244,14 +256,20 @@ class BaseTraceViewer(WidgetBase):
     
     def gain_zoom(self, factor_ratio):
         self.factor *= factor_ratio
-        #~ n = self.controller.nb_channel
+        self.gains = np.zeros(self.controller.nb_channel, dtype='float32')
+        self.offsets = np.zeros(self.controller.nb_channel, dtype='float32')
         n = np.sum(self.visible_channels)
-        
-        self.gains = np.ones(n, dtype=float) * 1./(self.factor*max(self.mad))
-        self.offsets = np.arange(n)[::-1] - self.med[self.visible_channels]*self.gains
-        
+        self.gains[self.visible_channels] = np.ones(n, dtype=float) * 1./(self.factor*max(self.mad))
+        self.offsets[self.visible_channels] = np.arange(n)[::-1] - self.med[self.visible_channels]*self.gains[self.visible_channels]
         self.refresh()
-
+    
+    def on_scrollbar(self, val):
+        self.visible_channels[:] = False
+        self.visible_channels[val:val+self.max_channel] = True
+        self.gain_zoom(1)
+        self.refresh()
+    
+    
     def seek(self, t):
         if self.sender() is not self.timeseeker:
             self.timeseeker.seek(t, emit = False)
@@ -277,6 +295,11 @@ class BaseTraceViewer(WidgetBase):
         nb_visible = np.sum(self.visible_channels)
         
         data_curves = sigs_chunk[:, self.visible_channels].T.copy()
+        #~ print(data_curves.shape)
+        #~ print(self.visible_channels)
+        #~ print(self.visible_channels)
+        #~ print(self.gains.shape)
+        #~ print(self.gains[self.visible_channels, None].shape)
         data_curves *= self.gains[self.visible_channels, None]
         data_curves += self.offsets[self.visible_channels, None]
         data_curves[:,0] = np.nan
@@ -287,10 +310,12 @@ class BaseTraceViewer(WidgetBase):
         
         
         #labels
+        i = 1
         for c in range(self.controller.nb_channel):
             if self.visible_channels[c]:
-                self.channel_labels[c].setPos(t1, nb_visible-c-1)
+                self.channel_labels[c].setPos(t1, nb_visible-i)
                 self.channel_labels[c].show()
+                i +=1
             else:
                 self.channel_labels[c].hide()
             
@@ -374,12 +399,31 @@ class CatalogueTraceViewer(BaseTraceViewer):
             ind = ind[0]
             seg_num = self.controller.spike_segment[ind]
             peak_time = self.controller.spike_index[ind]/self.dataio.sample_rate
-
+            
             if seg_num != self.seg_num:
                 seg_pos = seg_num
                 self.combo_seg.setCurrentIndex(seg_pos)
+            
+            self.spinbox_xsize.sigValueChanged.disconnect(self.xsize_changed)
             self.spinbox_xsize.setValue(self.params['zoom_size'])
-            self.seek(peak_time)
+            self.xsize = self.params['zoom_size']
+            self.spinbox_xsize.sigValueChanged.connect(self.xsize_changed)
+            
+            label = self.controller.spike_label[ind]
+            c = self.controller.centroids[label]['max_on_channel']
+            c -= self.max_channel//2
+            c = min(max(c, 0), self.controller.nb_channel-self.max_channel)
+            print('c', c, 'label', label)
+            self.scrollbar.valueChanged.disconnect(self.on_scrollbar)
+            self.scrollbar.setValue(c)
+            self.scrollbar.valueChanged.connect(self.on_scrollbar)
+            
+            self.visible_channels[:] = False
+            self.visible_channels[c:c+self.max_channel] = True
+            self.gain_zoom(1)
+            
+            self.seek(peak_time)#TODO
+            
         else:
             self.refresh()
     
