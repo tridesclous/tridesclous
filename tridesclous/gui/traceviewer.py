@@ -297,6 +297,8 @@ class BaseTraceViewer(WidgetBase):
         nb_visible = np.sum(self.visible_channels)
         
         data_curves = sigs_chunk[:, self.visible_channels].T.copy()
+        if data_curves.dtype!='float32':
+            data_curves = data_curves.astype('float32')
         #~ print(data_curves.shape)
         #~ print(self.visible_channels)
         #~ print(self.visible_channels)
