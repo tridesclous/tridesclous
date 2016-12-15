@@ -136,7 +136,7 @@ class BaseTraceViewer(WidgetBase):
         self.viewBox.xsize_zoom.connect(self.xsize_zoom)
         
         self.visible_channels = np.zeros(self.controller.nb_channel, dtype='bool')
-        self.max_channel = 16
+        self.max_channel = min(16, self.controller.nb_channel)
         if self.controller.nb_channel>self.max_channel:
             self.visible_channels[:self.max_channel] = True
             self.scrollbar.show()
@@ -158,7 +158,7 @@ class BaseTraceViewer(WidgetBase):
         self.threshold_lines =[]
         for c in range(self.controller.nb_channel):
             #TODO label channels
-            label = pg.TextItem('chan{}'.format(c), color='#7FFF00', anchor=(0, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
+            label = pg.TextItem('chan{}'.format(c), color='#FFFFFF', anchor=(0, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
             self.plot.addItem(label)
             self.channel_labels.append(label)
         
