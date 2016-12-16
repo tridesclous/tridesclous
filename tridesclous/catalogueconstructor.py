@@ -12,7 +12,6 @@ sns.set_style("white")
 
 from . import signalpreprocessor
 from . import  peakdetector
-from . import waveformextractor
 from . import decomposition
 from . import cluster 
 
@@ -323,6 +322,12 @@ class CatalogueConstructor:
                 wf = self.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.chan_grp, i_start=i_start, i_stop=i_stop, signal_type='processed')
                 self.some_waveforms[n, :, :] = wf
                 n +=1
+        
+        #Test smooth
+        #~ box_size = 3
+        #~ kernel = np.ones(box_size)/box_size
+        #~ kernel = kernel[:, None, None]
+        #~ self.some_waveforms[:] = scipy.signal.fftconvolve(self.some_waveforms, kernel,'same')
         
         self.info['params_waveformextractor'] = dict(n_left=n_left, n_right=n_right,  nb_max=nb_max)
         self.flush_info()
