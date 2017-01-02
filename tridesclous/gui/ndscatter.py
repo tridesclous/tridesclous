@@ -4,6 +4,8 @@ This should be rewritte with vispy but I don't have time now...
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 
+from matplotlib.path import Path as mpl_path
+
 import numpy as np
 import pandas as pd
 
@@ -18,9 +20,15 @@ class MyViewBox(pg.ViewBox):
     doubleclicked = QtCore.pyqtSignal()
     gain_zoom = QtCore.pyqtSignal(float)
     #~ xsize_zoom = QtCore.pyqtSignal(float)
+    #~ lasso_started = QtCore.pyqtSignal()
+    lasso_drawing = QtCore.pyqtSignal(object)
+    lasso_finished = QtCore.pyqtSignal(object)
+    
     def __init__(self, *args, **kwds):
         pg.ViewBox.__init__(self, *args, **kwds)
         self.disableAutoRange()
+        self.drag_points = []
+        
     def mouseClickEvent(self, ev):
         ev.accept()
     def mouseDoubleClickEvent(self, ev):
@@ -37,9 +45,19 @@ class MyViewBox(pg.ViewBox):
         ev.accept()
     def mouseDragEvent(self, ev):
         ev.accept()
-        #~ self.xsize_zoom.emit((ev.pos()-ev.lastPos()).x())
-
-
+        if ev.button()!=1: return
+        
+        if ev.isStart():
+            self.drag_points = []
+        
+        pos = self.mapToView(ev.pos())
+        self.drag_points.append([pos.x(), pos.y()])
+        
+        if ev.isFinish():
+            self.lasso_finished.emit(self.drag_points)
+        else:
+            self.lasso_drawing.emit(self.drag_points)
+        
 
 class NDScatter(WidgetBase):
     def __init__(self, controller=None, parent=None):
@@ -111,14 +129,14 @@ class NDScatter(WidgetBase):
         return self.controller.some_features
     
     def data_by_label(self, k):
-        if len(self.peak_visible) != self.data.shape[0]:
-            self.peak_visible = np.zeros(self.data.shape[0], dtype=bool)
+        if len(self.point_visible) != self.data.shape[0]:
+            self.point_visible = np.zeros(self.data.shape[0], dtype=bool)
             self.by_cluster_random_decimate()
         
         if k=='sel':
             data = self.data[self.controller.spike_selection[self.controller.some_peaks_index]]
         else:
-            data = self.data[(self.controller.spike_label[self.controller.some_peaks_index]==k) & self.peak_visible]
+            data = self.data[(self.controller.spike_label[self.controller.some_peaks_index]==k) & self.point_visible]
             
         return data
     
@@ -127,13 +145,13 @@ class NDScatter(WidgetBase):
         for k in self.controller.cluster_labels:
             mask = self.controller.spike_label[self.controller.some_peaks_index]==k
             if self.controller.cluster_count[k]>m:
-                self.peak_visible[mask] = False
+                self.point_visible[mask] = False
                 visible, = np.nonzero(mask)
                 if visible.size>0:
                     visible = np.random.choice(visible, size=m)
-                    self.peak_visible[visible] = True
+                    self.point_visible[visible] = True
             else:
-                self.peak_visible[mask] = True
+                self.point_visible[mask] = True
         
         if refresh:
             self.refresh()
@@ -149,19 +167,27 @@ class NDScatter(WidgetBase):
     def initialize(self):
         self.viewBox = MyViewBox()
         self.viewBox.gain_zoom.connect(self.gain_zoom)
+        #~ self.viewBox.lasso_started.connect(self.on_lasso_started)
+        self.viewBox.lasso_drawing.connect(self.on_lasso_drawing)
+        self.viewBox.lasso_finished.connect(self.on_lasso_finished)
         self.plot = pg.PlotItem(viewBox=self.viewBox)
         self.graphicsview.setCentralItem(self.plot)
         self.plot.hideButtons()
         
-        self.scatters = {}
+        self.scatter = pg.ScatterPlotItem(size=3, pxMode = True)
+        self.plot.addItem(self.scatter)
+        self.scatter.sigClicked.connect(self.on_scatter_clicked)
+        
+        
         brush = QtGui.QColor( 'magenta')
         brush.setAlpha(180)
-        pen = QtGui.QColor( 'yellow')
-        self.scatters['sel'] = pg.ScatterPlotItem(pen=pen, brush=brush, size=11, pxMode = True)
-        self.plot.addItem(self.scatters['sel'])
-        self.scatters['sel'].setZValue(1000)
+        self.scatter_select = pg.ScatterPlotItem(pen=pg.mkPen(None), brush=brush, size=11, pxMode = True)
+        self.plot.addItem(self.scatter_select)
+        self.scatter_select.setZValue(1000)
         
-        #~ m = np.max(np.abs(self.data.values))
+        self.lasso = pg.PlotCurveItem(pen='#7FFF00')
+        self.plot.addItem(self.lasso)
+
         med, mad = median_mad(self.data)
         m = 4.*np.max(mad)
         self.limit = m
@@ -173,7 +199,7 @@ class NDScatter(WidgetBase):
         self.projection[0,0] = 1.
         self.projection[1,1] = 1.
         
-        self.peak_visible = np.zeros(self.data.shape[0], dtype=bool)
+        self.point_visible = np.zeros(self.data.shape[0], dtype=bool)
         self.by_cluster_random_decimate(refresh=False)
         
         self.plot2 = pg.PlotItem(viewBox=MyViewBox(lockAspect=True))
@@ -226,39 +252,28 @@ class NDScatter(WidgetBase):
             self.tour_step == 0
         self.refresh()
 
-
-    
     def refresh(self):
         if not hasattr(self, 'viewBox'):
             self.initialize()
         
-        for k, scatter in self.scatters.items():
-            #~ if k not in visible_labels:
-            scatter.setData([], [])
-        
         if self.data.shape[1] != self.projection.shape[0]:
             self.initialize()
         
+        #ndscatter
+        self.scatter.clear()
         for k in self.controller.cluster_labels:
+            if not self.is_cluster_visible(k): continue
+            data = self.data_by_label(k)
+            projected = np.dot(data, self.projection )
             color = self.get_color(k)
-            if k not in self.scatters:
-                self.scatters[k] = pg.ScatterPlotItem(pen=None, brush=color, size=2, pxMode = True)
-                self.plot.addItem(self.scatters[k])
-                self.scatters[k].sigClicked.connect(self.item_clicked)
-            else:
-                self.scatters[k].setBrush(color)
-            
-            if self.is_cluster_visible(k):
-                data = self.data_by_label(k)
-                projected = np.dot(data, self.projection )
-                self.scatters[k].setData(projected[:,0], projected[:,1])
-            else:
-                self.scatters[k].setData([], [])
+            self.scatter.addPoints(x=projected[:,0], y=projected[:,1],  pen=pg.mkPen(None), brush=color)
         
-        data = self.data_by_label('sel')
-        projected = np.dot(data, self.projection )
-        self.scatters['sel'].setData(projected[:,0], projected[:,1])
+        #selection scatter
+        data_sel = self.data_by_label('sel')
+        projected = np.dot(data_sel, self.projection )
+        self.scatter_select.setData(projected[:,0], projected[:,1])
         
+        #projection axes
         self.direction_data[::, :] =0
         self.direction_data[::2, :] = self.projection
         self.direction_lines.setData(self.direction_data[:,0], self.direction_data[:,1])
@@ -298,8 +313,43 @@ class NDScatter(WidgetBase):
 
     def gain_zoom(self, factor):
         self.limit /= factor
-        self.plot.setXRange(-self.limit, self.limit)
-        self.plot.setYRange(-self.limit, self.limit)
+        l = float(self.limit)
+        self.plot.setXRange(-l, l)
+        self.plot.setYRange(-l, l)
     
-    def item_clicked(self):
-        pass
+    def on_scatter_clicked(self,plots, points):
+        self.controller.spike_selection[:] = False
+        if len(points)==1:
+            projected = np.dot(self.data, self.projection )
+            pos = points[0].pos()
+            pos = [pos.x(), pos.y()]
+            ind = np.argmin(np.sum((projected-pos)**2, axis=1))
+            self.controller.spike_selection[self.controller.some_peaks_index[ind]] = True
+            
+        self.refresh()
+        self.spike_selection_changed.emit()
+    
+    def on_lasso_drawing(self, points):
+        points = np.array(points)
+        self.lasso.setData(points[:, 0], points[:, 1])
+    
+    def on_lasso_finished(self, points):
+        self.lasso.setData([], [])
+        vertices = np.array(points)
+        
+        self.controller.spike_selection[:] = False
+        projected = np.dot(self.data, self.projection )
+        inside = inside_poly(projected, vertices)
+        self.controller.spike_selection[self.controller.some_peaks_index[inside]] = True
+        self.refresh()
+        
+        self.spike_selection_changed.emit()
+
+
+
+
+
+
+def inside_poly(data, vertices):
+    return mpl_path(vertices).contains_points(data)
+

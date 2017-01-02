@@ -101,11 +101,11 @@ def test_catalogue_constructor():
         #~ print('project peak_max', t2-t1)
         #~ print(catalogueconstructor.some_features.shape)
 
-        t1 = time.perf_counter()
-        catalogueconstructor.extract_some_waveforms(index=np.arange(1000))
-        t2 = time.perf_counter()
-        print('extract_some_waveforms others', t2-t1)
-        print(catalogueconstructor.some_waveforms.shape)
+        #~ t1 = time.perf_counter()
+        #~ catalogueconstructor.extract_some_waveforms(index=np.arange(1000))
+        #~ t2 = time.perf_counter()
+        #~ print('extract_some_waveforms others', t2-t1)
+        #~ print(catalogueconstructor.some_waveforms.shape)
 
         
         # cluster

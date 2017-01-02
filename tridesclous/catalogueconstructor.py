@@ -437,7 +437,7 @@ class CatalogueConstructor:
             features = self.some_features[sel]
             labels = cluster.find_clusters(features, method=method, n_clusters=n_clusters, **kargs)
             labels += max(self.cluster_labels)+1
-            self.all_peaks['label'][sel] = labels
+            self.all_peaks['label'][self.some_peaks_index[sel]] = labels
         
         self.on_new_cluster()
         
@@ -453,6 +453,8 @@ class CatalogueConstructor:
             self.centroids = {}
             label_changed = self.cluster_labels
         
+        if self.some_waveforms is None:
+            return 
         t1 = time.perf_counter()
         for k in label_changed:
             if k not in self.cluster_labels:

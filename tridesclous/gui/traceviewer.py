@@ -391,7 +391,10 @@ class CatalogueTraceViewer(BaseTraceViewer):
                 times_chunk_in = times_chunk[inwindow_ind[mask]]
                 sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
                 
-                c = self.controller.centroids[k]['max_on_channel']
+                if k in self.controller.centroids:
+                    c = self.controller.centroids[k]['max_on_channel']
+                else:
+                    c=0
                 if self.visible_channels[c]:
                     self.scatters[k].setBrush(color)
                     self.scatters[k].setData(times_chunk_in, sigs_chunk_in[:, c]*self.gains[c]+self.offsets[c])

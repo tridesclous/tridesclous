@@ -324,7 +324,7 @@ class WaveformViewer(WidgetBase):
         if n_selected!=1 or not self.params['plot_selected_spike']: 
             
             if self.curve_one_waveform is not None:
-                self.plot1.remove(self.curve_one_waveform)
+                self.plot1.removeItem(self.curve_one_waveform)
             
             return
         

@@ -164,6 +164,9 @@ class PeakList(WidgetBase):
         menu = QtGui.QMenu()
         act = menu.addAction('Move selection to trash')
         act.triggered.connect(self.move_selection_to_trash)
+        act = menu.addAction('Make cluster with selection')
+        act.triggered.connect(self.make_new_cluster)
+
         ##menu.popup(self.cursor().pos())
         menu.exec_(self.cursor().pos())
     
@@ -171,6 +174,13 @@ class PeakList(WidgetBase):
         self.controller.change_spike_label(self.controller.spike_selection, -1)
         self.refresh()
         self.spike_label_changed.emit()
+
+    def make_new_cluster(self):
+        self.controller.change_spike_label(self.controller.spike_selection, max(self.controller.cluster_labels)+1)
+        self.refresh()
+        self.spike_label_changed.emit()
+    
+    
 
 
 class ClusterPeakList(WidgetBase):
