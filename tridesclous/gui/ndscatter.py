@@ -12,6 +12,7 @@ import pandas as pd
 import itertools
 
 from .base import WidgetBase
+from .tools import ParamDialog
 from ..tools import median_mad
 
 
@@ -113,6 +114,9 @@ class NDScatter(WidgetBase):
         but = QtGui.QPushButton('random decimate', icon=QtGui.QIcon.fromTheme("roll"))
         but.clicked.connect(self.by_cluster_random_decimate)
         tb.addWidget(but)
+        but = QtGui.QPushButton('select component')
+        but.clicked.connect(self.open_select_component)
+        tb.addWidget(but)
         
         
         
@@ -122,6 +126,18 @@ class NDScatter(WidgetBase):
             self.tree_params.show()
         else:
             self.tree_params.hide()        
+    
+    def open_select_component(self):
+        
+        ndim = self.data.shape[1]
+        params = [{'name' : 'comp {}'.format(i), 'type':'bool', 'value' : self.selected_dim[i]} for i in range(ndim)]
+        
+        dialog = ParamDialog(params, title = 'Select component')
+        if dialog.exec_():
+            p = dialog.get()
+            for i in range(ndim):
+                self.selected_dim[i] = p['comp {}'.format(i)]
+            self.refresh()
     
     # this handle data with propties so model change shoudl not affect so much teh code
     @property
@@ -194,7 +210,9 @@ class NDScatter(WidgetBase):
         self.plot.setXRange(-m, m)
         self.plot.setYRange(-m, m)
         
+        
         ndim = self.data.shape[1]
+        self.selected_dim = np.ones( (ndim), dtype='bool')
         self.projection = np.zeros( (ndim, 2))
         self.projection[0,0] = 1.
         self.projection[1,1] = 1.
@@ -236,12 +254,13 @@ class NDScatter(WidgetBase):
         self.projection[i,0] = 1.
         self.projection[j,1] = 1.
         if self.timer_tour.isActive():
-            self.tour_step == 0
+            self.tour_step = 0
         self.refresh()
         
     def get_one_random_projection(self):
         ndim = self.data.shape[1]
         projection = np.random.rand(ndim,2)*2-1.
+        projection[~self.selected_dim] = 0
         m = np.sqrt(np.sum(projection**2, axis=0))
         projection /= m
         return projection
@@ -251,7 +270,11 @@ class NDScatter(WidgetBase):
         if self.timer_tour.isActive():
             self.tour_step == 0
         self.refresh()
-
+    
+    def apply_dot(self, data):
+        projected = np.dot(data[:, self.selected_dim ], self.projection[self.selected_dim, :])
+        return projected
+    
     def refresh(self):
         if not hasattr(self, 'viewBox'):
             self.initialize()
@@ -264,22 +287,32 @@ class NDScatter(WidgetBase):
         for k in self.controller.cluster_labels:
             if not self.is_cluster_visible(k): continue
             data = self.data_by_label(k)
-            projected = np.dot(data, self.projection )
+            #~ projected = np.dot(data, self.projection )
+            projected = self.apply_dot(data)
             color = self.get_color(k)
             self.scatter.addPoints(x=projected[:,0], y=projected[:,1],  pen=pg.mkPen(None), brush=color)
         
         #selection scatter
         data_sel = self.data_by_label('sel')
-        projected = np.dot(data_sel, self.projection )
+        #~ projected = np.dot(data_sel, self.projection )
+        projected = self.apply_dot(data_sel)
         self.scatter_select.setData(projected[:,0], projected[:,1])
         
         #projection axes
+        proj = self.projection.copy()
+        proj[~self.selected_dim, :] = 0
         self.direction_data[::, :] =0
-        self.direction_data[::2, :] = self.projection
+        #~ self.direction_data[::2, :] = self.projection
+        self.direction_data[::2, :] = proj
         self.direction_lines.setData(self.direction_data[:,0], self.direction_data[:,1])
         
         for i, label in enumerate(self.proj_labels):
-            label.setPos(self.projection[i,0], self.projection[i,1])
+            if self.selected_dim[i]:
+                label.setPos(self.projection[i,0], self.projection[i,1])
+                label.show()
+            else:
+                label.hide()
+            
     
     def start_stop_tour(self, checked):
         if checked:
@@ -320,7 +353,8 @@ class NDScatter(WidgetBase):
     def on_scatter_clicked(self,plots, points):
         self.controller.spike_selection[:] = False
         if len(points)==1:
-            projected = np.dot(self.data, self.projection )
+            #~ projected = np.dot(self.data, self.projection )
+            projected = self.apply_dot(data)
             pos = points[0].pos()
             pos = [pos.x(), pos.y()]
             ind = np.argmin(np.sum((projected-pos)**2, axis=1))
@@ -338,7 +372,8 @@ class NDScatter(WidgetBase):
         vertices = np.array(points)
         
         self.controller.spike_selection[:] = False
-        projected = np.dot(self.data, self.projection )
+        #~ projected = np.dot(self.data, self.projection )
+        projected = self.apply_dot(data)
         inside = inside_poly(projected, vertices)
         self.controller.spike_selection[self.controller.some_peaks_index[inside]] = True
         self.refresh()
