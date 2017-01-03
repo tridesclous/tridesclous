@@ -44,7 +44,7 @@ class PeelerController(ControllerBase):
         
         
         self.cluster_visible = {k:True for k  in self.cluster_labels}
-        self.spike_selection = np.zeros(self.nb_spike, dtype='bool')
+        #~ self.spike_selection = np.zeros(self.nb_spike, dtype='bool')
         self.refresh_colors(reset=True)
     
     def check_plot_attributes(self):
@@ -58,6 +58,9 @@ class PeelerController(ControllerBase):
         
         self.refresh_colors(reset=False)
     
+    @property
+    def spike_selection(self):
+        return self.spikes['selected']
     
     def refresh_colors(self, reset=True, palette = 'husl'):
         if reset:
@@ -87,7 +90,12 @@ class PeelerController(ControllerBase):
         if self.catalogue['params_peakdetector']['peak_sign']=='-':
             threshold = -threshold
         return threshold
-        
+
+    def get_max_on_channel(self, label):
+        cluster_idx = self.catalogue['label_to_index'][label]
+        chan = self.catalogue['max_on_channel'][cluster_idx]
+        return chan
+
     def update_visible_spikes(self):
         visibles = np.array([k for k, v in self.cluster_visible.items() if v ])
         self.spikes['visible'][:] = np.in1d(self.spikes['label'], visibles)

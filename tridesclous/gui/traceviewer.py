@@ -152,7 +152,9 @@ class BaseTraceViewer(WidgetBase):
         self.signals_curve = pg.PlotCurveItem(pen='#7FFF00', connect='finite')
         self.plot.addItem(self.signals_curve)
         
-        self.scatters = {}
+        self.scatter = pg.ScatterPlotItem(size=10, pxMode = True)
+        self.plot.addItem(self.scatter)
+        self.scatter.sigClicked.connect(self.scatter_item_clicked)
         
         self.channel_labels = []
         self.threshold_lines =[]
@@ -271,6 +273,65 @@ class BaseTraceViewer(WidgetBase):
         self.gain_zoom(1)
         self.refresh()
     
+    def center_scrollbar_on_channel(self, c):
+        c = c - self.max_channel//2
+        c = min(max(c, 0), self.controller.nb_channel-self.max_channel)
+        self.scrollbar.valueChanged.disconnect(self.on_scrollbar)
+        self.scrollbar.setValue(c)
+        self.scrollbar.valueChanged.connect(self.on_scrollbar)
+        
+        self.visible_channels[:] = False
+        self.visible_channels[c:c+self.max_channel] = True
+        self.gain_zoom(1)
+    
+    def scatter_item_clicked(self, plot, points):
+        if self.select_button.isChecked()and len(points)==1:
+            x = points[0].pos().x()
+            self.controller.spike_selection[:] = False
+            
+            pos_click = int(x*self.dataio.sample_rate )
+            mask = self.controller.spikes['segment']==self.seg_num
+            ind_nearest = np.argmin(np.abs(self.controller.spikes[mask]['index'] - pos_click))
+            
+            ind_clicked = np.nonzero(mask)[0][ind_nearest]
+            self.controller.spike_selection[ind_clicked] = True
+            
+            self.spike_selection_changed.emit()
+            self.refresh()
+    
+    def on_spike_selection_changed(self):
+        ind_selected, = np.nonzero(self.controller.spike_selection)
+        n_selected = ind_selected.size
+        if self.params['auto_zoom_on_select'] and n_selected==1:
+            ind_selected, = np.nonzero(self.controller.spike_selection)
+            ind = ind_selected[0]
+            peak_ind = self.controller.spikes[ind]['index']
+            seg_num = self.controller.spikes[ind]['segment']
+            peak_time = peak_ind/self.dataio.sample_rate
+            
+            if seg_num != self.seg_num:
+                self.combo_seg.setCurrentIndex(seg_num)
+            
+            self.spinbox_xsize.sigValueChanged.disconnect(self.xsize_changed)
+            self.spinbox_xsize.setValue(self.params['zoom_size'])
+            self.xsize = self.params['zoom_size']
+            self.spinbox_xsize.sigValueChanged.connect(self.xsize_changed)
+            
+            label = self.controller.spikes[ind]['label']
+            if label>=0:
+                c = self.controller.get_max_on_channel(label)
+            else:
+                wf = self.controller.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.controller.chan_grp,
+                        i_start=peak_ind, i_stop=peak_ind+1,
+                        signal_type='processed', return_type='raw_numpy')
+                c = np.argmax(np.abs(wf))
+            
+            self.center_scrollbar_on_channel(c)
+            
+            self.seek(peak_time)
+            
+        else:
+            self.refresh()
     
     def seek(self, t):
         if self.sender() is not self.timeseeker:
@@ -299,11 +360,7 @@ class BaseTraceViewer(WidgetBase):
         data_curves = sigs_chunk[:, self.visible_channels].T.copy()
         if data_curves.dtype!='float32':
             data_curves = data_curves.astype('float32')
-        #~ print(data_curves.shape)
-        #~ print(self.visible_channels)
-        #~ print(self.visible_channels)
-        #~ print(self.gains.shape)
-        #~ print(self.gains[self.visible_channels, None].shape)
+        
         data_curves *= self.gains[self.visible_channels, None]
         data_curves += self.offsets[self.visible_channels, None]
         data_curves[:,0] = np.nan
@@ -313,7 +370,7 @@ class BaseTraceViewer(WidgetBase):
         self.signals_curve.setData(times_chunk_tile, data_curves)
         
         
-        #labels
+        #channel labels
         i = 1
         for c in range(self.controller.nb_channel):
             if self.visible_channels[c]:
@@ -322,8 +379,6 @@ class BaseTraceViewer(WidgetBase):
                 i +=1
             else:
                 self.channel_labels[c].hide()
-            
-        
 
         n = np.sum(self.visible_channels)
         index_visible, = np.nonzero(self.visible_channels)
@@ -335,8 +390,54 @@ class BaseTraceViewer(WidgetBase):
             else:
                 self.threshold_lines[i].hide()        
         
-        # plot peaks or spikes or prediction or residuals ...
-        self._plot_specific_items(ind1, ind2, sigs_chunk, times_chunk)
+        
+        # plot peak on signal
+        all_spikes = self.controller.spikes
+        if len(all_spikes)>0:
+            keep = (all_spikes['segment']==self.seg_num) & (all_spikes['index']>=ind1) & (all_spikes['index']<ind2)
+            spikes_chunk = np.array(all_spikes[keep], copy=True)
+            spikes_chunk['index'] -= ind1
+            inwindow_ind = spikes_chunk['index']
+            inwindow_label = spikes_chunk['label']
+            inwindow_selected = np.array(self.controller.spike_selection[keep])
+
+            self.scatter.clear()
+            for k in self.controller.cluster_labels:
+
+                if not self.controller.cluster_visible[k]: continue
+                mask = inwindow_label==k
+                if np.sum(mask)==0: continue
+                
+                color = self.controller.qcolors.get(k, self._default_color)
+                
+                x = times_chunk[inwindow_ind[mask]]
+                
+                sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
+                if k >=0:
+                    c = self.controller.get_max_on_channel(k)
+                    c = np.array([c]*np.sum(mask), dtype=int)
+                else:
+                    c = np.argmax(np.abs(sigs_chunk_in), axis=1)
+                keep = self.visible_channels[c]
+                if np.sum(keep)==0: continue
+                c = c[keep]
+                x = x[keep]
+                y = sigs_chunk_in[np.arange(c.size), c]*self.gains[c]+self.offsets[c]
+                #~ print('c', c)
+                #~ print('x', x)
+                #~ print('y', y)
+                self.scatter.addPoints(x=x, y=y,pen=pg.mkPen(None), brush=color)
+            
+            if np.sum(inwindow_selected)==1:
+                self.selection_line.setPos(times_chunk[inwindow_ind[inwindow_selected]])
+                self.selection_line.show()
+            else:
+                self.selection_line.hide()            
+        else:
+            spikes_chunk = None
+        
+        # plot prediction or residuals ...
+        self._plot_specific_items(sigs_chunk, times_chunk, spikes_chunk)
         
         #ranges
         self.plot.setXRange( t1, t2, padding = 0.0)
@@ -354,117 +455,8 @@ class CatalogueTraceViewer(BaseTraceViewer):
     def _initialize_plot(self):
         pass
     
-    def _plot_specific_items(self, ind1, ind2, sigs_chunk, times_chunk):
-        # plot peaks
-
-        if self.controller.spike_index ==[]:
-            return
-        
-        keep = (self.controller.spike_segment==self.seg_num) & (self.controller.spike_index>=ind1) & (self.controller.spike_index<ind2)
-        
-        inwindow_ind = np.array(self.controller.spike_index[keep] - ind1)
-        inwindow_label = np.array(self.controller.spike_label[keep])
-        inwindow_selected = np.array(self.controller.spike_selection[keep])
-        
-        for k in list(self.scatters.keys()):
-            if not k in self.controller.cluster_labels:
-                scatter = self.scatters.pop(k)
-                self.plot.removeItem(scatter)
-            
-        if np.sum(inwindow_selected)==1:
-            self.selection_line.setPos(times_chunk[inwindow_ind[inwindow_selected]])
-            self.selection_line.show()
-        else:
-            self.selection_line.hide()
-        
-        for k in self.controller.cluster_labels:
-            color = self.controller.qcolors.get(k, self._default_color)
-            if k not in self.scatters:
-                self.scatters[k] = pg.ScatterPlotItem(pen=None, brush=color, size=10, pxMode = True)
-                self.plot.addItem(self.scatters[k])
-                self.scatters[k].sigClicked.connect(self.item_clicked)
-            
-            if not self.controller.cluster_visible[k]:
-                self.scatters[k].setData([], [])
-            else:
-                mask = inwindow_label==k
-                times_chunk_in = times_chunk[inwindow_ind[mask]]
-                sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
-                
-                if k in self.controller.centroids:
-                    c = self.controller.centroids[k]['max_on_channel']
-                else:
-                    c=0
-                if self.visible_channels[c]:
-                    self.scatters[k].setBrush(color)
-                    self.scatters[k].setData(times_chunk_in, sigs_chunk_in[:, c]*self.gains[c]+self.offsets[c])
-                else:
-                    self.scatters[k].setData([], [])
-
-        #~ n = np.sum(self.visible_channels)
-        #~ for c in range(n):
-            #~ if self.params['plot_threshold'] and self.visible_channels[c]:
-                #~ threshold = self.controller.get_threshold()
-                #~ self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*threshold)
-                #~ self.threshold_lines[c].show()
-            #~ else:
-                #~ self.threshold_lines[c].hide()
-    
-    def on_spike_selection_changed(self):
-        n_selected = np.sum(self.controller.spike_selection)
-        if self.params['auto_zoom_on_select'] and n_selected==1:
-            ind, = np.nonzero(self.controller.spike_selection)
-            ind = ind[0]
-            seg_num = self.controller.spike_segment[ind]
-            peak_time = self.controller.spike_index[ind]/self.dataio.sample_rate
-            
-            if seg_num != self.seg_num:
-                seg_pos = seg_num
-                self.combo_seg.setCurrentIndex(seg_pos)
-            
-            self.spinbox_xsize.sigValueChanged.disconnect(self.xsize_changed)
-            self.spinbox_xsize.setValue(self.params['zoom_size'])
-            self.xsize = self.params['zoom_size']
-            self.spinbox_xsize.sigValueChanged.connect(self.xsize_changed)
-            
-            label = self.controller.spike_label[ind]
-            c = self.controller.centroids[label]['max_on_channel']
-            #~ print('max_on_channel', self.controller.centroids[label]['max_on_channel'])
-            c -= self.max_channel//2
-            c = min(max(c, 0), self.controller.nb_channel-self.max_channel)
-            #~ print('c', c, 'label', label)
-            self.scrollbar.valueChanged.disconnect(self.on_scrollbar)
-            self.scrollbar.setValue(c)
-            self.scrollbar.valueChanged.connect(self.on_scrollbar)
-            
-            self.visible_channels[:] = False
-            self.visible_channels[c:c+self.max_channel] = True
-            self.gain_zoom(1)
-            
-            self.seek(peak_time)
-            
-        else:
-            self.refresh()
-    
-    def item_clicked(self, plot, points):
-        if self.select_button.isChecked()and len(points)==1:
-            x = points[0].pos().x()
-            self.controller.spike_selection[:] = False
-            
-            pos_click = int(x*self.dataio.sample_rate )
-            mask = self.controller.spike_segment==self.seg_num
-            ind_nearest = np.argmin(np.abs(self.controller.spike_index[mask] - pos_click))
-            
-            ind_clicked = np.nonzero(mask)[0][ind_nearest]
-            #~ ind_clicked
-            self.controller.spike_selection[ind_clicked] = True
-            #~ print(ind_nearest)
-            
-            #~ self.controller.spike_selection.loc[(self.seg_num, x)] = True
-            
-            self.spike_selection_changed.emit()
-            self.refresh()
-    
+    def _plot_specific_items(self, sigs_chunk, times_chunk, spikes_chunk):
+        pass
 
 
 class PeelerTraceViewer(BaseTraceViewer):
@@ -487,68 +479,12 @@ class PeelerTraceViewer(BaseTraceViewer):
         self.curve_residuals = pg.PlotCurveItem(pen='#FFFF00', connect='finite')
         self.plot.addItem(self.curve_residuals)
    
-    def _plot_specific_items(self, ind1, ind2, sigs_chunk, times_chunk):
+    def _plot_specific_items(self, sigs_chunk, times_chunk, spikes_chunk):
+        if spikes_chunk is None: return
         
-        all_spikes = self.controller.spikes
-        
-        keep = (all_spikes['segment']==self.seg_num) & (all_spikes['index']>=ind1) & (all_spikes['index']<ind2)
-        spikes = np.array(all_spikes[keep], copy=True)
-
-        spikes['index'] -= ind1
-        
-        inwindow_ind = spikes['index']
-        inwindow_label = spikes['label']
-        inwindow_selected = spikes['selected']
-        
-        for k in list(self.scatters.keys()):
-            if not k in self.controller.cluster_labels:
-                scatter = self.scatters.pop(k)
-                self.plot.removeItem(scatter)
-        
-        if np.sum(inwindow_selected)==1:
-            self.selection_line.setPos(times_chunk[inwindow_ind[inwindow_selected]])
-            self.selection_line.show()
-        else:
-            self.selection_line.hide()
-
-        for k in self.controller.cluster_labels:
-            if k<0:
-                continue
-            color = self.controller.qcolors.get(k,  self._default_color)
-            
-            if k not in self.scatters:
-                self.scatters[k] = pg.ScatterPlotItem(pen=None, brush=color, size=10, pxMode = True)
-                self.plot.addItem(self.scatters[k])
-                self.scatters[k].sigClicked.connect(self.item_clicked)
-            
-            if not self.controller.cluster_visible[k]:
-                self.scatters[k].setData([], [])
-            else:
-                mask = inwindow_label==k
-                times_chunk_in = times_chunk[inwindow_ind[mask]]
-                sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
-                cluster_idx = self.controller.catalogue['label_to_index'][k]
-                c = self.controller.catalogue['max_on_channel'][cluster_idx]
-                if self.visible_channels[c]:
-                    self.scatters[k].setBrush(color)
-                    self.scatters[k].setData(times_chunk_in, sigs_chunk_in[:, c]*self.gains[c]+self.offsets[c])
-                else:
-                    self.scatters[k].setData([], [])
-
-
-        #~ n = np.sum(self.visible_channels)
-        #~ for c in range(n):
-            #~ if self.params['plot_threshold'] and self.visible_channels[c]:
-                #~ threshold = self.controller.get_threshold()
-                #~ self.threshold_lines[c].setPos(n-c-1 + self.gains[c]*self.mad[c]*threshold)
-                #~ self.threshold_lines[c].show()
-            #~ else:
-                #~ self.threshold_lines[c].hide()
-
-
         #prediction
         #TODO make prediction only on visible!!!! 
-        prediction = make_prediction_signals(spikes, sigs_chunk.dtype, sigs_chunk.shape, self.controller.catalogue)
+        prediction = make_prediction_signals(spikes_chunk, sigs_chunk.dtype, sigs_chunk.shape, self.controller.catalogue)
         residuals = sigs_chunk - prediction
         
         # plots
@@ -575,56 +511,4 @@ class PeelerTraceViewer(BaseTraceViewer):
         
         if not self.plot_buttons['signals'].isChecked():
             self.signals_curve.setData([], [])
-            
-
-    def on_spike_selection_changed(self):
-        spikes = self.controller.spikes
-        selected = spikes['selected']
-        n_selected = np.sum(selected)
-        if self.params['auto_zoom_on_select'] and n_selected==1:
-            ind, = np.nonzero(selected)
-            ind = ind[0]
-            seg_num = spikes[ind]['segment']
-            peak_time = spikes[ind]['index']/self.controller.dataio.sample_rate
-
-            if seg_num != self.seg_num:
-                self.combo_seg.setCurrentIndex(seg_num)
-
-            self.spinbox_xsize.sigValueChanged.disconnect(self.xsize_changed)
-            self.spinbox_xsize.setValue(self.params['zoom_size'])
-            self.xsize = self.params['zoom_size']
-            self.spinbox_xsize.sigValueChanged.connect(self.xsize_changed)
-            
-            label = self.controller.spikes[ind]['label']
-            if label in self.controller.catalogue['label_to_index']:
-                cluster_idx = self.controller.catalogue['label_to_index'][label]
-                c = self.controller.catalogue['max_on_channel'][cluster_idx]
-                #~ print('max_on_channel', c)
-                c -= self.max_channel//2
-                c = min(max(c, 0), self.controller.nb_channel-self.max_channel)
-                #~ print('c', c, 'label', label)
-                self.scrollbar.valueChanged.disconnect(self.on_scrollbar)
-                self.scrollbar.setValue(c)
-                self.scrollbar.valueChanged.connect(self.on_scrollbar)
-                
-                self.visible_channels[:] = False
-                self.visible_channels[c:c+self.max_channel] = True
-                self.gain_zoom(1)
-
-            
-            self.seek(peak_time)
-        else:
-            self.refresh()
-
-    
-    def item_clicked(self, plot, points):
-        #TODO
-        pass
-        #~ if self.select_button.isChecked()and len(points)==1:
-            #~ x = points[0].pos().x()
-            #~ self.spikesorter.peak_selection[:] = False
-            #~ self.spikesorter.peak_selection.loc[(self.seg_num, x)] = True
-            
-            #~ self.spike_selection_changed.emit()
-            #~ self.refresh()
 

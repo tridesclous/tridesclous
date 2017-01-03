@@ -47,7 +47,12 @@ class CatalogueController(ControllerBase):
         
         self.refresh_colors(reset=False)
     
+    
     #map some attribute
+    @property
+    def spikes(self):
+        return self.cc.all_peaks
+        
     @property
     def cluster_labels(self):
         return self.cc.cluster_labels
@@ -97,6 +102,10 @@ class CatalogueController(ControllerBase):
         if self.cc.info['params_peakdetector']['peak_sign']=='-':
             threshold = -threshold
         return threshold
+    
+    def get_max_on_channel(self, label):
+        chan = self.centroids[label]['max_on_channel']
+        return chan
     
     def on_new_cluster(self, label_changed=None):
         """
