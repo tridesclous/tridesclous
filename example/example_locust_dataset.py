@@ -54,7 +54,9 @@ def preprocess_signals_and_peaks():
             peakdetector_engine='numpy',
             peak_sign='-', 
             relative_threshold=4,
-            peak_span=0.0005,
+            #~ peak_span=0.0005,
+            peak_span=0.0009,
+            
             )
     
     
@@ -149,7 +151,7 @@ if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
     #~ preprocess_signals_and_peaks()
     #~ extract_waveforms_pca_cluster()
-    #~ open_cataloguewindow()
+    open_cataloguewindow()
     #~ run_peeler()
-    open_PeelerWindow()
+    #~ open_PeelerWindow()
     

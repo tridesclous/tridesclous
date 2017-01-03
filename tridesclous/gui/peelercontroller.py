@@ -44,7 +44,6 @@ class PeelerController(ControllerBase):
         
         
         self.cluster_visible = {k:True for k  in self.cluster_labels}
-        #~ self.spike_selection = np.zeros(self.nb_spike, dtype='bool')
         self.refresh_colors(reset=True)
     
     def check_plot_attributes(self):
@@ -79,12 +78,6 @@ class PeelerController(ControllerBase):
             r, g, b = color
             self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
     
-    #~ @property
-    #~ def cluster_labels(self):
-        #TODO find better
-        #~ return self.catalogue['cluster_labels']
-        #~ return np.array(list(self.catalogue['cluster_labels'])+[-10,-11,-12])
-
     def get_threshold(self):
         threshold = self.catalogue['params_peakdetector']['relative_threshold']
         if self.catalogue['params_peakdetector']['peak_sign']=='-':
