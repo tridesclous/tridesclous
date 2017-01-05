@@ -24,8 +24,9 @@ def setup_catalogue():
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     filenames = filenames[:1] #only first file
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
-    channel_group = [5, 6, 7, 8, 9]
-    dataio.set_manual_channel_group(channel_group)
+    channel_group = {0:{'channels':[5, 6, 7, 8, 9]}}
+    dataio.set_channel_groups(channel_group)
+    
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
 

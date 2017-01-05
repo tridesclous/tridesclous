@@ -18,7 +18,7 @@ def test_catalogue_constructor():
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
     
     channels=range(14)
-    dataio.set_manual_channel_group(channels, chan_grp=0)
+    dataio.add_one_channel_group(channels=channels, chan_grp=0)
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
@@ -133,7 +133,8 @@ def compare_nb_waveforms():
     dataio = DataIO(dirname='test_catalogueconstructor')
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
-    dataio.set_manual_channel_group(range(14))
+    dataio.add_one_channel_group(channels=range(14), chan_grp=0)
+
 
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
 
@@ -187,8 +188,9 @@ def test_make_catalogue():
     dataio = DataIO(dirname='test_catalogueconstructor')
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
-    #~ dataio.set_manual_channel_group(range(14))
-    dataio.set_manual_channel_group([5, 6, 7, 8, 9])
+    #~ dataio.add_one_channel_group(channels=range(14), chan_grp=0)
+    dataio.add_one_channel_group(channels=[5, 6, 7, 8, 9], chan_grp=0)
+    
 
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
 
@@ -241,8 +243,8 @@ def test_make_catalogue():
 
     
 if __name__ == '__main__':
-    test_catalogue_constructor()
+    #~ test_catalogue_constructor()
     
     #~ compare_nb_waveforms()
     
-    #~ test_make_catalogue()
+    test_make_catalogue()

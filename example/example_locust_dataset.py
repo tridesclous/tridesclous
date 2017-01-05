@@ -33,7 +33,7 @@ def initialize_catalogueconstructor():
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
 
     #The dataset contains 4 channels : we use them all
-    dataio.set_manual_channel_group([0, 1, 2, 3])
+    dataio.add_one_channel_group(channels=[0, 1, 2, 3])
 
     print(dataio)
 
@@ -151,7 +151,7 @@ if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
     #~ preprocess_signals_and_peaks()
     #~ extract_waveforms_pca_cluster()
-    open_cataloguewindow()
-    #~ run_peeler()
-    #~ open_PeelerWindow()
+    #~ open_cataloguewindow()
+    run_peeler()
+    open_PeelerWindow()
     

@@ -63,12 +63,12 @@ def test_PeelerWindow():
     
     
 if __name__ == '__main__':
-    #~ test_Peelercontroller()
+    test_Peelercontroller()
     
     #~ test_PeelerTraceViewer()
     #~ test_SpikeList()
     #~ test_ClusterSpikeList()
     
-    test_PeelerWindow()
+    #~ test_PeelerWindow()
 
 

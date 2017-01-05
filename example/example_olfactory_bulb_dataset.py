@@ -33,7 +33,7 @@ def initialize_catalogueconstructor():
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
 
     #The dataset contains 16 channels but 14 and 15 are respiration and trigs.
-    dataio.set_manual_channel_group(range(14))
+    dataio.add_one_channel_group(channels=range(14), chan_grp=0)
 
     print(dataio)
 
@@ -155,5 +155,5 @@ if __name__ =='__main__':
     #~ extract_waveforms_pca_cluster()
     #~ open_cataloguewindow()
     run_peeler()
-    #~ open_PeelerWindow()
+    open_PeelerWindow()
     

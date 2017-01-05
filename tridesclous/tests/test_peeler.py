@@ -21,7 +21,7 @@ def setup_catalogue():
     dataio = DataIO(dirname='test_peeler')
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
-    dataio.set_manual_channel_group([5, 6, 7, 8, 9])
+    dataio.add_one_channel_group(channels=[5, 6, 7, 8, 9])
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     #~ print(catalogueconstructor)
@@ -125,6 +125,6 @@ if __name__ =='__main__':
     
     #~ open_catalogue_window()
     
-    #~ test_peeler()
+    test_peeler()
     
     open_PeelerWindow()
