@@ -136,7 +136,7 @@ class PeakList(WidgetBase):
     def on_spike_selection_changed(self):
         self.tree.selectionModel().selectionChanged.disconnect(self.on_tree_selection)
         
-        row_selected, = np.nonzero(self.controller.spike_selection[self.model.visible_mask])
+        row_selected, = np.nonzero(self.controller.spike_selection[self.model.visible_ind])
         
         if row_selected.size>100:#otherwise this is verry slow
             row_selected = row_selected[:10]
@@ -164,6 +164,9 @@ class PeakList(WidgetBase):
         menu = QtGui.QMenu()
         act = menu.addAction('Move selection to trash')
         act.triggered.connect(self.move_selection_to_trash)
+        act = menu.addAction('Make cluster with selection')
+        act.triggered.connect(self.make_new_cluster)
+
         ##menu.popup(self.cursor().pos())
         menu.exec_(self.cursor().pos())
     
@@ -171,6 +174,13 @@ class PeakList(WidgetBase):
         self.controller.change_spike_label(self.controller.spike_selection, -1)
         self.refresh()
         self.spike_label_changed.emit()
+
+    def make_new_cluster(self):
+        self.controller.change_spike_label(self.controller.spike_selection, max(self.controller.cluster_labels)+1)
+        self.refresh()
+        self.spike_label_changed.emit()
+    
+    
 
 
 class ClusterPeakList(WidgetBase):
@@ -193,7 +203,7 @@ class ClusterPeakList(WidgetBase):
         self.table.itemChanged.disconnect(self.on_item_changed)
         
         self.table.clear()
-        labels = ['label', 'show/hide', 'nb_peaks']
+        labels = ['label', 'show/hide', 'nb_peaks', 'max_on_channel']
         self.table.setColumnCount(len(labels))
         self.table.setHorizontalHeaderLabels(labels)
         #~ self.table.setMinimumWidth(100)
@@ -226,6 +236,13 @@ class ClusterPeakList(WidgetBase):
             item = QtGui.QTableWidgetItem('{}'.format(self.controller.cluster_count[k]))
             item.setFlags(QtCore.Qt.ItemIsEnabled|QtCore.Qt.ItemIsSelectable)
             self.table.setItem(i,2, item)
+            
+            chan = self.controller.get_max_on_channel(k)
+            if chan is not None:
+                item = QtGui.QTableWidgetItem('{}'.format(chan))
+                item.setFlags(QtCore.Qt.ItemIsEnabled|QtCore.Qt.ItemIsSelectable)
+                self.table.setItem(i,3, item)
+
         
         for i in range(3):
             self.table.resizeColumnToContents(i)
@@ -252,10 +269,11 @@ class ClusterPeakList(WidgetBase):
         return selection
     
     def open_context_menu(self):
-        n = len(self.selected_cluster())
+        #~ n = len(self.selected_cluster())
         menu = QtGui.QMenu()
 
-        if n>=0: 
+        #~ if n>=0: 
+        if True:
             act = menu.addAction('Reset colors')
             act.triggered.connect(self.reset_colors)
             act = menu.addAction('Show all')
@@ -265,7 +283,8 @@ class ClusterPeakList(WidgetBase):
             act = menu.addAction('Order cluster by power')
             act.triggered.connect(self.order_clusters)
             
-        if n>=1:
+        #~ if n>=1:
+        if True:
             act = menu.addAction('PC projection with all')
             act.triggered.connect(self.pc_project_all)
             act = menu.addAction('PC projection with selection')
@@ -277,7 +296,8 @@ class ClusterPeakList(WidgetBase):
             act = menu.addAction('Select')
             act.triggered.connect(self.select_peaks_of_clusters)
         
-        if n == 1:
+        #~ if n == 1:
+        if True:
             act = menu.addAction('Split selection')
             act.triggered.connect(self.split_selection)
         
@@ -358,6 +378,8 @@ class ClusterPeakList(WidgetBase):
         self.spike_label_changed.emit()
     
     def split_selection(self):
+        n = len(self.selected_cluster())
+        if n!=1: return
         label_to_split = self.selected_cluster()[0]
         
         methods = ['kmeans', 'gmm']

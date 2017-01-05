@@ -25,7 +25,7 @@ class PeelerController(ControllerBase):
         self.spikes = []
         
         for i in range(self.dataio.nb_segment):
-            local_spikes = self.dataio.get_spikes(seg_num=i)
+            local_spikes = self.dataio.get_spikes(seg_num=i, chan_grp=self.chan_grp)
             _dtype_spike = [('index', 'int64'), ('label', 'int64'), ('jitter', 'float64'),]
             _dtype_complement = [('segment', 'int64'), ('visible', 'bool'), ('selected', 'bool')]
             spikes = np.zeros(local_spikes.shape, dtype=_dtype_spike+_dtype_complement)
@@ -44,7 +44,6 @@ class PeelerController(ControllerBase):
         
         
         self.cluster_visible = {k:True for k  in self.cluster_labels}
-        self.spike_selection = np.zeros(self.nb_spike, dtype='bool')
         self.refresh_colors(reset=True)
     
     def check_plot_attributes(self):
@@ -58,6 +57,9 @@ class PeelerController(ControllerBase):
         
         self.refresh_colors(reset=False)
     
+    @property
+    def spike_selection(self):
+        return self.spikes['selected']
     
     def refresh_colors(self, reset=True, palette = 'husl'):
         if reset:
@@ -76,18 +78,17 @@ class PeelerController(ControllerBase):
             r, g, b = color
             self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
     
-    #~ @property
-    #~ def cluster_labels(self):
-        #TODO find better
-        #~ return self.catalogue['cluster_labels']
-        #~ return np.array(list(self.catalogue['cluster_labels'])+[-10,-11,-12])
-
     def get_threshold(self):
         threshold = self.catalogue['params_peakdetector']['relative_threshold']
         if self.catalogue['params_peakdetector']['peak_sign']=='-':
             threshold = -threshold
         return threshold
-        
+
+    def get_max_on_channel(self, label):
+        cluster_idx = self.catalogue['label_to_index'][label]
+        chan = self.catalogue['max_on_channel'][cluster_idx]
+        return chan
+
     def update_visible_spikes(self):
         visibles = np.array([k for k, v in self.cluster_visible.items() if v ])
         self.spikes['visible'][:] = np.in1d(self.spikes['label'], visibles)

@@ -56,6 +56,11 @@ class WaveformViewer(WidgetBase):
                           
                           ]
         self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
+        
+        if self.controller.nb_channel>16:
+            self.params['fillbetween'] = False
+            self.params['plot_limit_for_flatten'] = False
+        
         self.params.sigTreeStateChanged.connect(self.refresh)
         self.tree_params = pg.parametertree.ParameterTree(parent  = self)
         self.tree_params.header().hide()
@@ -70,8 +75,10 @@ class WaveformViewer(WidgetBase):
         #Mode flatten or geometry
         self.combo_mode = QtGui.QComboBox()
         tb.addWidget(self.combo_mode)
-        self.mode = 'flatten'
-        self.combo_mode.addItems([ 'flatten', 'geometry'])
+        #~ self.mode = 'flatten'
+        #~ self.combo_mode.addItems([ 'flatten', 'geometry'])
+        self.mode = 'geometry'
+        self.combo_mode.addItems([ 'geometry', 'flatten'])
         self.combo_mode.currentIndexChanged.connect(self.on_combo_mode_changed)
         tb.addSeparator()
         
@@ -147,6 +154,7 @@ class WaveformViewer(WidgetBase):
                 ypos = self.arr_geometry[:,1]
                 
                 if np.unique(xpos).size>1:
+                    print('yep')
                     self.delta_x = np.min(np.diff(np.sort(np.unique(xpos))))
                 else:
                     self.delta_x = np.unique(xpos)[0]
@@ -155,12 +163,16 @@ class WaveformViewer(WidgetBase):
                 else:
                     self.delta_y = np.unique(ypos)[0]
                 self.factor_y = .3
-                
+                #~ print(np.sort(np.unique(xpos)))
+                #~ print(np.sort(np.unique(ypos)))
+                #~ print('self.delta_x',self.delta_x )
+                #~ print('self.delta_y',self.delta_y)
                 if self.delta_x>0.:
                     espx = self.delta_x/2. *.95
                 else:
                     espx = .5
                 for i, chan in enumerate(channel_group['channels']):
+                    x, y = channel_group['geometry'][chan]
                     self.xvect[i*width:(i+1)*width] = np.linspace(x-espx, x+espx, num=width)
                 self.arr_geometry = np.array(self.arr_geometry)
 
@@ -193,6 +205,8 @@ class WaveformViewer(WidgetBase):
             self.refresh_mode_flatten()
         elif self.mode=='geometry':
             self.refresh_mode_geometry()
+        
+        self.curve_one_waveform = None
     
     def refresh_mode_flatten(self):
         self.plot1.clear()
@@ -304,3 +318,50 @@ class WaveformViewer(WidgetBase):
     def on_spike_selection_changed(self):
         pass
         #TODO peak the selected peak if only one
+
+
+        n_selected = np.sum(self.controller.spike_selection)
+        if n_selected!=1 or not self.params['plot_selected_spike']: 
+            
+            if self.curve_one_waveform is not None:
+                self.plot1.removeItem(self.curve_one_waveform)
+            
+            return
+        
+        if self.curve_one_waveform is None:
+            self.curve_one_waveform = pg.PlotCurveItem([], [], pen=pg.mkPen(QtGui.QColor( 'white'), width=1), connect='finite')
+            self.plot1.addItem(self.curve_one_waveform)
+        
+        ind, = np.nonzero(self.controller.spike_selection)
+        ind = ind[0]
+        seg_num = self.controller.spike_segment[ind]
+        peak_ind = self.controller.spike_index[ind]
+        
+        d = self.controller.info['params_waveformextractor']
+        n_left, n_right = d['n_left'], d['n_right']
+        
+        wf = self.controller.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.controller.chan_grp,
+                i_start=peak_ind+n_left, i_stop=peak_ind+n_right,
+                signal_type='processed', return_type='raw_numpy')
+        
+        
+        
+        if self.mode=='flatten':
+            wf = wf.T.flatten()
+            xvect = np.arange(wf.size)
+            self.curve_one_waveform.setData(xvect, wf)
+        elif self.mode=='geometry':
+            ypos = self.arr_geometry[:,1]
+            wf = wf*self.factor_y*self.delta_y + ypos[None, :]
+            wf[0,:] = np.nan
+            wf = wf.T.reshape(-1)
+            self.curve_one_waveform.setData(self.xvect, wf)
+            
+
+        
+        
+
+        
+
+
+

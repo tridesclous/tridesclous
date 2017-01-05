@@ -45,10 +45,23 @@ def test_DataIO():
 
 
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
-    dataio.set_data_source(type='RawData', filenames=filenames,  **params)
-    #~ dataio.set_channels(range(4))
-    dataio.set_manual_channel_group(range(14))
+    dataio.set_data_source(type='RawData', filenames=filenames, **params)
     
+    #with geometry
+    channels = list(range(14))
+    channel_groups = {0:{'channels':range(14), 'geometry' : { c: [0, i] for i, c in enumerate(channels) }}}
+    dataio.set_channel_groups(channel_groups)
+    
+    #with no geometry
+    channel_groups = {0:{'channels':range(4)}}
+    dataio.set_channel_groups(channel_groups)
+    
+    # add one group
+    dataio.add_one_channel_group(channels=range(4,8), chan_grp=5)
+    
+    
+    channel_groups = {0:{'channels':range(14)}}
+    dataio.set_channel_groups(channel_groups)
     
     for seg_num in range(dataio.nb_segment):
         for i_stop, sigs_chunk in dataio.iter_over_chunk(seg_num=seg_num, chunksize=1024):

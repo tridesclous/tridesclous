@@ -12,7 +12,6 @@ sns.set_style("white")
 
 from . import signalpreprocessor
 from . import  peakdetector
-from . import waveformextractor
 from . import decomposition
 from . import cluster 
 
@@ -324,6 +323,12 @@ class CatalogueConstructor:
                 self.some_waveforms[n, :, :] = wf
                 n +=1
         
+        #Test smooth
+        #~ box_size = 3
+        #~ kernel = np.ones(box_size)/box_size
+        #~ kernel = kernel[:, None, None]
+        #~ self.some_waveforms[:] = scipy.signal.fftconvolve(self.some_waveforms, kernel,'same')
+        
         self.info['params_waveformextractor'] = dict(n_left=n_left, n_right=n_right,  nb_max=nb_max)
         self.flush_info()
         
@@ -432,7 +437,7 @@ class CatalogueConstructor:
             features = self.some_features[sel]
             labels = cluster.find_clusters(features, method=method, n_clusters=n_clusters, **kargs)
             labels += max(self.cluster_labels)+1
-            self.all_peaks['label'][sel] = labels
+            self.all_peaks['label'][self.some_peaks_index[sel]] = labels
         
         self.on_new_cluster()
         
@@ -448,8 +453,11 @@ class CatalogueConstructor:
             self.centroids = {}
             label_changed = self.cluster_labels
         
+        if self.some_waveforms is None:
+            return 
         t1 = time.perf_counter()
         for k in label_changed:
+            if k <0: continue
             if k not in self.cluster_labels:
                 self.centroids.pop(k)
                 continue

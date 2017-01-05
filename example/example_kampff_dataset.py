@@ -10,13 +10,17 @@ from matplotlib import pyplot
 import time
 
 
-dirname='tridesclous_kampff_2014_11_25_Pair_3_0'
+#~ dirname='tridesclous_kampff_2014_11_25_Pair_3_0'
+
+dirname='tridesclous_kampff_2015_09_09_Pair_6_0'
+
 
 def initialize_catalogueconstructor():
-    filenames = ['/home/samuel/Documents/projet/Data SpikeSorting/kampff/2014_11_25_Pair_3_0/amplifier2014-11-25T23_00_08.bin']
+    #~ filenames = ['/home/samuel/Documents/projet/Data SpikeSorting/kampff/2014_11_25_Pair_3_0/amplifier2014-11-25T23_00_08.bin']
+    filenames = ['/home/sgarcia/Documents/projet/tridesclous/example/kampff/2015_09_09_Pair_6_0/amplifier2015-09-09T17_46_43.bin']
     dataio = DataIO(dirname=dirname)
     dataio.set_data_source(type='RawData', filenames=filenames, dtype='uint16',
-                                     total_channel=32, sample_rate=30000.)    
+                                     total_channel=128, sample_rate=30000.)    
     
     print(dataio)
     
@@ -63,7 +67,7 @@ def extract_waveforms_pca_cluster():
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
     t1 = time.perf_counter()
-    catalogueconstructor.extract_some_waveforms(n_left=-20, n_right=30,  nb_max=10000)
+    catalogueconstructor.extract_some_waveforms(n_left=-20, n_right=30,  nb_max=15000)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
 
@@ -73,12 +77,12 @@ def extract_waveforms_pca_cluster():
     print('find_good_limits', t2-t1)
 
     t1 = time.perf_counter()
-    catalogueconstructor.project(method='pca', n_components=20)
+    catalogueconstructor.project(method='peakmax_and_pca', n_components=30)
     t2 = time.perf_counter()
     print('project', t2-t1)
     
     t1 = time.perf_counter()
-    catalogueconstructor.find_clusters(method='gmm', n_clusters=12)
+    catalogueconstructor.find_clusters(method='kmeans', n_clusters=12)
     t2 = time.perf_counter()
     print('find_clusters', t2-t1)
     
@@ -113,7 +117,7 @@ def run_peeler():
                 )
     
     t1 = time.perf_counter()
-    peeler.run()
+    peeler.run(duration=60)
     t2 = time.perf_counter()
     print('peeler.run_loop', t2-t1)
     
@@ -135,6 +139,6 @@ if __name__ =='__main__':
     #~ extract_waveforms_pca_cluster()
     #~ open_cataloguewindow()
     run_peeler()
-    #~ open_PeelerWindow()
+    open_PeelerWindow()
 
     

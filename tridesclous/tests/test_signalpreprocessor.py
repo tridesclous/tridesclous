@@ -135,7 +135,46 @@ def test_compare_offline_online_engines():
         #~ pyplot.show()
 
 
+def test_smooth_with_filtfilt():
+    sigs = np.zeros((100, 1), 'float32')
+    sigs[49] = 6
+    sigs[50] = 8
+    sigs[51] = 5
+    sigs += np.random.randn(*sigs.shape)
+    
+    # smooth with box kernel
+    box_size = 3
+    kernel = np.ones(box_size)/box_size
+    kernel = kernel[:, None]
+    sigs_smooth =  scipy.signal.fftconvolve(sigs,kernel,'same')
+
+    # smooth with filter
+    coeff = np.array([1/3, 1/3, 1/3, 1,0,0], dtype='float32')
+    coeff = np.tile(coeff[None, :], (2, 1))
+    sigs_smooth2 = scipy.signal.sosfiltfilt(coeff, sigs, axis=0)
+    
+    # smooth with LP filter
+    coeff = np.array([1/3, 1/3, 1/3, 1,0,0], dtype='float32')
+    coeff = scipy.signal.iirfilter(5, 0.3, analog=False,
+                                    btype = 'lowpass', ftype = 'butter', output = 'sos')
+    sigs_smooth3 = scipy.signal.sosfiltfilt(coeff, sigs, axis=0)
+    
+
+    
+    fig, ax = pyplot.subplots()
+    ax.plot(sigs, color='b')
+    ax.plot(sigs_smooth, color='g')
+    ax.plot(sigs_smooth2, color='r')
+    ax.plot(sigs_smooth3, color='m')
+    
+    
+    pyplot.show()
+
+    
+    
+
 
     
 if __name__ == '__main__':
-    test_compare_offline_online_engines()
+    #~ test_compare_offline_online_engines()
+    test_smooth_with_filtfilt()
