@@ -457,6 +457,7 @@ class CatalogueConstructor:
             return 
         t1 = time.perf_counter()
         for k in label_changed:
+            if k <0: continue
             if k not in self.cluster_labels:
                 self.centroids.pop(k)
                 continue
