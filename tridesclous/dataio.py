@@ -10,7 +10,7 @@ from .iotools import ArrayCollection
 _signal_types = ['initial', 'processed']
 
 
-#TODO copy prb file into dir to avoid  json problem in info.json
+
 
 
 class DataIO:
@@ -54,19 +54,16 @@ class DataIO:
         if len(self.info) ==0 or self.datasource is None:
             t  += "\n  Not datasource is set yet"
             return t
-        
         t += "  sample_rate: {}\n".format(self.sample_rate)
-        
         t += "  total_channel: {}\n".format(self.total_channel)
-        t += "  channel_groups: {}\n".format(', '.join(['{} ({}ch)'.format(cg, self.nb_channel(cg))
+        if len(self.channel_groups)==1:
+            k0, cg0 = next(iter(self.channel_groups.items()))
+            chantxt = "[{} ... {}]".format(' '.join(str(e) for e in cg0['channels'][:4]),\
+                                                                        ' '.join(str(e) for e in cg0['channels'][-4:]))
+            t += "  channel_groups: {} {}\n".format(k0, chantxt)
+        else:
+            t += "  channel_groups: {}\n".format(', '.join(['{} ({}ch)'.format(cg, self.nb_channel(cg))
                                                                 for cg in self.channel_groups.keys() ]))
-        #~ t += "  nb_channel: {}\n".format(self.nb_channel)
-        #~ if self.nb_channel<12:
-            #~ t += "  channels: {}\n".format(self.channels)
-        #~ else:
-            #~ t += "  channels: [{} ... {}]\n".format(' '.join(str(e) for e in self.channels[:4]),
-                                                                                        #~ ' '.join(str(e) for e in self.channels[-4:]))
-        
         t += "  nb_segment: {}\n".format(self.nb_segment)
         if self.nb_segment<5:
             lengths = [ self.datasource.get_segment_shape(i)[0] for i in range(self.nb_segment)]
@@ -80,28 +77,6 @@ class DataIO:
         with open(self.info_filename, 'w', encoding='utf8') as f:
             json.dump(self.info, f, indent=4)
     
-    #~ def _reload_info(self):
-        #~ if 'channels' in self.info:
-            #~ self.channels = self.info['channels']
-        
-        
-        #~ if 'channel_groups' in self.info:
-            #~ #hack because channel_group are int  and json put them str
-            #~ keys = list(self.info['channel_groups'].keys())
-            #~ for k in keys:
-                #~ v = self.info['channel_groups'].pop(k)
-                #~ self.info['channel_groups'][int(k)] = v
-            #~ self.channel_groups = self.info['channel_groups']
-            
-            #~ #same thing foe channel key in geomtry
-            #~ for chan_grp, channel_group in self.channel_groups.items():
-                #~ keys = list(channel_group['geometry'].keys())
-                #~ for k in keys:
-                    #~ v = channel_group['geometry'].pop(k)
-                    #~ channel_group['geometry'][int(k)] = v
-    
-        
-
     def set_data_source(self, type='RawData', **kargs):
         assert type in data_source_classes, 'this source type do not exists yet!!'
         assert 'datasource_type' not in self.info, 'datasource is already set'
@@ -109,7 +84,6 @@ class DataIO:
         self.info['datasource_kargs'] = kargs
         self._reload_data_source()
         # be default chennel group all channels
-        #~ self.set_manual_channel_group(channels=np.arange(self.total_channel))
         channel_groups = {0:{'channels':list(range(self.total_channel))}}
         self.set_channel_groups( channel_groups, probe_filename='default.prb')
         
