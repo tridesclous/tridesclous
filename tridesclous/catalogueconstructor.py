@@ -51,7 +51,7 @@ class CatalogueConstructor:
         if chan_grp is None:
             chan_grp = min(self.dataio.channel_groups.keys())
         self.chan_grp = chan_grp
-        self.nb_channel = self.dataio.nb_channel(chan_grp = self.chan_grp)
+        self.nb_channel = self.dataio.nb_channel(chan_grp=self.chan_grp)
         
         self.catalogue_path = os.path.join(self.dataio.channel_group_path[chan_grp], name)
         
@@ -547,6 +547,7 @@ class CatalogueConstructor:
         self.catalogue = {}
         
         self.catalogue = {}
+        self.catalogue['chan_grp'] = self.chan_grp
         self.catalogue['n_left'] = int(self.info['params_waveformextractor']['n_left'] +2)
         self.catalogue['n_right'] = int(self.info['params_waveformextractor']['n_right'] -2)
         self.catalogue['peak_width'] = self.catalogue['n_right'] - self.catalogue['n_left']

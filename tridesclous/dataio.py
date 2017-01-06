@@ -1,4 +1,4 @@
-import os
+import os, shutil
 import json
 from collections import OrderedDict
 import numpy as np
@@ -143,7 +143,7 @@ class DataIO:
     def set_probe_file(self, src_probe_filename):
         self._rm_old_probe_file()
         probe_filename = os.path.join(self.dirname, os.path.basename(src_probe_filename))
-        shutil.copyfile(src_probe_filanme, probe_filename)
+        shutil.copyfile(src_probe_filename, probe_filename)
         self.info['probe_filename'] = os.path.basename(probe_filename)
         self.flush_info()
         self._reload_channel_group()
