@@ -306,8 +306,9 @@ class CatalogueConstructor:
         nb = some_peaks_index.size
         
         # make it persitent
-        self.arrays.create_array('some_peaks_index', 'int64', (nb,), self.memory_mode)
-        self.some_peaks_index[:] = some_peaks_index
+        #~ self.arrays.create_array('some_peaks_index', 'int64', (nb,), self.memory_mode)
+        #~ self.some_peaks_index[:] = some_peaks_index
+        self.arrays.add_array('some_peaks_index', some_peaks_index, self.memory_mode)
         
         shape=(nb, peak_width, self.nb_channel)
         self.arrays.create_array('some_waveforms', self.info['internal_dtype'], shape, self.memory_mode)
@@ -411,16 +412,19 @@ class CatalogueConstructor:
                     catalogueconstructor=self, **params)
         
         #trick to make it persistant
-        self.arrays.create_array('some_features', self.info['internal_dtype'], features.shape, self.memory_mode)
-        self.some_features[:] = features
+        #~ self.arrays.create_array('some_features', self.info['internal_dtype'], features.shape, self.memory_mode)
+        #~ self.some_features[:] = features
+        self.arrays.add_array('some_features', features.astype(self.info['internal_dtype']), self.memory_mode)
     
     def apply_projection(self):
         assert self.projector is not None
         features = self.projector.transform(self.some_waveforms)
         
         #trick to make it persistant
-        self.arrays.create_array('some_features', self.info['internal_dtype'], features.shape, self.memory_mode)
-        self.some_features[:] = features
+        #~ self.arrays.create_array('some_features', self.info['internal_dtype'], features.shape, self.memory_mode)
+        #~ self.some_features[:] = features
+        self.arrays.add_array('some_features', some_features.astype(self.info['internal_dtype']), self.memory_mode)
+        
     
     
     def find_clusters(self, method='kmeans', n_clusters=1, order_clusters=True, selection=None, **kargs):
@@ -636,14 +640,20 @@ class CatalogueConstructor:
     def save_catalogue(self):
         self.make_catalogue()
         
-        filename = os.path.join(self.catalogue_path, 'initial_catalogue.pickle')
-        with open(filename, mode='wb') as f:
-            pickle.dump(self.catalogue, f)
+        #~ filename = os.path.join(self.catalogue_path, 'initial_catalogue.pickle')
+        #~ with open(filename, mode='wb') as f:
+            #~ pickle.dump(self.catalogue, f)
+        self.dataio.save_catalogue(self.catalogue, name='initial')
+        
     
     def load_catalogue(self):
-        filename = os.path.join(self.catalogue_path, 'initial_catalogue.pickle')
-        assert os.path.exists(filename), 'No catalogue file is found'
-        with open(filename, mode='rb') as f:
-            self.catalogue = pickle.load(f)
+        #~ filename = os.path.join(self.catalogue_path, 'initial_catalogue.pickle')
+        #~ assert os.path.exists(filename), 'No catalogue file is found'
+        #~ with open(filename, mode='rb') as f:
+            #~ self.catalogue = pickle.load(f)
+        #~ return self.catalogue
+
+        print('!!!! CatalogueConstructor.load_catalogue WILL BE REMOVED!!!!!')
+        self.catalogue = self.dataio.load_catalogue(name='initial')
         return self.catalogue
 

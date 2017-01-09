@@ -51,6 +51,11 @@ class ArrayCollection:
         self.flush_json()
         return arr
     
+    def add_array(self, name, data, memory_mode):
+        self.create_array(name, data.dtype, data.shape, memory_mode)
+        self._array[name][:] = data
+
+    
     def delete_array(self, name):
         self.detach_array(name)
         raise(NotImplementedError)
@@ -125,8 +130,19 @@ class ArrayCollection:
         except:
             if self.parent is not None:
                 setattr(self.parent, name, None)
-
+    
+    def load_all(self):
+        with open(self._fname('arrays', ext='.json'), 'r', encoding='utf8') as f:
+            d = json.load(f)
+            all_keys = list(d.keys())
+        for k in all_keys:
+            self.load_if_exists(k)
+    
     def get(self, name):
         assert name in self._array_attr
         return self._array[name]
-        
+    
+    def keys(self):
+        return self._array.keys()
+    
+    

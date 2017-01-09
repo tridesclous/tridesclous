@@ -4,6 +4,7 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 from urllib.request import urlretrieve
+import pickle
 
 from .iotools import ArrayCollection
 
@@ -280,7 +281,47 @@ class DataIO:
     def get_spikes(self, seg_num=0, chan_grp=0, i_start=None, i_stop=None):
         spikes = self.arrays[chan_grp][seg_num].get('spikes')
         return spikes[i_start:i_stop]
+    
+    def save_catalogue(self, catalogue, name='initial'):
+        catalogue = dict(catalogue)
+        dir = os.path.join(self.dirname, 'catlogues', name)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        arrays = ArrayCollection(parent=None, dirname=dir)
+        
+        to_rem = []
+        for k, v in catalogue.items():
+            if isinstance(v, np.ndarray):
+                arrays.add_array(k, v, 'memmap')
+                to_rem.append(k)
+        
+        for k in to_rem:
+            catalogue.pop(k)
+        
+        # JSON is not possible for now because some key in catalogue are integer....
+        # So bad....
+        #~ with open(os.path.join(dir, 'catalogue.json'), 'w', encoding='utf8') as f:
+            #~ json.dump(catalogue, f, indent=4)
+        with open(os.path.join(dir, 'catalogue.pickle'), 'wb') as f:
+            pickle.dump(catalogue, f)
+        
+    
+    def load_catalogue(self,  name='initial'):
+        dir = os.path.join(self.dirname, 'catlogues', name)
+        
+        #~ with open(os.path.join(dir, 'catalogue.json'), 'r', encoding='utf8') as f:
+                #~ catalogue = json.load(f)
+        with open(os.path.join(dir, 'catalogue.pickle'), 'rb') as f:
+            catalogue = pickle.load(f)
 
+        
+        arrays = ArrayCollection(parent=None, dirname=dir)
+        arrays.load_all()
+        for k in arrays.keys():
+            catalogue[k] = arrays.get(k)
+        
+        
+        return catalogue
 
 
 

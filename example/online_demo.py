@@ -87,9 +87,7 @@ def setup_catalogue():
 
 def test_OnlinePeeler():
     dataio = DataIO(dirname='test_onlinepeeler')
-    catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    catalogue = catalogueconstructor.load_catalogue()
-    #~ print(catalogue)
+    catalogue = dataio.load_catalogue()
     
     #~ def print_dict(d):
         #~ for k, v in d.items():
@@ -160,7 +158,7 @@ def test_OnlinePeeler():
     
     # Node traceviewer
     tviewer = OnlineTraceViewer()
-    tviewer.configure(peak_buffer_size = 1000, catalogue=catalogue)
+    tviewer.configure(catalogue=catalogue)
     tviewer.inputs['signals'].connect(peeler.outputs['signals'])
     tviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
     tviewer.initialize()

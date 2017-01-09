@@ -110,14 +110,43 @@ def test_DataIO_probes():
     dataio = DataIO(dirname='test_DataIO')
     print(dataio)
     
+
+
+def test_dataio_catalogue():
+    if os.path.exists('test_DataIO'):
+        shutil.rmtree('test_DataIO')
+    
+    dataio = DataIO(dirname='test_DataIO')
+    
+    catalogue = {}
+    catalogue['centers0'] = np.ones((300, 12, 50))
+    
+    catalogue['n_left'] = -15
+    catalogue['params_signalpreprocessor'] = {'highpass_freq' : 300.}
+    
+    dataio.save_catalogue(catalogue, name='test')
+    
+    c2 = dataio.load_catalogue(name='test')
+    print(c2)
+    assert c2['n_left'] == -15
+    assert np.all(c2['centers0']==1)
+    assert catalogue['params_signalpreprocessor']['highpass_freq'] == 300.
+        
+    
+    
+    
+
+    
+    
+
     
     
 if __name__=='__main__':
     #~ test_InMemoryDataSource()
     #~ test_RawDataSource()
     
-    test_DataIO()
-    
+    #~ test_DataIO()
     #~ test_DataIO_probes()
+    test_dataio_catalogue()
     
     
