@@ -77,7 +77,7 @@ class CatalogueConstructor:
         #~ if self.peak_pos is not None:
         if self.all_peaks is not None:
             #~ self.nb_peak = self.peak_pos.size
-            self.nb_peak = self.all_peaks.size
+            #~ self.nb_peak = self.all_peaks.size
             self.memory_mode='memmap'
         
         self.projector = None
@@ -156,7 +156,7 @@ class CatalogueConstructor:
         for i in range(self.dataio.nb_segment):
             self.dataio.reset_processed_signals(seg_num=i, chan_grp=self.chan_grp, dtype=internal_dtype)
         
-        self.nb_peak = 0
+        #~ self.nb_peak = 0
         
         #TODO put all params in info
         self.info['internal_dtype'] = internal_dtype
@@ -232,7 +232,7 @@ class CatalogueConstructor:
             peaks['label'][:] = LABEL_UNSLASSIFIED
             self.arrays.append_chunk('all_peaks',  peaks)
             
-            self.nb_peak += peaks.size
+            #~ self.nb_peak += peaks.size
         
 
         
@@ -273,8 +273,12 @@ class CatalogueConstructor:
         self.finalize_signalprocessor_loop()
         
     
-    
-    
+    @property
+    def nb_peak(self):
+        if self.all_peaks is None:
+            return 0
+        return self.all_peaks.size
+        
     def extract_some_waveforms(self, n_left=None, n_right=None, index=None, mode='rand', nb_max=10000):
         """
         
@@ -655,5 +659,5 @@ class CatalogueConstructor:
 
         print('!!!! CatalogueConstructor.load_catalogue WILL BE REMOVED!!!!!')
         self.catalogue = self.dataio.load_catalogue(name='initial')
-        return self.catalogue
+        return 
 
