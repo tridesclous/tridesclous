@@ -597,14 +597,14 @@ class CatalogueConstructor:
             
             #median and
             #eliminate margin because of border effect of derivative and reshape
-            #~ center0 = np.median(wf0, axis=0)
-            #~ centers0[i,:,:] = center0[2:-2, :]
-            #~ centers1[i,:,:] = np.median(wf1, axis=0)[2:-2, :]
-            #~ centers2[i,:,:] = np.median(wf2, axis=0)[2:-2, :]
-            center0 = np.mean(wf0, axis=0)
+            center0 = np.median(wf0, axis=0)
             centers0[i,:,:] = center0[2:-2, :]
-            centers1[i,:,:] = np.mean(wf1, axis=0)[2:-2, :]
-            centers2[i,:,:] = np.mean(wf2, axis=0)[2:-2, :]
+            centers1[i,:,:] = np.median(wf1, axis=0)[2:-2, :]
+            centers2[i,:,:] = np.median(wf2, axis=0)[2:-2, :]
+            #~ center0 = np.mean(wf0, axis=0)
+            #~ centers0[i,:,:] = center0[2:-2, :]
+            #~ centers1[i,:,:] = np.mean(wf1, axis=0)[2:-2, :]
+            #~ centers2[i,:,:] = np.mean(wf2, axis=0)[2:-2, :]
 
             #interpolate centers0 for reconstruction inbetween bsample when jitter is estimated
             f = scipy.interpolate.interp1d(np.arange(full_width), center0, axis=0, kind='cubic')
