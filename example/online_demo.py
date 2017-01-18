@@ -87,7 +87,7 @@ def setup_catalogue():
 
 def test_OnlinePeeler():
     dataio = DataIO(dirname='test_onlinepeeler')
-    catalogue = dataio.load_catalogue()
+    catalogue = dataio.load_catalogue(chan_grp=0)
     
     #~ def print_dict(d):
         #~ for k, v in d.items():

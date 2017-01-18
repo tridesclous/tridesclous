@@ -52,7 +52,7 @@ def test_ClusterSpikeList():
 
 def test_PeelerWindow():
     dataio = DataIO(dirname='test_peeler')
-    initial_catalogue = dataio.load_catalogue()
+    initial_catalogue = dataio.load_catalogue(chan_grp=0)
 
     app = pg.mkQApp()
     win = PeelerWindow(dataio=dataio, catalogue=initial_catalogue)
