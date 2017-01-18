@@ -548,6 +548,23 @@ class CatalogueConstructor:
         
         self.on_new_cluster()
     
+    def compute_similarity(self, cluster_labels=None):
+        if cluster_labels is None:
+            cluster_labels = self.cluster_labels[self.cluster_labels>=0]
+        n = cluster_labels.size
+        
+        #~ similarity = np.zeros((n, n))
+        all = []
+        for i, k in enumerate(cluster_labels):
+            all.append(self.centroids[k]['median'].flatten())
+        
+        similarity = np.corrcoef(all)
+        
+        similarity[np.arange(n), np.arange(n)] = np.nan
+        
+        return similarity, cluster_labels
+        
+    
     def make_catalogue(self):
         #TODO: offer possibility to resample some waveforms or choose the number
         
@@ -650,14 +667,14 @@ class CatalogueConstructor:
         self.dataio.save_catalogue(self.catalogue, name='initial')
         
     
-    def load_catalogue(self):
+    #~ def load_catalogue(self):
         #~ filename = os.path.join(self.catalogue_path, 'initial_catalogue.pickle')
         #~ assert os.path.exists(filename), 'No catalogue file is found'
         #~ with open(filename, mode='rb') as f:
             #~ self.catalogue = pickle.load(f)
         #~ return self.catalogue
 
-        print('!!!! CatalogueConstructor.load_catalogue WILL BE REMOVED!!!!!')
-        self.catalogue = self.dataio.load_catalogue(name='initial')
-        return 
+        #~ print('!!!! CatalogueConstructor.load_catalogue WILL BE REMOVED!!!!!')
+        #~ self.catalogue = self.dataio.load_catalogue(name='initial')
+        #~ return 
 

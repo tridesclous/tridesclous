@@ -115,6 +115,13 @@ def test_catalogue_constructor():
         print('find_clusters', t2-t1)
         
         
+        # similarity
+        #~ catalogueconstructor.compute_centroid()
+        #~ similarity, cluster_labels = catalogueconstructor.compute_similarity()
+        #~ print(cluster_labels)
+        #~ fig, ax = pyplot.subplots()
+        #~ ax.matshow(similarity)
+        #~ pyplot.show()
         
         #plot
         #~ wf = catalogueconstructor.some_waveforms
@@ -124,6 +131,9 @@ def test_catalogue_constructor():
         #~ ax.plot(np.median(wf, axis=0), color='b')
         
         #~ pyplot.show()
+
+#~ def show_similarity():
+    
     
     
 def compare_nb_waveforms():
@@ -240,11 +250,10 @@ def test_make_catalogue():
     catalogueconstructor.make_catalogue()
     
 
-
     
 if __name__ == '__main__':
-    #~ test_catalogue_constructor()
+    test_catalogue_constructor()
     
     #~ compare_nb_waveforms()
     
-    test_make_catalogue()
+    #~ test_make_catalogue()
