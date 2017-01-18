@@ -286,7 +286,7 @@ class DataIO:
     def save_catalogue(self, catalogue, name='initial'):
         catalogue = dict(catalogue)
         chan_grp = catalogue['chan_grp']
-        dir = os.path.join(self.dirname,'channel_group_{}'.format(chan_grp), 'catlogues', name)
+        dir = os.path.join(self.dirname,'channel_group_{}'.format(chan_grp), 'catalogues', name)
         if not os.path.exists(dir):
             os.makedirs(dir)
         arrays = ArrayCollection(parent=None, dirname=dir)
@@ -309,7 +309,7 @@ class DataIO:
         
     
     def load_catalogue(self,  name='initial', chan_grp=0):
-        dir = os.path.join(self.dirname,'channel_group_{}'.format(chan_grp), 'catlogues', name)
+        dir = os.path.join(self.dirname,'channel_group_{}'.format(chan_grp), 'catalogues', name)
         
         #~ with open(os.path.join(dir, 'catalogue.json'), 'r', encoding='utf8') as f:
                 #~ catalogue = json.load(f)

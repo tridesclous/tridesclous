@@ -10,7 +10,7 @@ install_requires = [
                     'sklearn',
                     'matplotlib',
                     'seaborn',
-                    'tables',
+                    #~ 'tables',
                     ]
 extras_require={ 'gui' : ['PyQt5', 'pyqtgraph', 'matplotlib'],
                             'online' : 'pyacq',
