@@ -72,7 +72,9 @@ class CatalogueConstructor:
         
         for name in _persitent_arrays:
             # this set attribute to class if exsits
+            #~ print('ici', name)
             self.arrays.load_if_exists(name)
+            
         
         #~ if self.peak_pos is not None:
         if self.all_peaks is not None:
@@ -302,7 +304,8 @@ class CatalogueConstructor:
             else:
                 raise(NotImplementedError, 'unknown mode')
         
-        some_peaks_index = np.unique(some_peaks_index)# this is important to not take 2 times the sames, this leads to bad mad/median
+        # this is important to not take 2 times the sames, this leads to bad mad/median
+        some_peaks_index = np.unique(some_peaks_index)
         
         some_peak_mask = np.zeros(self.nb_peak, dtype='bool')
         some_peak_mask[some_peaks_index] = True

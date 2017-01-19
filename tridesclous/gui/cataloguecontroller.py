@@ -16,7 +16,7 @@ class CatalogueController(ControllerBase):
         
         self.dataio = catalogueconstructor.dataio
         self.chan_grp = catalogueconstructor.chan_grp
-        print('CatalogueController', self.chan_grp)
+        #~ print('CatalogueController', self.chan_grp)
         self.nb_channel = self.dataio.nb_channel(self.chan_grp)
         
         self.cc = catalogueconstructor = catalogueconstructor

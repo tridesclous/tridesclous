@@ -1,7 +1,8 @@
 import os
 import json
 import numpy as np
-
+import io
+import sys
 
 class ArrayCollection:
     """
@@ -37,12 +38,44 @@ class ArrayCollection:
                     dt = self._array[name].dtype.descr
                 d[name] = dict(dtype=dt, shape=list(self._array[name].shape))
             json.dump(d, f, indent=4)        
-        
+    
+    def _fix_existing(self, name):
+        # deal with a bug on windows when creating a memmap in w+
+        # when the file already existing in r+ mode
+        #~ print(sys.platform)
+        if not sys.platform.startswith('win'):
+            return 'w+'
+        if name in self._array:
+            #~ print('create_array oups exists!!!', name)
+            #~ print(type(self._array[name]))
+            #~ print('new array', dtype, shape)
+            if isinstance(self._array[name], np.memmap):
+                a = self._array.pop(name)
+                #~ print('old array', a.dtype, a.shape, a.mode)#, a.filename)
+                a._mmap.close()
+                if self.parent is not None:
+                    delattr(self.parent, name)
+                del(a)
+            elif isinstance(self._array[name], io.IOBase):
+                a = self._array.pop(name)
+                a.close()
+            #~ if os.path.exists(self._fname(name)):
+                #~ print('remove', self._fname(name))
+                #~ os.remove(self._fname(name))
+            mode='r+'
+        else:
+            mode='w+'
+        #~ print('mode', mode)
+        return mode
+    
     def create_array(self, name, dtype, shape, memory_mode):
+        
         if memory_mode=='ram':
             arr = np.zeros(shape, dtype=dtype)
         elif memory_mode=='memmap':
-            arr = np.memmap(self._fname(name), dtype=dtype, mode='w+', shape=shape)
+            mode = self._fix_existing(name)
+            #~ arr = np.memmap(self._fname(name), dtype=dtype, mode='w+', shape=shape)
+            arr = np.memmap(self._fname(name), dtype=dtype, mode=mode, shape=shape)
         self._array[name] = arr
         self._array_attr[name] = {'state':'w', 'memory_mode':memory_mode}
         
@@ -70,7 +103,8 @@ class ArrayCollection:
         if memory_mode=='ram':
             self._array[name] = []
         elif memory_mode=='memmap':
-            self._array[name] = open(self._fname(name), mode='wb')
+            mode = self._fix_existing(name)
+            self._array[name] = open(self._fname(name), mode='wb+')
         
         self._array_attr[name] = {'state':'a', 'memory_mode':memory_mode, 'dtype': dtype, 'shape':shape}
         
@@ -120,7 +154,12 @@ class ArrayCollection:
                         dtype = np.dtype(d[name]['dtype'])
                     else:
                         dtype = np.dtype([ (k,v) for k,v in d[name]['dtype']])
-                    self._array[name] = np.memmap(self._fname(name), dtype=dtype, mode='r+').reshape(d[name]['shape'])
+                    #TODO fix this
+                    arr = np.memmap(self._fname(name), dtype=dtype, mode='r+')
+                    #~ print(arr.shape, np.prod(d[name]['shape']))
+                    arr = arr[:np.prod(d[name]['shape'])]
+                    arr = arr.reshape(d[name]['shape'])
+                    self._array[name] = arr
                     self._array_attr[name] = {'state':'r', 'memory_mode':'memmap'}
                     if self.parent is not None:
                         setattr(self.parent, name, self._array[name])
@@ -128,6 +167,7 @@ class ArrayCollection:
                     if self.parent is not None:
                         setattr(self.parent, name, None)
         except:
+            #~ print('erreur load', name)
             if self.parent is not None:
                 setattr(self.parent, name, None)
     

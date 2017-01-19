@@ -438,7 +438,11 @@ class BaseTraceViewer(WidgetBase):
                 sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
                 if k >=0:
                     c = self.controller.get_max_on_channel(k)
-                    c = np.array([c]*np.sum(mask), dtype=int)
+                    if c is not None:
+                        #~ print('k', k, 'c', c)
+                        c = np.array([c]*np.sum(mask), dtype='int64')
+                    else:
+                        c = np.argmax(np.abs(sigs_chunk_in), axis=1)
                 else:
                     c = np.argmax(np.abs(sigs_chunk_in), axis=1)
                 keep = self.visible_channels[c]
