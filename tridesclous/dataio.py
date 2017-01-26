@@ -1,16 +1,17 @@
-import os
+import os, shutil
 import json
 from collections import OrderedDict
 import numpy as np
 import pandas as pd
 from urllib.request import urlretrieve
+import pickle
 
 from .iotools import ArrayCollection
 
 _signal_types = ['initial', 'processed']
 
 
-#TODO copy prb file into dir to avoid  json problem in info.json
+
 
 
 class DataIO:
@@ -38,7 +39,8 @@ class DataIO:
             #~ print(self.info)
             #~ print('*'*50)
             #~ try:
-            if 1:
+            #~ if 1:
+            if len(self.info)>0:
                 #~ self._reload_info()
                 self._reload_channel_group()
                 self._reload_data_source()
@@ -54,19 +56,16 @@ class DataIO:
         if len(self.info) ==0 or self.datasource is None:
             t  += "\n  Not datasource is set yet"
             return t
-        
         t += "  sample_rate: {}\n".format(self.sample_rate)
-        
         t += "  total_channel: {}\n".format(self.total_channel)
-        t += "  channel_groups: {}\n".format(', '.join(['{} ({}ch)'.format(cg, self.nb_channel(cg))
+        if len(self.channel_groups)==1:
+            k0, cg0 = next(iter(self.channel_groups.items()))
+            chantxt = "[{} ... {}]".format(' '.join(str(e) for e in cg0['channels'][:4]),\
+                                                                        ' '.join(str(e) for e in cg0['channels'][-4:]))
+            t += "  channel_groups: {} {}\n".format(k0, chantxt)
+        else:
+            t += "  channel_groups: {}\n".format(', '.join(['{} ({}ch)'.format(cg, self.nb_channel(cg))
                                                                 for cg in self.channel_groups.keys() ]))
-        #~ t += "  nb_channel: {}\n".format(self.nb_channel)
-        #~ if self.nb_channel<12:
-            #~ t += "  channels: {}\n".format(self.channels)
-        #~ else:
-            #~ t += "  channels: [{} ... {}]\n".format(' '.join(str(e) for e in self.channels[:4]),
-                                                                                        #~ ' '.join(str(e) for e in self.channels[-4:]))
-        
         t += "  nb_segment: {}\n".format(self.nb_segment)
         if self.nb_segment<5:
             lengths = [ self.datasource.get_segment_shape(i)[0] for i in range(self.nb_segment)]
@@ -80,28 +79,6 @@ class DataIO:
         with open(self.info_filename, 'w', encoding='utf8') as f:
             json.dump(self.info, f, indent=4)
     
-    #~ def _reload_info(self):
-        #~ if 'channels' in self.info:
-            #~ self.channels = self.info['channels']
-        
-        
-        #~ if 'channel_groups' in self.info:
-            #~ #hack because channel_group are int  and json put them str
-            #~ keys = list(self.info['channel_groups'].keys())
-            #~ for k in keys:
-                #~ v = self.info['channel_groups'].pop(k)
-                #~ self.info['channel_groups'][int(k)] = v
-            #~ self.channel_groups = self.info['channel_groups']
-            
-            #~ #same thing foe channel key in geomtry
-            #~ for chan_grp, channel_group in self.channel_groups.items():
-                #~ keys = list(channel_group['geometry'].keys())
-                #~ for k in keys:
-                    #~ v = channel_group['geometry'].pop(k)
-                    #~ channel_group['geometry'][int(k)] = v
-    
-        
-
     def set_data_source(self, type='RawData', **kargs):
         assert type in data_source_classes, 'this source type do not exists yet!!'
         assert 'datasource_type' not in self.info, 'datasource is already set'
@@ -109,7 +86,6 @@ class DataIO:
         self.info['datasource_kargs'] = kargs
         self._reload_data_source()
         # be default chennel group all channels
-        #~ self.set_manual_channel_group(channels=np.arange(self.total_channel))
         channel_groups = {0:{'channels':list(range(self.total_channel))}}
         self.set_channel_groups( channel_groups, probe_filename='default.prb')
         
@@ -143,7 +119,7 @@ class DataIO:
     def set_probe_file(self, src_probe_filename):
         self._rm_old_probe_file()
         probe_filename = os.path.join(self.dirname, os.path.basename(src_probe_filename))
-        shutil.copyfile(src_probe_filanme, probe_filename)
+        shutil.copyfile(src_probe_filename, probe_filename)
         self.info['probe_filename'] = os.path.basename(probe_filename)
         self.flush_info()
         self._reload_channel_group()
@@ -306,7 +282,48 @@ class DataIO:
     def get_spikes(self, seg_num=0, chan_grp=0, i_start=None, i_stop=None):
         spikes = self.arrays[chan_grp][seg_num].get('spikes')
         return spikes[i_start:i_stop]
+    
+    def save_catalogue(self, catalogue, name='initial'):
+        catalogue = dict(catalogue)
+        chan_grp = catalogue['chan_grp']
+        dir = os.path.join(self.dirname,'channel_group_{}'.format(chan_grp), 'catalogues', name)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        arrays = ArrayCollection(parent=None, dirname=dir)
+        
+        to_rem = []
+        for k, v in catalogue.items():
+            if isinstance(v, np.ndarray):
+                arrays.add_array(k, v, 'memmap')
+                to_rem.append(k)
+        
+        for k in to_rem:
+            catalogue.pop(k)
+        
+        # JSON is not possible for now because some key in catalogue are integer....
+        # So bad....
+        #~ with open(os.path.join(dir, 'catalogue.json'), 'w', encoding='utf8') as f:
+            #~ json.dump(catalogue, f, indent=4)
+        with open(os.path.join(dir, 'catalogue.pickle'), 'wb') as f:
+            pickle.dump(catalogue, f)
+        
+    
+    def load_catalogue(self,  name='initial', chan_grp=0):
+        dir = os.path.join(self.dirname,'channel_group_{}'.format(chan_grp), 'catalogues', name)
+        
+        #~ with open(os.path.join(dir, 'catalogue.json'), 'r', encoding='utf8') as f:
+                #~ catalogue = json.load(f)
+        with open(os.path.join(dir, 'catalogue.pickle'), 'rb') as f:
+            catalogue = pickle.load(f)
 
+        
+        arrays = ArrayCollection(parent=None, dirname=dir)
+        arrays.load_all()
+        for k in arrays.keys():
+            catalogue[k] = arrays.get(k)
+        
+        
+        return catalogue
 
 
 

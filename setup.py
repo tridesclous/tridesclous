@@ -10,7 +10,7 @@ install_requires = [
                     'sklearn',
                     'matplotlib',
                     'seaborn',
-                    'tables',
+                    #~ 'tables',
                     ]
 extras_require={ 'gui' : ['PyQt5', 'pyqtgraph', 'matplotlib'],
                             'online' : 'pyacq',
@@ -21,7 +21,7 @@ long_description = ""
 setup(
     name = "tridesclous",
     version = tridesclous.__version__,
-    packages = ['tridesclous', ],
+    packages = ['tridesclous', 'tridesclous.gui','tridesclous.online', ],
     install_requires=install_requires,
     extras_require = extras_require,
     author = "C. Pouzat, S.Garcia",

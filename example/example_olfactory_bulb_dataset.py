@@ -123,8 +123,7 @@ def open_cataloguewindow():
 
 def run_peeler():
     dataio = DataIO(dirname=dirname)
-    catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    initial_catalogue = catalogueconstructor.load_catalogue()
+    initial_catalogue = dataio.load_catalogue(chan_grp=0)
 
     peeler = Peeler(dataio)
     peeler.change_params(catalogue=initial_catalogue, n_peel_level=2)
@@ -139,8 +138,7 @@ def run_peeler():
 def open_PeelerWindow():
     dataio = DataIO(dirname=dirname)
     print(dataio)
-    catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    initial_catalogue = catalogueconstructor.load_catalogue()
+    initial_catalogue = dataio.load_catalogue(chan_grp=0)
 
     app = pg.mkQApp()
     win = PeelerWindow(dataio=dataio, catalogue=initial_catalogue)

@@ -50,6 +50,7 @@ class WaveformViewer(WidgetBase):
 
     def create_settings(self):
         _params = [{'name': 'plot_selected_spike', 'type': 'bool', 'value': True },
+                            {'name': 'show_only_selected_cluster', 'type': 'bool', 'value': True },
                           {'name': 'plot_limit_for_flatten', 'type': 'bool', 'value': True },
                           {'name': 'metrics', 'type': 'list', 'values': ['median/mad', 'mean/std'] },
                           {'name': 'fillbetween', 'type': 'bool', 'value': True },
@@ -116,6 +117,9 @@ class WaveformViewer(WidgetBase):
         self.plot1 = grid.addPlot(row=0, col=0, rowspan=2, viewBox=self.viewBox1)
         self.plot1.hideButtons()
         self.plot1.showAxis('left', True)
+
+        self.curve_one_waveform = pg.PlotCurveItem([], [], pen=pg.mkPen(QtGui.QColor( 'white'), width=1), connect='finite')
+        self.plot1.addItem(self.curve_one_waveform)
         
         if self.mode=='flatten':
             grid.nextRow()
@@ -201,16 +205,29 @@ class WaveformViewer(WidgetBase):
         self.refresh()
     
     def refresh(self):
-        if self.mode=='flatten':
-            self.refresh_mode_flatten()
-        elif self.mode=='geometry':
-            self.refresh_mode_geometry()
+        n_selected = np.sum(self.controller.spike_selection)
         
-        self.curve_one_waveform = None
+        if self.params['show_only_selected_cluster'] and n_selected==1:
+            cluster_visible = {k:False for k in self.controller.cluster_visible}
+            ind, = np.nonzero(self.controller.spike_selection)
+            ind = ind[0]
+            k = self.controller.spikes[ind]['label']
+            cluster_visible[k] = True
+        else:
+            cluster_visible = self.controller.cluster_visible
+        
+        if self.mode=='flatten':
+            self.refresh_mode_flatten(cluster_visible)
+        elif self.mode=='geometry':
+            self.refresh_mode_geometry(cluster_visible)
+        
+        self._refresh_one_spike(n_selected)
     
-    def refresh_mode_flatten(self):
+    
+    def refresh_mode_flatten(self, cluster_visible):
         self.plot1.clear()
         self.plot2.clear()
+        self.plot1.addItem(self.curve_one_waveform)
         
         if self.controller.spike_index ==[]:
             return
@@ -251,7 +268,8 @@ class WaveformViewer(WidgetBase):
         xvect = np.arange(shape[0]*shape[1])
         
         for i,k in enumerate(self.controller.centroids):
-            if not self.controller.cluster_visible[k]:
+            #~ if not self.controller.cluster_visible[k]:
+            if not cluster_visible[k]:
                 continue
             
             wf0 = self.controller.centroids[k][key1].T.flatten()
@@ -284,8 +302,9 @@ class WaveformViewer(WidgetBase):
 
         
 
-    def refresh_mode_geometry(self):
+    def refresh_mode_geometry(self, cluster_visible):
         self.plot1.clear()
+        self.plot1.addItem(self.curve_one_waveform)
         
         if self.xvect is None:
             return
@@ -298,7 +317,8 @@ class WaveformViewer(WidgetBase):
         ypos = self.arr_geometry[:,1]
         
         for i,k in enumerate(self.controller.centroids):
-            if not self.controller.cluster_visible[k]:
+            #~ if not self.controller.cluster_visible[k]:
+            if not cluster_visible[k]:
                 continue
             
             wf = self.controller.centroids[k][key1]
@@ -314,23 +334,16 @@ class WaveformViewer(WidgetBase):
         self.plot1.setXRange(np.min(self.xvect), np.max(self.xvect), padding = 0.0)
         self.plot1.setYRange(np.min(ypos)-self.delta_y*2, np.max(ypos)+self.delta_y*2, padding = 0.0)
         
-
-    def on_spike_selection_changed(self):
-        pass
+    
+    def _refresh_one_spike(self, n_selected):
+                #~ pass
         #TODO peak the selected peak if only one
 
-
-        n_selected = np.sum(self.controller.spike_selection)
-        if n_selected!=1 or not self.params['plot_selected_spike']: 
-            
-            if self.curve_one_waveform is not None:
-                self.plot1.removeItem(self.curve_one_waveform)
-            
-            return
         
-        if self.curve_one_waveform is None:
-            self.curve_one_waveform = pg.PlotCurveItem([], [], pen=pg.mkPen(QtGui.QColor( 'white'), width=1), connect='finite')
-            self.plot1.addItem(self.curve_one_waveform)
+        
+        if n_selected!=1 or not self.params['plot_selected_spike']: 
+            self.curve_one_waveform.setData([], [])
+            return
         
         ind, = np.nonzero(self.controller.spike_selection)
         ind = ind[0]
@@ -344,8 +357,6 @@ class WaveformViewer(WidgetBase):
                 i_start=peak_ind+n_left, i_stop=peak_ind+n_right,
                 signal_type='processed', return_type='raw_numpy')
         
-        
-        
         if self.mode=='flatten':
             wf = wf.T.flatten()
             xvect = np.arange(wf.size)
@@ -356,6 +367,11 @@ class WaveformViewer(WidgetBase):
             wf[0,:] = np.nan
             wf = wf.T.reshape(-1)
             self.curve_one_waveform.setData(self.xvect, wf)
+    
+    def on_spike_selection_changed(self):
+        #~ n_selected = np.sum(self.controller.spike_selection)
+        #~ self._refresh_one_spike(n_selected)
+        self.refresh()
             
 
         

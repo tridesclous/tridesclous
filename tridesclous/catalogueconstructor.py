@@ -51,7 +51,7 @@ class CatalogueConstructor:
         if chan_grp is None:
             chan_grp = min(self.dataio.channel_groups.keys())
         self.chan_grp = chan_grp
-        self.nb_channel = self.dataio.nb_channel(chan_grp = self.chan_grp)
+        self.nb_channel = self.dataio.nb_channel(chan_grp=self.chan_grp)
         
         self.catalogue_path = os.path.join(self.dataio.channel_group_path[chan_grp], name)
         
@@ -72,12 +72,14 @@ class CatalogueConstructor:
         
         for name in _persitent_arrays:
             # this set attribute to class if exsits
+            #~ print('ici', name)
             self.arrays.load_if_exists(name)
+            
         
         #~ if self.peak_pos is not None:
         if self.all_peaks is not None:
             #~ self.nb_peak = self.peak_pos.size
-            self.nb_peak = self.all_peaks.size
+            #~ self.nb_peak = self.all_peaks.size
             self.memory_mode='memmap'
         
         self.projector = None
@@ -156,7 +158,7 @@ class CatalogueConstructor:
         for i in range(self.dataio.nb_segment):
             self.dataio.reset_processed_signals(seg_num=i, chan_grp=self.chan_grp, dtype=internal_dtype)
         
-        self.nb_peak = 0
+        #~ self.nb_peak = 0
         
         #TODO put all params in info
         self.info['internal_dtype'] = internal_dtype
@@ -232,7 +234,7 @@ class CatalogueConstructor:
             peaks['label'][:] = LABEL_UNSLASSIFIED
             self.arrays.append_chunk('all_peaks',  peaks)
             
-            self.nb_peak += peaks.size
+            #~ self.nb_peak += peaks.size
         
 
         
@@ -273,8 +275,12 @@ class CatalogueConstructor:
         self.finalize_signalprocessor_loop()
         
     
-    
-    
+    @property
+    def nb_peak(self):
+        if self.all_peaks is None:
+            return 0
+        return self.all_peaks.size
+        
     def extract_some_waveforms(self, n_left=None, n_right=None, index=None, mode='rand', nb_max=10000):
         """
         
@@ -298,7 +304,8 @@ class CatalogueConstructor:
             else:
                 raise(NotImplementedError, 'unknown mode')
         
-        some_peaks_index = np.unique(some_peaks_index)# this is important to not take 2 times the sames, this leads to bad mad/median
+        # this is important to not take 2 times the sames, this leads to bad mad/median
+        some_peaks_index = np.unique(some_peaks_index)
         
         some_peak_mask = np.zeros(self.nb_peak, dtype='bool')
         some_peak_mask[some_peaks_index] = True
@@ -306,8 +313,9 @@ class CatalogueConstructor:
         nb = some_peaks_index.size
         
         # make it persitent
-        self.arrays.create_array('some_peaks_index', 'int64', (nb,), self.memory_mode)
-        self.some_peaks_index[:] = some_peaks_index
+        #~ self.arrays.create_array('some_peaks_index', 'int64', (nb,), self.memory_mode)
+        #~ self.some_peaks_index[:] = some_peaks_index
+        self.arrays.add_array('some_peaks_index', some_peaks_index, self.memory_mode)
         
         shape=(nb, peak_width, self.nb_channel)
         self.arrays.create_array('some_waveforms', self.info['internal_dtype'], shape, self.memory_mode)
@@ -411,16 +419,19 @@ class CatalogueConstructor:
                     catalogueconstructor=self, **params)
         
         #trick to make it persistant
-        self.arrays.create_array('some_features', self.info['internal_dtype'], features.shape, self.memory_mode)
-        self.some_features[:] = features
+        #~ self.arrays.create_array('some_features', self.info['internal_dtype'], features.shape, self.memory_mode)
+        #~ self.some_features[:] = features
+        self.arrays.add_array('some_features', features.astype(self.info['internal_dtype']), self.memory_mode)
     
     def apply_projection(self):
         assert self.projector is not None
         features = self.projector.transform(self.some_waveforms)
         
         #trick to make it persistant
-        self.arrays.create_array('some_features', self.info['internal_dtype'], features.shape, self.memory_mode)
-        self.some_features[:] = features
+        #~ self.arrays.create_array('some_features', self.info['internal_dtype'], features.shape, self.memory_mode)
+        #~ self.some_features[:] = features
+        self.arrays.add_array('some_features', some_features.astype(self.info['internal_dtype']), self.memory_mode)
+        
     
     
     def find_clusters(self, method='kmeans', n_clusters=1, order_clusters=True, selection=None, **kargs):
@@ -540,6 +551,23 @@ class CatalogueConstructor:
         
         self.on_new_cluster()
     
+    def compute_similarity(self, cluster_labels=None):
+        if cluster_labels is None:
+            cluster_labels = self.cluster_labels[self.cluster_labels>=0]
+        n = cluster_labels.size
+        
+        #~ similarity = np.zeros((n, n))
+        all = []
+        for i, k in enumerate(cluster_labels):
+            all.append(self.centroids[k]['median'].flatten())
+        
+        similarity = np.corrcoef(all)
+        
+        similarity[np.arange(n), np.arange(n)] = np.nan
+        
+        return similarity, cluster_labels
+        
+    
     def make_catalogue(self):
         #TODO: offer possibility to resample some waveforms or choose the number
         
@@ -547,6 +575,7 @@ class CatalogueConstructor:
         self.catalogue = {}
         
         self.catalogue = {}
+        self.catalogue['chan_grp'] = self.chan_grp
         self.catalogue['n_left'] = int(self.info['params_waveformextractor']['n_left'] +2)
         self.catalogue['n_right'] = int(self.info['params_waveformextractor']['n_right'] -2)
         self.catalogue['peak_width'] = self.catalogue['n_right'] - self.catalogue['n_left']
@@ -588,14 +617,14 @@ class CatalogueConstructor:
             
             #median and
             #eliminate margin because of border effect of derivative and reshape
-            #~ center0 = np.median(wf0, axis=0)
-            #~ centers0[i,:,:] = center0[2:-2, :]
-            #~ centers1[i,:,:] = np.median(wf1, axis=0)[2:-2, :]
-            #~ centers2[i,:,:] = np.median(wf2, axis=0)[2:-2, :]
-            center0 = np.mean(wf0, axis=0)
+            center0 = np.median(wf0, axis=0)
             centers0[i,:,:] = center0[2:-2, :]
-            centers1[i,:,:] = np.mean(wf1, axis=0)[2:-2, :]
-            centers2[i,:,:] = np.mean(wf2, axis=0)[2:-2, :]
+            centers1[i,:,:] = np.median(wf1, axis=0)[2:-2, :]
+            centers2[i,:,:] = np.median(wf2, axis=0)[2:-2, :]
+            #~ center0 = np.mean(wf0, axis=0)
+            #~ centers0[i,:,:] = center0[2:-2, :]
+            #~ centers1[i,:,:] = np.mean(wf1, axis=0)[2:-2, :]
+            #~ centers2[i,:,:] = np.mean(wf2, axis=0)[2:-2, :]
 
             #interpolate centers0 for reconstruction inbetween bsample when jitter is estimated
             f = scipy.interpolate.interp1d(np.arange(full_width), center0, axis=0, kind='cubic')
@@ -635,14 +664,20 @@ class CatalogueConstructor:
     def save_catalogue(self):
         self.make_catalogue()
         
-        filename = os.path.join(self.catalogue_path, 'initial_catalogue.pickle')
-        with open(filename, mode='wb') as f:
-            pickle.dump(self.catalogue, f)
+        #~ filename = os.path.join(self.catalogue_path, 'initial_catalogue.pickle')
+        #~ with open(filename, mode='wb') as f:
+            #~ pickle.dump(self.catalogue, f)
+        self.dataio.save_catalogue(self.catalogue, name='initial')
+        
     
-    def load_catalogue(self):
-        filename = os.path.join(self.catalogue_path, 'initial_catalogue.pickle')
-        assert os.path.exists(filename), 'No catalogue file is found'
-        with open(filename, mode='rb') as f:
-            self.catalogue = pickle.load(f)
-        return self.catalogue
+    #~ def load_catalogue(self):
+        #~ filename = os.path.join(self.catalogue_path, 'initial_catalogue.pickle')
+        #~ assert os.path.exists(filename), 'No catalogue file is found'
+        #~ with open(filename, mode='rb') as f:
+            #~ self.catalogue = pickle.load(f)
+        #~ return self.catalogue
+
+        #~ print('!!!! CatalogueConstructor.load_catalogue WILL BE REMOVED!!!!!')
+        #~ self.catalogue = self.dataio.load_catalogue(name='initial')
+        #~ return 
 

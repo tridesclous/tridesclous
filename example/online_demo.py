@@ -24,7 +24,7 @@ def setup_catalogue():
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     filenames = filenames[:1] #only first file
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
-    channel_group = {0:{'channels':[5, 6, 7, 8, 9]}}
+    channel_group = {0:{'channels':[5, 6, 7, 8]}}
     dataio.set_channel_groups(channel_group)
     
     
@@ -87,9 +87,7 @@ def setup_catalogue():
 
 def test_OnlinePeeler():
     dataio = DataIO(dirname='test_onlinepeeler')
-    catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    catalogue = catalogueconstructor.load_catalogue()
-    #~ print(catalogue)
+    catalogue = dataio.load_catalogue(chan_grp=0)
     
     #~ def print_dict(d):
         #~ for k, v in d.items():
@@ -160,7 +158,7 @@ def test_OnlinePeeler():
     
     # Node traceviewer
     tviewer = OnlineTraceViewer()
-    tviewer.configure(peak_buffer_size = 1000, catalogue=catalogue)
+    tviewer.configure(catalogue=catalogue)
     tviewer.inputs['signals'].connect(peeler.outputs['signals'])
     tviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
     tviewer.initialize()
