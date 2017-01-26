@@ -28,7 +28,7 @@ class CatalogueController(ControllerBase):
         #~ self.refresh_colors()
     
     def init_plot_attributes(self):
-        self.cluster_visible = {k:True for k  in self.cluster_labels}
+        self.cluster_visible = {k:i<20 for i, k  in enumerate(self.cluster_labels)}
         self.cluster_count = { k:np.sum(self.cc.all_peaks['label']==k) for k in self.cluster_labels}
         self.spike_selection = np.zeros(self.cc.nb_peak, dtype='bool')
         self.spike_visible = np.ones(self.cc.nb_peak, dtype='bool')
