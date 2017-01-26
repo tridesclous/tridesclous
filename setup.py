@@ -21,7 +21,7 @@ long_description = ""
 setup(
     name = "tridesclous",
     version = tridesclous.__version__,
-    packages = ['tridesclous', ],
+    packages = ['tridesclous', 'tridesclous.gui','tridesclous.online', ],
     install_requires=install_requires,
     extras_require = extras_require,
     author = "C. Pouzat, S.Garcia",
