@@ -61,7 +61,13 @@ git pull
 
 Authors: Christophe Pouzat and Samuel Garcia
 
+# Screenshots
 
+## Offline Catalogue Window
 ![snapshot](doc/img/snapshot_cataloguewindow.png)
+
+## offline Peeler Window
 ![snapshot](doc/img/snapshot_peelerwindow.png)
+
+## Online Peeler in a pyacq.Node
 ![snapshot](doc/img/online_tridesclous.gif)
