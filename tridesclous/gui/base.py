@@ -1,15 +1,15 @@
+from .myqt import QT
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui
 
 
-class ControllerBase(QtCore.QObject):
-    spike_selection_changed = QtCore.pyqtSignal()
-    spike_label_changed = QtCore.pyqtSignal()
-    colors_changed = QtCore.pyqtSignal()
-    cluster_visibility_changed = QtCore.pyqtSignal()
+class ControllerBase(QT.QObject):
+    spike_selection_changed = QT.pyqtSignal()
+    spike_label_changed = QT.pyqtSignal()
+    colors_changed = QT.pyqtSignal()
+    cluster_visibility_changed = QT.pyqtSignal()
     
     def __init__(self, parent=None):
-        QtCore.QObject.__init__(self, parent=parent)
+        QT.QObject.__init__(self, parent=parent)
         self.views = []
     
     def declare_a_view(self, new_view):
@@ -43,14 +43,14 @@ class ControllerBase(QtCore.QObject):
 
 
 
-class WidgetBase(QtGui.QWidget):
-    spike_selection_changed = QtCore.pyqtSignal()
-    spike_label_changed = QtCore.pyqtSignal()
-    colors_changed = QtCore.pyqtSignal()
-    cluster_visibility_changed = QtCore.pyqtSignal()
+class WidgetBase(QT.QWidget):
+    spike_selection_changed = QT.pyqtSignal()
+    spike_label_changed = QT.pyqtSignal()
+    colors_changed = QT.pyqtSignal()
+    cluster_visibility_changed = QT.pyqtSignal()
     
     def __init__(self, parent = None, controller=None):
-        QtGui.QWidget.__init__(self, parent)
+        QT.QWidget.__init__(self, parent)
         self.controller = controller
         if self.controller is not None:
             self.controller.declare_a_view(self)

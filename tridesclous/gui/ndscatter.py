@@ -1,8 +1,8 @@
 """
 This should be rewritte with vispy but I don't have time now...
 """
+from .myqt import QT
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui
 
 from matplotlib.path import Path as mpl_path
 
@@ -18,12 +18,12 @@ from ..tools import median_mad
 
 
 class MyViewBox(pg.ViewBox):
-    doubleclicked = QtCore.pyqtSignal()
-    gain_zoom = QtCore.pyqtSignal(float)
-    #~ xsize_zoom = QtCore.pyqtSignal(float)
-    #~ lasso_started = QtCore.pyqtSignal()
-    lasso_drawing = QtCore.pyqtSignal(object)
-    lasso_finished = QtCore.pyqtSignal(object)
+    doubleclicked = QT.pyqtSignal()
+    gain_zoom = QT.pyqtSignal(float)
+    #~ xsize_zoom = QT.pyqtSignal(float)
+    #~ lasso_started = QT.pyqtSignal()
+    lasso_drawing = QT.pyqtSignal(object)
+    lasso_finished = QT.pyqtSignal(object)
     
     def __init__(self, *args, **kwds):
         pg.ViewBox.__init__(self, *args, **kwds)
@@ -38,7 +38,7 @@ class MyViewBox(pg.ViewBox):
     def mouseDragEvent(self, ev):
         ev.ignore()
     def wheelEvent(self, ev):
-        if ev.modifiers() == QtCore.Qt.ControlModifier:
+        if ev.modifiers() == QT.Qt.ControlModifier:
             z = 10 if ev.delta()>0 else 1/10.
         else:
             z = 1.3 if ev.delta()>0 else 1/1.3
@@ -64,7 +64,7 @@ class NDScatter(WidgetBase):
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
         
-        self.layout = QtGui.QHBoxLayout()
+        self.layout = QT.QHBoxLayout()
         self.setLayout(self.layout)
         
         self.create_toolbar()
@@ -85,10 +85,10 @@ class NDScatter(WidgetBase):
         self.tree_params.header().hide()
         self.tree_params.setParameters(self.params, showTop=True)
         self.tree_params.setWindowTitle(u'Options for NDScatter')
-        self.tree_params.setWindowFlags(QtCore.Qt.Window)
+        self.tree_params.setWindowFlags(QT.Qt.Window)
 
         
-        self.timer_tour = QtCore.QTimer(interval = 100)
+        self.timer_tour = QT.QTimer(interval = 100)
         self.timer_tour.timeout.connect(self.new_tour_step)
         
         if self.data is not None:
@@ -97,24 +97,24 @@ class NDScatter(WidgetBase):
     
     def create_toolbar(self):
         
-        tb = self.toolbar = QtGui.QVBoxLayout()
+        tb = self.toolbar = QT.QVBoxLayout()
         self.layout.addLayout(tb)
-        but = QtGui.QPushButton('next face')
+        but = QT.QPushButton('next face')
         tb.addWidget(but)
         but.clicked.connect(self.next_face)
-        but = QtGui.QPushButton('Random')
+        but = QT.QPushButton('Random')
         tb.addWidget(but)
         but.clicked.connect(self.random_projection)
-        but = QtGui.QPushButton('Random tour', checkable = True)
+        but = QT.QPushButton('Random tour', checkable = True)
         tb.addWidget(but)
         but.clicked.connect(self.start_stop_tour)
-        but = QtGui.QPushButton('settings')
+        but = QT.QPushButton('settings')
         but.clicked.connect(self.open_settings)
         tb.addWidget(but)
-        but = QtGui.QPushButton('random decimate', icon=QtGui.QIcon.fromTheme("roll"))
+        but = QT.QPushButton('random decimate', icon=QT.QIcon.fromTheme("roll"))
         but.clicked.connect(self.by_cluster_random_decimate)
         tb.addWidget(but)
-        but = QtGui.QPushButton('select component')
+        but = QT.QPushButton('select component')
         but.clicked.connect(self.open_select_component)
         tb.addWidget(but)
         
@@ -173,7 +173,7 @@ class NDScatter(WidgetBase):
             self.refresh()
         
     def get_color(self, k):
-        color = self.controller.qcolors.get(k, QtGui.QColor( 'white'))
+        color = self.controller.qcolors.get(k, QT.QColor( 'white'))
         return color
     
     def is_cluster_visible(self, k):
@@ -195,7 +195,7 @@ class NDScatter(WidgetBase):
         self.scatter.sigClicked.connect(self.on_scatter_clicked)
         
         
-        brush = QtGui.QColor( 'magenta')
+        brush = QT.QColor( 'magenta')
         brush.setAlpha(180)
         self.scatter_select = pg.ScatterPlotItem(pen=pg.mkPen(None), brush=brush, size=11, pxMode = True)
         self.plot.addItem(self.scatter_select)

@@ -1,5 +1,5 @@
+from .myqt import QT
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui
 
 import numpy as np
 import time
@@ -12,9 +12,9 @@ from ..peeler import make_prediction_signals
 
 
 class MyViewBox(pg.ViewBox):
-    doubleclicked = QtCore.pyqtSignal()
-    gain_zoom = QtCore.pyqtSignal(float)
-    xsize_zoom = QtCore.pyqtSignal(float)
+    doubleclicked = QT.pyqtSignal()
+    gain_zoom = QT.pyqtSignal(float)
+    xsize_zoom = QT.pyqtSignal(float)
     def __init__(self, *args, **kwds):
         pg.ViewBox.__init__(self, *args, **kwds)
         #~ self.disableAutoRange()
@@ -26,7 +26,7 @@ class MyViewBox(pg.ViewBox):
     def mouseDragEvent(self, ev):
         ev.ignore()
     def wheelEvent(self, ev):
-        if ev.modifiers() == QtCore.Qt.ControlModifier:
+        if ev.modifiers() == QT.Qt.ControlModifier:
             z = 10 if ev.delta()>0 else 1/10.
         else:
             z = 1.3 if ev.delta()>0 else 1/1.3
@@ -44,23 +44,23 @@ class BaseTraceViewer(WidgetBase):
         self.dataio = controller.dataio
         self.signal_type = signal_type
         
-        self.layout = QtGui.QVBoxLayout()
+        self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
         
         self.create_toolbar()
         self.layout.addWidget(self.toolbar)
         
         # create graphic view and 2 scroll bar
-        g = QtGui.QGridLayout()
+        g = QT.QGridLayout()
         self.layout.addLayout(g)
-        self.scroll_chan = QtGui.QScrollBar()
+        self.scroll_chan = QT.QScrollBar()
         g.addWidget(self.scroll_chan, 0,0)
         self.scroll_chan.valueChanged.connect(self.on_scroll_chan)
         self.graphicsview = pg.GraphicsView()
         g.addWidget(self.graphicsview, 0,1)
         self.initialize_plot()
         self.layout.addLayout(g)
-        self.scroll_time = QtGui.QScrollBar(orientation=QtCore.Qt.Horizontal)
+        self.scroll_time = QT.QScrollBar(orientation=QT.Qt.Horizontal)
         g.addWidget(self.scroll_time, 1,1)
         self.scroll_time.valueChanged.connect(self.on_scroll_time)
 
@@ -77,18 +77,18 @@ class BaseTraceViewer(WidgetBase):
         self.tree_params.header().hide()
         self.tree_params.setParameters(self.params, showTop=True)
         self.tree_params.setWindowTitle(u'Options for signal viewer')
-        self.tree_params.setWindowFlags(QtCore.Qt.Window)
+        self.tree_params.setWindowFlags(QT.Qt.Window)
         
         self.change_segment(0)
         self.refresh()
     
-    _default_color = QtGui.QColor( 'white')
+    _default_color = QT.QColor( 'white')
     
     def create_toolbar(self):
-        tb = self.toolbar = QtGui.QToolBar()
+        tb = self.toolbar = QT.QToolBar()
         
         #Segment selection
-        self.combo_seg = QtGui.QComboBox()
+        self.combo_seg = QT.QComboBox()
         tb.addWidget(self.combo_seg)
         self.combo_seg.addItems([ 'Segment {}'.format(seg_num) for seg_num in range(self.dataio.nb_segment) ])
         self._seg_pos = 0
@@ -96,7 +96,7 @@ class BaseTraceViewer(WidgetBase):
         self.combo_seg.currentIndexChanged.connect(self.on_combo_seg_changed)
         tb.addSeparator()
         
-        self.combo_type = QtGui.QComboBox()
+        self.combo_type = QT.QComboBox()
         tb.addWidget(self.combo_type)
         self.combo_type.addItems([ signal_type for signal_type in _signal_types ])
         self.combo_type.setCurrentIndex(_signal_types.index(self.signal_type))
@@ -109,7 +109,7 @@ class BaseTraceViewer(WidgetBase):
         
         # winsize
         self.xsize = .5
-        tb.addWidget(QtGui.QLabel(u'X size (s)'))
+        tb.addWidget(QT.QLabel(u'X size (s)'))
         self.spinbox_xsize = pg.SpinBox(value = self.xsize, bounds = [0.001, 4.], suffix = 's', siPrefix = True, step = 0.1, dec = True)
         self.spinbox_xsize.sigValueChanged.connect(self.on_xsize_changed)
         tb.addWidget(self.spinbox_xsize)
@@ -117,13 +117,13 @@ class BaseTraceViewer(WidgetBase):
         self.spinbox_xsize.sigValueChanged.connect(self.refresh)
         
         #
-        but = QtGui.QPushButton('auto scale')
+        but = QT.QPushButton('auto scale')
         but.clicked.connect(self.auto_scale)
         tb.addWidget(but)
-        but = QtGui.QPushButton('settings')
+        but = QT.QPushButton('settings')
         but.clicked.connect(self.open_settings)
         tb.addWidget(but)
-        self.select_button = QtGui.QPushButton('select', checkable = True)
+        self.select_button = QT.QPushButton('select', checkable = True)
         tb.addWidget(self.select_button)
         
         self._create_toolbar()
@@ -175,7 +175,7 @@ class BaseTraceViewer(WidgetBase):
             self.plot.addItem(tc)
             tc.hide()
         
-        pen = pg.mkPen(color=(128,0,128, 120), width=3, style=QtCore.Qt.DashLine)
+        pen = pg.mkPen(color=(128,0,128, 120), width=3, style=QT.Qt.DashLine)
         self.selection_line = pg.InfiniteLine(pos = 0., angle=90, movable=False, pen = pen)
         self.plot.addItem(self.selection_line)
         self.selection_line.hide()
@@ -507,7 +507,7 @@ class PeelerTraceViewer(BaseTraceViewer):
     def _create_toolbar(self):
         self.plot_buttons = {}
         for name in ['signals', 'prediction', 'residual']:
-            self.plot_buttons[name] = but = QtGui.QPushButton(name,  checkable = True)
+            self.plot_buttons[name] = but = QT.QPushButton(name,  checkable = True)
             but.clicked.connect(self.refresh)
             self.toolbar.addWidget(but)
             

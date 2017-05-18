@@ -1,5 +1,5 @@
+from .myqt import QT
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui
 
 import numpy as np
 
@@ -7,9 +7,9 @@ from .base import WidgetBase
 from .tools import ParamDialog
 
 
-class SpikeModel(QtCore.QAbstractItemModel):
+class SpikeModel(QT.QAbstractItemModel):
     def __init__(self, parent =None, controller=None):
-        QtCore.QAbstractItemModel.__init__(self,parent)
+        QT.QAbstractItemModel.__init__(self,parent)
         self.controller = controller
         self.refresh_colors()
     
@@ -31,16 +31,16 @@ class SpikeModel(QtCore.QAbstractItemModel):
                 childItem = row
             return self.createIndex(row, column, None)
         else:
-            return QtCore.QModelIndex()
+            return QT.QModelIndex()
     
     def parent(self, index):
-        return QtCore.QModelIndex()
+        return QT.QModelIndex()
     
     def data(self, index, role):
         if not index.isValid():
             return None
         
-        if role not in (QtCore.Qt.DisplayRole, QtCore.Qt.DecorationRole):
+        if role not in (QT.Qt.DisplayRole, QT.Qt.DecorationRole):
             return
         
         col = index.column()
@@ -53,7 +53,7 @@ class SpikeModel(QtCore.QAbstractItemModel):
         
         spike_time = (spike['index']+ spike['jitter'])/self.controller.dataio.sample_rate 
         
-        if role ==QtCore.Qt.DisplayRole :
+        if role ==QT.Qt.DisplayRole :
             if col == 0:
                 return '{}'.format(abs_ind)
             elif col == 1:
@@ -68,7 +68,7 @@ class SpikeModel(QtCore.QAbstractItemModel):
                 return '{}'.format(spike['label'])
             else:
                 return None
-        elif role == QtCore.Qt.DecorationRole :
+        elif role == QT.Qt.DecorationRole :
             if col != 0: return None
             if spike['label'] in self.icons:
                 return self.icons[spike['label']]
@@ -79,20 +79,20 @@ class SpikeModel(QtCore.QAbstractItemModel):
     
     def flags(self, index):
         if not index.isValid():
-            return QtCore.Qt.NoItemFlags
-        return QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable #| Qt.ItemIsDragEnabled
+            return QT.Qt.NoItemFlags
+        return QT.Qt.ItemIsEnabled | QT.Qt.ItemIsSelectable #| Qt.ItemIsDragEnabled
 
     def headerData(self, section, orientation, role):
-        if orientation == QtCore.Qt.Horizontal and role == QtCore.Qt.DisplayRole:
+        if orientation == QT.Qt.Horizontal and role == QT.Qt.DisplayRole:
             return  ['num', 'seg_num', 'index', 'jitter', 'time', 'cluster_label'][section]
         return
     
     def refresh_colors(self):
         self.icons = { }
         for k, color in self.controller.qcolors.items():
-            pix = QtGui.QPixmap(10,10 )
+            pix = QT.QPixmap(10,10 )
             pix.fill(color)
-            self.icons[k] = QtGui.QIcon(pix)
+            self.icons[k] = QT.QIcon(pix)
         #~ self.icons[-1] = QIcon(':/user-trash.png')
         self.layoutChanged.emit()
         
@@ -102,14 +102,14 @@ class SpikeList(WidgetBase):
         WidgetBase.__init__(self, parent=parent, controller=controller)
         self.controller = controller
         
-        self.layout = QtGui.QVBoxLayout()
+        self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
         
-        self.layout.addWidget(QtGui.QLabel('<b>All spikes</b>') )
+        self.layout.addWidget(QT.QLabel('<b>All spikes</b>') )
         
-        self.tree = QtGui.QTreeView(minimumWidth = 100, uniformRowHeights = True,
-                    selectionMode= QtGui.QAbstractItemView.ExtendedSelection, selectionBehavior = QtGui.QTreeView.SelectRows,
-                    contextMenuPolicy = QtCore.Qt.CustomContextMenu,)
+        self.tree = QT.QTreeView(minimumWidth = 100, uniformRowHeights = True,
+                    selectionMode= QT.QAbstractItemView.ExtendedSelection, selectionBehavior = QT.QTreeView.SelectRows,
+                    contextMenuPolicy = QT.Qt.CustomContextMenu,)
         
         self.layout.addWidget(self.tree)
         self.tree.customContextMenuRequested.connect(self.open_context_menu)
@@ -143,18 +143,18 @@ class SpikeList(WidgetBase):
         
         # change selection
         self.tree.selectionModel().clearSelection()
-        flags = QtCore.QItemSelectionModel.Select #| QItemSelectionModel.Rows
-        itemsSelection = QtCore.QItemSelection()
+        flags = QT.QItemSelectionModel.Select #| QItemSelectionModel.Rows
+        itemsSelection = QT.QItemSelection()
         for r in row_selected:
             for c in range(2):
-                index = self.tree.model().index(r,c,QtCore.QModelIndex())
-                ir = QtCore.QItemSelectionRange( index )
+                index = self.tree.model().index(r,c,QT.QModelIndex())
+                ir = QT.QItemSelectionRange( index )
                 itemsSelection.append(ir)
         self.tree.selectionModel().select(itemsSelection , flags)
 
         # set selection visible
         if len(row_selected)>=1:
-            index = self.tree.model().index(row_selected[0],0,QtCore.QModelIndex())
+            index = self.tree.model().index(row_selected[0],0,QT.QModelIndex())
             self.tree.scrollTo(index)
 
         self.tree.selectionModel().selectionChanged.connect(self.on_tree_selection)        
@@ -162,7 +162,7 @@ class SpikeList(WidgetBase):
 
     def open_context_menu(self):
         pass
-        #~ menu = QtGui.QMenu()
+        #~ menu = QT.QMenu()
         #~ act = menu.addAction('Move selection to trash')
         #~ act.triggered.connect(self.move_selection_to_trash)
         #~ menu.exec_(self.cursor().pos())
@@ -182,10 +182,10 @@ class ClusterSpikeList(WidgetBase):
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
         
-        self.layout = QtGui.QVBoxLayout()
+        self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
 
-        self.table = QtGui.QTableWidget()
+        self.table = QT.QTableWidget()
         self.layout.addWidget(self.table)
         self.table.itemChanged.connect(self.on_item_changed)
         
@@ -202,33 +202,33 @@ class ClusterSpikeList(WidgetBase):
         self.table.setHorizontalHeaderLabels(labels)
         #~ self.table.setMinimumWidth(100)
         #~ self.table.setColumnWidth(0,60)
-        self.table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.table.setContextMenuPolicy(QT.Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.open_context_menu)
-        self.table.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
-        self.table.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
+        self.table.setSelectionMode(QT.QAbstractItemView.ExtendedSelection)
+        self.table.setSelectionBehavior(QT.QAbstractItemView.SelectRows)
         
         self.table.setRowCount(self.controller.cluster_labels.size)
         
         for i, k in enumerate(self.controller.cluster_labels):
-            color = self.controller.qcolors.get(k, QtGui.QColor( 'white'))
-            pix = QtGui.QPixmap(10,10)
+            color = self.controller.qcolors.get(k, QT.QColor( 'white'))
+            pix = QT.QPixmap(10,10)
             pix.fill(color)
-            icon = QtGui.QIcon(pix)
+            icon = QT.QIcon(pix)
             
             name = '{}'.format(k)
-            item = QtGui.QTableWidgetItem(name)
-            item.setFlags(QtCore.Qt.ItemIsEnabled|QtCore.Qt.ItemIsSelectable)
+            item = QT.QTableWidgetItem(name)
+            item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
             self.table.setItem(i,0, item)
             item.setIcon(icon)
             
-            item = QtGui.QTableWidgetItem('')
-            item.setFlags(QtCore.Qt.ItemIsEnabled|QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsUserCheckable)
+            item = QT.QTableWidgetItem('')
+            item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable|QT.Qt.ItemIsUserCheckable)
             
-            item.setCheckState({ False: QtCore.Qt.Unchecked, True : QtCore.Qt.Checked}[self.controller.cluster_visible[k]])
+            item.setCheckState({ False: QT.Qt.Unchecked, True : QT.Qt.Checked}[self.controller.cluster_visible[k]])
             self.table.setItem(i,1, item)
 
-            item = QtGui.QTableWidgetItem('{}'.format(self.controller.cluster_count[k]))
-            item.setFlags(QtCore.Qt.ItemIsEnabled|QtCore.Qt.ItemIsSelectable)
+            item = QT.QTableWidgetItem('{}'.format(self.controller.cluster_count[k]))
+            item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
             self.table.setItem(i,2, item)
         
         for i in range(3):
@@ -237,7 +237,7 @@ class ClusterSpikeList(WidgetBase):
 
     def on_item_changed(self, item):
         if item.column() != 1: return
-        sel = {QtCore.Qt.Unchecked : False, QtCore.Qt.Checked : True}[item.checkState()]
+        sel = {QT.Qt.Unchecked : False, QT.Qt.Checked : True}[item.checkState()]
         k = self.controller.cluster_labels[item.row()]
         self.controller.cluster_visible[k] = bool(item.checkState())
         self.cluster_visibility_changed.emit()
@@ -257,7 +257,7 @@ class ClusterSpikeList(WidgetBase):
     
     def open_context_menu(self):
         n = len(self.selected_cluster())
-        menu = QtGui.QMenu()
+        menu = QT.QMenu()
 
         if n>=0: 
             act = menu.addAction('Reset colors')

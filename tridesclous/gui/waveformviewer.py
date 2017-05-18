@@ -1,5 +1,5 @@
+from .myqt import QT
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui
 
 import numpy as np
 import pandas as pd
@@ -8,8 +8,8 @@ from .base import WidgetBase
 
 
 class MyViewBox(pg.ViewBox):
-    doubleclicked = QtCore.pyqtSignal()
-    gain_zoom = QtCore.pyqtSignal(float)
+    doubleclicked = QT.pyqtSignal()
+    gain_zoom = QT.pyqtSignal(float)
     def __init__(self, *args, **kwds):
         pg.ViewBox.__init__(self, *args, **kwds)
         #~ self.disableAutoRange()
@@ -21,7 +21,7 @@ class MyViewBox(pg.ViewBox):
     #~ def mouseDragEvent(self, ev):
         #~ ev.ignore()
     def wheelEvent(self, ev):
-        if ev.modifiers() == QtCore.Qt.ControlModifier:
+        if ev.modifiers() == QT.Qt.ControlModifier:
             z = 10 if ev.delta()>0 else 1/10.
         else:
             z = 1.3 if ev.delta()>0 else 1/1.3
@@ -33,7 +33,7 @@ class WaveformViewer(WidgetBase):
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
         
-        self.layout = QtGui.QVBoxLayout()
+        self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
         
         self.create_settings()
@@ -67,14 +67,14 @@ class WaveformViewer(WidgetBase):
         self.tree_params.header().hide()
         self.tree_params.setParameters(self.params, showTop=True)
         self.tree_params.setWindowTitle(u'Options for waveforms viewer')
-        self.tree_params.setWindowFlags(QtCore.Qt.Window)
+        self.tree_params.setWindowFlags(QT.Qt.Window)
         
     
     def create_toolbar(self):
-        tb = self.toolbar = QtGui.QToolBar()
+        tb = self.toolbar = QT.QToolBar()
         
         #Mode flatten or geometry
-        self.combo_mode = QtGui.QComboBox()
+        self.combo_mode = QT.QComboBox()
         tb.addWidget(self.combo_mode)
         #~ self.mode = 'flatten'
         #~ self.combo_mode.addItems([ 'flatten', 'geometry'])
@@ -84,11 +84,11 @@ class WaveformViewer(WidgetBase):
         tb.addSeparator()
         
         
-        but = QtGui.QPushButton('settings')
+        but = QT.QPushButton('settings')
         but.clicked.connect(self.open_settings)
         tb.addWidget(but)
 
-        but = QtGui.QPushButton('refresh')
+        but = QT.QPushButton('refresh')
         but.clicked.connect(self.refresh)
         tb.addWidget(but)
     
@@ -118,7 +118,7 @@ class WaveformViewer(WidgetBase):
         self.plot1.hideButtons()
         self.plot1.showAxis('left', True)
 
-        self.curve_one_waveform = pg.PlotCurveItem([], [], pen=pg.mkPen(QtGui.QColor( 'white'), width=1), connect='finite')
+        self.curve_one_waveform = pg.PlotCurveItem([], [], pen=pg.mkPen(QT.QColor( 'white'), width=1), connect='finite')
         self.plot1.addItem(self.curve_one_waveform)
         
         if self.mode=='flatten':
@@ -275,13 +275,13 @@ class WaveformViewer(WidgetBase):
             wf0 = self.controller.centroids[k][key1].T.flatten()
             mad = self.controller.centroids[k][key2].T.flatten()
             
-            color = self.controller.qcolors.get(k, QtGui.QColor( 'white'))
+            color = self.controller.qcolors.get(k, QT.QColor( 'white'))
             curve = pg.PlotCurveItem(np.arange(wf0.size), wf0, pen=pg.mkPen(color, width=2))
             self.plot1.addItem(curve)
             
             
             if self.params['fillbetween']:
-                color2 = QtGui.QColor(color)
+                color2 = QT.QColor(color)
                 color2.setAlpha(self.alpha)
                 curve1 = pg.PlotCurveItem(xvect, wf0+mad, pen=color2)
                 curve2 = pg.PlotCurveItem(xvect, wf0-mad, pen=color2)
@@ -326,7 +326,7 @@ class WaveformViewer(WidgetBase):
             wf[0,:] = np.nan
             wf = wf.T.reshape(-1)
             
-            color = self.controller.qcolors.get(k, QtGui.QColor( 'white'))
+            color = self.controller.qcolors.get(k, QT.QColor( 'white'))
             curve = pg.PlotCurveItem(self.xvect, wf, pen=pg.mkPen(color, width=2), connect='finite')
             self.plot1.addItem(curve)
             

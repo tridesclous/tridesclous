@@ -1,7 +1,7 @@
 import numpy as np
 
+from .myqt import QT
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui
 
 from .cataloguecontroller import CatalogueController
 from .traceviewer import CatalogueTraceViewer
@@ -15,9 +15,9 @@ from .tools import ParamDialog
 import itertools
 import datetime
 
-class CatalogueWindow(QtGui.QMainWindow):
+class CatalogueWindow(QT.QMainWindow):
     def __init__(self, catalogueconstructor):
-        QtGui.QMainWindow.__init__(self)
+        QT.QMainWindow.__init__(self)
         
         self.catalogueconstructor = catalogueconstructor
         self.controller = CatalogueController(catalogueconstructor=catalogueconstructor)
@@ -30,50 +30,50 @@ class CatalogueWindow(QtGui.QMainWindow):
         
         docks = {}
 
-        docks['waveformviewer'] = QtGui.QDockWidget('waveformviewer',self)
+        docks['waveformviewer'] = QT.QDockWidget('waveformviewer',self)
         docks['waveformviewer'].setWidget(self.waveformviewer)
         #self.tabifyDockWidget(docks['ndscatter'], docks['waveformviewer'])
-        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, docks['waveformviewer'])
+        self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['waveformviewer'])
         
-        docks['traceviewer'] = QtGui.QDockWidget('traceviewer',self)
+        docks['traceviewer'] = QT.QDockWidget('traceviewer',self)
         docks['traceviewer'].setWidget(self.traceviewer)
-        #self.addDockWidget(QtCore.Qt.RightDockWidgetArea, docks['traceviewer'])
+        #self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['traceviewer'])
         self.tabifyDockWidget(docks['waveformviewer'], docks['traceviewer'])
         
-        docks['peaklist'] = QtGui.QDockWidget('peaklist',self)
+        docks['peaklist'] = QT.QDockWidget('peaklist',self)
         docks['peaklist'].setWidget(self.peaklist)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, docks['peaklist'])
+        self.addDockWidget(QT.Qt.LeftDockWidgetArea, docks['peaklist'])
         
-        docks['clusterlist'] = QtGui.QDockWidget('clusterlist',self)
+        docks['clusterlist'] = QT.QDockWidget('clusterlist',self)
         docks['clusterlist'].setWidget(self.clusterlist)
-        self.splitDockWidget(docks['peaklist'], docks['clusterlist'], QtCore.Qt.Horizontal)
+        self.splitDockWidget(docks['peaklist'], docks['clusterlist'], QT.Qt.Horizontal)
         
-        docks['ndscatter'] = QtGui.QDockWidget('ndscatter',self)
+        docks['ndscatter'] = QT.QDockWidget('ndscatter',self)
         docks['ndscatter'].setWidget(self.ndscatter)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, docks['ndscatter'])
+        self.addDockWidget(QT.Qt.LeftDockWidgetArea, docks['ndscatter'])
         
         self.create_actions()
         self.create_toolbar()
         
         
     def create_actions(self):
-        self.act_save = QtGui.QAction(u'Save catalogue', self,checkable = False, icon=QtGui.QIcon.fromTheme("document-save"))
+        self.act_save = QT.QAction(u'Save catalogue', self,checkable = False, icon=QT.QIcon.fromTheme("document-save"))
         self.act_save.triggered.connect(self.save_catalogue)
 
-        self.act_refresh = QtGui.QAction(u'Refresh', self,checkable = False, icon=QtGui.QIcon.fromTheme("view-refresh"))
+        self.act_refresh = QT.QAction(u'Refresh', self,checkable = False, icon=QT.QIcon.fromTheme("view-refresh"))
         self.act_refresh.triggered.connect(self.refresh)
 
-        self.act_setting = QtGui.QAction(u'Settings', self,checkable = False, icon=QtGui.QIcon.fromTheme("preferences-other"))
+        self.act_setting = QT.QAction(u'Settings', self,checkable = False, icon=QT.QIcon.fromTheme("preferences-other"))
         self.act_setting.triggered.connect(self.open_settings)
 
-        self.act_new_waveforms = QtGui.QAction(u'New waveforms', self,checkable = False, icon=QtGui.QIcon.fromTheme("TODO"))
+        self.act_new_waveforms = QT.QAction(u'New waveforms', self,checkable = False, icon=QT.QIcon.fromTheme("TODO"))
         self.act_new_waveforms.triggered.connect(self.new_waveforms)
 
     def create_toolbar(self):
-        self.toolbar = QtGui.QToolBar('Tools')
-        self.toolbar.setToolButtonStyle(QtCore.Qt.ToolButtonTextUnderIcon)
-        self.addToolBar(QtCore.Qt.RightToolBarArea, self.toolbar)
-        self.toolbar.setIconSize(QtCore.QSize(60, 40))
+        self.toolbar = QT.QToolBar('Tools')
+        self.toolbar.setToolButtonStyle(QT.Qt.ToolButtonTextUnderIcon)
+        self.addToolBar(QT.Qt.RightToolBarArea, self.toolbar)
+        self.toolbar.setIconSize(QT.QSize(60, 40))
         
         self.toolbar.addAction(self.act_save)
         self.toolbar.addAction(self.act_refresh)

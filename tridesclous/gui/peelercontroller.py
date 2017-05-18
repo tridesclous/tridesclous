@@ -1,5 +1,5 @@
+from .myqt import QT
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui
 
 import numpy as np
 import seaborn as sns
@@ -76,7 +76,7 @@ class PeelerController(ControllerBase):
         self.qcolors = {}
         for k, color in self.colors.items():
             r, g, b = color
-            self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
+            self.qcolors[k] = QT.QColor(r*255, g*255, b*255)
     
     def get_threshold(self):
         threshold = self.catalogue['params_peakdetector']['relative_threshold']
