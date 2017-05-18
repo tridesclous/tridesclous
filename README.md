@@ -64,4 +64,4 @@ Authors: Christophe Pouzat and Samuel Garcia
 
 ![snapshot](doc/img/snapshot_cataloguewindow.png)
 ![snapshot](doc/img/snapshot_peelerwindow.png)
-![snapshot](doc/img/online_tridesclous.png)
+![snapshot](doc/img/online_tridesclous.gif)
