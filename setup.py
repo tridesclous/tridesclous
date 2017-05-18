@@ -7,13 +7,14 @@ install_requires = [
                     'numpy',
                     'scipy',
                     'pandas',
-                    'sklearn',
+                    'scikit-learn',
                     'matplotlib',
                     'seaborn',
-                    #~ 'tables',
+                    'neo',
                     ]
 extras_require={ 'gui' : ['PyQt5', 'pyqtgraph', 'matplotlib'],
                             'online' : 'pyacq',
+                            'opencl' : ['PyOpenCl'],
                         }
 
 long_description = ""
