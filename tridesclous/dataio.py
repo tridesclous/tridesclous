@@ -75,6 +75,8 @@ class DataIO:
             lengths = [ self.datasource.get_segment_shape(i)[0] for i in range(self.nb_segment)]
             t += '  length: '+' '.join('{}'.format(l) for l in lengths)+'\n'
             t += '  durations: '+' '.join('{:0.1f}'.format(l/self.sample_rate) for l in lengths)+' s.\n'
+        if t.endswith('\n'):
+            t = t[:-1]
         
         return t
 

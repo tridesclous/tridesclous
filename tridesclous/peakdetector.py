@@ -16,6 +16,42 @@ except ImportError:
     HAVE_PYOPENCL = False
 
 
+def detect_peaks_in_chunk(sig, k, thresh, peak_sign):
+    sig = sig.copy()
+    
+    if peak_sign == '+':
+        sig[sig<thresh] = 0.
+    else:
+        sig[sig>-thresh] = 0.
+
+    if sig.shape[1]>1:
+        sum_rectified = np.sum(sig, axis=1)
+    else:
+        sum_rectified = sig[:,0]
+    
+    ind_peaks = _detect_peaks_in_rectified(sum_rectified, k, thresh, peak_sign)
+    
+    return ind_peaks
+
+
+def _detect_peaks_in_rectified(sig_rectified, k, thresh, peak_sign):
+    sig_center = sig_rectified[k:-k]
+    if peak_sign == '+':
+        peaks = sig_center>thresh
+        for i in range(k):
+            peaks &= sig_center>sig_rectified[i:i+sig_center.size]
+            peaks &= sig_center>=sig_rectified[k+i+1:k+i+1+sig_center.size]
+    elif peak_sign == '-':
+        peaks = sig_center<-thresh
+        for i in range(k):
+            peaks &= sig_center<sig_rectified[i:i+sig_center.size]
+            peaks &= sig_center<=sig_rectified[k+i+1:k+i+1+sig_center.size]
+    
+    ind_peaks,  = np.nonzero(peaks)
+
+    ind_peaks += k
+    return ind_peaks
+
 
 class PeakDetectorEngine_Numpy:
     def __init__(self, sample_rate, nb_channel, chunksize, dtype,):
@@ -40,7 +76,7 @@ class PeakDetectorEngine_Numpy:
             sum_rectified = newbuf[:,0]
         
         #~ self.ring_sum.new_chunk(sum_rectified, index=pos)
-        self.fifo_sum.new_chunk(sum_rectified, pos)
+        self.fifo_sum_rectified.new_chunk(sum_rectified, pos)
         
         k = self.n_span
         if pos-(newbuf.shape[0]+2*k)<0:
@@ -48,32 +84,36 @@ class PeakDetectorEngine_Numpy:
             return None, None
         
         #~ sig = self.ring_sum.get_data(pos-(newbuf.shape[0]+2*k), pos)
-        sig = self.fifo_sum.get_data(pos-(newbuf.shape[0]+2*k), pos)
-
-        sig_center = sig[k:-k]
-        if self.peak_sign == '+':
-            peaks = sig_center>self.relative_threshold
-            for i in range(k):
-                peaks &= sig_center>sig[i:i+sig_center.size]
-                peaks &= sig_center>=sig[k+i+1:k+i+1+sig_center.size]
-        elif self.peak_sign == '-':
-            peaks = sig_center<-self.relative_threshold
-            for i in range(k):
-                peaks &= sig_center<sig[i:i+sig_center.size]
-                peaks &= sig_center<=sig[k+i+1:k+i+1+sig_center.size]
+        sig_rectified = self.fifo_sum_rectified.get_data(pos-(newbuf.shape[0]+2*k), pos)
         
-        ind_peaks,  = np.where(peaks)
+        ind_peaks = _detect_peaks_in_rectified(sig_rectified, k, self.relative_threshold, self.peak_sign)
         
         if ind_peaks.size>0:
-            ind_peaks = ind_peaks + pos - newbuf.shape[0] - k
+            ind_peaks = ind_peaks + pos - newbuf.shape[0] -2*k
             self.n_peak += ind_peaks.size
-            #~ peaks = np.zeros(ind_peaks.size, dtype = [('index', 'int64'), ('code', 'int64')])
-            #~ peaks['index'] = ind_peaks
-            #~ self.output_stream().send(peaks, index=self.n)
-            #~ return self.n_peak, peaks
             return self.n_peak, ind_peaks
-        
+
         return None, None
+        #~ sig_center = sig[k:-k]
+        #~ if self.peak_sign == '+':
+            #~ peaks = sig_center>self.relative_threshold
+            #~ for i in range(k):
+                #~ peaks &= sig_center>sig[i:i+sig_center.size]
+                #~ peaks &= sig_center>=sig[k+i+1:k+i+1+sig_center.size]
+        #~ elif self.peak_sign == '-':
+            #~ peaks = sig_center<-self.relative_threshold
+            #~ for i in range(k):
+                #~ peaks &= sig_center<sig[i:i+sig_center.size]
+                #~ peaks &= sig_center<=sig[k+i+1:k+i+1+sig_center.size]
+        
+        #~ ind_peaks,  = np.where(peaks)
+        
+        #~ if ind_peaks.size>0:
+            #~ ind_peaks = ind_peaks + pos - newbuf.shape[0] - k
+            #~ self.n_peak += ind_peaks.size
+            #~ return self.n_peak, ind_peaks
+        
+        #~ return None, None
         
     def change_params(self, peak_sign=None, relative_threshold=None, peak_span=None):
         self.peak_sign = peak_sign
@@ -84,7 +124,7 @@ class PeakDetectorEngine_Numpy:
         self.n_span = max(1, self.n_span)
         
         #~ self.ring_sum = RingBuffer((self.chunksize*2,), self.dtype, double=True)
-        self.fifo_sum = FifoBuffer((self.chunksize*2,), self.dtype)
+        self.fifo_sum_rectified = FifoBuffer((self.chunksize*2,), self.dtype)
         
         
 
