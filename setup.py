@@ -29,7 +29,10 @@ setup(
     author_email = "",
     description = "Simple Framework for spike sorting python.",
     long_description = long_description,
-    license = "MIT",
+    entry_points={
+          'console_scripts': ['tdc=tridesclous.scripts.tdc:main']
+        },
+     license = "MIT",
     url='https://github.com/tridesclous/trisdesclous',
     classifiers = [
         'Development Status :: 4 - Beta',

@@ -20,6 +20,18 @@ class DataIO:
     Caution a DataIO instance must not be shared within CatalogueConstructor or Peeler
     unless them have the same channel_group.
     """
+    
+    @staticmethod
+    def check_initialized(dirname):
+        if not os.path.exists(dirname):
+            return False
+
+        info_filename = os.path.join(dirname, 'info.json')
+        if not os.path.exists(info_filename):
+            return False
+        
+        return True
+    
     def __init__(self, dirname='test'):
         self.dirname = dirname
         if not os.path.exists(dirname):
