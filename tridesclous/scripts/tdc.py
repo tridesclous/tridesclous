@@ -50,6 +50,8 @@ def main():
     if dirname is None:
         dirname = os.getcwd()
     
+    #~ print(command)
+    
     if command in ['cataloguewin', 'peelerwin']:
         if not tdc.DataIO.check_initialized(dirname):
             print('{} is not initialized'.format(dirname))
@@ -75,7 +77,10 @@ def main():
         app.exec_()
     
     elif command=='init':
-        pass
+        app = pg.mkQApp()
+        win = tdc.InitializeDatasetWindow()
+        win.show()
+        app.exec_()    
     
     
     

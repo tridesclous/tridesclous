@@ -31,7 +31,7 @@ setup(
     long_description = long_description,
     entry_points={
           'console_scripts': ['tdc=tridesclous.scripts.tdc:main'],
-          'gui_scripts': ['tdc=tridesclous.scripts.tdc:open_mainwindow'],
+          #~ 'gui_scripts': ['tdcgui=tridesclous.scripts.tdc:open_mainwindow'],
         },
      license = "MIT",
     url='https://github.com/tridesclous/trisdesclous',
