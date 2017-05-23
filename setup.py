@@ -14,7 +14,7 @@ install_requires = [
                     ]
 extras_require={ 'gui' : ['PyQt5', 'pyqtgraph', 'matplotlib'],
                             'online' : 'pyacq',
-                            'opencl' : ['PyOpenCl'],
+                            'opencl' : ['pyopencl'],
                         }
 
 long_description = ""
@@ -27,10 +27,11 @@ setup(
     extras_require = extras_require,
     author = "C. Pouzat, S.Garcia",
     author_email = "",
-    description = "Simple Framework for spike sorting python.",
+    description = "offline/online spike sorting with french touch that light the barbecue",
     long_description = long_description,
     entry_points={
-          'console_scripts': ['tdc=tridesclous.scripts.tdc:main']
+          'console_scripts': ['tdc=tridesclous.scripts.tdc:main'],
+          'gui_scripts': ['tdc=tridesclous.scripts.tdc:open_mainwindow'],
         },
      license = "MIT",
     url='https://github.com/tridesclous/trisdesclous',

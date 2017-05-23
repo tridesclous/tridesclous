@@ -16,10 +16,10 @@ import shutil
 
 
 def setup_catalogue():
-    if os.path.exists('test_onlinepeeler'):
-        shutil.rmtree('test_onlinepeeler')
+    if os.path.exists('tridesclous_onlinepeeler'):
+        shutil.rmtree('tridesclous_onlinepeeler')
     
-    dataio = DataIO(dirname='test_onlinepeeler')
+    dataio = DataIO(dirname='tridesclous_onlinepeeler')
     
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     filenames = filenames[:1] #only first file
@@ -85,8 +85,8 @@ def setup_catalogue():
     
 
 
-def test_OnlinePeeler():
-    dataio = DataIO(dirname='test_onlinepeeler')
+def tridesclous_onlinepeeler():
+    dataio = DataIO(dirname='tridesclous_onlinepeeler')
     catalogue = dataio.load_catalogue(chan_grp=0)
     
     #~ def print_dict(d):
@@ -213,6 +213,6 @@ def test_OnlinePeeler():
 if __name__ =='__main__':
     #~ setup_catalogue()
     
-    test_OnlinePeeler()
+    tridesclous_onlinepeeler()
 
 

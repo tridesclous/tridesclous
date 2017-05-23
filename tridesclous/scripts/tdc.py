@@ -19,6 +19,13 @@ comand_list =[
 ]
 txt_command_list = ', '.join(comand_list)
 
+
+def open_mainwindow():
+        app = pg.mkQApp()
+        win = tdc.MainWindow()
+        win.show()
+        app.exec_()            
+    
 def main():
     argv = sys.argv[1:]
 
@@ -50,12 +57,8 @@ def main():
         dataio = tdc.DataIO(dirname=dirname)
         print(dataio)
     
-    
     if command=='mainwin':
-        app = pg.mkQApp()
-        win = tdc.MainWindow()
-        win.show()
-        app.exec_()        
+        open_mainwindow()
     
     elif command=='cataloguewin':
         catalogueconstructor = tdc.CatalogueConstructor(dataio=dataio, chan_grp=args.chan_grp)
