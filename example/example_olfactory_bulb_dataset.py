@@ -77,7 +77,11 @@ def extract_waveforms_pca_cluster():
     
     
     t1 = time.perf_counter()
-    catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40,  nb_max=20000)
+    catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40, mode='all',  align_waveform=True)
+    #~ catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40, mode='rand',  nb_max=20000, align_waveform=True)
+    #~ catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40,  nb_max=20000, align_waveform=True)
+    #~ catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40,  nb_max=20000, align_waveform=False)
+    
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
     #~ print(catalogueconstructor.some_waveforms.shape)
