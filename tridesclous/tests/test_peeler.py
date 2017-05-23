@@ -10,7 +10,7 @@ import  pyqtgraph as pg
 
 from tridesclous.dataio import DataIO
 from tridesclous.catalogueconstructor import CatalogueConstructor
-from tridesclous.peeler import Peeler, Peeler_OpenCl
+from tridesclous import Peeler, Peeler_OpenCl
 
 from tridesclous.peeler_OLD import PeelerOLD
 
@@ -126,8 +126,8 @@ def test_compare_peeler():
     all_spikes = []
     #~ for perler_class in (Peeler, PeelerOLD):
     #~ for perler_class in [PeelerOLD]:
-    #~ for peeler_class in [Peeler,]:
-    for peeler_class in [Peeler_OpenCl,]:
+    for peeler_class in [Peeler,]:
+    #~ for peeler_class in [Peeler_OpenCl,]:
     #~ for peeler_class in [Peeler, Peeler_OpenCl]:
         print()
         print(peeler_class)
@@ -162,10 +162,10 @@ if __name__ =='__main__':
     
     #~ open_catalogue_window()
     
-    #~ test_peeler()
+    test_peeler()
     
     #~ open_PeelerWindow()
     
-    test_compare_peeler()
+    #~ test_compare_peeler()
     
     #~ open_PeelerWindow()

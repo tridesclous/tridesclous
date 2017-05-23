@@ -50,7 +50,7 @@ def test_compare_offline_online_engines():
 
     # get sigs
     sigs, sample_rate = get_dataset(name='olfactory_bulb')
-    sigs = np.tile(sigs, (1, 20)) #for testing large channels num
+    #~ sigs = np.tile(sigs, (1, 20)) #for testing large channels num
     
     nb_channel = sigs.shape[1]
     print('nb_channel', nb_channel)

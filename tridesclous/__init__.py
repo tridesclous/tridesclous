@@ -6,7 +6,7 @@ from .datasets import download_dataset, get_dataset
 from .dataio import DataIO
 from .catalogueconstructor import CatalogueConstructor
 from .peeler import Peeler
-
+from .peeler_cl import Peeler_OpenCl
 
 #~ from .mpl_plot import *
 
