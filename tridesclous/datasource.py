@@ -8,6 +8,7 @@ from collections import OrderedDict
 
 
 class DataSourceBase:
+    gui_params = None
     def __init__(self):
         # important total_channel != nb_channel because nb_channel=len(channels)
         self.total_channel = None 
@@ -38,13 +39,23 @@ class InMemoryDataSource(DataSourceBase):
     
     def get_signals_chunk(self, seg_num=0, i_start=None, i_stop=None):
             data = self.nparrays[seg_num][i_start:i_stop, :]
-            return data        
+            return data
+            
+    def get_channel_names(self):
+        return ['ch{}'.format(i) for i in range(self.total_channel)]
 
     
 class RawDataSource(DataSourceBase):
     """
     DataSource from raw binary file. Easy case.
     """
+    gui_params = [
+        {'name': 'dtype', 'type': 'list', 'values':['int16', 'uint16', 'float32', 'float64']},
+        {'name': 'total_channel', 'type': 'int', 'value':1},
+        {'name': 'sample_rate', 'type': 'float', 'value':10000., 'step': 1000., 'suffix': 'Hz', 'siPrefix': True},
+        {'name': 'offset', 'type': 'int', 'value':0},
+    ]
+    
     def __init__(self, filenames=[], dtype='int16', total_channel=0,
                         sample_rate=0., offset=0):
         DataSourceBase.__init__(self)
@@ -71,6 +82,10 @@ class RawDataSource(DataSourceBase):
     def get_signals_chunk(self, seg_num=0, i_start=None, i_stop=None):
             data = self.array_sources[seg_num][i_start:i_stop, :]
             return data
+
+    def get_channel_names(self):
+        return ['ch{}'.format(i) for i in range(self.total_channel)]
+
 
 
 try:
@@ -109,6 +124,8 @@ class BlackrockDataSource(DataSourceBase):
     Not very efficient for the moment because everything if in float.
     
     """
+    
+    
     def __init__(self, filename=[]):
         DataSourceBase.__init__(self)
         assert HAS_NEO_0_5, 'neo version 0.5.x is not installed'
@@ -153,7 +170,9 @@ class BlackrockDataSource(DataSourceBase):
         channel_ids = [self.labels_to_ids[l] for l in channel_labels]
         channel_nums = [ chan_ids.index(chan_id) for chan_id in channel_ids]
         return channel_nums
-        
+    
+    def get_channel_names(self):
+        return ['ch{} id{} {}'.format(i, k, self.reader.ids_to_labels[k]) for i, k, in enumerate(self.reader.channel_ids) ]
 
 
 #TODO implement KWIK and OpenEphys

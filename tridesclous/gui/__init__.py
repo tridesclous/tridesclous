@@ -15,5 +15,5 @@ from .spikelists import SpikeList, ClusterSpikeList
 from .peelerwindow import PeelerWindow
 
 #main window
-from .mainwindow import MainWindow
+from .mainwindow import MainWindow, InitializeWindow, ChannelGroupWidget
 
