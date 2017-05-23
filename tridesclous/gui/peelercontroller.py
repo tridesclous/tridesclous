@@ -8,6 +8,8 @@ import seaborn as sns
 from .base import ControllerBase
 
 
+spike_visible_modes = ['selected', 'all',  'overlap']
+
 class PeelerController(ControllerBase):
     def __init__(self, parent=None, dataio=None, catalogue=None):
         ControllerBase.__init__(self, parent=parent)
@@ -45,6 +47,8 @@ class PeelerController(ControllerBase):
         
         self.cluster_visible = {k:True for k  in self.cluster_labels}
         self.refresh_colors(reset=True)
+        
+        self.spike_visible_mode = spike_visible_modes[0]
     
     def check_plot_attributes(self):
         for k in self.cluster_labels:
@@ -89,10 +93,30 @@ class PeelerController(ControllerBase):
         chan = self.catalogue['max_on_channel'][cluster_idx]
         return chan
 
+    def change_spike_visible_mode(self, mode):
+        assert mode in spike_visible_modes
+        #~ print(mode)
+        self.spike_visible_mode = mode
+        
     def update_visible_spikes(self):
-        visibles = np.array([k for k, v in self.cluster_visible.items() if v ])
-        self.spikes['visible'][:] = np.in1d(self.spikes['label'], visibles)
-
+        #~ print('update_visible_spikes', self.spike_visible_mode)
+        #~ ['selected', 'all',  'overlap']
+        if self.spike_visible_mode=='selected':
+            visibles = np.array([k for k, v in self.cluster_visible.items() if v ])
+            self.spikes['visible'][:] = np.in1d(self.spikes['label'], visibles)
+        elif self.spike_visible_mode=='all':
+            self.spikes['visible'][:] = True
+        elif self.spike_visible_mode=='overlap':
+            self.spikes['visible'][:] = False
+            d = np.diff(self.spikes['index'])
+            ind, = np.nonzero((d>0) & (d< self.catalogue['peak_width'] ))
+            self.spikes['visible'][ind] = True
+            self.spikes['visible'][ind+1] = True
+            
+            
+            
+    
     def on_cluster_visibility_changed(self):
+        #~ print('on_cluster_visibility_changed')
         self.update_visible_spikes()
         ControllerBase.on_cluster_visibility_changed(self)

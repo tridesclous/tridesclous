@@ -4,6 +4,7 @@ import pyqtgraph as pg
 import numpy as np
 
 from .base import WidgetBase
+from .peelercontroller import spike_visible_modes
 from .tools import ParamDialog
 
 
@@ -94,8 +95,11 @@ class SpikeModel(QT.QAbstractItemModel):
             pix.fill(color)
             self.icons[k] = QT.QIcon(pix)
         #~ self.icons[-1] = QIcon(':/user-trash.png')
+        #~ self.layoutChanged.emit()
+        self.refresh()
+    
+    def refresh(self):
         self.layoutChanged.emit()
-        
 
 class SpikeList(WidgetBase):
     def __init__(self,controller=None, parent=None):
@@ -106,6 +110,11 @@ class SpikeList(WidgetBase):
         self.setLayout(self.layout)
         
         self.layout.addWidget(QT.QLabel('<b>All spikes</b>') )
+        
+        self.combo = QT.QComboBox()
+        self.layout.addWidget(self.combo)
+        self.combo.addItems(spike_visible_modes)
+        self.combo.currentTextChanged.connect(self.change_visible_mode)
         
         self.tree = QT.QTreeView(minimumWidth = 100, uniformRowHeights = True,
                     selectionMode= QT.QAbstractItemView.ExtendedSelection, selectionBehavior = QT.QTreeView.SelectRows,
@@ -159,6 +168,10 @@ class SpikeList(WidgetBase):
 
         self.tree.selectionModel().selectionChanged.connect(self.on_tree_selection)        
 
+    def change_visible_mode(self, mode):
+        self.controller.change_spike_visible_mode(mode)
+        self.cluster_visibility_changed.emit()
+        self.model.refresh()
 
     def open_context_menu(self):
         pass
