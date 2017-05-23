@@ -103,7 +103,7 @@ class ParamDialog(QT.QDialog):
         but.clicked.connect(self.accept)
 
     def get(self):
-        return get_dict_from_group_param(self.params)
+        return get_dict_from_group_param(self.params, cascade=True)
     
 
 if __name__=='__main__':

@@ -1,10 +1,12 @@
 from .myqt import QT
 import pyqtgraph as pg
 
+import time
 import os
 from collections import OrderedDict
 from ..dataio import DataIO
 from ..datasource import data_source_classes
+from .tools import get_dict_from_group_param, ParamDialog
 
 from ..catalogueconstructor import CatalogueConstructor
 from .cataloguewindow import CatalogueWindow
@@ -17,6 +19,7 @@ class MainWindow(QT.QMainWindow):
         QT.QMainWindow.__init__(self)
         
         self.dataio = None
+        self.catalogueconstructor = None
         
         self.resize(800, 600)
 
@@ -57,6 +60,7 @@ class MainWindow(QT.QMainWindow):
         self.toolbar.addWidget(QT.QLabel('chan_grp:'))
         self.combo_chan_grp = QT.QComboBox()
         self.toolbar.addWidget(self.combo_chan_grp)
+        self.combo_chan_grp.currentIndexChanged .connect(self.on_chan_grp_change)
 
         do_init_cataloguewin = QT.QAction('Initialize Catalogue', self)
         do_init_cataloguewin.triggered.connect(self.initialize_catalogue)
@@ -71,8 +75,9 @@ class MainWindow(QT.QMainWindow):
         self.toolbar.addAction(do_open_peelerwin)
 
     def refresh_info(self):
-        txt = self.dataio.__repr__()
-        self.label_info.setText(txt)
+        txt1 = self.dataio.__repr__()
+        txt2 = self.catalogueconstructor.__repr__()
+        self.label_info.setText(txt1+'\n\n'+txt2)
     
     def open_dialog(self):
         fd = QT.QFileDialog(fileMode=QT.QFileDialog.DirectoryOnly, acceptMode=QT.QFileDialog.AcceptOpen)
@@ -91,26 +96,70 @@ class MainWindow(QT.QMainWindow):
         self.open_windows = []
         
         self.dataio = DataIO(dirname=dirname)
-        self.refresh_info()
+        
+        
         self.combo_chan_grp.clear()
         self.combo_chan_grp.addItems([str(k) for k in self.dataio.channel_groups.keys()])
-
+        self.on_chan_grp_change()
+    
+    @property
+    def chan_grp(self):
+        return int(self.combo_chan_grp.currentText())
+        
+    def on_chan_grp_change(self, index=None):
+        self.catalogueconstructor = CatalogueConstructor(dataio=self.dataio, chan_grp=self.chan_grp)
+        self.refresh_info()
+        
+    
     def initialize_dataset_dialog(self):
-        
         init_dia = InitializeDatasetWindow(parent=self)
-        
         if init_dia.exec_():
             self._open_dataio(init_dia.dirname_created)
+
     
     def initialize_catalogue(self):
-        print('initialize_catalogue')
+        params = [
+            {'name':'preprocessor', 'type':'group', 
+                'children':[
+                        {'name': 'highpass_freq', 'type': 'float', 'value':400., 'step': 10., 'suffix': 'Hz', 'siPrefix': True},
+                        {'name': 'common_ref_removal', 'type': 'bool', 'value':True},
+                        {'name': 'chunksize', 'type': 'int', 'value':1024, 'decilmals':5},
+                        {'name': 'backward_chunksize', 'type': 'int', 'value':1280, 'decilmals':5},
+                        
+                        {'name': 'peakdetector_engine', 'type': 'list', 'values':['numpy', 'opencl']},
+                        {'name': 'peak_sign', 'type': 'list', 'values':['-', '+']},
+                        {'name': 'relative_threshold', 'type': 'float', 'value': 6., 'step': .1,},
+                        {'name': 'peak_span', 'type': 'float', 'value':0.0009, 'step': 0.0001, 'suffix': 's', 'siPrefix': True},
+                ]},
+            {'name':'duration', 'type': 'float', 'value':10., 'suffix': 's', 'siPrefix': True},
+        ]
+        dia = ParamDialog(params)
+        dia.resize(300, 300)
+        if dia.exec_():
+            d = dia.get()
+            print(d)
+            try:
+                #~ catalogueconstructor = CatalogueConstructor(dataio=self.dataio)
+                self.catalogueconstructor.set_preprocessor_params(**d['preprocessor'])
+                
+                t1 = time.perf_counter()
+                self.catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
+                t2 = time.perf_counter()
+                print('estimate_signals_noise', t2-t1)
+                
+                t1 = time.perf_counter()
+                self.catalogueconstructor.run_signalprocessor(duration=d['duration'])
+                t2 = time.perf_counter()
+                print('run_signalprocessor', t2-t1)
+
+            except Exception as e:
+                print(e)
+        
     
     def open_cataloguewin(self):
         if self.dataio is None: return
         try:
-            chan_grp= 0
-            catalogueconstructor = CatalogueConstructor(dataio=self.dataio, chan_grp=chan_grp)
-            win = CatalogueWindow(catalogueconstructor)
+            win = CatalogueWindow(self.catalogueconstructor)
             win.show()
             self.open_windows.append(win)
         except Exception as e:
