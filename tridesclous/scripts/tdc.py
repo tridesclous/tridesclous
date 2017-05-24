@@ -13,6 +13,8 @@ import tridesclous as tdc
 
 comand_list =[
     'mainwin',
+    'makecatalogue',
+    'runpeeler',
     'cataloguewin',
     'peelerwin',
     'init',
@@ -34,6 +36,7 @@ def main():
     
     parser.add_argument('-d', '--dirname', help='working directory', default=None)
     parser.add_argument('-c', '--chan_grp', type=int, help='channel group index', default=0)
+    parser.add_argument('-p', '--parameters', help='JSON parameter file', default=None)
     
     
     args = parser.parse_args(argv)
@@ -62,6 +65,12 @@ def main():
     if command=='mainwin':
         open_mainwindow()
     
+    elif command=='makecatalogue':
+        pass
+    
+    elif command=='runpeeler':
+        pass
+        
     elif command=='cataloguewin':
         catalogueconstructor = tdc.CatalogueConstructor(dataio=dataio, chan_grp=args.chan_grp)
         app = pg.mkQApp()

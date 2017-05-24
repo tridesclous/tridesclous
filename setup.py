@@ -10,7 +10,7 @@ install_requires = [
                     'scikit-learn',
                     'matplotlib',
                     'seaborn',
-                    'quantities==0.10.1',
+                    'quantities==0.10.1', # I force this version because actual version is buggy and is  "0+unknown"
                     'neo==0.5.1',
                     ]
 extras_require={ 'gui' : ['PyQt5', 'pyqtgraph==0.10.0', 'matplotlib'],
