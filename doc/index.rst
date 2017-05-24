@@ -1,10 +1,9 @@
 Welcome to tridesclous's documentation!
 =======================================
 
-The doc is under construction.
+The doc is under construction and very far from complete.
 
-For the moment please refer to this example only:
-https://github.com/tridesclous/tridesclous/blob/master/example/example_locust_dataset.ipynb
+At least, there is some help for installing...
 
 
 Contents
@@ -15,6 +14,7 @@ Contents
     
     overview
     installation
+    launch
 
 
 ..
