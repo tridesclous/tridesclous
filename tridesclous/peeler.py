@@ -8,11 +8,12 @@ import scipy.signal
 
 
 from . import signalpreprocessor
-from . import  peakdetector
+from .peakdetector import  detect_peaks_in_chunk
 from . import waveformextractor
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 
 try:
     from tqdm import tqdm
@@ -30,6 +31,9 @@ LABEL_LEFT_LIMIT = -11
 LABEL_RIGHT_LIMIT = -12
 LABEL_MAXIMUM_SHIFT = -13
 # good label are >=0
+
+
+maximum_jitter_shift = 4
 
 
 class Peeler:
@@ -55,150 +59,13 @@ class Peeler:
 
     def change_params(self, catalogue=None, n_peel_level=2,chunksize=1024, 
                                         internal_dtype='float32', 
-                                        signalpreprocessor_engine='numpy',
-                                        peakdetector_engine='numpy'):
+                                        #~ signalpreprocessor_engine='numpy',
+                                        ):
         assert catalogue is not None
         self.catalogue = catalogue
         self.n_peel_level = n_peel_level
         self.chunksize = chunksize
         self.internal_dtype= internal_dtype
-        self.signalpreprocessor_engine = signalpreprocessor_engine
-        self.peakdetector_engine = peakdetector_engine
-    
-    def process_one_chunk(self,  pos, sigs_chunk):
-        abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
-        #note abs_head_index is smaller than pos because prepcorcessed chunk
-        # is late because of local filfilt in signalpreprocessor
-        if preprocessed_chunk is  None:
-            return
-        
-        local_size = preprocessed_chunk.shape[0]
-        residual = preprocessed_chunk.copy()
-        
-        all_spikes = []
-        
-        for level in range(self.n_peel_level):
-            #detect peaks
-            n_peaks, chunk_peaks = self.peakdetectors[level].process_data(abs_head_index, residual)
-            if chunk_peaks is  None:
-                chunk_peaks =np.array([], dtype='int64')
-            
-            # relation between inside chunk index and abs index
-            shift = abs_head_index - local_size
-            
-            local_index = chunk_peaks - shift
-            spikes  = classify_and_align(local_index, residual, self.catalogue)
-            #~ good_spikes = spikes[spikes['label']>=0]
-            good_spikes = spikes.compress(spikes['label']>=0)
-            prediction = make_prediction_signals(good_spikes, residual.dtype, residual.shape, self.catalogue)
-            residual -= prediction
-
-            # for output
-            good_spikes['index'] += shift
-            all_spikes.append(good_spikes)
-        
-        # append bad spike
-        #~ bad_spikes = spikes[spikes['label']==LABEL_UNSLASSIFIED]
-        bad_spikes = spikes.compress(spikes['label']==LABEL_UNSLASSIFIED)
-        bad_spikes['index'] += shift
-        all_spikes.append(bad_spikes)
-
-        if self.prev_preprocessed_chunk is not None:
-            #This is the tricky part, this peel spikes that are:
-            #  * at right limit of previous chunk
-            #  * at left limit of actual chunk
-            # so construct a small chunk
-            n_left = self.catalogue['n_left']
-            n_right = self.catalogue['n_right']
-            peak_width = self.catalogue['peak_width']
-            #~ print()
-            #~ print('Spike at limits')
-            #~ print('abs_head_index', abs_head_index)
-            #~ print('abs_head_index - local_size', abs_head_index-local_size)
-            #~ print('n_left', n_left,'n_right', n_right, 'peak_width', peak_width)
-            
-            maximum_jitter_shift = 4
-            overlap_residual = np.concatenate([self.prev_preprocessed_chunk[-peak_width-maximum_jitter_shift-2:, :], 
-                                                                preprocessed_chunk[:peak_width+maximum_jitter_shift+2]], axis=0)
-            shift2 = abs_head_index - local_size - peak_width - maximum_jitter_shift - 2
-            
-            #~ print(overlap_residual.shape)
-            #~ print('left abs', spikes[spikes['label']==LABEL_LEFT_LIMIT]['index']+shift)
-            #~ index_left = spikes[spikes['label']==LABEL_LEFT_LIMIT]['index'] +shift - shift2
-            index_left = spikes.compress(spikes['label']==LABEL_LEFT_LIMIT)['index'] +shift - shift2
-            
-            #~ print('index_left', index_left)
-            #~ print('right abs', self.prev_spikes_at_right_limit['index'])
-            index_right = self.prev_spikes_at_right_limit['index'] - shift2
-            #~ print('index_right', index_right)
-            index_limit = np.concatenate([index_left, index_right])
-            #~ print('index_limit', index_limit)
-            #~ print('shift2', shift2)
-            for level in range(self.n_peel_level):
-                #~ print('level', level)
-                spikes_limit  = classify_and_align(index_limit, overlap_residual, self.catalogue, maximum_jitter_shift=maximum_jitter_shift)
-                if spikes_limit.size>0:
-                    #~ print('spikes_limit', spikes_limit)
-                    assert np.all(spikes_limit['label']!=LABEL_LEFT_LIMIT), 'hop'#for debug TODO remove it when sur there is no bug at limit
-                    assert np.all(spikes_limit['label']!=LABEL_RIGHT_LIMIT), 'hop'#for debug TODO remove it when sur there is no bug at limit
-                    
-                    #~ good_spikes_limit = spikes_limit[spikes_limit['label']>=0]
-                    good_spikes_limit = spikes_limit.compress(spikes_limit['label']>=0)
-                    good_spikes_limit['index'] += shift2
-                    all_spikes.append(good_spikes_limit)
-                    # for next level
-                    #~ index_limit = good_spikes_limit[good_spikes_limit['label']==LABEL_UNSLASSIFIED]['index']
-                    index_limit = good_spikes_limit.compress(good_spikes_limit['label']==LABEL_UNSLASSIFIED)['index']
-                    
-            
-            bad_mask = (spikes_limit['label']==LABEL_UNSLASSIFIED) | (spikes_limit['label']==LABEL_MAXIMUM_SHIFT)
-            #~ bad_spikes_limit = spikes_limit[bad_mask]
-            bad_spikes_limit = spikes_limit.compress(bad_mask)
-            bad_spikes_limit['index'] += shift2
-            all_spikes.append(bad_spikes_limit)
-        
-        
-        # chunk and spike at right limit for next chunk
-        self.prev_preprocessed_chunk = preprocessed_chunk
-        #~ self.prev_spikes_at_right_limit = spikes[spikes['label']==LABEL_RIGHT_LIMIT].copy()
-        self.prev_spikes_at_right_limit = spikes.compress(spikes['label']==LABEL_RIGHT_LIMIT)
-        self.prev_spikes_at_right_limit['index'] += shift
-        #~ print('for next chunk', self.prev_spikes_at_right_limit)
-                
-        #concatenate sort and count
-        all_spikes = np.concatenate(all_spikes)
-        #~ all_spikes = all_spikes[np.argsort(all_spikes['index'])]
-        all_spikes = all_spikes.take(np.argsort(all_spikes['index']))
-        self.total_spike += all_spikes.size
-        
-        return abs_head_index, preprocessed_chunk, self.total_spike, all_spikes
-            
-    
-    
-    def _initialize_before_each_segment(self, sample_rate=None, nb_channel=None, source_dtype=None):
-
-        SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[self.signalpreprocessor_engine]
-        self.signalpreprocessor = SignalPreprocessor_class(sample_rate, nb_channel, self.chunksize, source_dtype)
-        
-        #there is one peakdetectior by level because each one have
-        # its own ringbuffer for each residual level
-        PeakDetector_class = peakdetector.peakdetector_engines[self.peakdetector_engine]
-        self.peakdetectors = []
-        for level in range(self.n_peel_level):
-            self.peakdetectors.append(PeakDetector_class(sample_rate, nb_channel, self.chunksize, self.internal_dtype))
-
-        p = dict(self.catalogue['params_signalpreprocessor'])
-        p['normalize'] = True
-        p['signals_medians'] = self.catalogue['signals_medians']
-        p['signals_mads'] = self.catalogue['signals_mads']
-        self.signalpreprocessor.change_params(**p)
-        
-        for level in range(self.n_peel_level):
-            self.peakdetectors[level].change_params(**self.catalogue['params_peakdetector'])
-
-        self.total_spike = 0
-        self.prev_preprocessed_chunk = None
-        self.prev_spikes_at_right_limit = np.zeros(0, dtype=_dtype_spike)
         
         # precompute some value for jitter estimation
         n = self.catalogue['cluster_labels'].size
@@ -213,10 +80,91 @@ class Peeler:
 
             self.catalogue['wf1_norm2'][i] = wf1.dot(wf1)
             self.catalogue['wf2_norm2'][i] = wf2.dot(wf2)
-            self.catalogue['wf1_dot_wf2'][i] = wf1.dot(wf2)
+            self.catalogue['wf1_dot_wf2'][i] = wf1.dot(wf2)        
+    
+    def process_one_chunk(self,  pos, sigs_chunk):
+        abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
+        
+        #note abs_head_index is smaller than pos because prepcorcessed chunk
+        # is late because of local filfilt in signalpreprocessor
+        if preprocessed_chunk is  None:
+            return
+        
+        #shift rsiruals buffer and put the new one on right side
+        n = self.fifo_residuals.shape[0]-preprocessed_chunk.shape[0]
+        self.fifo_residuals[:n,:] = self.fifo_residuals[-n:,:]
+        self.fifo_residuals[n:,:] = preprocessed_chunk
+        
+        # relation between inside chunk index and abs index
+        shift = abs_head_index - self.fifo_residuals.shape[0]
+        
+        all_spikes = []
+        for level in range(self.n_peel_level):
+            #detect peaks
+            local_index = detect_peaks_in_chunk(self.fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign)
+            #~ print('abs_head_index', abs_head_index, 'shift', shift)
+            #~ print('local_index', local_index,  self.fifo_residuals.shape)
+            #~ exit()
+            spikes  = classify_and_align(local_index, self.fifo_residuals, self.catalogue)
+            
+            good_spikes = spikes.compress(spikes['label']>=0)
+            prediction = make_prediction_signals(good_spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue)
+            self.fifo_residuals -= prediction
+            
+            # for output
+            good_spikes['index'] += shift
+            all_spikes.append(good_spikes)
+        
+        # append bad spike
+        #~ bad_spikes = spikes[spikes['label']==LABEL_UNSLASSIFIED]
+        bad_spikes = spikes.compress(spikes['label']==LABEL_UNSLASSIFIED)
+        bad_spikes['index'] += shift
+        all_spikes.append(bad_spikes)
+        
+        
+        #concatenate sort and count
+        all_spikes = np.concatenate(all_spikes)
+        #~ all_spikes = all_spikes[np.argsort(all_spikes['index'])]
+        all_spikes = all_spikes.take(np.argsort(all_spikes['index']))
+        self.total_spike += all_spikes.size
+        
+        return abs_head_index, preprocessed_chunk, self.total_spike, all_spikes
+            
+    
+    
+    def _initialize_before_each_segment(self, sample_rate=None, nb_channel=None, source_dtype=None):
+        
+        self.nb_channel = nb_channel
+        self.sample_rate = sample_rate
+        self.source_dtype = source_dtype
+        
+        #~ SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[self.signalpreprocessor_engine]
+        SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines['numpy']
+        self.signalpreprocessor = SignalPreprocessor_class(sample_rate, nb_channel, self.chunksize, source_dtype)
+        
+        p = dict(self.catalogue['params_signalpreprocessor'])
+        p['normalize'] = True
+        p['signals_medians'] = self.catalogue['signals_medians']
+        p['signals_mads'] = self.catalogue['signals_mads']
+        self.signalpreprocessor.change_params(**p)
         
         
         
+        self.internal_dtype = self.signalpreprocessor.output_dtype
+
+        self.peak_sign = self.catalogue['params_peakdetector']['peak_sign']
+        self.relative_threshold = self.catalogue['params_peakdetector']['relative_threshold']
+        peak_span = self.catalogue['params_peakdetector']['peak_span']
+        self.n_span = int(sample_rate*peak_span)//2
+        self.n_span = max(1, self.n_span)
+        self.n_side = self.catalogue['peak_width'] + maximum_jitter_shift + self.n_span + 1
+        
+        self.total_spike = 0
+        
+        self.fifo_residuals = np.zeros((self.n_side+self.chunksize, nb_channel), 
+                                                                dtype=self.internal_dtype)
+    
+    
     def initialize_online_loop(self, sample_rate=None, nb_channel=None, source_dtype=None):
         self._initialize_before_each_segment(sample_rate=sample_rate, nb_channel=nb_channel, source_dtype=source_dtype)
     
@@ -244,7 +192,11 @@ class Peeler:
         for pos, sigs_chunk in iterator:
             #~ print(pos, length, pos/length)
             sig_index, preprocessed_chunk, total_spike, spikes = self.process_one_chunk(pos, sigs_chunk)
-            
+            #~ print('ici')
+            #~ print(sig_index)
+            #~ print(preprocessed_chunk.shape)
+            #~ print(total_spike)
+            #~ print(spikes)
             # save preprocessed_chunk to file
             # TODO optional ???
             self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num,chan_grp=chan_grp,
@@ -258,12 +210,18 @@ class Peeler:
         self.dataio.flush_spikes(seg_num=seg_num, chan_grp=chan_grp)
 
     def run_offline_all_segment(self, chan_grp=0, duration=None):
+        #TODO remove chan_grp here because it is redundant from catalogue['chan_grp']
+        
         #~ print('run_offline_all_segment', chan_grp)
         for seg_num in range(self.dataio.nb_segment):
             self.run_offline_loop_one_segment(seg_num=seg_num, chan_grp=chan_grp, duration=duration)
     
     run = run_offline_all_segment
 
+
+
+
+    
 
 
 def classify_and_align(local_indexes, residual, catalogue, maximum_jitter_shift=4):
@@ -447,10 +405,7 @@ def make_prediction_signals(spikes, dtype, shape, catalogue):
         #~ pred = wf0 +jitter*wf1 + jitter**2/2*wf2
         
         #predict with with precilputed splin
-        #~ print()
         r = catalogue['subsample_ratio']
-        
-        
         pos = spikes[i]['index'] + catalogue['n_left']
         jitter = spikes[i]['jitter']
         #TODO debug that sign

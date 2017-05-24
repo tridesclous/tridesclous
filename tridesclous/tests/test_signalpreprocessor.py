@@ -176,5 +176,5 @@ def test_smooth_with_filtfilt():
 
     
 if __name__ == '__main__':
-    #~ test_compare_offline_online_engines()
-    test_smooth_with_filtfilt()
+    test_compare_offline_online_engines()
+    #~ test_smooth_with_filtfilt()

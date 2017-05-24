@@ -1,22 +1,25 @@
-.. tridesclous documentation master file, created by
-   sphinx-quickstart on Tue Nov 22 14:33:27 2016.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Welcome to tridesclous's documentation!
 =======================================
 
-The doc is under construction.
+The doc is under construction and very far from complete.
 
-For the moment please refer to this example only:
-https://github.com/tridesclous/tridesclous/blob/master/example/example_locust_dataset.ipynb
+At least, there is some help for installing...
+
+
+Contents
+========
+
+.. toctree::
+    :maxdepth: 1
+    
+    overview
+    installation
+    launch
 
 
 ..
     Contents:
 
-    .. toctree::
-       :maxdepth: 2
 
 
 

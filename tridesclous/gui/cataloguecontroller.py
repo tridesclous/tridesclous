@@ -1,5 +1,6 @@
+from .myqt import QT
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui
+
 
 import numpy as np
 import seaborn as sns
@@ -28,7 +29,7 @@ class CatalogueController(ControllerBase):
         #~ self.refresh_colors()
     
     def init_plot_attributes(self):
-        self.cluster_visible = {k:True for k  in self.cluster_labels}
+        self.cluster_visible = {k:i<20 for i, k  in enumerate(self.cluster_labels)}
         self.cluster_count = { k:np.sum(self.cc.all_peaks['label']==k) for k in self.cluster_labels}
         self.spike_selection = np.zeros(self.cc.nb_peak, dtype='bool')
         self.spike_visible = np.ones(self.cc.nb_peak, dtype='bool')
@@ -137,7 +138,7 @@ class CatalogueController(ControllerBase):
         self.qcolors = {}
         for k, color in self.cc.colors.items():
             r, g, b = color
-            self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
+            self.qcolors[k] = QT.QColor(r*255, g*255, b*255)
 
     def merge_cluster(self, labels_to_merge):
         #TODO: maybe take the first cluster label instead of new one (except -1)

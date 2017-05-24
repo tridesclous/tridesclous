@@ -281,7 +281,9 @@ class CatalogueConstructor:
             return 0
         return self.all_peaks.size
         
-    def extract_some_waveforms(self, n_left=None, n_right=None, index=None, mode='rand', nb_max=10000):
+    def extract_some_waveforms(self, n_left=None, n_right=None, index=None, 
+                                    mode='rand', nb_max=10000,
+                                    align_waveform=True, subsample_ratio=20):
         """
         
         """
@@ -289,6 +291,8 @@ class CatalogueConstructor:
             assert  'params_waveformextractor' in self.info
             n_left = self.info['params_waveformextractor']['n_left']
             n_right = self.info['params_waveformextractor']['n_right']
+        
+        peak_sign = self.info['params_peakdetector']['peak_sign']
         
         peak_width = - n_left + n_right
         
@@ -327,8 +331,43 @@ class CatalogueConstructor:
             for peak in insegment_peaks:
                 i_start = peak['index']+n_left
                 i_stop = i_start+peak_width
-                wf = self.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.chan_grp, i_start=i_start, i_stop=i_stop, signal_type='processed')
-                self.some_waveforms[n, :, :] = wf
+                if align_waveform:
+                    ratio = subsample_ratio
+                    wf = self.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.chan_grp, i_start=i_start-peak_width, i_stop=i_stop+peak_width, signal_type='processed')
+                    wf2 = scipy.signal.resample(wf, wf.shape[0]*ratio, axis=0)
+                    wf2_around_peak = wf2[(peak_width-n_left)*ratio:(peak_width-n_left+1)*ratio, :]
+                    if peak_sign=='+':
+                        ind_chan_max = np.argmax(np.max(wf2_around_peak, axis=0))
+                        ind_max = np.argmax(wf2_around_peak[:, ind_chan_max])
+                    elif peak_sign=='-':
+                        ind_chan_max = np.argmin(np.min(wf2_around_peak, axis=0))
+                        ind_max = np.argmin(wf2_around_peak[:, ind_chan_max])
+                    #~ print('ind_chan_max', ind_chan_max, 'ind_max', ind_max)
+                    
+                    i1=peak_width*ratio+ind_chan_max
+                    i2 = i1+peak_width*ratio
+                    wf_short = wf2[i1:i2:ratio, :]
+                    self.some_waveforms[n, :, :] = wf_short
+                    
+                    #DEBUG
+                    #~ wf_short = self.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.chan_grp, i_start=i_start, i_stop=i_stop, signal_type='processed')
+                    #~ import matplotlib.pyplot as plt
+                    #~ fig, ax = plt.subplots()
+                    #~ ax.plot(wf2)
+                    #~ x = (peak_width-n_left)*ratio + ind_max
+                    #~ print(x, n_left, n_right, peak_width, ratio)
+                    #~ y = wf2_around_peak[ind_max, ind_chan_max]
+                    #~ ax.plot([x], [y], marker='o', markersize=10)
+                    #~ ax.axvline((peak_width-n_left)*ratio)
+                    #~ ax.axvline((peak_width-n_left+1)*ratio)
+                    #~ ax.plot(np.arange(wf_short.shape[0])*ratio+peak_width*ratio, wf_short, ls='--')
+                    #~ plt.show()
+                    #~ self.some_waveforms[n, :, :] = wf_short
+                    #END DEBUG
+                    
+                else:
+                    wf = self.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.chan_grp, i_start=i_start, i_stop=i_stop, signal_type='processed')
+                    self.some_waveforms[n, :, :] = wf
                 n +=1
         
         #Test smooth
@@ -337,7 +376,9 @@ class CatalogueConstructor:
         #~ kernel = kernel[:, None, None]
         #~ self.some_waveforms[:] = scipy.signal.fftconvolve(self.some_waveforms, kernel,'same')
         
-        self.info['params_waveformextractor'] = dict(n_left=n_left, n_right=n_right,  nb_max=nb_max)
+        self.info['params_waveformextractor'] = dict(n_left=n_left, n_right=n_right, 
+                                                                nb_max=nb_max, align_waveform=align_waveform,
+                                                                subsample_ratio=subsample_ratio)
         self.flush_info()
         
         if self.projector is not None:
@@ -400,7 +441,8 @@ class CatalogueConstructor:
                 
                 if extract:
                     self.projector = None
-                    self.extract_some_waveforms(n_left=n_left, n_right=n_right, index=self.some_peaks_index)
+                    self.extract_some_waveforms(n_left=n_left, n_right=n_right, index=self.some_peaks_index, 
+                                            align_waveform=self.info['params_waveformextractor']['align_waveform'])
                 
                 return n_left, n_right
 

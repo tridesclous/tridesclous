@@ -1,20 +1,20 @@
+from .myqt import QT
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui
 
 import numpy as np
 
-class TimeSeeker(QtGui.QWidget) :
+class TimeSeeker(QT.QWidget) :
     
-    time_changed = QtCore.pyqtSignal(float)
+    time_changed = QT.pyqtSignal(float)
     
     def __init__(self, parent = None, show_slider = True, show_spinbox = True) :
-        QtGui.QWidget.__init__(self, parent)
+        QT.QWidget.__init__(self, parent)
         
-        self.layout = QtGui.QHBoxLayout()
+        self.layout = QT.QHBoxLayout()
         self.setLayout(self.layout)
         
         if show_slider:
-            self.slider = QtGui.QSlider(orientation=QtCore.Qt.Horizontal, minimum=0, maximum=999)
+            self.slider = QT.QSlider(orientation=QT.Qt.Horizontal, minimum=0, maximum=999)
             self.layout.addWidget(self.slider)
             self.slider.valueChanged.connect(self.slider_changed)
         else:
@@ -80,30 +80,30 @@ def get_dict_from_group_param(param, cascade = False):
             d[p.name()] = p.value()
     return d
 
-class ParamDialog(QtGui.QDialog):
+class ParamDialog(QT.QDialog):
     def __init__(self,   params, title = '', parent = None):
-        QtGui.QDialog.__init__(self, parent = parent)
+        QT.QDialog.__init__(self, parent = parent)
         
         self.setWindowTitle(title)
         self.setModal(True)
         
         self.params = pg.parametertree.Parameter.create( name=title, type='group', children = params)
         
-        layout = QtGui.QVBoxLayout()
+        layout = QT.QVBoxLayout()
         self.setLayout(layout)
 
         self.tree_params = pg.parametertree.ParameterTree(parent  = self)
         self.tree_params.header().hide()
         self.tree_params.setParameters(self.params, showTop=True)
-        #~ self.tree_params.setWindowFlags(QtCore.Qt.Window)
+        #~ self.tree_params.setWindowFlags(QT.Qt.Window)
         layout.addWidget(self.tree_params)
 
-        but = QtGui.QPushButton('OK')
+        but = QT.QPushButton('OK')
         layout.addWidget(but)
         but.clicked.connect(self.accept)
 
     def get(self):
-        return get_dict_from_group_param(self.params)
+        return get_dict_from_group_param(self.params, cascade=True)
     
 
 if __name__=='__main__':

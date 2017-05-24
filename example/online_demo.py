@@ -16,10 +16,10 @@ import shutil
 
 
 def setup_catalogue():
-    if os.path.exists('test_onlinepeeler'):
-        shutil.rmtree('test_onlinepeeler')
+    if os.path.exists('tridesclous_onlinepeeler'):
+        shutil.rmtree('tridesclous_onlinepeeler')
     
-    dataio = DataIO(dirname='test_onlinepeeler')
+    dataio = DataIO(dirname='tridesclous_onlinepeeler')
     
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     filenames = filenames[:1] #only first file
@@ -85,8 +85,8 @@ def setup_catalogue():
     
 
 
-def test_OnlinePeeler():
-    dataio = DataIO(dirname='test_onlinepeeler')
+def tridesclous_onlinepeeler():
+    dataio = DataIO(dirname='tridesclous_onlinepeeler')
     catalogue = dataio.load_catalogue(chan_grp=0)
     
     #~ def print_dict(d):
@@ -106,7 +106,8 @@ def test_OnlinePeeler():
     
     sigs = dataio.datasource.array_sources[0]
     
-    sigs = sigs.astype('float32')
+    sigs = sigs.astype('float32').copy()
+    
     sample_rate = dataio.sample_rate
     in_group_channels = dataio.channel_groups[0]['channels']
     #~ print(channel_group)
@@ -120,10 +121,15 @@ def test_OnlinePeeler():
     #~ ng0 = None
     ng1 = man.create_nodegroup()
     #~ ng1 = None
+    ng2 = man.create_nodegroup()
+    #~ ng2 = None
     
     
     dev = make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup=ng0, chunksize=chunksize)
-    
+    #~ print(type(dev))
+    #~ exit()
+    #~ print(dev.output.params)
+    #~ exit()
 
     
     app = pg.mkQApp()
@@ -148,8 +154,11 @@ def test_OnlinePeeler():
         peeler = ng1.create_node('OnlinePeeler')
     
     peeler.configure(catalogue=catalogue, in_group_channels=in_group_channels, chunksize=chunksize)
-    
+    #~ print(dev.output.params)
+    #~ print(peeler.input.connect)
+    #~ exit()
     peeler.input.connect(dev.output)
+    #~ exit()
     stream_params = dict(protocol='tcp', interface='127.0.0.1', transfermode='plaindata')
     peeler.outputs['signals'].configure(**stream_params)
     peeler.outputs['spikes'].configure(**stream_params)
@@ -157,7 +166,12 @@ def test_OnlinePeeler():
     peeler.start()
     
     # Node traceviewer
-    tviewer = OnlineTraceViewer()
+    if ng2 is None:
+        tviewer = OnlineTraceViewer()
+    else:
+        ng2.register_node_type_from_module('tridesclous.online', 'OnlineTraceViewer')
+        tviewer = ng2.create_node('OnlineTraceViewer')
+        
     tviewer.configure(catalogue=catalogue)
     tviewer.inputs['signals'].connect(peeler.outputs['signals'])
     tviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
@@ -199,5 +213,6 @@ def test_OnlinePeeler():
 if __name__ =='__main__':
     #~ setup_catalogue()
     
-    test_OnlinePeeler()
+    tridesclous_onlinepeeler()
+
 

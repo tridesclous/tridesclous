@@ -1,0 +1,270 @@
+from .myqt import QT
+import pyqtgraph as pg
+
+import os
+from collections import OrderedDict
+from ..dataio import DataIO
+from ..datasource import data_source_classes
+from .tools import get_dict_from_group_param
+
+
+
+
+
+class InitializeDatasetWindow(QT.QDialog):
+    def __init__(self, parent=None):
+        QT.QDialog.__init__(self, parent = parent)
+        
+        self.setWindowTitle('Initailize new tridesclous')
+        self.setModal(True)
+        
+        self.resize(600, 300)
+
+        layout = QT.QVBoxLayout()
+        self.setLayout(layout)
+        
+        #for step 'source_type'
+        self.tree_params = pg.parametertree.ParameterTree(parent=self)
+        self.tree_params.header().hide()
+        layout.addWidget(self.tree_params)
+        self.tree_params.hide()
+        
+        # for filenames
+        self.but_addfiles = QT.QPushButton('Add files')
+        layout.addWidget(self.but_addfiles)
+        self.but_addfiles.clicked.connect(self.on_addfiles)
+        self.but_addfiles.hide()
+        self.list_files = QT.QListWidget()
+        layout.addWidget(self.list_files)
+        self.list_files.hide()
+        
+        # for chan_grp
+        self.changroup_widget = ChannelGroupWidget()
+        layout.addWidget(self.changroup_widget)
+        self.changroup_widget.hide()
+        
+        # for dirname
+        self.but_dirname = QT.QPushButton('change path')
+        layout.addWidget(self.but_dirname)
+        self.but_dirname.clicked.connect(self.on_change_path)
+        self.but_dirname.hide()
+        self.label_path = QT.QLabel()
+        layout.addWidget(self.label_path)
+        self.label_path.hide()
+        self.edit_dirname = QT.QLineEdit()
+        layout.addWidget(self.edit_dirname)
+        self.edit_dirname.hide()
+        
+        layout.addStretch()
+        
+        self.but_next = QT.QPushButton('Next >')
+        layout.addWidget(self.but_next)
+        self.but_next.clicked.connect(self.validate_step)
+        
+        self.steps = ['source_type', 'filenames', 'source_params', 'mk_chan_grp', 'dirname']
+        self.display_step(self.steps[0])
+        
+        self.final_params = {}
+    
+    
+    def display_step(self, step):
+        self.actual_step = step
+        
+        if step=='source_type':
+            source_types = list(data_source_classes.keys())
+            source_types.remove('InMemory')
+            params = [{'name': 'source_type', 'type': 'list', 'values':source_types},
+                            ]
+            self.step_params = pg.parametertree.Parameter.create(name='Select source type', type='group', children = params)
+            self.tree_params.setParameters(self.step_params, showTop=True)
+            self.tree_params.show()
+        
+        elif step=='filenames':
+            self.but_addfiles.show()
+            self.list_files.show()
+        
+        elif step=='source_params':
+            params = self.datasource_class.gui_params
+            self.step_params = pg.parametertree.Parameter.create(name='Set params', type='group', children=params)
+            self.tree_params.setParameters(self.step_params, showTop=True)
+            self.tree_params.show()
+
+        elif step=='mk_chan_grp':
+            filenames = self.final_params['filenames']
+            kargs = self.final_params['source_params']
+            #~ print(filenames)
+            #~ print(kargs)
+            try:
+            #~ if True:
+                channel_names = self.datasource_class(filenames=filenames, **kargs).get_channel_names()
+            except:
+                #TYODO warning
+                print('ereur file')
+                return 
+            #~ print(channel_names)
+            self.changroup_widget.set_channel_names(channel_names)
+            self.changroup_widget.show()
+        
+        elif step=='dirname':
+            self.but_dirname.show()
+            self.label_path.show()
+            self.edit_dirname.show()
+            filename = self.final_params['filenames'][0]
+            self.label_path.setText(os.path.dirname(filename))
+            if len(self.final_params['filenames'])==1:
+                name, _ = os.path.splitext(os.path.basename(filename))
+                self.edit_dirname.setText('tdc_'+name)
+            else:
+                self.edit_dirname.setText('tdc_')
+
+   
+    def validate_step(self):
+        #~ print('validate_step', self.actual_step)
+        step = self.actual_step
+        if step=='source_type':
+            self.final_params['source_type'] = self.step_params['source_type']
+            self.tree_params.hide()
+            self.display_step('filenames')
+            self.datasource_class = data_source_classes[self.final_params['source_type']]
+            
+        elif step=='filenames':
+            filenames = [self.list_files.item(i).text() for i in range(self.list_files.count())]
+            if len(filenames)==0: return
+            self.final_params['filenames'] = filenames
+            self.but_addfiles.hide()
+            self.list_files.hide()
+            
+            if self.datasource_class.gui_params is None:
+                self.final_params['source_params'] = {}
+                self.display_step('mk_chan_grp')
+            else:
+                self.display_step('source_params')
+        
+        elif step=='source_params':
+            self.final_params['source_params'] = get_dict_from_group_param(self.step_params)
+            self.tree_params.hide()
+            self.display_step('mk_chan_grp')
+        
+        elif step=='mk_chan_grp':
+            #~ print(self.final_params)
+            self.final_params['channel_groups'] = self.changroup_widget.channel_groups
+            self.changroup_widget.hide()
+            self.display_step('dirname')
+        
+        elif step=='dirname':
+            p1 = self.label_path.text()
+            p2 = self.edit_dirname.text()
+            dirname = os.path.join(p1, p2)
+            if DataIO.check_initialized(dirname):
+                #todo warning
+                print('already exist')
+                return
+            self.final_params['dirname'] = dirname
+            self.but_dirname.hide()
+            self.label_path.hide()
+            self.edit_dirname.hide()
+            self.make_it()
+            self.accept()
+    
+    def on_addfiles(self):
+        fd = QT.QFileDialog(fileMode=QT.QFileDialog.ExistingFiles, acceptMode=QT.QFileDialog.AcceptOpen)
+        fd.setNameFilters(['All (*)'])
+        fd.setViewMode(QT.QFileDialog.Detail)
+        if fd.exec_():
+            filenames = fd.selectedFiles()
+            self.list_files.addItems(filenames)
+    
+    def on_change_path(self):
+        dirname = self.label_path.text()
+        fd = QT.QFileDialog(fileMode=QT.QFileDialog.DirectoryOnly, acceptMode=QT.QFileDialog.AcceptOpen)
+        fd.setViewMode(QT.QFileDialog.Detail)
+        fd.setDirectory(os.path.dirname(dirname))
+        if fd.exec_():
+            dirname = fd.selectedFiles()[0]
+            self.label_path.setText(dirname)
+            #~ self.list_files.addItems(filenames)
+            
+    
+    def make_it(self):
+        try:
+            p = self.final_params
+            dataio = DataIO(p['dirname'])
+            dataio.set_data_source(type=p['source_type'], filenames=p['filenames'], **p['source_params'])
+            dataio.set_channel_groups(p['channel_groups'])
+            print(dataio)
+            self.dirname_created = p['dirname']
+        except Exception as e:
+            print(e)
+
+
+
+class ChannelGroupWidget(QT.QWidget):
+    def __init__(self, parent=None):
+        QT.QWidget.__init__(self, parent = parent)
+        
+        layout = QT.QHBoxLayout()
+        self.setLayout(layout)
+        
+        self.list_channel = QT.QListWidget(selectionMode=QT.QAbstractItemView.ExtendedSelection, selectionBehavior=QT.QTreeView.SelectRows)
+        layout.addWidget(self.list_channel)
+        
+        v = QT.QVBoxLayout()
+        layout.addLayout(v)
+        but = QT.QPushButton('add channel group')
+        v.addWidget(but)
+        but.clicked.connect(self.add_chan_grp)
+        
+        self.table_grp = QT.QTableWidget()
+        v.addWidget(self.table_grp)
+        
+        but = QT.QPushButton('clear')
+        v.addWidget(but)
+        but.clicked.connect(self.clear_table)
+        
+        self.channel_names = None
+        self.channel_groups = None
+    
+    def set_channel_names(self, channel_names):
+        self.n = len(channel_names)
+        self.channel_names = channel_names
+        self.list_channel.clear()
+        self.list_channel.addItems(channel_names)
+        
+        channels = list(range(self.n))
+        geometry = { c: [0, i] for i, c in enumerate(channels) }
+        self.channel_groups = OrderedDict()
+        self.channel_groups[0] = dict(channels=channels, geometry=geometry)
+        
+        self.refresh_table()
+        
+
+    def refresh_table(self):
+        t = self.table_grp
+        
+        t.clear()
+        t.setColumnCount(3)
+        t.setRowCount(len(self.channel_groups))
+        
+        t.setHorizontalHeaderLabels(['key', 'nb_chan', 'channels'])
+        for i, k in enumerate(self.channel_groups.keys()):
+            channel_group = self.channel_groups[k]
+            channels = channel_group['channels']
+            t.setItem(i, 0,  QT.QTableWidgetItem('{}'.format(k)))
+            t.setItem(i, 1,  QT.QTableWidgetItem('{}'.format(len(channels))))
+            txt = ' '.join([str(c) for c in channels])
+            t.setItem(i, 2,  QT.QTableWidgetItem('[{}]'.format(txt)))
+        
+        t.resizeColumnsToContents()
+            
+    def add_chan_grp(self):
+        channels = [ind.row() for ind in self.list_channel.selectedIndexes()]
+        if len(channels)==0: return
+        k = len(self.channel_groups)
+        geometry = { c: [0, i] for i, c in enumerate(channels) }
+        self.channel_groups[k] = dict(channels=channels, geometry=geometry)
+        self.refresh_table()
+        
+    def clear_table(self):
+        self.channel_groups = OrderedDict()
+        self.refresh_table()
+

@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
+from .myqt import QT
 import pyqtgraph as pg
-from pyqtgraph.Qt import QtCore, QtGui
 
 
 from .peelercontroller import PeelerController
@@ -16,9 +16,9 @@ import datetime
 
     
 
-class PeelerWindow(QtGui.QMainWindow):
+class PeelerWindow(QT.QMainWindow):
     def __init__(self, parent=None, dataio=None, catalogue=None):
-        QtGui.QMainWindow.__init__(self, parent=None)
+        QT.QMainWindow.__init__(self, parent=None)
         
         self.controller = PeelerController(dataio=dataio, catalogue=catalogue)
         
@@ -31,16 +31,16 @@ class PeelerWindow(QtGui.QMainWindow):
         docks = {}
 
         
-        docks['traceviewer'] = QtGui.QDockWidget('traceviewer',self)
+        docks['traceviewer'] = QT.QDockWidget('traceviewer',self)
         docks['traceviewer'].setWidget(self.traceviewer)
-        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, docks['traceviewer'])
+        self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['traceviewer'])
 
-        docks['spikelist'] = QtGui.QDockWidget('spikelist',self)
+        docks['spikelist'] = QT.QDockWidget('spikelist',self)
         docks['spikelist'].setWidget(self.spikelist)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, docks['spikelist'])
+        self.addDockWidget(QT.Qt.LeftDockWidgetArea, docks['spikelist'])
 
-        docks['clusterlist'] = QtGui.QDockWidget('clusterlist',self)
+        docks['clusterlist'] = QT.QDockWidget('clusterlist',self)
         docks['clusterlist'].setWidget(self.clusterlist)
-        self.splitDockWidget(docks['spikelist'], docks['clusterlist'], QtCore.Qt.Horizontal)
+        self.splitDockWidget(docks['spikelist'], docks['clusterlist'], QT.Qt.Horizontal)
 
 

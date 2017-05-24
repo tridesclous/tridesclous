@@ -10,8 +10,9 @@ import  pyqtgraph as pg
 
 from tridesclous.dataio import DataIO
 from tridesclous.catalogueconstructor import CatalogueConstructor
-from tridesclous.peeler import Peeler
+from tridesclous import Peeler, Peeler_OpenCl
 
+from tridesclous.peeler_OLD import PeelerOLD
 
 
 def setup_catalogue():
@@ -106,6 +107,10 @@ def test_peeler():
     print('peeler.run_loop', t2-t1)
 
 
+    
+    
+
+
 def open_PeelerWindow():
     dataio = DataIO(dirname='test_peeler')
     initial_catalogue = dataio.load_catalogue(chan_grp=0)
@@ -114,7 +119,41 @@ def open_PeelerWindow():
     win = PeelerWindow(dataio=dataio, catalogue=initial_catalogue)
     win.show()
     app.exec_()
+
+
+def test_compare_peeler():
     
+    all_spikes = []
+    #~ for perler_class in (Peeler, PeelerOLD):
+    #~ for perler_class in [PeelerOLD]:
+    for peeler_class in [Peeler,]:
+    #~ for peeler_class in [Peeler_OpenCl,]:
+    #~ for peeler_class in [Peeler, Peeler_OpenCl]:
+        print()
+        print(peeler_class)
+        
+        dataio = DataIO(dirname='test_peeler')
+        print(dataio)
+        
+        initial_catalogue = dataio.load_catalogue(chan_grp=0)
+        
+        peeler = peeler_class(dataio)
+        
+        peeler.change_params(catalogue=initial_catalogue, n_peel_level=2, chunksize=1024)
+        
+        t1 = time.perf_counter()
+        peeler.run()
+        t2 = time.perf_counter()
+        print('peeler.run_loop', t2-t1)
+        
+        
+        all_spikes.append(dataio.get_spikes(chan_grp=0).copy())
+        
+        #~ print(dataio.get_spikes(chan_grp=0).size)
+    
+    for spikes in all_spikes:
+        print(spikes)
+        print(spikes.size)
     
     
     
@@ -123,7 +162,10 @@ if __name__ =='__main__':
     
     #~ open_catalogue_window()
     
-    #~ test_peeler()
+    test_peeler()
     
-    open_PeelerWindow()
+    #~ open_PeelerWindow()
     
+    #~ test_compare_peeler()
+    
+    #~ open_PeelerWindow()

@@ -7,13 +7,15 @@ install_requires = [
                     'numpy',
                     'scipy',
                     'pandas',
-                    'sklearn',
+                    'scikit-learn',
                     'matplotlib',
                     'seaborn',
-                    #~ 'tables',
+                    'quantities==0.10.1', # I force this version because actual version is buggy and is  "0+unknown"
+                    'neo==0.5.1',
                     ]
-extras_require={ 'gui' : ['PyQt5', 'pyqtgraph', 'matplotlib'],
+extras_require={ 'gui' : ['PyQt5', 'pyqtgraph==0.10.0', 'matplotlib'],
                             'online' : 'pyacq',
+                            'opencl' : ['pyopencl'],
                         }
 
 long_description = ""
@@ -21,14 +23,18 @@ long_description = ""
 setup(
     name = "tridesclous",
     version = tridesclous.__version__,
-    packages = ['tridesclous', 'tridesclous.gui','tridesclous.online', ],
+    packages = ['tridesclous', 'tridesclous.gui','tridesclous.online', 'tridesclous.scripts',],
     install_requires=install_requires,
     extras_require = extras_require,
     author = "C. Pouzat, S.Garcia",
     author_email = "",
-    description = "Simple Framework for spike sorting python.",
+    description = "offline/online spike sorting with french touch that light the barbecue",
     long_description = long_description,
-    license = "MIT",
+    entry_points={
+          'console_scripts': ['tdc=tridesclous.scripts.tdc:main'],
+          #~ 'gui_scripts': ['tdcgui=tridesclous.scripts.tdc:open_mainwindow'],
+        },
+     license = "MIT",
     url='https://github.com/tridesclous/trisdesclous',
     classifiers = [
         'Development Status :: 4 - Beta',

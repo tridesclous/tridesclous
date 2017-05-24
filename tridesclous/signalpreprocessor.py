@@ -139,19 +139,19 @@ class SignalPreprocessor_OpenCL:
         
         #forward filter
         event = pyopencl.enqueue_copy(self.queue,  self.input_cl, chunk)
-        event.wait()
+        #~ event.wait()
         event = self.kern_forward_filter(self.queue,  (self.nb_channel,), (self.nb_channel,),
                                 self.input_cl, self.output_forward_cl, self.coefficients_cl, self.zi1_cl)
-        event.wait()
+        #~ event.wait()
         
         #roll and add to bacward fifo
         event = self.kern_roll_fifo(self.queue,  (self.nb_channel, self.overlapsize), (self.nb_channel, 1),
                                 self.fifo_input_backward_cl)
-        event.wait()
+        #~ event.wait()
         
         event = self.kern_new_chunk_fifo(self.queue,  (self.nb_channel, self.chunksize), (self.nb_channel, 1),
                                 self.fifo_input_backward_cl,  self.output_forward_cl)
-        event.wait()
+        #~ event.wait()
         
         # backwward
         self.zi2[:]=0
@@ -160,12 +160,17 @@ class SignalPreprocessor_OpenCL:
                                 self.fifo_input_backward_cl, self.output_backward_cl, self.coefficients_cl, self.zi2_cl)
         event.wait()
         
-        event = pyopencl.enqueue_copy(self.queue,  self.output_backward, self.output_backward_cl)
-        event.wait()
+        
+        #~ event.wait()
         
         start = pos-self.backward_chunksize
         if start<-self.overlapsize:
             return None, None
+        
+        pos2 = pos-self.overlapsize
+        
+        
+        event = pyopencl.enqueue_copy(self.queue,  self.output_backward, self.output_backward_cl)
         
         if start>0:
             data2 = self.output_backward[:self.chunksize, :]
@@ -173,7 +178,7 @@ class SignalPreprocessor_OpenCL:
             data2 = self.output_backward[self.overlapsize:self.chunksize, :]
         
         data2 = data2.copy()
-        pos2 = pos-self.overlapsize
+        
 
         #~ print('pos', pos, 'start', start, 'pos2', pos2, data2.shape)
         
