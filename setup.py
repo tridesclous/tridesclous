@@ -10,9 +10,9 @@ install_requires = [
                     'scikit-learn',
                     'matplotlib',
                     'seaborn',
-                    'neo',
+                    'neo>=0.5.1',
                     ]
-extras_require={ 'gui' : ['PyQt5', 'pyqtgraph', 'matplotlib'],
+extras_require={ 'gui' : ['PyQt5', 'pyqtgraph==0.10.0', 'matplotlib'],
                             'online' : 'pyacq',
                             'opencl' : ['pyopencl'],
                         }
@@ -22,7 +22,7 @@ long_description = ""
 setup(
     name = "tridesclous",
     version = tridesclous.__version__,
-    packages = ['tridesclous', 'tridesclous.gui','tridesclous.online', ],
+    packages = ['tridesclous', 'tridesclous.gui','tridesclous.online', 'tridesclous.scripts',],
     install_requires=install_requires,
     extras_require = extras_require,
     author = "C. Pouzat, S.Garcia",
