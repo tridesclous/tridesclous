@@ -126,12 +126,20 @@ class BlackrockDataSource(DataSourceBase):
     """
     
     
-    def __init__(self, filename=[]):
+    def __init__(self, filename=None, filenames=None):
         DataSourceBase.__init__(self)
         assert HAS_NEO_0_5, 'neo version 0.5.x is not installed'
+        # TODO make it multifile
         
-        self.filename = filename
-
+        if filename is not None:
+            self.filenames = [filename]
+        else:
+            self.filenames = filenames
+            
+        
+        assert len(self.filenames)==1, 'Support only one file should be improved'
+        self.filename = self.filenames[0]
+        
         assert os.path.exists(self.filename), 'files does not exist'
         
         

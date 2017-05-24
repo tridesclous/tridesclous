@@ -95,6 +95,7 @@ class InitializeDatasetWindow(QT.QDialog):
             #~ print(filenames)
             #~ print(kargs)
             try:
+            #~ if True:
                 channel_names = self.datasource_class(filenames=filenames, **kargs).get_channel_names()
             except:
                 #TYODO warning

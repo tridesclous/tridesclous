@@ -132,6 +132,7 @@ class MainWindow(QT.QMainWindow):
                         {'name': 'peak_span', 'type': 'float', 'value':0.0009, 'step': 0.0001, 'suffix': 's', 'siPrefix': True},
                 ]},
             {'name':'duration', 'type': 'float', 'value':10., 'suffix': 's', 'siPrefix': True},
+            
         ]
         dia = ParamDialog(params)
         dia.resize(300, 300)
