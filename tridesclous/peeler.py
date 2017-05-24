@@ -67,11 +67,6 @@ class Peeler:
         self.chunksize = chunksize
         self.internal_dtype= internal_dtype
         
-        
-        
-
-        
-        
         # precompute some value for jitter estimation
         n = self.catalogue['cluster_labels'].size
         self.catalogue['wf1_norm2'] = np.zeros(n)
@@ -215,6 +210,8 @@ class Peeler:
         self.dataio.flush_spikes(seg_num=seg_num, chan_grp=chan_grp)
 
     def run_offline_all_segment(self, chan_grp=0, duration=None):
+        #TODO remove chan_grp here because it is redundant from catalogue['chan_grp']
+        
         #~ print('run_offline_all_segment', chan_grp)
         for seg_num in range(self.dataio.nb_segment):
             self.run_offline_loop_one_segment(seg_num=seg_num, chan_grp=chan_grp, duration=duration)
