@@ -15,6 +15,7 @@ class DataSourceBase:
         self.sample_rate = None
         self.nb_segment = None
         self.dtype = None
+        self.bit_to_microVolt = None
     
     def get_segment_shape(self, seg_num):
         raise NotImplementedError
@@ -24,6 +25,7 @@ class DataSourceBase:
     
     def get_signals_chunk(self, seg_num=0, i_start=None, i_stop=None):
         raise NotImplementedError
+    
     
 class InMemoryDataSource(DataSourceBase):
     """
@@ -199,21 +201,22 @@ def read_ncs_header(ncs_filename):
         header = f.read(2**14)
     header = header.strip(b'\x00').decode('latin-1')
     
-    keys = [('ADBitVolts', 'bit_to_uV'),
-                ('AcqEntName', 'channel_name'),
-                ('ADChannel', 'channel_id'),
-                ('SamplingFrequency', 'sample_rate'),
-                ('InputInverted', 'input_inverted'),
+    keys = [('ADBitVolts', 'bit_to_microVolt', float),
+                ('AcqEntName', 'channel_name', None),
+                ('ADChannel', 'channel_id', int),
+                ('SamplingFrequency', 'sample_rate', float),
+                ('InputInverted', 'input_inverted', bool),
         ]
     info = {}
-    for k1, k2 in keys:
+    for k1, k2, type_ in keys:
         pattern = '-'+k1+' (\S+)'
         r = re.findall(pattern, header)
         if len(r) == 1:
             info[k2] = r[0]
+            if type_ is not None:
+                info[k2] = type_(info[k2])
     
-    info['sample_rate'] = float(info['sample_rate'])
-    info['bit_to_uV'] = float(info['bit_to_uV'])*1e6
+    info['bit_to_microVolt'] = info['bit_to_microVolt']*1e6
     return info
 
 ncs_dtype = np.dtype([('timestamp', 'uint64'),
@@ -226,8 +229,10 @@ ncs_dtype = np.dtype([('timestamp', 'uint64'),
 def explore_neuralynx_dir(dirname):
     datas = []
     channel_names = []
+    invert_input = []
     sample_rate = None
     length = None
+    bit_to_microVolt = None
     for filename in os.listdir(dirname):
         if not filename.endswith('.ncs'): continue
         
@@ -237,6 +242,17 @@ def explore_neuralynx_dir(dirname):
             sample_rate = info['sample_rate']
         else:
             assert sample_rate == info['sample_rate'], 'Some channel do not have the same sample rate'
+        
+        if bit_to_microVolt is None:
+            bit_to_microVolt = info['bit_to_microVolt']
+        else:
+            assert bit_to_microVolt==info['bit_to_microVolt'], 'Some channel do not have the same bit_to_microVolt'
+        
+        if info['input_inverted']:
+            invert_input.append(-1)
+        else:
+            invert_input.append(-1)
+        
         
         data = np.memmap(fullname, dtype=ncs_dtype, mode='r', offset=2**14)
         #~ print(data.shape)
@@ -248,8 +264,11 @@ def explore_neuralynx_dir(dirname):
         
         datas.append(data)
         channel_names.append(info['channel_name'])
-
-    return datas, channel_names, sample_rate
+    
+    invert_input = np.array(invert_input, dtype='int16')
+    
+    return datas, channel_names, sample_rate, invert_input, bit_to_microVolt
+    
     
 
 class NeuralynxDataSource(DataSourceBase):
@@ -260,8 +279,10 @@ class NeuralynxDataSource(DataSourceBase):
         self.all_datas = []
         self.channel_names = None
         self.total_channel = None
+        self.invert_input = None
+        self.bit_to_microVolt = None
         for dirname in dirnames:
-            datas, channel_names, sample_rate = explore_neuralynx_dir(dirname)
+            datas, channel_names, sample_rate, invert_input, bit_to_microVolt = explore_neuralynx_dir(dirname)
             
             if self.channel_names is None:
                 self.channel_names = channel_names
@@ -274,10 +295,24 @@ class NeuralynxDataSource(DataSourceBase):
             else:
                 assert self.sample_rate == sample_rate, 'Sample rate do not match between segments'
             
+            if self.invert_input is None:
+                self.invert_input = invert_input
+            else:
+                assert np.all(invert_input==self.invert_input), 'Invert input do not match between segments'
+            
+            if self.bit_to_microVolt is None:
+                self.bit_to_microVolt = bit_to_microVolt
+            else:
+                assert bit_to_microVolt==self.bit_to_microVolt,  'bit_to_microVolt do not match between segments'
+            
             self.all_datas.append(datas)
+        
+        self.invert_input = self.invert_input[None, :]
         
         self.nb_segment = len(dirnames)
         self.dtype = np.dtype('int16')
+        
+        
     
     def get_segment_shape(self, seg_num):
         return self.all_datas[seg_num][0]['samples'].size, self.total_channel
@@ -291,19 +326,17 @@ class NeuralynxDataSource(DataSourceBase):
         
         block_start = i_start//512
         block_stop = i_stop//512+1
-        #~ print(block_start, block_stop)
         sl0 = i_start % 512
         sl1 = sl0 + (i_stop-i_start)
-        #~ print(sl0, sl1)
         
-        chunk = np.zeros((i_stop-i_start, self.total_channel, ), dtype=self.dtype)
+        sigs_chunk = np.zeros((i_stop-i_start, self.total_channel, ), dtype=self.dtype)
         sigs = []
         for i, data in enumerate(self.all_datas[seg_num]):
             sub = data[block_start:block_stop]
-            chunk[:, i] = sub['samples'].flatten()[sl0:sl1]
-            #~ sigs.append(sig)
-        #TODO check inverted
-        return chunk
+            sigs_chunk[:, i] = sub['samples'].flatten()[sl0:sl1]
+        sigs_chunk *= self.invert_input
+        
+        return sigs_chunk
 
     
 

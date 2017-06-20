@@ -121,6 +121,7 @@ class MainWindow(QT.QMainWindow):
         if init_dia.exec_():
             self._open_dataio(init_dia.dirname_created)
 
+
     
     def initialize_catalogue(self):
         params = [
@@ -135,7 +136,7 @@ class MainWindow(QT.QMainWindow):
                     {'name': 'peakdetector_engine', 'type': 'list', 'values':['numpy', 'opencl']},
                     {'name': 'peak_sign', 'type': 'list', 'values':['-', '+']},
                     {'name': 'relative_threshold', 'type': 'float', 'value': 6., 'step': .1,},
-                    {'name': 'peak_span', 'type': 'float', 'value':0.0009, 'step': 0.0001, 'suffix': 's', 'siPrefix': True},
+                    {'name': 'peak_span', 'type': 'float', 'value':0.0005, 'step': 0.0001, 'suffix': 's', 'siPrefix': True},
                 ]
             },
             {'name':'extract_waveforms', 'type':'group', 
