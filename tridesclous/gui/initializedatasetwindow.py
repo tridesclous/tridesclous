@@ -90,18 +90,23 @@ class InitializeDatasetWindow(QT.QDialog):
             self.tree_params.show()
 
         elif step=='mk_chan_grp':
-            filenames = self.final_params['filenames']
-            kargs = self.final_params['source_params']
+            #~ filenames = self.final_params['filenames']
+            source_params = dict(self.final_params['source_params'])
+            if self.datasource_class.mode.endswith('-file'):
+                source_params['filenames'] = self.final_params['file_or_dir_names']
+            elif self.datasource_class.mode.endswith('-dir'):
+                source_params['dirnames'] = self.final_params['file_or_dir_names']
+                
             #~ print(filenames)
             #~ print(kargs)
             try:
             #~ if True:
-                channel_names = self.datasource_class(filenames=filenames, **kargs).get_channel_names()
+                channel_names = self.datasource_class(**source_params).get_channel_names()
             except:
-                #TYODO warning
-                print('ereur file')
-                return 
-            #~ print(channel_names)
+                #~ #TYODO warning
+                print('Error file')
+                return
+            print(channel_names)
             self.changroup_widget.set_channel_names(channel_names)
             self.changroup_widget.show()
         
@@ -109,13 +114,18 @@ class InitializeDatasetWindow(QT.QDialog):
             self.but_dirname.show()
             self.label_path.show()
             self.edit_dirname.show()
-            filename = self.final_params['filenames'][0]
-            self.label_path.setText(os.path.dirname(filename))
-            if len(self.final_params['filenames'])==1:
-                name, _ = os.path.splitext(os.path.basename(filename))
-                self.edit_dirname.setText('tdc_'+name)
+            
+            names = self.final_params['file_or_dir_names']
+            name0 = names[0]
+            suggested_dir = os.path.dirname(name0)
+            if len(names)==1:
+                name, _ = os.path.splitext(os.path.basename(name0))
+                suggested_name = 'tdc_'+name
             else:
-                self.edit_dirname.setText('tdc_')
+                suggested_name = 'tdc_'
+            
+            self.label_path.setText(suggested_dir)
+            self.edit_dirname.setText(suggested_name)
 
    
     def validate_step(self):
@@ -128,9 +138,9 @@ class InitializeDatasetWindow(QT.QDialog):
             self.datasource_class = data_source_classes[self.final_params['source_type']]
             
         elif step=='filenames':
-            filenames = [self.list_files.item(i).text() for i in range(self.list_files.count())]
-            if len(filenames)==0: return
-            self.final_params['filenames'] = filenames
+            file_or_dir_names = [self.list_files.item(i).text() for i in range(self.list_files.count())]
+            if len(file_or_dir_names)==0: return
+            self.final_params['file_or_dir_names'] = file_or_dir_names
             self.but_addfiles.hide()
             self.list_files.hide()
             
@@ -167,8 +177,17 @@ class InitializeDatasetWindow(QT.QDialog):
             self.accept()
     
     def on_addfiles(self):
-        fd = QT.QFileDialog(fileMode=QT.QFileDialog.ExistingFiles, acceptMode=QT.QFileDialog.AcceptOpen)
-        fd.setNameFilters(['All (*)'])
+        print('on_addfiles')
+        print(self.datasource_class)
+        print(self.datasource_class.mode)
+        
+        if self.datasource_class.mode.endswith('-file'):
+            fd = QT.QFileDialog(fileMode=QT.QFileDialog.ExistingFiles, acceptMode=QT.QFileDialog.AcceptOpen)
+            fd.setNameFilters(['All (*)'])
+        elif self.datasource_class.mode.endswith('-dir'):
+            fd = QT.QFileDialog(fileMode=QT.QFileDialog.DirectoryOnly, acceptMode=QT.QFileDialog.AcceptOpen)
+            #~ fd.setNameFilters(['All (*)'])
+        
         fd.setViewMode(QT.QFileDialog.Detail)
         if fd.exec_():
             filenames = fd.selectedFiles()
@@ -184,12 +203,18 @@ class InitializeDatasetWindow(QT.QDialog):
             self.label_path.setText(dirname)
             #~ self.list_files.addItems(filenames)
             
-    
     def make_it(self):
         try:
             p = self.final_params
+            
+            source_params = dict(self.final_params['source_params'])
+            if self.datasource_class.mode.endswith('-file'):
+                source_params['filenames'] = self.final_params['file_or_dir_names']
+            elif self.datasource_class.mode.endswith('-dir'):
+                source_params['dirnames'] = self.final_params['file_or_dir_names']
+            
             dataio = DataIO(p['dirname'])
-            dataio.set_data_source(type=p['source_type'], filenames=p['filenames'], **p['source_params'])
+            dataio.set_data_source(type=p['source_type'], **source_params)
             dataio.set_channel_groups(p['channel_groups'])
             print(dataio)
             self.dirname_created = p['dirname']
