@@ -202,7 +202,7 @@ class MainWindow(QT.QMainWindow):
                 t2 = time.perf_counter()
                 print('find_clusters', t2-t1)
                 
-                print(catalogueconstructor)
+                print(self.catalogueconstructor)
 
                 
                 
@@ -253,8 +253,7 @@ class MainWindow(QT.QMainWindow):
     def open_peelerwin(self):
         if self.dataio is None: return
         try:
-            chan_grp= 0
-            initial_catalogue = self.dataio.load_catalogue(chan_grp=chan_grp)
+            initial_catalogue = self.dataio.load_catalogue(chan_grp=self.chan_grp)
             win = PeelerWindow(dataio=self.dataio, catalogue=initial_catalogue)
             win.show()
             self.open_windows.append(win)
