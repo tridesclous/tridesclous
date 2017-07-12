@@ -186,6 +186,21 @@ def tridesclous_onlinepeeler():
     tviewer.auto_gain_and_offset(mode=1)
     #~ tviewer.gain_zoom(.3)
     tviewer.gain_zoom(.1)
+
+
+
+
+    #~ tfr_viewer = QTimeFreq()
+    #~ tfr_viewer.configure(with_user_dialog=True, nodegroup_friends=None)
+    #~ tfr_viewer.input.connect(dev.output)
+    #~ tfr_viewer.initialize()
+    #~ tfr_viewer.show()
+    #~ tfr_viewer.params['refresh_interval'] = 300
+    #~ tfr_viewer.params['timefreq', 'f_start'] = 1
+    #~ tfr_viewer.params['timefreq', 'f_stop'] = 100.
+    #~ tfr_viewer.params['timefreq', 'deltafreq'] = 5
+    #~ tfr_viewer.start()
+    
     
     
     
