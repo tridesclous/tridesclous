@@ -73,12 +73,11 @@ class DataIO:
         t += "  total_channel: {}\n".format(self.total_channel)
         if len(self.channel_groups)==1:
             k0, cg0 = next(iter(self.channel_groups.items()))
-            #TODO if less than 4 channels
-            if len(cg0['channels'])>8:
-                chantxt = "[{} ... {}]".format(' '.join(str(e) for e in cg0['channels'][:4]),\
-                                                                            ' '.join(str(e) for e in cg0['channels'][-4:]))
+            ch_names = np.array(self.datasource.get_channel_names())[cg0['channels']]
+            if len(ch_names)>8:
+                chantxt = "[{} ... {}]".format(' '.join(ch_names[:4]),' '.join(ch_names[-4:]))
             else:
-                chantxt = "[{}]".format(' '.join(str(e) for e in cg0['channels']))
+                chantxt = "[{}]".format(' '.join(ch_names))
             t += "  channel_groups: {} {}\n".format(k0, chantxt)
         else:
             t += "  channel_groups: {}\n".format(', '.join(['{} ({}ch)'.format(cg, self.nb_channel(cg))

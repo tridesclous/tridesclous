@@ -108,22 +108,22 @@ except:
 
 
 
-
-class MyBlackrockIO(neo.BlackrockIO):
-    def read_analogsignals(self):
-        nsx_nb = 5
-        spec = self._BlackrockIO__nsx_spec[nsx_nb]
-        nsx_data = self._BlackrockIO__nsx_data_reader[spec](nsx_nb)
-        sampling_rate = self._BlackrockIO__nsx_params[spec]('sampling_rate', nsx_nb)        
-        return nsx_data, sampling_rate.rescale('Hz').magnitude
-    
-    @property
-    def ids_to_labels(self):
-        return self._BlackrockIO__nev_params('channel_labels')
-    
-    @property        
-    def channel_ids(self):
-        return self._BlackrockIO__nsx_ext_header[5]['electrode_id']
+if HAS_NEO_0_5:
+    class MyBlackrockIO(neo.BlackrockIO):
+        def read_analogsignals(self):
+            nsx_nb = 5
+            spec = self._BlackrockIO__nsx_spec[nsx_nb]
+            nsx_data = self._BlackrockIO__nsx_data_reader[spec](nsx_nb)
+            sampling_rate = self._BlackrockIO__nsx_params[spec]('sampling_rate', nsx_nb)        
+            return nsx_data, sampling_rate.rescale('Hz').magnitude
+        
+        @property
+        def ids_to_labels(self):
+            return self._BlackrockIO__nev_params('channel_labels')
+        
+        @property        
+        def channel_ids(self):
+            return self._BlackrockIO__nsx_ext_header[5]['electrode_id']
     
     
 
@@ -233,7 +233,7 @@ def explore_neuralynx_dir(dirname):
     sample_rate = None
     length = None
     bit_to_microVolt = None
-    for filename in os.listdir(dirname):
+    for filename in sorted(os.listdir(dirname)):
         if not filename.endswith('.ncs'): continue
         
         fullname = os.path.join(dirname, filename)
