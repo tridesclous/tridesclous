@@ -47,15 +47,13 @@ Do:
       tdc
   
   * In the GUI you must:
-    1. File>Initialize example_locust_dataset
-    2. Select a channel group in **chan_grp**
-    3. **Initialize catalogue**
-    4. **Open catalogue Window**
-    5. save catalogue when happy
-    6. **run Peeler**
-    7. **open PeelerWindow**
-
-
+      1. File>Initialize example_locust_dataset
+      2. Select a channel group in **chan_grp**
+      3. **Initialize catalogue**
+      4. **Open catalogue Window**
+      5. save catalogue when happy
+      6. **run Peeler**
+      7. **open PeelerWindow**
 
 
 
