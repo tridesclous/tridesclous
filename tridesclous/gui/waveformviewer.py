@@ -158,7 +158,7 @@ class WaveformViewer(WidgetBase):
                 ypos = self.arr_geometry[:,1]
                 
                 if np.unique(xpos).size>1:
-                    print('yep')
+                    #~ print('yep')
                     self.delta_x = np.min(np.diff(np.sort(np.unique(xpos))))
                 else:
                     self.delta_x = np.unique(xpos)[0]
@@ -276,7 +276,7 @@ class WaveformViewer(WidgetBase):
             mad = self.controller.centroids[k][key2].T.flatten()
             
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
-            curve = pg.PlotCurveItem(np.arange(wf0.size), wf0, pen=pg.mkPen(color, width=2))
+            curve = pg.PlotCurveItem(xvect, wf0, pen=pg.mkPen(color, width=2))
             self.plot1.addItem(curve)
             
             

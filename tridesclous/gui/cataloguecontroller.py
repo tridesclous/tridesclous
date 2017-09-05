@@ -80,6 +80,10 @@ class CatalogueController(ControllerBase):
     @property
     def some_peaks_index(self):
         return self.cc.some_peaks_index
+
+    @property
+    def some_waveforms(self):
+        return self.cc.some_waveforms
     
     @property
     def centroids(self):

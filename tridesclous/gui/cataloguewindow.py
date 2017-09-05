@@ -8,6 +8,7 @@ from .traceviewer import CatalogueTraceViewer
 from .peaklists import PeakList, ClusterPeakList
 from .ndscatter import NDScatter
 from .waveformviewer import WaveformViewer
+from .similarity import SimilarityView
 
 from .tools import ParamDialog
 
@@ -27,6 +28,7 @@ class CatalogueWindow(QT.QMainWindow):
         self.clusterlist = ClusterPeakList(controller=self.controller)
         self.ndscatter = NDScatter(controller=self.controller)
         self.waveformviewer = WaveformViewer(controller=self.controller)
+        self.similarityview = SimilarityView(controller=self.controller)
         
         docks = {}
 
@@ -35,10 +37,14 @@ class CatalogueWindow(QT.QMainWindow):
         #self.tabifyDockWidget(docks['ndscatter'], docks['waveformviewer'])
         self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['waveformviewer'])
         
+        docks['similarityview'] = QT.QDockWidget('similarityview',self)
+        docks['similarityview'].setWidget(self.similarityview)
+        self.tabifyDockWidget(docks['waveformviewer'], docks['similarityview'])
+        
         docks['traceviewer'] = QT.QDockWidget('traceviewer',self)
         docks['traceviewer'].setWidget(self.traceviewer)
         #self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['traceviewer'])
-        self.tabifyDockWidget(docks['waveformviewer'], docks['traceviewer'])
+        self.tabifyDockWidget(docks['similarityview'], docks['traceviewer'])
         
         docks['peaklist'] = QT.QDockWidget('peaklist',self)
         docks['peaklist'].setWidget(self.peaklist)
