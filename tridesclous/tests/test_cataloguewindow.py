@@ -87,6 +87,14 @@ def test_PairList():
     app.exec_()
 
 
+def test_Silhouette():
+    controller = get_controller()
+    
+    app = pg.mkQApp()
+    similarityview = Silhouette(controller=controller)
+    similarityview.show()
+    app.exec_()
+    
 
 def test_CatalogueWindow():
     dataio = DataIO(dirname='test_catalogueconstructor')
@@ -112,6 +120,7 @@ if __name__ == '__main__':
     #~ test_WaveformViewer()
     #~ test_SimilarityView()
     #~ test_PairList()
+    #~ test_Silhouette()
     
     test_CatalogueWindow()
 

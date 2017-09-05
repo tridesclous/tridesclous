@@ -10,6 +10,7 @@ from .ndscatter import NDScatter
 from .waveformviewer import WaveformViewer
 from .similarity import SimilarityView
 from .pairlist import PairList
+from .silhouette import Silhouette
 
 from .tools import ParamDialog
 
@@ -31,6 +32,8 @@ class CatalogueWindow(QT.QMainWindow):
         self.waveformviewer = WaveformViewer(controller=self.controller)
         self.similarityview = SimilarityView(controller=self.controller)
         self.pairlist = PairList(controller=self.controller)
+        self.silhouette = Silhouette(controller=self.controller)
+        
         
         
         docks = {}
@@ -39,6 +42,10 @@ class CatalogueWindow(QT.QMainWindow):
         docks['waveformviewer'].setWidget(self.waveformviewer)
         #self.tabifyDockWidget(docks['ndscatter'], docks['waveformviewer'])
         self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['waveformviewer'])
+        
+        docks['silhouette'] = QT.QDockWidget('silhouette',self)
+        docks['silhouette'].setWidget(self.silhouette)
+        self.tabifyDockWidget(docks['waveformviewer'], docks['silhouette'])
         
         
         docks['traceviewer'] = QT.QDockWidget('traceviewer',self)
