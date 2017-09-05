@@ -101,6 +101,7 @@ class SpikeModel(QT.QAbstractItemModel):
     def refresh(self):
         self.layoutChanged.emit()
 
+
 class SpikeList(WidgetBase):
     def __init__(self,controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)

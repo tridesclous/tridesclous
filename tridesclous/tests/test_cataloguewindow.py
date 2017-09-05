@@ -78,6 +78,13 @@ def test_SimilarityView():
     similarityview.show()
     app.exec_()
 
+def test_PairList():
+    controller = get_controller()
+    
+    app = pg.mkQApp()
+    similarityview = PairList(controller=controller)
+    similarityview.show()
+    app.exec_()
 
 
 
@@ -103,8 +110,10 @@ if __name__ == '__main__':
     #~ test_ClusterPeakList()
     #~ test_NDScatter()
     #~ test_WaveformViewer()
-    
     #~ test_SimilarityView()
+    #~ test_PairList()
     
     test_CatalogueWindow()
+
+
 

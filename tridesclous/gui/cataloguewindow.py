@@ -9,6 +9,7 @@ from .peaklists import PeakList, ClusterPeakList
 from .ndscatter import NDScatter
 from .waveformviewer import WaveformViewer
 from .similarity import SimilarityView
+from .pairlist import PairList
 
 from .tools import ParamDialog
 
@@ -29,6 +30,8 @@ class CatalogueWindow(QT.QMainWindow):
         self.ndscatter = NDScatter(controller=self.controller)
         self.waveformviewer = WaveformViewer(controller=self.controller)
         self.similarityview = SimilarityView(controller=self.controller)
+        self.pairlist = PairList(controller=self.controller)
+        
         
         docks = {}
 
@@ -37,26 +40,34 @@ class CatalogueWindow(QT.QMainWindow):
         #self.tabifyDockWidget(docks['ndscatter'], docks['waveformviewer'])
         self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['waveformviewer'])
         
-        docks['similarityview'] = QT.QDockWidget('similarityview',self)
-        docks['similarityview'].setWidget(self.similarityview)
-        self.tabifyDockWidget(docks['waveformviewer'], docks['similarityview'])
         
         docks['traceviewer'] = QT.QDockWidget('traceviewer',self)
         docks['traceviewer'].setWidget(self.traceviewer)
         #self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['traceviewer'])
-        self.tabifyDockWidget(docks['similarityview'], docks['traceviewer'])
+        self.tabifyDockWidget(docks['waveformviewer'], docks['traceviewer'])
         
         docks['peaklist'] = QT.QDockWidget('peaklist',self)
         docks['peaklist'].setWidget(self.peaklist)
         self.addDockWidget(QT.Qt.LeftDockWidgetArea, docks['peaklist'])
         
+        docks['pairlist'] = QT.QDockWidget('pairlist',self)
+        docks['pairlist'].setWidget(self.pairlist)
+        self.splitDockWidget(docks['peaklist'], docks['pairlist'], QT.Qt.Horizontal)
+        
         docks['clusterlist'] = QT.QDockWidget('clusterlist',self)
         docks['clusterlist'].setWidget(self.clusterlist)
-        self.splitDockWidget(docks['peaklist'], docks['clusterlist'], QT.Qt.Horizontal)
+        #~ self.splitDockWidget(docks['peaklist'], docks['clusterlist'], QT.Qt.Horizontal)
+        self.tabifyDockWidget(docks['pairlist'], docks['clusterlist'])
+        
+        docks['similarityview'] = QT.QDockWidget('similarityview',self)
+        docks['similarityview'].setWidget(self.similarityview)
+        #~ self.tabifyDockWidget(docks['waveformviewer'], docks['similarityview'])
+        self.addDockWidget(QT.Qt.LeftDockWidgetArea, docks['similarityview'])
         
         docks['ndscatter'] = QT.QDockWidget('ndscatter',self)
         docks['ndscatter'].setWidget(self.ndscatter)
-        self.addDockWidget(QT.Qt.LeftDockWidgetArea, docks['ndscatter'])
+        #~ self.addDockWidget(QT.Qt.LeftDockWidgetArea, docks['ndscatter'])
+        self.tabifyDockWidget(docks['similarityview'], docks['ndscatter'])
         
         self.create_actions()
         self.create_toolbar()

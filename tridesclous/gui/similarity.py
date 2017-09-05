@@ -20,7 +20,6 @@ class SimilarityView(WidgetBase):
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
         
-        print('yep')
         self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
         
@@ -85,9 +84,7 @@ class SimilarityView(WidgetBase):
         self.compute_similarity()
         
         self.refresh()
-        
-        
-        
+    
     def initialize_plot(self):
         self.viewBox = MyViewBox()
         
@@ -99,8 +96,6 @@ class SimilarityView(WidgetBase):
         self.plot.addItem(self.image)
     
     def compute_similarity(self):
-        #~ labels = self.controller.spike_label[self.controller.some_peaks_index]
-        
         if self.params['data']=='waveforms':
             wf = self.controller.some_waveforms
             feat = wf.reshape(wf.shape[0], -1)
@@ -141,8 +136,9 @@ class SimilarityView(WidgetBase):
     #~ def on_spike_selection_changed(self):
         #~ self.refresh()
 
-    #~ def on_spike_label_changed(self):
-        #~ self.refresh()
+    def on_spike_label_changed(self):
+        self.compute_similarity()
+        self.refresh()
         
     #~ def on_colors_changed(self):
         #~ self.refresh()
