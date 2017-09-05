@@ -294,7 +294,7 @@ class CatalogueConstructor:
         
         peak_sign = self.info['params_peakdetector']['peak_sign']
         
-        peak_width = - n_left + n_right
+        peak_width = n_right - n_left
         
         if index is not None:
             some_peaks_index = index
@@ -335,16 +335,25 @@ class CatalogueConstructor:
                     ratio = subsample_ratio
                     wf = self.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.chan_grp, i_start=i_start-peak_width, i_stop=i_stop+peak_width, signal_type='processed')
                     wf2 = scipy.signal.resample(wf, wf.shape[0]*ratio, axis=0)
-                    wf2_around_peak = wf2[(peak_width-n_left)*ratio:(peak_width-n_left+1)*ratio, :]
+                    wf2_around_peak = wf2[(peak_width-n_left-2)*ratio:(peak_width-n_left+3)*ratio, :]
+                    #~ print(wf2_around_peak.shape)
                     if peak_sign=='+':
-                        ind_chan_max = np.argmax(np.max(wf2_around_peak, axis=0))
+                        #~ ind_chan_max = np.argmax(np.max(wf2_around_peak, axis=0))
+                        ind_chan_max = np.argmax(wf2_around_peak[ratio, :])
                         ind_max = np.argmax(wf2_around_peak[:, ind_chan_max])
                     elif peak_sign=='-':
-                        ind_chan_max = np.argmin(np.min(wf2_around_peak, axis=0))
+                        #~ ind_chan_max_old = np.argmin(np.min(wf2_around_peak, axis=0))
+                        ind_chan_max = np.argmin(wf2_around_peak[ratio, :])
+                        #~ print(ind_chan_max_old, ind_chan_max)
                         ind_max = np.argmin(wf2_around_peak[:, ind_chan_max])
-                    #~ print('ind_chan_max', ind_chan_max, 'ind_max', ind_max)
+                    shift = ind_max - ratio*2
+                    #~ print('ind_chan_max', ind_chan_max, 'ind_max', ind_max, 'shift', shift)
                     
-                    i1=peak_width*ratio+ind_chan_max
+                    #~ i1=peak_width*ratio+ind_max
+                    #~ i1_old = (peak_width-n_left-1)*ratio + ind_max + n_left*ratio 
+                    #~ i1 = peak_width*ratio + shift
+                    i1 = peak_width*ratio
+                    #~ print('i1_old', i1_old, 'i1', i1)
                     i2 = i1+peak_width*ratio
                     wf_short = wf2[i1:i2:ratio, :]
                     self.some_waveforms[n, :, :] = wf_short
@@ -353,16 +362,15 @@ class CatalogueConstructor:
                     #~ wf_short = self.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.chan_grp, i_start=i_start, i_stop=i_stop, signal_type='processed')
                     #~ import matplotlib.pyplot as plt
                     #~ fig, ax = plt.subplots()
-                    #~ ax.plot(wf2)
-                    #~ x = (peak_width-n_left)*ratio + ind_max
+                    #~ ax.plot(wf2[:, ind_chan_max])
+                    #~ x = (peak_width-n_left-2)*ratio + ind_max
                     #~ print(x, n_left, n_right, peak_width, ratio)
                     #~ y = wf2_around_peak[ind_max, ind_chan_max]
                     #~ ax.plot([x], [y], marker='o', markersize=10)
-                    #~ ax.axvline((peak_width-n_left)*ratio)
-                    #~ ax.axvline((peak_width-n_left+1)*ratio)
-                    #~ ax.plot(np.arange(wf_short.shape[0])*ratio+peak_width*ratio, wf_short, ls='--')
+                    #~ ax.axvline((peak_width-n_left-2)*ratio)
+                    #~ ax.axvline((peak_width-n_left+3)*ratio)
+                    #~ ax.plot(np.arange(wf_short.shape[0])*ratio+peak_width*ratio, wf_short[:, ind_chan_max], ls='--')
                     #~ plt.show()
-                    #~ self.some_waveforms[n, :, :] = wf_short
                     #END DEBUG
                     
                 else:
@@ -505,9 +513,11 @@ class CatalogueConstructor:
             # recompute all clusters
             self.centroids = {}
             label_changed = self.cluster_labels
+        print('compute_centroid')
         
         if self.some_waveforms is None:
             return 
+        n_left = int(self.info['params_waveformextractor']['n_left'])
         t1 = time.perf_counter()
         for k in label_changed:
             if k <0: continue
@@ -517,13 +527,14 @@ class CatalogueConstructor:
             wf = self.some_waveforms[self.all_peaks['label'][self.some_peaks_index]==k]
             median, mad = median_mad(wf, axis = 0)
             mean, std = np.mean(wf, axis=0), np.std(wf, axis=0)
-            max_on_channel = np.argmax(np.max(np.abs(mean), axis=0))
+            #~ max_on_channel = np.argmax(np.max(np.abs(mean), axis=0))
+            max_on_channel = np.argmax(np.abs(mean[-n_left,:]))
             
             self.centroids[k] = {'median':median, 'mad':mad, 'max_on_channel' : max_on_channel, 
                         'mean': mean, 'std': std}
         
         t2 = time.perf_counter()
-        #~ print('compute_centroid', t2-t1)
+        print('compute_centroid', t2-t1)
         
     
     def refresh_colors(self, reset=True, palette = 'husl'):
