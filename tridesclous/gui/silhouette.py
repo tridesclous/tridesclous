@@ -104,7 +104,8 @@ class Silhouette(WidgetBase):
         labels = labels[keep]
         data = data[keep]
         
-        print(data.shape, labels.shape)
+        if np.unique(labels).size<=1:
+            return
         
         silhouette_avg = silhouette_score(data, labels)
 
@@ -126,8 +127,6 @@ class Silhouette(WidgetBase):
             
             y_upper = y_lower + v.size
             y_vect = np.arange(y_lower, y_upper)
-            print(k)
-            print(y_vect)
             curve1 = pg.PlotCurveItem(np.zeros(v.size), y_vect, pen=color)
             curve2 = pg.PlotCurveItem(v, y_vect, pen=color)
             self.plot.addItem(curve1)
@@ -141,7 +140,9 @@ class Silhouette(WidgetBase):
 
             #~ color2 = QT.QColor(color)
             #~ color2.setAlpha(self.alpha)
-            
+        
+        self.plot.setXRange(-.5,1.)
+        self.plot.setYRange(0,y_lower)
             
             
         

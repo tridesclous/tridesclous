@@ -14,6 +14,8 @@ from .silhouette import Silhouette
 
 from .tools import ParamDialog
 
+from . import icons
+
 
 import itertools
 import datetime
@@ -21,6 +23,8 @@ import datetime
 class CatalogueWindow(QT.QMainWindow):
     def __init__(self, catalogueconstructor):
         QT.QMainWindow.__init__(self)
+        
+        self.setWindowIcon(QT.QIcon(':/main_icon.png'))
         
         self.catalogueconstructor = catalogueconstructor
         self.controller = CatalogueController(catalogueconstructor=catalogueconstructor)
@@ -92,6 +96,10 @@ class CatalogueWindow(QT.QMainWindow):
 
         self.act_new_waveforms = QT.QAction(u'New waveforms', self,checkable = False, icon=QT.QIcon.fromTheme("TODO"))
         self.act_new_waveforms.triggered.connect(self.new_waveforms)
+
+        self.act_new_waveforms = QT.QAction(u'Yep', self,checkable = False, icon=QT.QIcon(":main_icon.png"))
+        #~ self.act_new_waveforms.triggered.connect(self.new_waveforms)
+
 
     def create_toolbar(self):
         self.toolbar = QT.QToolBar('Tools')

@@ -14,10 +14,13 @@ from ..peeler import Peeler
 from .peelerwindow import PeelerWindow
 from .initializedatasetwindow import InitializeDatasetWindow
 
+from . import icons
 
 class MainWindow(QT.QMainWindow):
     def __init__(self):
         QT.QMainWindow.__init__(self)
+        
+        self.setWindowIcon(QT.QIcon(':/main_icon.png'))
         
         self.dataio = None
         self.catalogueconstructor = None
