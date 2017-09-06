@@ -1,4 +1,4 @@
-<img src="tridesclous/gui/icons/png/main_icon.png"  style="width: 64;"/>
+<img src="tridesclous/gui/icons/png/main_icon.png"  style="width: 64px;"/>
 # trisdesclous : spike sorting with [french touch](https://fr.wikipedia.org/wiki/French_touch_(informatique)).
 
 
