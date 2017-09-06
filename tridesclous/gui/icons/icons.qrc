@@ -1,5 +1,8 @@
 <!DOCTYPE RCC><RCC version="1.0">
     <qresource>
+            <file alias="document-save.svg">png/document-save.svg</file>
+            <file alias="preferences-other.svg">png/preferences-other.svg</file>
+            <file alias="view-refresh.svg">png/view-refresh.svg</file>
             <file alias="main_icon.png">png/main_icon.png</file>
     </qresource>
 </RCC>

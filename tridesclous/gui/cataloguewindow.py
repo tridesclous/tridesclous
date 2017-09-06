@@ -85,19 +85,22 @@ class CatalogueWindow(QT.QMainWindow):
         
         
     def create_actions(self):
-        self.act_save = QT.QAction(u'Save catalogue', self,checkable = False, icon=QT.QIcon.fromTheme("document-save"))
+        #~ self.act_save = QT.QAction(u'Save catalogue', self,checkable = False, icon=QT.QIcon.fromTheme("document-save"))
+        self.act_save = QT.QAction(u'Save catalogue', self,checkable = False, icon=QT.QIcon(":/document-save.svg"))
         self.act_save.triggered.connect(self.save_catalogue)
 
-        self.act_refresh = QT.QAction(u'Refresh', self,checkable = False, icon=QT.QIcon.fromTheme("view-refresh"))
+        #~ self.act_refresh = QT.QAction(u'Refresh', self,checkable = False, icon=QT.QIcon.fromTheme("view-refresh"))
+        self.act_refresh = QT.QAction(u'Refresh', self,checkable = False, icon=QT.QIcon(":/view-refresh.svg"))
         self.act_refresh.triggered.connect(self.refresh)
 
-        self.act_setting = QT.QAction(u'Settings', self,checkable = False, icon=QT.QIcon.fromTheme("preferences-other"))
+        #~ self.act_setting = QT.QAction(u'Settings', self,checkable = False, icon=QT.QIcon.fromTheme("preferences-other"))
+        self.act_setting = QT.QAction(u'Settings', self,checkable = False, icon=QT.QIcon.fromTheme(":/preferences-other.svg"))
         self.act_setting.triggered.connect(self.open_settings)
 
         self.act_new_waveforms = QT.QAction(u'New waveforms', self,checkable = False, icon=QT.QIcon.fromTheme("TODO"))
         self.act_new_waveforms.triggered.connect(self.new_waveforms)
 
-        self.act_new_waveforms = QT.QAction(u'Yep', self,checkable = False, icon=QT.QIcon(":main_icon.png"))
+        #~ self.act_new_waveforms = QT.QAction(u'Yep', self,checkable = False, icon=QT.QIcon(":main_icon.png"))
         #~ self.act_new_waveforms.triggered.connect(self.new_waveforms)
 
 

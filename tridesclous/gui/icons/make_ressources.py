@@ -12,7 +12,7 @@ def make_ressoureces_icons():
 """)
         for p, d, files in os.walk('./'):
             for filename in files:
-                if filename.endswith('.png') or filename.endswith('.jpg'):
+                if filename.endswith('.png') or filename.endswith('.jpg') or filename.endswith('.svg'):
                     f.write('            <file alias="%s">%s/%s</file>\r\n' % (filename, p[2:],filename) )
                 
         f.write("""    </qresource>

@@ -81,6 +81,13 @@ class MainWindow(QT.QMainWindow):
         do_open_peelerwin = QT.QAction('4- open PeelerWindow', self)
         do_open_peelerwin.triggered.connect(self.open_peelerwin)
         self.toolbar.addAction(do_open_peelerwin)
+        
+        self.toolbar.addSeparator()
+        
+        info_act = QT.QAction('Info', self,checkable = False, icon=QT.QIcon(":main_icon.png"))
+        self.toolbar.addAction(info_act)
+        
+        
 
     def refresh_info(self):
         txt1 = self.dataio.__repr__()
