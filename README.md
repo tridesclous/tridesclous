@@ -1,5 +1,10 @@
 # trisdesclous : spike sorting with [french touch](https://fr.wikipedia.org/wiki/French_touch_(informatique)).
 
+<img src="tridesclous/gui/icons/png/main_icon.png"  width="64"/>
+
+
+
+
 **tris des clous** is a very dishonest translation of **spike sorting** to french.
 
 Pronouce it [tree day clue] for english speaker.

@@ -50,7 +50,7 @@ class WaveformViewer(WidgetBase):
 
     def create_settings(self):
         _params = [{'name': 'plot_selected_spike', 'type': 'bool', 'value': True },
-                            {'name': 'show_only_selected_cluster', 'type': 'bool', 'value': True },
+                            {'name': 'show_only_selected_cluster', 'type': 'bool', 'value': False},
                           {'name': 'plot_limit_for_flatten', 'type': 'bool', 'value': True },
                           {'name': 'metrics', 'type': 'list', 'values': ['median/mad', 'mean/std'] },
                           {'name': 'fillbetween', 'type': 'bool', 'value': True },
@@ -86,6 +86,10 @@ class WaveformViewer(WidgetBase):
         
         but = QT.QPushButton('settings')
         but.clicked.connect(self.open_settings)
+        tb.addWidget(but)
+
+        but = QT.QPushButton('scale')
+        but.clicked.connect(self.zoom_range)
         tb.addWidget(but)
 
         but = QT.QPushButton('refresh')
@@ -158,7 +162,7 @@ class WaveformViewer(WidgetBase):
                 ypos = self.arr_geometry[:,1]
                 
                 if np.unique(xpos).size>1:
-                    print('yep')
+                    #~ print('yep')
                     self.delta_x = np.min(np.diff(np.sort(np.unique(xpos))))
                 else:
                     self.delta_x = np.unique(xpos)[0]
@@ -180,17 +184,12 @@ class WaveformViewer(WidgetBase):
                     self.xvect[i*width:(i+1)*width] = np.linspace(x-espx, x+espx, num=width)
                 self.arr_geometry = np.array(self.arr_geometry)
 
-                
-                
-            
-        
-        #~ for k, centroid in self.controller.centroids.items():
-            #~ print(k)
-            #~ print(centroid['mad'])
-            
         self.wf_min = min(np.min(centroid['median']) for centroid in self.controller.centroids.values())
         self.wf_max = max(np.max(centroid['median']) for centroid in self.controller.centroids.values())
-
+        
+        self._x_range = None
+        self._y1_range = None
+        self._y2_range = None
         
         self.viewBox1.gain_zoom.connect(self.gain_zoom)
         
@@ -202,6 +201,12 @@ class WaveformViewer(WidgetBase):
     def gain_zoom(self, factor_ratio):
         self.factor_y *= factor_ratio
         
+        self.refresh()
+    
+    def zoom_range(self):
+        self._x_range = None
+        self._y1_range = None
+        self._y2_range = None
         self.refresh()
     
     def refresh(self):
@@ -225,6 +230,16 @@ class WaveformViewer(WidgetBase):
     
     
     def refresh_mode_flatten(self, cluster_visible):
+        if self._x_range is not None:
+            #~ self._x_range = self.plot1.getXRange()
+            #~ self._y1_range = self.plot1.getYRange()
+            #~ self._y2_range = self.plot2.getYRange()
+            #this may change with pyqtgraph
+            self._x_range = tuple(self.viewBox1.state['viewRange'][0])
+            self._y1_range = tuple(self.viewBox1.state['viewRange'][1])
+            self._y2_range = tuple(self.viewBox2.state['viewRange'][1])
+            
+        
         self.plot1.clear()
         self.plot2.clear()
         self.plot1.addItem(self.curve_one_waveform)
@@ -276,7 +291,7 @@ class WaveformViewer(WidgetBase):
             mad = self.controller.centroids[k][key2].T.flatten()
             
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
-            curve = pg.PlotCurveItem(np.arange(wf0.size), wf0, pen=pg.mkPen(color, width=2))
+            curve = pg.PlotCurveItem(xvect, wf0, pen=pg.mkPen(color, width=2))
             self.plot1.addItem(curve)
             
             
@@ -294,15 +309,26 @@ class WaveformViewer(WidgetBase):
             curve = pg.PlotCurveItem(xvect, mad, pen=color)
             self.plot2.addItem(curve)        
         
-        self.plot1.setXRange(xvect[0], xvect[-1], padding = 0.0)
-        self.plot2.setXRange(xvect[0], xvect[-1], padding = 0.0)
+        if self._x_range is None:
+            self._x_range = xvect[0], xvect[-1]
+            self._y1_range = self.wf_min*1.1, self.wf_max*1.1
+            self._y2_range = 0., 5.,
+            
         
-        self.plot1.setYRange(self.wf_min*1.1, self.wf_max*1.1, padding = 0.0)
-        self.plot2.setYRange(0., 5., padding = 0.0)
+        self.plot1.setXRange(*self._x_range, padding = 0.0)
+        self.plot1.setYRange(*self._y1_range, padding = 0.0)
+        self.plot2.setYRange(*self._y2_range, padding = 0.0)
 
         
 
     def refresh_mode_geometry(self, cluster_visible):
+        if self._x_range is not None:
+            #~ self._x_range = self.plot1.getXRange()
+            #~ self._y1_range = self.plot1.getYRange()
+            #this may change with pyqtgraph
+            self._x_range = tuple(self.viewBox1.state['viewRange'][0])
+            self._y1_range = tuple(self.viewBox1.state['viewRange'][1])
+
         self.plot1.clear()
         self.plot1.addItem(self.curve_one_waveform)
         
@@ -329,10 +355,14 @@ class WaveformViewer(WidgetBase):
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
             curve = pg.PlotCurveItem(self.xvect, wf, pen=pg.mkPen(color, width=2), connect='finite')
             self.plot1.addItem(curve)
-            
         
-        self.plot1.setXRange(np.min(self.xvect), np.max(self.xvect), padding = 0.0)
-        self.plot1.setYRange(np.min(ypos)-self.delta_y*2, np.max(ypos)+self.delta_y*2, padding = 0.0)
+        
+        if self._x_range is None:
+            self._x_range = np.min(self.xvect), np.max(self.xvect)
+            self._y1_range = np.min(ypos)-self.delta_y*2, np.max(ypos)+self.delta_y*2
+        
+        self.plot1.setXRange(*self._x_range, padding = 0.0)
+        self.plot1.setYRange(*self._y1_range, padding = 0.0)
         
     
     def _refresh_one_spike(self, n_selected):

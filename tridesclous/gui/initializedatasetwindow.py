@@ -99,13 +99,13 @@ class InitializeDatasetWindow(QT.QDialog):
                 
             #~ print(filenames)
             #~ print(kargs)
-            try:
-            #~ if True:
+            #~ try:
+            if True:
                 channel_names = self.datasource_class(**source_params).get_channel_names()
-            except:
+            #~ except:
                 #~ #TYODO warning
-                print('Error file')
-                return
+                #~ print('Error file')
+                #~ return
             print(channel_names)
             self.changroup_widget.set_channel_names(channel_names)
             self.changroup_widget.show()

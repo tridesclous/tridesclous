@@ -6,7 +6,9 @@ from .peaklists import PeakList, ClusterPeakList
 from .ndscatter import NDScatter
 from .waveformviewer import WaveformViewer
 from .cataloguewindow import CatalogueWindow
-
+from .similarity import SimilarityView
+from .pairlist import PairList
+from .silhouette import Silhouette
 
 #for peeler window
 from .peelercontroller import PeelerController

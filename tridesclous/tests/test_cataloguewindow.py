@@ -60,7 +60,6 @@ def test_NDScatter():
     
     app.exec_()
 
-
 def test_WaveformViewer():
     controller = get_controller()
     
@@ -71,18 +70,37 @@ def test_WaveformViewer():
     app.exec_()
 
 
+def test_SimilarityView():
+    controller = get_controller()
+    
+    app = pg.mkQApp()
+    similarityview = SimilarityView(controller=controller)
+    similarityview.show()
+    app.exec_()
+
+def test_PairList():
+    controller = get_controller()
+    
+    app = pg.mkQApp()
+    similarityview = PairList(controller=controller)
+    similarityview.show()
+    app.exec_()
+
+
+def test_Silhouette():
+    controller = get_controller()
+    
+    app = pg.mkQApp()
+    similarityview = Silhouette(controller=controller)
+    similarityview.show()
+    app.exec_()
+    
 
 def test_CatalogueWindow():
     dataio = DataIO(dirname='test_catalogueconstructor')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
     app = pg.mkQApp()
-    #TODO: remove this
-    #~ catalogueconstructor.project(method='pca', n_components=12)
-    #~ catalogueconstructor.find_clusters(method='kmeans', n_clusters=12)
-    #~ catalogueconstructor.project(method='pca', n_components=5)
-    #~ catalogueconstructor.find_clusters(method='gmm', n_clusters=1)
-    
     win = CatalogueWindow(catalogueconstructor)
     win.show()
     
@@ -100,6 +118,11 @@ if __name__ == '__main__':
     #~ test_ClusterPeakList()
     #~ test_NDScatter()
     #~ test_WaveformViewer()
+    #~ test_SimilarityView()
+    #~ test_PairList()
+    #~ test_Silhouette()
     
     test_CatalogueWindow()
+
+
 

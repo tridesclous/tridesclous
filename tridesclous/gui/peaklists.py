@@ -217,7 +217,7 @@ class ClusterPeakList(WidgetBase):
         
         for i, k in enumerate(self.controller.cluster_labels):
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
-            pix = QT.QPixmap(10,10)
+            pix = QT.QPixmap(16,16)
             pix.fill(color)
             icon = QT.QIcon(pix)
             

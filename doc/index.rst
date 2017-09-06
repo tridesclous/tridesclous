@@ -1,6 +1,9 @@
 Welcome to tridesclous's documentation!
 =======================================
 
+.. image:: img/main_icon.png
+
+
 The doc is under construction and very far from complete.
 
 At least, there is some help for installing...

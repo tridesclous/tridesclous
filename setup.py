@@ -23,7 +23,8 @@ long_description = ""
 setup(
     name = "tridesclous",
     version = tridesclous.__version__,
-    packages = ['tridesclous', 'tridesclous.gui','tridesclous.online', 'tridesclous.scripts',],
+    packages = ['tridesclous', 'tridesclous.gui', 'tridesclous.gui.icons',
+                'tridesclous.online', 'tridesclous.scripts', 'tridesclous.tests'],
     install_requires=install_requires,
     extras_require = extras_require,
     author = "C. Pouzat, S.Garcia",

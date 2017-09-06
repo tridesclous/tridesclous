@@ -35,7 +35,7 @@ Do:
   7. For GUI and running example::
   
        conda install pyqt=5 jupyter
-       pip install pyqtgraph==0.10 quantities==0.10.1 neo==0.5.1
+       pip install pyqtgraph==0.10 quantities neo==0.5.1
      
      
   8. And finally install tridesclous from github::

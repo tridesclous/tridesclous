@@ -9,6 +9,8 @@ from .peelercontroller import PeelerController
 from .traceviewer import PeelerTraceViewer
 from .spikelists import SpikeList, ClusterSpikeList
 
+from . import icons
+
 import itertools
 import datetime
 
@@ -19,6 +21,8 @@ import datetime
 class PeelerWindow(QT.QMainWindow):
     def __init__(self, parent=None, dataio=None, catalogue=None):
         QT.QMainWindow.__init__(self, parent=None)
+        
+        self.setWindowIcon(QT.QIcon(':/main_icon.png'))
         
         self.controller = PeelerController(dataio=dataio, catalogue=catalogue)
         
