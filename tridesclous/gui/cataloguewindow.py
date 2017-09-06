@@ -19,6 +19,7 @@ from . import icons
 
 import itertools
 import datetime
+import time
 
 class CatalogueWindow(QT.QMainWindow):
     def __init__(self, catalogueconstructor):
@@ -122,6 +123,7 @@ class CatalogueWindow(QT.QMainWindow):
     
     def refresh(self):
         for w in self.controller.views:
+            #~ print(w)
             w.refresh()
     
     def open_settings(self):

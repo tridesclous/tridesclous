@@ -3,7 +3,6 @@ import pyqtgraph as pg
 
 import numpy as np
 import  itertools
-#~ import random
 
 from .base import WidgetBase
 from .tools import ParamDialog
@@ -20,8 +19,14 @@ class PairList(WidgetBase):
 
         self.table = QT.QTableWidget(selectionMode=QT.QAbstractItemView.SingleSelection,
                                                         selectionBehavior=QT.QAbstractItemView.SelectRows)
+        self.table.setContextMenuPolicy(QT.Qt.CustomContextMenu)
         self.layout.addWidget(self.table)
         self.table.itemSelectionChanged.connect(self.on_item_selection_changed)
+        self.table.customContextMenuRequested.connect(self.open_context_menu)
+        
+        self.menu = QT.QMenu()
+        act = self.menu.addAction('Merge')
+        act.triggered.connect(self.do_merge)
         
         self.refresh()
     
@@ -35,18 +40,26 @@ class PairList(WidgetBase):
             self.controller.cluster_visible[k] = k in (k1, k2)
         
         self.cluster_visibility_changed.emit()
+
+    def open_context_menu(self):
+        self.menu.popup(self.cursor().pos())
+    
+    def do_merge(self):
+        if len(self.table.selectedIndexes())==0:
+            return
+        ind = self.table.selectedIndexes()[0].row()
+        
+        label_to_merge = list(self.pairs[ind])
+        self.controller.merge_cluster(label_to_merge)
+        self.refresh()
+        self.spike_label_changed.emit()
+
     
     def refresh(self):
         self.table.clear()
         labels = ['cluster1', 'cluster2']
         self.table.setColumnCount(len(labels))
         self.table.setHorizontalHeaderLabels(labels)
-        #~ self.table.setMinimumWidth(100)
-        #~ self.table.setColumnWidth(0,60)
-        self.table.setContextMenuPolicy(QT.Qt.CustomContextMenu)
-        #~ self.table.customContextMenuRequested.connect(self.open_context_menu)
-        self.table.setSelectionMode(QT.QAbstractItemView.ExtendedSelection)
-        self.table.setSelectionBehavior(QT.QAbstractItemView.SelectRows)
         
         labels = self.controller.cluster_labels
         labels = labels[labels>0]
@@ -54,13 +67,12 @@ class PairList(WidgetBase):
         
         self.table.setRowCount(len(self.pairs))
         
-        
         for r in range(len(self.pairs)):
             k1, k2 = self.pairs[r]
             
             for c, k in enumerate((k1, k2)):
                 color = self.controller.qcolors.get(k, QT.QColor( 'white'))
-                pix = QT.QPixmap(10,10)
+                pix = QT.QPixmap(16,16)
                 pix.fill(color)
                 icon = QT.QIcon(pix)
                 
@@ -70,6 +82,16 @@ class PairList(WidgetBase):
                 self.table.setItem(r,0+c, item)
                 item.setIcon(icon)
         
+
+    def on_spike_selection_changed(self):
+        pass
+
+    def on_spike_label_changed(self):
+        self.refresh()
     
-    #~ def open_context_menu(self):
-        #~ pass
+    def on_colors_changed(self):
+        self.refresh()
+    
+    def on_cluster_visibility_changed(self):
+        pass
+
