@@ -352,10 +352,10 @@ class CatalogueConstructor:
                     #~ i1=peak_width*ratio+ind_max
                     #~ i1_old = (peak_width-n_left-1)*ratio + ind_max + n_left*ratio 
                     #~ i1 = peak_width*ratio + shift
-                    i1 = peak_width*ratio
+                    i1 = peak_width*ratio + shift
                     #~ print('i1_old', i1_old, 'i1', i1)
                     i2 = i1+peak_width*ratio
-                    wf_short = wf2[i1:i2:ratio, :]
+                    wf_short = wf2[i1:i2:ratio, :, :]
                     self.some_waveforms[n, :, :] = wf_short
                     
                     #DEBUG
@@ -365,8 +365,10 @@ class CatalogueConstructor:
                     #~ ax.plot(wf2[:, ind_chan_max])
                     #~ x = (peak_width-n_left-2)*ratio + ind_max
                     #~ print(x, n_left, n_right, peak_width, ratio)
-                    #~ y = wf2_around_peak[ind_max, ind_chan_max]
-                    #~ ax.plot([x], [y], marker='o', markersize=10)
+                    #~ y = wf2[(peak_width-n_left-2)*ratio+ind_max, ind_chan_max]
+                    #~ y_av = wf2[(peak_width-n_left-2)*ratio+ind_max-ratio, ind_chan_max]
+                    #~ y_af = wf2[(peak_width-n_left-2)*ratio+ind_max+ratio, ind_chan_max]
+                    #~ ax.plot([x-ratio, x, x+ratio], [y_av, y, y_af], marker='o', markersize=10)
                     #~ ax.axvline((peak_width-n_left-2)*ratio)
                     #~ ax.axvline((peak_width-n_left+3)*ratio)
                     #~ ax.plot(np.arange(wf_short.shape[0])*ratio+peak_width*ratio, wf_short[:, ind_chan_max], ls='--')
