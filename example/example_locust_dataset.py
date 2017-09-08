@@ -46,7 +46,9 @@ def preprocess_signals_and_peaks():
     catalogueconstructor.set_preprocessor_params(chunksize=1024,
             
             #signal preprocessor
-            highpass_freq=300, 
+            highpass_freq=None,
+            lowpass_freq=None,
+            smooth_size=1,
             common_ref_removal=False,
             backward_chunksize=1280,
             
@@ -148,9 +150,9 @@ def open_PeelerWindow():
 
 if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
-    #~ preprocess_signals_and_peaks()
-    #~ extract_waveforms_pca_cluster()
+    preprocess_signals_and_peaks()
+    extract_waveforms_pca_cluster()
     open_cataloguewindow()
-    run_peeler()
-    open_PeelerWindow()
+    #~ run_peeler()
+    #~ open_PeelerWindow()
     

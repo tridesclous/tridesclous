@@ -121,8 +121,13 @@ class CatalogueConstructor:
             
             #signal preprocessor
             signalpreprocessor_engine='numpy',
-            highpass_freq=300, backward_chunksize=1280,
+            highpass_freq=300., 
+            lowpass_freq=None,
+            smooth_size=0,
             common_ref_removal=True,
+            
+            backward_chunksize=1280,
+            
             
             #peak detector
             peakdetector_engine='numpy',
@@ -143,8 +148,9 @@ class CatalogueConstructor:
         self.arrays.initialize_array('all_peaks', self.memory_mode,  _dtype_peak, (-1, ))
         
         
-        self.params_signalpreprocessor = dict(highpass_freq=highpass_freq, backward_chunksize=backward_chunksize,
-                    common_ref_removal=common_ref_removal, output_dtype=internal_dtype)
+        self.params_signalpreprocessor = dict(highpass_freq=highpass_freq, lowpass_freq=lowpass_freq, 
+                        smooth_size=smooth_size, common_ref_removal=common_ref_removal,
+                        backward_chunksize=backward_chunksize, output_dtype=internal_dtype)
         SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[signalpreprocessor_engine]
         self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.nb_channel, chunksize, self.dataio.source_dtype)
         
@@ -355,7 +361,7 @@ class CatalogueConstructor:
                     i1 = peak_width*ratio + shift
                     #~ print('i1_old', i1_old, 'i1', i1)
                     i2 = i1+peak_width*ratio
-                    wf_short = wf2[i1:i2:ratio, :, :]
+                    wf_short = wf2[i1:i2:ratio, :]
                     self.some_waveforms[n, :, :] = wf_short
                     
                     #DEBUG

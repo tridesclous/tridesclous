@@ -11,14 +11,23 @@ from matplotlib import pyplot
 
 
 def offline_signal_preprocessor(sigs, sample_rate, common_ref_removal=True,
-        highpass_freq=300.,output_dtype='float32', normalize=True, **unused):
+        highpass_freq=300., lowpass_freq=None, output_dtype='float32', normalize=True, **unused):
     #cast
     sigs = sigs.astype(output_dtype)
     
     #filter
-    b, a = scipy.signal.iirfilter(5, highpass_freq/sample_rate*2, analog=False,
-                                    btype = 'highpass', ftype = 'butter', output = 'ba')
-    filtered_sigs = scipy.signal.filtfilt(b, a, sigs, axis=0)
+    if highpass_freq is not None:
+        b, a = scipy.signal.iirfilter(5, highpass_freq/sample_rate*2, analog=False,
+                                        btype = 'highpass', ftype = 'butter', output = 'ba')
+        filtered_sigs = scipy.signal.filtfilt(b, a, sigs, axis=0)
+    else:
+        filtered_sigs = sigs.copy()
+    
+    if lowpass_freq is not None:
+        b, a = scipy.signal.iirfilter(5, lowpass_freq/sample_rate*2, analog=False,
+                                        btype = 'lowpass', ftype = 'butter', output = 'ba')
+        filtered_sigs = scipy.signal.filtfilt(b, a, filtered_sigs, axis=0)
+        
 
     # common reference removal
     if common_ref_removal:
@@ -62,10 +71,19 @@ def test_compare_offline_online_engines():
     
     print('sig duration', sigs.shape[0]/sample_rate)
     
-    highpass_freq = 300.
+    #~ highpass_freq = 300.
+    highpass_freq = None
+    #~ lowpass_freq = 4000.
+    lowpass_freq = None
+    #~ smooth_kernel = True
+    smooth_size = 0
+    
     params = {
-                'common_ref_removal' : True,
-                'highpass_freq': highpass_freq, 'output_dtype': 'float32',
+                'common_ref_removal' : False,
+                'highpass_freq': highpass_freq,
+                'lowpass_freq': lowpass_freq,
+                'smooth_size':smooth_size,
+                'output_dtype': 'float32',
                 'normalize' : True,
                 'backward_chunksize':chunksize+chunksize//4}
     
@@ -123,7 +141,9 @@ def test_compare_offline_online_engines():
     
         # plot
         #~ fig, axs = pyplot.subplots(nrows=nb_channel, sharex=True)
+        #~ fig, axs = pyplot.subplots(nrows=4, sharex=True)
         #~ for i in range(nb_channel):
+        #~ for i in range(4):
             #~ ax = axs[i]
             
             #~ ax.plot(offline_sig[:, i], color = 'g')
@@ -137,10 +157,10 @@ def test_compare_offline_online_engines():
 
 def test_smooth_with_filtfilt():
     sigs = np.zeros((100, 1), 'float32')
-    sigs[49] = 6
-    sigs[50] = 8
-    sigs[51] = 5
-    sigs += np.random.randn(*sigs.shape)
+    #~ sigs[49] = 6
+    sigs[50] = 1
+    #~ sigs[51] = 5
+    #~ sigs += np.random.randn(*sigs.shape)
     
     # smooth with box kernel
     box_size = 3
@@ -149,24 +169,36 @@ def test_smooth_with_filtfilt():
     sigs_smooth =  scipy.signal.fftconvolve(sigs,kernel,'same')
 
     # smooth with filter
-    coeff = np.array([1/3, 1/3, 1/3, 1,0,0], dtype='float32')
-    coeff = np.tile(coeff[None, :], (2, 1))
+    #~ coeff = np.array([1/3, 1/3, 1/3, 1,0,0], dtype='float32')
+    #~ coeff = np.array([0.5, 0.25, 0.25, 1,0,0], dtype='float32')
+    #~ coeff = np.array([0.8, 0.1, 0.1, 1,0,0], dtype='float32')
+    b0 = (1./3.)**.5
+    b1 = (1-b0)
+    b2 =0.
+    #~ b2 = (1-b0)/2.
+    #~ b0 = .4
+    #~ b1 = 0.6
+    #~ b2 = 0.
+    coeff = np.array([[b0, b1, b2, 1,0,0]], dtype='float32')
+    print(coeff)
+    coeff = np.tile(coeff, (5, 1))
     sigs_smooth2 = scipy.signal.sosfiltfilt(coeff, sigs, axis=0)
     
     # smooth with LP filter
-    coeff = np.array([1/3, 1/3, 1/3, 1,0,0], dtype='float32')
     coeff = scipy.signal.iirfilter(5, 0.3, analog=False,
                                     btype = 'lowpass', ftype = 'butter', output = 'sos')
     sigs_smooth3 = scipy.signal.sosfiltfilt(coeff, sigs, axis=0)
     
 
-    
+    print(sigs_smooth2.sum())
+    print(sigs_smooth2[40:60])
     fig, ax = pyplot.subplots()
-    ax.plot(sigs, color='b')
-    ax.plot(sigs_smooth, color='g')
-    ax.plot(sigs_smooth2, color='r')
-    ax.plot(sigs_smooth3, color='m')
+    ax.plot(sigs, color='b', label='sig')
+    ax.plot(sigs_smooth, color='g', label='box smooth')
+    ax.plot(sigs_smooth2, color='r', label='filfilt smooth')
+    ax.plot(sigs_smooth3, color='m', label='lp filter')
     
+    ax.legend()
     
     pyplot.show()
 
@@ -176,5 +208,6 @@ def test_smooth_with_filtfilt():
 
     
 if __name__ == '__main__':
-    test_compare_offline_online_engines()
-    #~ test_smooth_with_filtfilt()
+    #~ test_compare_offline_online_engines()
+    test_smooth_with_filtfilt()
+
