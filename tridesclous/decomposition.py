@@ -4,6 +4,7 @@ import sklearn
 import sklearn.decomposition
 
 import sklearn.cluster
+import sklearn.manifold
 
 
 def project_waveforms(waveforms, method='pca', selection=None,  catalogueconstructor=None, **params):
@@ -25,8 +26,9 @@ def project_waveforms(waveforms, method='pca', selection=None,  catalogueconstru
         projector = PeakMax_and_PCA(waveforms2, catalogueconstructor=catalogueconstructor, **params)
     elif method=='spatial_sliding_pca':
         projector = SpatialSlindingPca(waveforms2, catalogueconstructor=catalogueconstructor, **params)
+    elif method=='tsne':
+        projector = TSNE(waveforms2, catalogueconstructor=catalogueconstructor, **params)    
         
-    
     else:
         Raise(NotImplementedError)
     
@@ -132,3 +134,29 @@ class SpatialSlindingPca:
         print(waveforms.shape)
         print(all_comp.shape)
         return all_comp
+
+
+
+class TSNE:
+    def __init__(self, waveforms, catalogueconstructor=None, **params):
+        self.waveforms = waveforms
+        flatten_waveforms = waveforms.reshape(waveforms.shape[0], -1)
+        self.tsne = sklearn.manifold.TSNE(**params)
+        #~ self.tsne = sklearn.manifold.MDS(**params)
+        #~ self.tsne = sklearn.decomposition.KernelPCA(**params)
+        #~ self.tsne.fit(flatten_waveforms)
+
+
+    def transform(self, waveforms):
+        flatten_waveforms = waveforms.reshape(waveforms.shape[0], -1)
+        return self.tsne.fit_transform(flatten_waveforms)
+
+    
+        
+        
+
+
+
+
+
+    

@@ -99,12 +99,13 @@ def extract_waveforms_pca_cluster():
     
     t1 = time.perf_counter()
     catalogueconstructor.project(method='pca', n_components=7)
+    #~ catalogueconstructor.project(method='tsne', n_components=2, perplexity=40., init='pca')
     t2 = time.perf_counter()
     print('project', t2-t1)
     print(catalogueconstructor)
     
     t1 = time.perf_counter()
-    catalogueconstructor.find_clusters(method='kmeans', n_clusters=12)
+    catalogueconstructor.find_clusters(method='kmeans', n_clusters=1)
     t2 = time.perf_counter()
     print('find_clusters', t2-t1)
     print(catalogueconstructor)
