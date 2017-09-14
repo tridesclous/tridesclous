@@ -313,7 +313,7 @@ class NDScatter(WidgetBase):
             else:
                 label.hide()
         
-        #~ self.graphicsview.repaint()
+        self.graphicsview.repaint()
             
     
     def start_stop_tour(self, checked):
@@ -377,12 +377,24 @@ class NDScatter(WidgetBase):
         #~ projected = np.dot(self.data, self.projection )
         projected = self.apply_dot(self.data)
         inside = inside_poly(projected, vertices)
-        self.controller.spike_selection[self.controller.some_peaks_index[inside]] = True
+        visibles = self.controller.spike_visible[self.controller.some_peaks_index]
+        self.controller.spike_selection[self.controller.some_peaks_index[inside&visibles]] = True
         self.refresh()
         
         self.spike_selection_changed.emit()
 
 
+    #~ def on_spike_selection_changed(self):
+        #~ self.refresh()
+
+    #~ def on_spike_label_changed(self):
+        #~ self.refresh()
+        
+    #~ def on_colors_changed(self):
+        #~ self.refresh()
+    
+    #~ def on_cluster_visibility_changed(self):
+        #~ self.refresh()
 
 
 

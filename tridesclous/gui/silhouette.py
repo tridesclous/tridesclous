@@ -102,6 +102,7 @@ class Silhouette(WidgetBase):
         
         labels_list = np.unique(labels)
         if labels_list.size<=1:
+            self.silhouette_avg = None
             return
         
         self.silhouette_avg = silhouette_score(data, labels)
@@ -115,7 +116,8 @@ class Silhouette(WidgetBase):
     
     def refresh(self):
         self.plot.clear()
-        
+        if self.silhouette_avg is None:
+            return
         self.vline = pg.InfiniteLine(pos=self.silhouette_avg, angle = 90, movable = False, pen = '#FF0000')
         self.plot.addItem(self.vline)
         

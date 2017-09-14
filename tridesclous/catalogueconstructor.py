@@ -3,12 +3,14 @@ import json
 from collections import OrderedDict
 import time
 import pickle
+import itertools
 
 import numpy as np
 import scipy.signal
 import scipy.interpolate
 import seaborn as sns
 sns.set_style("white")
+import sklearn
 
 from . import signalpreprocessor
 from . import  peakdetector
@@ -536,7 +538,7 @@ class CatalogueConstructor:
             median, mad = median_mad(wf, axis = 0)
             mean, std = np.mean(wf, axis=0), np.std(wf, axis=0)
             #~ max_on_channel = np.argmax(np.max(np.abs(mean), axis=0))
-            max_on_channel = np.argmax(np.abs(mean[-n_left,:]))
+            max_on_channel = np.argmax(np.abs(mad[-n_left,:]))
             
             self.centroids[k] = {'median':median, 'mad':mad, 'max_on_channel' : max_on_channel, 
                         'mean': mean, 'std': std}
@@ -581,8 +583,70 @@ class CatalogueConstructor:
             if np.sum(mask)<=n:
                 self.all_peaks['label'][mask] = -1
         self.on_new_cluster()
+    
+    def detect_same_shape_ratio(self, threshold=0.975):
+        self.compute_centroid()
+        
+        labels = self.cluster_labels[self.cluster_labels>=0] 
+        
+        #compute max ratio to best max
+        #~ ratios = {}
+        ratios = []
+        for k in labels:
+            chan = self.centroids[k]['max_on_channel']
+            mad = self.centroids[k]['mad']
+            n_left = int(self.info['params_waveformextractor']['n_left'])
+            ratios.append(mad[-n_left, :]/mad[-n_left, chan])
+        ratios = np.array(ratios)
+        print(ratios.shape)
+        print(ratios)
+        
+        similarity = sklearn.metrics.pairwise.cosine_similarity(ratios)
+        #~ similarity = sklearn.metrics.pairwise.polynomial_kernel(ratios, degree=3)
+        
+        #~ distance = sklearn.metrics.pairwise.euclidean_distances(ratios)
+        #~ similarity = np.exp(-distance * (1./ratios.shape[1]))
+        #~ similarity = 1. / (distance / np.max(distance))
         
         
+        
+        #~ similarity[np.eye(similarity.shape[0]).astype(bool)] =0
+        similarity = np.triu(similarity)
+        
+        ind0, ind1 = np.where(similarity>threshold)
+        print(ind0, ind1)
+        
+        
+        #~ sklearn.metrics.pairwise.linear_kernel
+        
+        print(labels)
+        
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        im  = ax.matshow(similarity, cmap='viridis')
+        fig.colorbar(im)
+        
+        fig, ax = plt.subplots()
+        im  = ax.matshow(ratios, cmap='viridis')
+        fig.colorbar(im)
+        
+        fig, ax = plt.subplots()
+        ax.plot(ratios.T)
+        
+
+        plt.show()
+
+        
+        
+            
+
+                        
+            
+        
+        
+        
+    
+    
     
     def order_clusters(self):
         """

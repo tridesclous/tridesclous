@@ -62,7 +62,7 @@ class PairList(WidgetBase):
         self.table.setHorizontalHeaderLabels(labels)
         
         labels = self.controller.cluster_labels
-        labels = labels[labels>0]
+        labels = labels[labels>=0]
         self.pairs = list(itertools.combinations(labels, 2))
         
         self.table.setRowCount(len(self.pairs))
