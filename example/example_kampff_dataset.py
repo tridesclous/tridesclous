@@ -16,8 +16,6 @@ dirname='tridesclous_kampff_2015_09_09_Pair_6_0'
 
 
 def initialize_catalogueconstructor():
-    #~ filenames = ['/home/samuel/Documents/projet/Data SpikeSorting/kampff/2014_11_25_Pair_3_0/amplifier2014-11-25T23_00_08.bin']
-    filenames = ['/home/sgarcia/Documents/projet/tridesclous/example/kampff/2015_09_09_Pair_6_0/amplifier2015-09-09T17_46_43.bin']
     dataio = DataIO(dirname=dirname)
     dataio.set_data_source(type='RawData', filenames=filenames, dtype='uint16',
                                      total_channel=128, sample_rate=30000.)    
@@ -132,11 +130,11 @@ def open_PeelerWindow():
 
 
 if __name__ =='__main__':
-    #~ initialize_catalogueconstructor()
-    #~ preprocess_signals_and_peaks()
-    #~ extract_waveforms_pca_cluster()
-    #~ open_cataloguewindow()
-    run_peeler()
-    open_PeelerWindow()
+    initialize_catalogueconstructor()
+    preprocess_signals_and_peaks()
+    extract_waveforms_pca_cluster()
+    open_cataloguewindow()
+    #~ run_peeler()
+    #~ open_PeelerWindow()
 
     
