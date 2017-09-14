@@ -13,7 +13,7 @@ def test_InitializeDatasetWindow():
 def test_ChannelGroupWidget():
     app = pg.mkQApp()
     win = ChannelGroupWidget()
-    channel_names = ['ch{}'.format(i) for i in range(16)]
+    channel_names = ['ch{}'.format(i) for i in range(32)]
     win.set_channel_names(channel_names)
     win.show()
     app.exec_()
@@ -22,6 +22,6 @@ def test_ChannelGroupWidget():
 
     
 if __name__ == '__main__':
-    test_InitializeDatasetWindow()
-    #~ test_ChannelGroupWidget()
+    #~ test_InitializeDatasetWindow()
+    test_ChannelGroupWidget()
 

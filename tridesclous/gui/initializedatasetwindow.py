@@ -235,9 +235,14 @@ class ChannelGroupWidget(QT.QWidget):
         
         v = QT.QVBoxLayout()
         layout.addLayout(v)
-        but = QT.QPushButton('add channel group')
+        but = QT.QPushButton('add channel group from selection')
         v.addWidget(but)
         but.clicked.connect(self.add_chan_grp)
+
+        but = QT.QPushButton('Set channel group PRB file')
+        v.addWidget(but)
+        but.clicked.connect(self.open_prb_file)
+        
         
         self.table_grp = QT.QTableWidget()
         v.addWidget(self.table_grp)
@@ -288,7 +293,23 @@ class ChannelGroupWidget(QT.QWidget):
         geometry = { c: [0, i] for i, c in enumerate(channels) }
         self.channel_groups[k] = dict(channels=channels, geometry=geometry)
         self.refresh_table()
-        
+    
+    def open_prb_file(self):
+        fd = QT.QFileDialog(fileMode=QT.QFileDialog.ExistingFiles, acceptMode=QT.QFileDialog.AcceptOpen)
+        fd.setNameFilters(['prb (*.prb *.PRB)', 'All (*)'])
+        fd.setViewMode(QT.QFileDialog.Detail)
+        if fd.exec_():
+            prb_filename = fd.selectedFiles()[0]
+            print(prb_filename)
+            
+            d = {}
+            exec(open(prb_filename).read(), None, d)
+            
+            print()
+            self.channel_groups = OrderedDict()
+            self.channel_groups.update(d['channel_groups'])
+            self.refresh_table()
+    
     def clear_table(self):
         self.channel_groups = OrderedDict()
         self.refresh_table()
