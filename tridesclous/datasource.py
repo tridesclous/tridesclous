@@ -82,7 +82,9 @@ class RawDataSource(DataSourceBase):
 
         self.array_sources = []
         for filename in self.filenames:
-            data = np.memmap(filename, dtype=self.dtype, mode='r', offset=offset).reshape(-1, self.total_channel)
+            data = np.memmap(filename, dtype=self.dtype, mode='r', offset=offset)
+            #~ data = data[:-(data.size%self.total_channel)]
+            data = data.reshape(-1, self.total_channel)
             self.array_sources.append(data)
     
     def get_segment_shape(self, seg_num):

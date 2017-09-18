@@ -10,19 +10,22 @@ from matplotlib import pyplot
 import time
 
 
-#~ dirname='tridesclous_kampff_2014_11_25_Pair_3_0'
+p = '/media/samuel/SamCNRS/DataSpikeSorting/kampff/'
+#~ dirname= p+'tdc_2014_11_25_Pair_3_0'
+#~ dirname=p+'tdc_2015_09_03_Cell9.0'   
+dirname=p+'tdc_2015_09_09_Pair_6_0'
 
-dirname='tridesclous_kampff_2015_09_09_Pair_6_0'
 
 
 def initialize_catalogueconstructor():
+    filenames = p+'2015_09_09_Pair_6_0/'+'amplifier2015-09-09T17_46_43.bin'
     dataio = DataIO(dirname=dirname)
     dataio.set_data_source(type='RawData', filenames=filenames, dtype='uint16',
                                      total_channel=128, sample_rate=30000.)    
-    
-    print(dataio)
+    dataio.set_probe_file(p+'probe 128.prb')
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
+
 
 def preprocess_signals_and_peaks():
     dataio = DataIO(dirname=dirname)
@@ -37,6 +40,9 @@ def preprocess_signals_and_peaks():
             #~ signalpreprocessor_engine='numpy',
             signalpreprocessor_engine='opencl',
             highpass_freq=300, 
+            lowpass_freq=10000., 
+            smooth_size=2,
+            
             common_ref_removal=True,
             backward_chunksize=1280,
             
@@ -45,7 +51,7 @@ def preprocess_signals_and_peaks():
             #~ peakdetector_engine='opencl',
             peak_sign='-', 
             relative_threshold=7,
-            peak_span=0.0005,
+            peak_span=0.0002,
             )
             
     t1 = time.perf_counter()
@@ -65,22 +71,20 @@ def extract_waveforms_pca_cluster():
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
     t1 = time.perf_counter()
-    catalogueconstructor.extract_some_waveforms(n_left=-20, n_right=30,  nb_max=15000)
+    #~ catalogueconstructor.extract_some_waveforms(mode='rand', n_left=-45, n_right=60,  nb_max=10000)
+    catalogueconstructor.extract_some_waveforms(mode='all', n_left=-45, n_right=60)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
 
     t1 = time.perf_counter()
-    n_left, n_right = catalogueconstructor.find_good_limits(mad_threshold = 1.1,)
-    t2 = time.perf_counter()
-    print('find_good_limits', t2-t1)
-
-    t1 = time.perf_counter()
-    catalogueconstructor.project(method='peakmax_and_pca', n_components=30)
+    #~ catalogueconstructor.project(method='pca', n_components=16)
+    catalogueconstructor.project(method='spatial_sliding_pca', n_components_by_channel=3)
+    #~ catalogueconstructor.project(method='pca_by_channel_then_tsne', n_components_by_channel=3)
     t2 = time.perf_counter()
     print('project', t2-t1)
     
     t1 = time.perf_counter()
-    catalogueconstructor.find_clusters(method='kmeans', n_clusters=12)
+    catalogueconstructor.find_clusters(method='kmeans', n_clusters=16)
     t2 = time.perf_counter()
     print('find_clusters', t2-t1)
     
@@ -130,9 +134,9 @@ def open_PeelerWindow():
 
 
 if __name__ =='__main__':
-    initialize_catalogueconstructor()
-    preprocess_signals_and_peaks()
-    extract_waveforms_pca_cluster()
+    #~ initialize_catalogueconstructor()
+    #~ preprocess_signals_and_peaks()
+    #~ extract_waveforms_pca_cluster()
     open_cataloguewindow()
     #~ run_peeler()
     #~ open_PeelerWindow()

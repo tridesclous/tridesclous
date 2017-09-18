@@ -114,7 +114,16 @@ class CatalogueConstructor:
         
         return t
     
-    
+    def reload_data(self):
+        if not hasattr(self, 'memory_mode') or not self.memory_mode=='memmap':
+            return
+        
+        for name in _persitent_arrays:
+            # this set attribute to class if exsits
+            print('ici', name)
+            self.arrays.load_if_exists(name)
+        
+        
     
     def set_preprocessor_params(self, chunksize=1024,
             memory_mode='memmap',
@@ -291,7 +300,7 @@ class CatalogueConstructor:
         
     def extract_some_waveforms(self, n_left=None, n_right=None, index=None, 
                                     mode='rand', nb_max=10000,
-                                    align_waveform=True, subsample_ratio=20):
+                                    align_waveform=False, subsample_ratio=20):
         """
         
         """
@@ -465,7 +474,7 @@ class CatalogueConstructor:
                 return n_left, n_right
 
 
-    def project(self, method='pca', selection = None, n_components=5, **params):
+    def project(self, method='pca', selection = None, **params): #n_components=5, 
         """
         params:
         n_components
@@ -474,7 +483,7 @@ class CatalogueConstructor:
         #TODO selection
         
         #~ wf = self.some_waveforms.reshape(self.some_waveforms.shape[0], -1)
-        params['n_components'] = n_components
+        #~ params['n_components'] = n_components
         features, self.projector = decomposition.project_waveforms(self.some_waveforms, method=method, selection=None,
                     catalogueconstructor=self, **params)
         

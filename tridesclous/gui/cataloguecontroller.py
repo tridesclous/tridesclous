@@ -28,6 +28,11 @@ class CatalogueController(ControllerBase):
         #~ self.init_plot_attributes()
         #~ self.refresh_colors()
     
+    def reload_data(self):
+        self.cc.reload_data()
+        self.cc.on_new_cluster()
+        self.init_plot_attributes()
+    
     def init_plot_attributes(self):
         self.cluster_visible = {k:i<20 for i, k  in enumerate(self.cluster_labels)}
         self.cluster_count = { k:np.sum(self.cc.all_peaks['label']==k) for k in self.cluster_labels}
@@ -50,6 +55,16 @@ class CatalogueController(ControllerBase):
     
     
     #map some attribute
+    @property
+    def channel_indexes(self):
+        channel_group = self.dataio.channel_groups[self.chan_grp]
+        return channel_group['channels']
+
+    @property
+    def channel_names(self):
+        all_names = self.dataio.datasource.get_channel_names()
+        return [all_names[c] for c in self.channel_indexes]
+    
     @property
     def spikes(self):
         return self.cc.all_peaks
