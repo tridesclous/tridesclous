@@ -41,6 +41,17 @@ class ControllerBase(QT.QObject):
             if view==self.sender(): continue
             view.on_cluster_visibility_changed()
 
+    @property
+    def channel_indexes(self):
+        channel_group = self.dataio.channel_groups[self.chan_grp]
+        return channel_group['channels']
+
+    @property
+    def channel_names(self):
+        all_names = self.dataio.datasource.get_channel_names()
+        return [all_names[c] for c in self.channel_indexes]
+    
+
 
 
 class WidgetBase(QT.QWidget):

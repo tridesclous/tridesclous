@@ -20,6 +20,8 @@ def project_waveforms(waveforms, method='pca', selection=None,  catalogueconstru
     
     if method=='pca':
         projector = FullPCA(waveforms2, catalogueconstructor=catalogueconstructor, **params)
+    elif method=='pca_by_channel':
+        projector = PcaByChannel(waveforms2, catalogueconstructor=catalogueconstructor, **params)
     elif method=='peak_max':
         projector = PeakMaxOnChannel(waveforms2, catalogueconstructor=catalogueconstructor, **params)
     elif method=='peakmax_and_pca':
@@ -49,6 +51,26 @@ class FullPCA:
         flatten_waveforms = waveforms.reshape(waveforms.shape[0], -1)
         return self.pca.transform(flatten_waveforms)
 
+
+class PcaByChannel:
+    def __init__(self, waveforms, catalogueconstructor=None, n_components_by_channel=3, **params):
+        self.waveforms = waveforms
+        self.n_components_by_channel = n_components_by_channel
+        self.pcas = []
+        for c in range(self.waveforms.shape[2]):
+            print('c', c)
+            pca = sklearn.decomposition.IncrementalPCA(n_components=n_components_by_channel, **params)
+            pca.fit(waveforms[:,:,c])
+            self.pcas.append(pca)
+    
+    def transform(self, waveforms):
+        n = self.n_components_by_channel
+        all = np.zeros((waveforms.shape[0], waveforms.shape[2]*n), dtype=waveforms.dtype)
+        for c, pca in enumerate(self.pcas):
+            print('c', c)
+            all[:, c*n:(c+1)*n] = pca.transform(waveforms[:, :, c])
+        return all
+    
 
 class PeakMaxOnChannel:
     def __init__(self, waveforms, catalogueconstructor=None, **params):
@@ -117,9 +139,10 @@ class SpatialSlindingPca:
         self.pcas = {}
         
         for l in np.unique(self.geo_labels):
-            
+            print('l', l)
             wf = waveforms[:, :, l==self.geo_labels]
             flatten_wf = wf.reshape(wf.shape[0], -1)
+            print(flatten_wf.shape)
             pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components_by_channel)
             pca.fit(flatten_wf)
             self.pcas[l] = pca

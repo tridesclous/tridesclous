@@ -84,8 +84,8 @@ class SimilarityView(WidgetBase):
             lut.append([r*255,g*255,b*255])
         self.lut = np.array(lut, dtype='uint8')
         
-        #~ self.compute_similarity()
-        self.similarity = None
+        self.compute_similarity()
+        #~ self.similarity = None
         
         self.refresh()
     
@@ -111,11 +111,17 @@ class SimilarityView(WidgetBase):
         if self.params['data']=='features':
             feat = self.controller.some_features
         
-        func = getattr(sklearn.metrics.pairwise, self.params['similarity_metric'])
         
-        self.similarity = func(feat)
-        self._max = np.max(self.similarity)
-        print('compute_similarity DONE')
+        if feat.size>1e6:
+            print('compute_similarity: TOO BIG')
+            print(feat.size)
+            self.similarity = None
+        else:
+            func = getattr(sklearn.metrics.pairwise, self.params['similarity_metric'])
+            
+            self.similarity = func(feat)
+            self._max = np.max(self.similarity)
+            print('compute_similarity DONE')
     
     
     def refresh(self):
@@ -162,8 +168,8 @@ class SimilarityView(WidgetBase):
         pass
     
     def on_spike_label_changed(self):
-        #~ self.compute_similarity()
-        self.similarity = None
+        self.compute_similarity()
+        #~ self.similarity = None
         self.refresh()
     
     def on_colors_changed(self):

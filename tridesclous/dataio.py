@@ -188,8 +188,12 @@ class DataIO:
     def add_one_channel_group(self, channels=[], chan_grp=0, geometry=None):
         channels = list(channels)
         if geometry is None:
-            # assume that it is a linear probes
-            geometry = { c: [0, i] for i, c in enumerate(channels) }
+            if len(channels)!=4:
+                # assume that it is a linear probes
+                geometry = { c: [0, i] for i, c in enumerate(channels) }
+            else:
+                # except for tetrode
+                geometry = dict(zip(channels, [(0., 50.), (50., 0.), (0., -50.), (-50, 0.)]))
         
         self.channel_groups[chan_grp] = {'channels': channels, 'geometry':geometry}
         #rewrite with same name

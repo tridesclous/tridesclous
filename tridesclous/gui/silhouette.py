@@ -100,6 +100,11 @@ class Silhouette(WidgetBase):
         labels = labels[keep]
         data = data[keep]        
         
+        if data.size>1e6:
+            print('compute_slihouette : TOO BIG')
+            self.silhouette_avg = None
+            return
+        
         labels_list = np.unique(labels)
         if labels_list.size<=1:
             self.silhouette_avg = None

@@ -362,6 +362,8 @@ class WaveformViewer(WidgetBase):
             self.plot1.addItem(curve)
         
         if self.params['show_channel_num']:
+            chan_grp = self.controller.chan_grp
+            channel_group = self.controller.dataio.channel_groups[chan_grp]            
             for i, chan in enumerate(self.controller.channel_indexes):
                 x, y = channel_group['geometry'][chan]
                 itemtxt = pg.TextItem(str(chan))

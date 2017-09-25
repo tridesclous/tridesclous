@@ -56,16 +56,6 @@ class CatalogueController(ControllerBase):
     
     #map some attribute
     @property
-    def channel_indexes(self):
-        channel_group = self.dataio.channel_groups[self.chan_grp]
-        return channel_group['channels']
-
-    @property
-    def channel_names(self):
-        all_names = self.dataio.datasource.get_channel_names()
-        return [all_names[c] for c in self.channel_indexes]
-    
-    @property
     def spikes(self):
         return self.cc.all_peaks
         
