@@ -3,8 +3,12 @@ from .version import version as __version__
 import PyQt5 # this force pyqtgraph to deal with Qt5
 
 from .datasets import download_dataset, get_dataset
-from .datasource import (InMemoryDataSource, RawDataSource, 
-                    BlackrockDataSource, NeuralynxDataSource)
+
+#dynamic import 
+from .datasource import data_source_classes
+for c in data_source_classes.values():
+    globals()[c.__name__] = c
+
 from .dataio import DataIO
 from .catalogueconstructor import CatalogueConstructor
 from .peeler import Peeler

@@ -22,6 +22,6 @@ def test_ChannelGroupWidget():
 
     
 if __name__ == '__main__':
-    #~ test_InitializeDatasetWindow()
-    test_ChannelGroupWidget()
+    test_InitializeDatasetWindow()
+    #~ test_ChannelGroupWidget()
 
