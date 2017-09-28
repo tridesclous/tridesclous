@@ -147,7 +147,8 @@ class WaveformViewer(WidgetBase):
                 self.xvect = None
             else:
 
-                shape = list(self.controller.centroids.values())[0]['median'].shape
+                #~ shape = list(self.controller.centroids.values())[0]['median'].shape
+                shape = self.controller.some_waveforms.shape[1:]
                 width = shape[0]
                 
                 self.xvect = np.zeros(shape[0]*shape[1], dtype='float32')
@@ -183,10 +184,14 @@ class WaveformViewer(WidgetBase):
                     x, y = channel_group['geometry'][chan]
                     self.xvect[i*width:(i+1)*width] = np.linspace(x-espx, x+espx, num=width)
                 self.arr_geometry = np.array(self.arr_geometry)
-
-        self.wf_min = min(np.min(centroid['median']) for centroid in self.controller.centroids.values())
-        self.wf_max = max(np.max(centroid['median']) for centroid in self.controller.centroids.values())
         
+        if len(self.controller.centroids)>0:
+            self.wf_min = min(np.min(centroid['median']) for centroid in self.controller.centroids.values())
+            self.wf_max = max(np.max(centroid['median']) for centroid in self.controller.centroids.values())
+        else:
+            self.wf_min = 0.
+            self.wf_max = 0.
+            
         self._x_range = None
         self._y1_range = None
         self._y2_range = None
@@ -409,6 +414,7 @@ class WaveformViewer(WidgetBase):
             wf = wf*self.factor_y*self.delta_y*(-1.) + ypos[None, :]
             wf[0,:] = np.nan
             wf = wf.T.reshape(-1)
+            print(wf.shape, self.xvect.shape)
             self.curve_one_waveform.setData(self.xvect, wf)
     
     def on_spike_selection_changed(self):
