@@ -135,7 +135,7 @@ class CatalogueConstructor:
             highpass_freq=300., 
             lowpass_freq=None,
             smooth_size=0,
-            common_ref_removal=True,
+            common_ref_removal=False,
             
             backward_chunksize=1280,
             
@@ -547,7 +547,7 @@ class CatalogueConstructor:
             median, mad = median_mad(wf, axis = 0)
             mean, std = np.mean(wf, axis=0), np.std(wf, axis=0)
             #~ max_on_channel = np.argmax(np.max(np.abs(mean), axis=0))
-            max_on_channel = np.argmax(np.abs(mad[-n_left,:]))
+            max_on_channel = np.argmax(np.abs(median[-n_left,:]))
             
             self.centroids[k] = {'median':median, 'mad':mad, 'max_on_channel' : max_on_channel, 
                         'mean': mean, 'std': std}
@@ -773,7 +773,7 @@ class CatalogueConstructor:
         #find max  channel for each cluster for peak alignement
         self.catalogue['max_on_channel'] = np.zeros_like(self.catalogue['cluster_labels'])
         for i, k in enumerate(cluster_labels):
-            center = self.catalogue['centers0'][i]
+            center = self.catalogue['centers0'][i,:,:]
             self.catalogue['max_on_channel'][i] = np.argmax(np.max(np.abs(center), axis=0))
         
         #colors

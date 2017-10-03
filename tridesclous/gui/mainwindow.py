@@ -141,7 +141,7 @@ class MainWindow(QT.QMainWindow):
                     {'name': 'highpass_freq', 'type': 'float', 'value':400., 'step': 10., 'suffix': 'Hz', 'siPrefix': True},
                     {'name': 'lowpass_freq', 'type': 'float', 'value':5000., 'step': 10., 'suffix': 'Hz', 'siPrefix': True},
                     {'name': 'smooth_size', 'type': 'int', 'value':0},
-                    {'name': 'common_ref_removal', 'type': 'bool', 'value':True},
+                    {'name': 'common_ref_removal', 'type': 'bool', 'value':False},
                     {'name': 'chunksize', 'type': 'int', 'value':1024, 'decilmals':5},
                     {'name': 'backward_chunksize', 'type': 'int', 'value':1280, 'decilmals':5},
                     

@@ -17,6 +17,7 @@ Note that you are free to install anaconda on linux.
 
 
 
+
 Case 1 : with anaconda (prefered on window or OSX)
 --------------------------------------------------
 
@@ -35,7 +36,7 @@ Do:
   7. For GUI and running example::
   
        conda install pyqt=5 jupyter
-       pip install pyqtgraph==0.10 quantities neo==0.5.1
+       pip install pyqtgraph==0.10 quantities neo
      
      
   8. And finally install tridesclous from github::
@@ -43,9 +44,6 @@ Do:
        pip install https://github.com/tridesclous/tridesclous/archive/master.zip
 
 
-
-   
-     
 
 
 Optional if you want fight and you really want fast computing with OpenCl:
@@ -63,20 +61,20 @@ Optional if you want fight and you really want fast computing with OpenCl:
 Case 2 : with pip (prefered on linux)
 -------------------------------------
 
-Here I propose my method that install tridesclous in an isolateted environement with virtualenvwrapper.
-Every method is also valid.
+Here I propose my method that install tridesclous with debian like dstro in an
+isolateted environement with virtualenvwrapper. Every other method is also valid.
 
 Open a terminal and do:
 
   1. sudo apt-get install virtualenvwrapper
   2. mkvirtualenv  tdc   --python=/usr/bin/python3.5
   3. workon tdc
-  
   4. pip install scipy numpy pandas scikit-learn matplotlib seaborn
-  5. pip install PyQt5 jupyter pyqtgraph==0.10 quantities==0.10.1 neo==0.5.1
+  5. pip install PyQt5 jupyter pyqtgraph==0.10 quantities neo
   6. pip install https://github.com/tridesclous/tridesclous/archive/master.zip
 
 
+  
 
    
 Optional if you want fight and you really want fast computing with OpenCl and you are on linux:
@@ -86,6 +84,19 @@ Optional if you want fight and you really want fast computing with OpenCl and yo
       For nvidia GPU: sudo apt-egt install nvidia-opencl-340
    3. sudo apt-get instll opencl-headers ocl-icd-opencl-dev libclc-dev ocl-icd-libopencl1
    4. pip install pyopencl
+
+   
+
+.. IMPORTANT::
+    
+    Actual official neo version is 0.5.2. If you install this version you will have
+    few reader (Raw+Blackrock+Neuralynx). Coming neo version will be 0.6.0, with 
+    this version many format will be available in tridesclous.
+    
+    If you need one of theses fromat you can install the futur version of neo
+    with this::
+        
+        pip install https://github.com/NeuralEnemble/python-neo/archive/master.zip
 
 
 

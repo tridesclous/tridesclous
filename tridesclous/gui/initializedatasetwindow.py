@@ -90,15 +90,8 @@ class InitializeDatasetWindow(QT.QDialog):
             self.tree_params.show()
 
         elif step=='mk_chan_grp':
-            #~ filenames = self.final_params['filenames']
-            source_params = dict(self.final_params['source_params'])
-            if self.datasource_class.mode.endswith('-file'):
-                source_params['filenames'] = self.final_params['file_or_dir_names']
-            elif self.datasource_class.mode.endswith('-dir'):
-                source_params['dirnames'] = self.final_params['file_or_dir_names']
-                
-            #~ print(filenames)
-            #~ print(kargs)
+            source_params = self._get_source_param()
+            
             #~ try:
             if True:
                 channel_names = self.datasource_class(**source_params).get_channel_names()
@@ -126,7 +119,18 @@ class InitializeDatasetWindow(QT.QDialog):
             
             self.label_path.setText(suggested_dir)
             self.edit_dirname.setText(suggested_name)
-
+        
+    def _get_source_param(self):
+        source_params = dict(self.final_params['source_params'])
+        if self.datasource_class.mode =='one-file':
+            source_params['filename'] = self.final_params['file_or_dir_names'][0]
+        elif self.datasource_class.mode =='multi-file':
+            source_params['filenames'] = self.final_params['file_or_dir_names']
+        elif self.datasource_class.mode == 'one-dir':
+            source_params['dirname'] = self.final_params['file_or_dir_names'][0]
+        elif self.datasource_class == 'multi-dir':
+            source_params['dirnames'] = self.final_params['file_or_dir_names']
+        return source_params
    
     def validate_step(self):
         #~ print('validate_step', self.actual_step)
@@ -139,7 +143,13 @@ class InitializeDatasetWindow(QT.QDialog):
             
         elif step=='filenames':
             file_or_dir_names = [self.list_files.item(i).text() for i in range(self.list_files.count())]
-            if len(file_or_dir_names)==0: return
+            if len(file_or_dir_names)==0:
+                return
+            if self.datasource_class.mode == 'one-file' and len(file_or_dir_names)!=1:
+                return
+            if self.datasource_class.mode == 'one-dir' and len(file_or_dir_names)!=1:
+                return
+            
             self.final_params['file_or_dir_names'] = file_or_dir_names
             self.but_addfiles.hide()
             self.list_files.hide()
@@ -207,11 +217,7 @@ class InitializeDatasetWindow(QT.QDialog):
         try:
             p = self.final_params
             
-            source_params = dict(self.final_params['source_params'])
-            if self.datasource_class.mode.endswith('-file'):
-                source_params['filenames'] = self.final_params['file_or_dir_names']
-            elif self.datasource_class.mode.endswith('-dir'):
-                source_params['dirnames'] = self.final_params['file_or_dir_names']
+            source_params = self._get_source_param()
             
             dataio = DataIO(p['dirname'])
             dataio.set_data_source(type=p['source_type'], **source_params)
@@ -261,7 +267,8 @@ class ChannelGroupWidget(QT.QWidget):
         self.list_channel.addItems(channel_names)
         
         channels = list(range(self.n))
-        geometry = { c: [0, i] for i, c in enumerate(channels) }
+        #~ geometry = { c: [0, i] for i, c in enumerate(channels) }
+        geometry = None
         self.channel_groups = OrderedDict()
         self.channel_groups[0] = dict(channels=channels, geometry=geometry)
         
@@ -290,7 +297,8 @@ class ChannelGroupWidget(QT.QWidget):
         channels = [ind.row() for ind in self.list_channel.selectedIndexes()]
         if len(channels)==0: return
         k = len(self.channel_groups)
-        geometry = { c: [0, i] for i, c in enumerate(channels) }
+        #~ geometry = { c: [0, i] for i, c in enumerate(channels) }
+        geometry = None
         self.channel_groups[k] = dict(channels=channels, geometry=geometry)
         self.refresh_table()
     

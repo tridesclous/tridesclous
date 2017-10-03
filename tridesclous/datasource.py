@@ -402,17 +402,22 @@ if NEO_VERSION is not None and '0.6'<=NEO_VERSION:
                             i_start=i_start, i_stop=i_stop)
     
     for rawio_class in rawiolist:
-        print(rawio_class)
+        #~ print(rawio_class)
         name = rawio_class.__name__.replace('RawIO', '')
+        if name == 'RawBinarySignal':
+            continue
         class_name = name+'DataSource'
         datasource_class = type(class_name,(NeoRawIOWrapper,), { })
         datasource_class.rawio_class = rawio_class
-        datasource_class.mode = rawio_class.rawmode
+        if rawio_class.rawmode=='multi-file':
+            #multi file in neo have another meaning
+            datasource_class.mode = 'one-file'
+        else:
+            datasource_class.mode = rawio_class.rawmode
         data_source_classes[name] = datasource_class
-        print(datasource_class)
-    
-    
+        #~ print(datasource_class, datasource_class.mode )
 
+    
 #TODO implement KWIK and OpenEphys
 #https://open-ephys.atlassian.net/wiki/display/OEW/Data+format
 # https://github.com/open-ephys/analysis-tools/tree/master/Python3
