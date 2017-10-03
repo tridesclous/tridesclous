@@ -22,7 +22,16 @@ datasets_info = {
         'dtype': 'int16',
         'sample_rate': 10000.,
         'channel_group': list(range(14))
-    }
+    },
+
+    'purkinje':{
+        'url': 'https://raw.githubusercontent.com/tridesclous/tridesclous_datasets/master/purkinje/',
+        'filenames': ['purkinje_extra_cellular.raw'],
+        'total_channel': 4,
+        'dtype': 'float32',
+        'sample_rate': 15000.,
+    },
+    
 }
 
 

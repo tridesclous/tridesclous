@@ -104,7 +104,7 @@ class SimilarityView(WidgetBase):
         self._text_items = []
     
     def compute_similarity(self):
-        print('compute_similarity')
+        #~ print('compute_similarity')
         if self.params['data']=='waveforms':
             wf = self.controller.some_waveforms
             feat = wf.reshape(wf.shape[0], -1)
@@ -114,14 +114,14 @@ class SimilarityView(WidgetBase):
         
         if feat.size>1e6:
             print('compute_similarity: TOO BIG')
-            print(feat.size)
+            #~ print(feat.size)
             self.similarity = None
         else:
             func = getattr(sklearn.metrics.pairwise, self.params['similarity_metric'])
             
             self.similarity = func(feat)
             self._max = np.max(self.similarity)
-            print('compute_similarity DONE')
+            #~ print('compute_similarity DONE')
     
     
     def refresh(self):
