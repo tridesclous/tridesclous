@@ -32,20 +32,27 @@ you also benefit of a simple UI for offline spike sorting (and online soon).
 
 Bonus:
   * tridesclous is quite fast. For a tetrode dataset, you can expect X30 speedup over real time on a simple laptop.
-  * Some pieces of algorithm of written both in pure python (numpy/scipy/...) and OpenCL (filter, peak detetion, ...). So *tridesclous* should be efficient for large array (>=64 channel) soon.
-  * Each piece of the algorithm is written with chunk by chunk in mind. So the offline *tridesclous* is not agressive for memory.
+  * some pieces of algorithm of written both in pure python (numpy/scipy/...) and OpenCL (filter, peak detetion, ...). So *tridesclous* should be efficient for large array (>=64 channel) soon.
+  * each piece of the algorithm is written with chunk by chunk in mind. So the offline *tridesclous* is not agressive for memory.
   * tridesclous used [neo](https://github.com/NeuralEnsemble/python-neo) for reading dataset. So many format are available (Raw, Blackrock, Neuralynx, Plexon, Spike2, Tdt, ...)
   * tridesclous is open source and based on true opensource stack.
 
 
-This is in construction so for easy install/update do:
+# Installation/launch
+
+For installation:
 ```
 git clone https://github.com/tridesclous/tridesclous.git
 cd tridesclous
 python setup.py develop
 ```
 
-while tridesclous is not installed but linked, for having new version just do:
+For launch the GUI:
+```
+tdc
+```
+
+For update, while tridesclous is not installed but linked:
 ```
 git pull
 ```

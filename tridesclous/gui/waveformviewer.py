@@ -412,10 +412,9 @@ class WaveformViewer(WidgetBase):
             self.curve_one_waveform.setData(xvect, wf)
         elif self.mode=='geometry':
             ypos = self.arr_geometry[:,1]
-            wf = wf*self.factor_y*self.delta_y*(-1.) + ypos[None, :]
+            wf = wf*self.factor_y*self.delta_y + ypos[None, :]
             wf[0,:] = np.nan
             wf = wf.T.reshape(-1)
-            print(wf.shape, self.xvect.shape)
             self.curve_one_waveform.setData(self.xvect, wf)
     
     def on_spike_selection_changed(self):

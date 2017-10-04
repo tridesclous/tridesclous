@@ -136,7 +136,6 @@ class SignalPreprocessor_Numpy(SignalPreprocessor_base):
         if self.normalize:
             data2 -= self.signals_medians
             data2 /= self.signals_mads
-        
         return pos2, data2
     
 

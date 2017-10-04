@@ -94,7 +94,19 @@ def test_Silhouette():
     similarityview = Silhouette(controller=controller)
     similarityview.show()
     app.exec_()
+
+def test_WaveformHistViewer():
+    controller = get_controller()
+    for k in controller.cluster_labels:
+        controller.cluster_visible[k] = False
+    for k in controller.cluster_labels[:2]:
+        controller.cluster_visible[k] = True
     
+    app = pg.mkQApp()
+    similarityview = WaveformHistViewer(controller=controller)
+    similarityview.show()
+    app.exec_()
+
 
 def test_CatalogueWindow():
     dataio = DataIO(dirname='test_catalogueconstructor')
@@ -121,6 +133,7 @@ if __name__ == '__main__':
     #~ test_SimilarityView()
     #~ test_PairList()
     #~ test_Silhouette()
+    #~ test_WaveformHistViewer()
     
     test_CatalogueWindow()
 

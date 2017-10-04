@@ -45,7 +45,7 @@ def preprocess_signals_and_peaks():
             #signal preprocessor
             highpass_freq=None,
             lowpass_freq=None,
-            smooth_size=1,
+            smooth_size=0,
             common_ref_removal=False,
             backward_chunksize=1280,
             
@@ -60,7 +60,7 @@ def preprocess_signals_and_peaks():
     
     
     t1 = time.perf_counter()
-    catalogueconstructor.estimate_signals_noise(seg_num=0, duration=120.)
+    catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
     t2 = time.perf_counter()
     print('estimate_signals_noise', t2-t1)
     
@@ -79,7 +79,7 @@ def extract_waveforms_pca_cluster():
     
     
     t1 = time.perf_counter()
-    catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40,  nb_max=10000, align_waveform=True, subsample_ratio=20)
+    catalogueconstructor.extract_some_waveforms(n_left=-35, n_right=60,  nb_max=10000, align_waveform=True, subsample_ratio=20)
     #~ catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40,  nb_max=10000, align_waveform=False)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
@@ -93,18 +93,18 @@ def extract_waveforms_pca_cluster():
     #~ print(catalogueconstructor.some_waveforms.shape)
     print(catalogueconstructor)
     
-    print(catalogueconstructor.all_peaks)
-    exit()
+    #~ print(catalogueconstructor.all_peaks)
+    #~ exit()
     
     t1 = time.perf_counter()
-    catalogueconstructor.project(method='pca', n_components=7)
+    catalogueconstructor.project(method='pca', n_components=4)
     #~ catalogueconstructor.project(method='tsne', n_components=2, perplexity=40., init='pca')
     t2 = time.perf_counter()
     print('project', t2-t1)
     print(catalogueconstructor)
     
     t1 = time.perf_counter()
-    catalogueconstructor.find_clusters(method='kmeans', n_clusters=1)
+    catalogueconstructor.find_clusters(method='kmeans', n_clusters=12)
     t2 = time.perf_counter()
     print('find_clusters', t2-t1)
     print(catalogueconstructor)

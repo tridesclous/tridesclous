@@ -11,6 +11,7 @@ from .waveformviewer import WaveformViewer
 from .similarity import SimilarityView
 from .pairlist import PairList
 from .silhouette import Silhouette
+from .waveformhistviewer import WaveformHistViewer
 
 from .tools import ParamDialog
 
@@ -38,6 +39,8 @@ class CatalogueWindow(QT.QMainWindow):
         self.similarityview = SimilarityView(controller=self.controller)
         self.pairlist = PairList(controller=self.controller)
         self.silhouette = Silhouette(controller=self.controller)
+        self.waveformhistviewer = WaveformHistViewer(controller=self.controller)
+        
         
         
         
@@ -51,6 +54,10 @@ class CatalogueWindow(QT.QMainWindow):
         docks['silhouette'] = QT.QDockWidget('silhouette',self)
         docks['silhouette'].setWidget(self.silhouette)
         self.tabifyDockWidget(docks['waveformviewer'], docks['silhouette'])
+
+        docks['waveformhistviewer'] = QT.QDockWidget('waveformhistviewer',self)
+        docks['waveformhistviewer'].setWidget(self.waveformhistviewer)
+        self.tabifyDockWidget(docks['waveformviewer'], docks['waveformhistviewer'])
         
         
         docks['traceviewer'] = QT.QDockWidget('traceviewer',self)

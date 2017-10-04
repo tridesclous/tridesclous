@@ -189,28 +189,29 @@ class CatalogueConstructor:
         length = int(duration*self.dataio.sample_rate)
         length -= length%self.chunksize
         
+        assert length<self.dataio.get_segment_length(seg_num), 'duration exeed size'
+        
         name = 'filetered_sigs_for_noise_estimation_seg_{}'.format(seg_num)
-        shape=(length, self.nb_channel)
+        shape=(length - (self.params_signalpreprocessor['backward_chunksize']-self.chunksize), self.nb_channel)
         filtered_sigs = self.arrays.create_array(name, self.info['internal_dtype'], shape, 'memmap')
         
         params2 = dict(self.params_signalpreprocessor)
         params2['normalize'] = False
         self.signalpreprocessor.change_params(**params2)
         
-        
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp, chunksize=self.chunksize, i_stop=length,
                                                     signal_type='initial',  return_type='raw_numpy')
         for pos, sigs_chunk in iterator:
             pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
+            #~ print(pos2, preprocessed_chunk)
             if preprocessed_chunk is not None:
                 filtered_sigs[pos2-preprocessed_chunk.shape[0]:pos2, :] = preprocessed_chunk
-        
 
         #create  persistant arrays
         self.arrays.create_array('signals_medians', self.info['internal_dtype'], (self.nb_channel,), 'memmap')
         self.arrays.create_array('signals_mads', self.info['internal_dtype'], (self.nb_channel,), 'memmap')
         
-        self.signals_medians[:] = signals_medians = np.median(filtered_sigs, axis=0)
+        self.signals_medians[:] = signals_medians = np.median(filtered_sigs[:pos2], axis=0)
         self.signals_mads[:] = np.median(np.abs(filtered_sigs-signals_medians),axis=0)*1.4826
         
         #detach filetered signals even if the file remains.

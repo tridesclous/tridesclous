@@ -323,11 +323,11 @@ def test_ratio_amplitude():
 
     
 if __name__ == '__main__':
-    #~ test_catalogue_constructor()
+    test_catalogue_constructor()
     
     #~ compare_nb_waveforms()
     
     #~ test_make_catalogue()
-    test_ratio_amplitude()
+    #~ test_ratio_amplitude()
 
 
