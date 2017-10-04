@@ -46,20 +46,25 @@ class MainWindow(QT.QMainWindow):
     def create_actions_and_menu(self):
         #~ self.actions = OrderedDict()
         
-        self.toolbar = QT.QToolBar()
+        self.toolbar = QT.QToolBar(orientation=QT.Vertical)
         self.toolbar.setToolButtonStyle(QT.Qt.ToolButtonTextUnderIcon)
-        self.addToolBar(self.toolbar)
+        self.addToolBar(QT.LeftToolBarArea, self.toolbar)
         self.toolbar.setIconSize(QT.QSize(60, 40))
+        #~ self.toolbar.setOrient
         
         self.file_menu = self.menuBar().addMenu(self.tr("File"))
         
-        do_open = QT.QAction('&Open', self, shortcut = "Ctrl+O")
+        do_open = QT.QAction('&Open', self, shortcut = "Ctrl+O", icon=QT.QIcon(":document-open.svg"))
         do_open.triggered.connect(self.open_dialog)
         self.file_menu.addAction(do_open)
+        self.toolbar.addAction(do_open)
 
-        do_init = QT.QAction('&Initialize dataset', self, shortcut = "Ctrl+I")
+        do_init = QT.QAction('&Initialize dataset', self, shortcut = "Ctrl+I", icon=QT.QIcon(":document-new.svg"))
         do_init.triggered.connect(self.initialize_dataset_dialog)
         self.file_menu.addAction(do_init)
+        self.toolbar.addAction(do_init)
+        
+        self.toolbar.addSeparator()
         
         self.toolbar.addWidget(QT.QLabel('chan_grp:'))
         self.combo_chan_grp = QT.QComboBox()

@@ -10,15 +10,18 @@ from matplotlib import pyplot
 import time
 
 
-p = '/media/samuel/SamCNRS/DataSpikeSorting/kampff/'
+#~ p = '/media/samuel/SamCNRS/DataSpikeSorting/kampff/'
+p = '/home/samuel/Documents/projet/DataSpikeSorting/kampff/'
 #~ dirname= p+'tdc_2014_11_25_Pair_3_0'
-#~ dirname=p+'tdc_2015_09_03_Cell9.0'   
-dirname=p+'tdc_2015_09_09_Pair_6_0'
+dirname=p+'tdc_2015_09_03_Cell9.0'
+#~ dirname=p+'tdc_2015_09_09_Pair_6_0'
 
 
 
 def initialize_catalogueconstructor():
-    filenames = p+'2015_09_09_Pair_6_0/'+'amplifier2015-09-09T17_46_43.bin'
+    #~ filenames = p+'2015_09_09_Pair_6_0/'+'amplifier2015-09-09T17_46_43.bin'
+    filenames = p+'2015_09_03_Cell9.0/'+'amplifier2015-09-03T21_18_47.bin'
+    
     dataio = DataIO(dirname=dirname)
     dataio.set_data_source(type='RawData', filenames=filenames, dtype='uint16',
                                      total_channel=128, sample_rate=30000.)    
@@ -77,8 +80,8 @@ def extract_waveforms_pca_cluster():
     print('extract_some_waveforms', t2-t1)
 
     t1 = time.perf_counter()
-    #~ catalogueconstructor.project(method='pca', n_components=16)
-    catalogueconstructor.project(method='spatial_sliding_pca', n_components_by_channel=3)
+    catalogueconstructor.project(method='pca', n_components=25)
+    #~ catalogueconstructor.project(method='spatial_sliding_pca', n_components_by_channel=3)
     #~ catalogueconstructor.project(method='pca_by_channel_then_tsne', n_components_by_channel=3)
     t2 = time.perf_counter()
     print('project', t2-t1)
@@ -89,7 +92,10 @@ def extract_waveforms_pca_cluster():
     print('find_clusters', t2-t1)
     
     print(catalogueconstructor)
+    
+    
 
+    
 
 
 
@@ -135,9 +141,9 @@ def open_PeelerWindow():
 
 if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
-    #~ preprocess_signals_and_peaks()
-    #~ extract_waveforms_pca_cluster()
-    open_cataloguewindow()
+    preprocess_signals_and_peaks()
+    extract_waveforms_pca_cluster()
+    #~ open_cataloguewindow()
     #~ run_peeler()
     #~ open_PeelerWindow()
 

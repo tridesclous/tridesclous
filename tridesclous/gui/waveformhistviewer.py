@@ -35,7 +35,7 @@ class WaveformHistViewer(WidgetBase):
 
     def create_settings(self):
         _params = [
-                          {'name': 'colormap', 'type': 'list', 'values' : ['viridis', 'jet', 'gray', 'hot', ] },
+                          {'name': 'colormap', 'type': 'list', 'values' : ['hot', 'viridis', 'jet', 'gray',  ] },
                           {'name': 'data', 'type': 'list', 'values' : ['waveforms', 'features', ] },
                           {'name': 'nb_bin', 'type': 'int', 'value' : 500 },
                           ]

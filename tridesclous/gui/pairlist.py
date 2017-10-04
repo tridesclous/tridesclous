@@ -57,9 +57,13 @@ class PairList(WidgetBase):
     
     def refresh(self):
         self.table.clear()
-        labels = ['cluster1', 'cluster2']
+        labels = ['cluster1', 'cluster2' ]
         self.table.setColumnCount(len(labels))
         self.table.setHorizontalHeaderLabels(labels)
+        self.table.setColumnWidth(0, 100)
+        self.table.setColumnWidth(1, 100)
+        
+        
         
         labels = self.controller.cluster_labels
         labels = labels[labels>=0]
@@ -76,11 +80,13 @@ class PairList(WidgetBase):
                 pix.fill(color)
                 icon = QT.QIcon(pix)
                 
-                name = '{}'.format(k)
+                name = '{} (nb={})'.format(k, self.controller.cluster_count[k])
                 item = QT.QTableWidgetItem(name)
                 item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
-                self.table.setItem(r,0+c, item)
+                self.table.setItem(r,c, item)
                 item.setIcon(icon)
+
+
         
 
     def on_spike_selection_changed(self):
