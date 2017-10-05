@@ -36,6 +36,7 @@ Bonus:
   * each piece of the algorithm is written with chunk by chunk in mind. So the offline *tridesclous* is not agressive for memory.
   * tridesclous used [neo](https://github.com/NeuralEnsemble/python-neo) for reading dataset. So many format are available (Raw, Blackrock, Neuralynx, Plexon, Spike2, Tdt, ...)
   * tridesclous is open source and based on true opensource stack.
+  * some datasets are available for testing it now here https://github.com/tridesclous/tridesclous_datasets
 
 
 # Installation/launch

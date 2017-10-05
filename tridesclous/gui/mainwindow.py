@@ -9,6 +9,7 @@ import pickle
 from ..dataio import DataIO
 from ..datasource import data_source_classes
 from .tools import get_dict_from_group_param, ParamDialog
+from  ..datasets import datasets_info, download_dataset
 
 from ..catalogueconstructor import CatalogueConstructor
 from .cataloguewindow import CatalogueWindow
@@ -78,6 +79,13 @@ class MainWindow(QT.QMainWindow):
         
         self.recetly_opened_menu = self.file_menu.addMenu('Recently opened')
         self._refresh_recetly_opened()
+        
+        self.dw_dataset_menu = self.file_menu.addMenu('Download test datasets')
+        for name in datasets_info:
+            act = self.dw_dataset_menu.addAction(name)
+            act.name = name
+            act.triggered.connect(self.do_download_dataset)        
+        
         
         self.toolbar.addSeparator()
         
@@ -150,6 +158,21 @@ class MainWindow(QT.QMainWindow):
         else:
             recently_opened = pickle.loads(value)
         return recently_opened
+    
+    def do_download_dataset(self):
+        name = self.sender().name
+        fd = QT.QFileDialog(fileMode=QT.QFileDialog.DirectoryOnly, acceptMode=QT.QFileDialog.AcceptOpen)
+        fd.setViewMode( QT.QFileDialog.Detail )
+        if fd.exec_():
+            localdir = fd.selectedFiles()[0]
+            localdir, filenames, params = download_dataset(name, localdir=localdir)
+            
+            dirname = os.path.join(localdir, 'tdc_'+name)
+            dataio = DataIO(dirname=dirname)
+            dataio.set_data_source(type='RawData', filenames=filenames, **params)
+            
+            self._open_dataio( dirname)
+        
     
     def _open_dataio(self, dirname):
         recently_opened =self.recently_opened()
