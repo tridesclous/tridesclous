@@ -120,12 +120,14 @@ class WaveformHistViewer(WidgetBase):
         cluster_visible = self.controller.cluster_visible
         visibles = [c for c, v in self.controller.cluster_visible.items() if v and c>=0]
 
-        if len(visibles)!=2:
+        if len(visibles) not in [1, 2]:
             self.image.hide()
             self.curve1.hide()
             self.curve2.hide()
             return
-
+        
+        if  len(visibles)==1:
+            self.curve2.hide()
 
         if self.params['data']=='waveforms':
             wf = self.controller.some_waveforms
@@ -152,6 +154,7 @@ class WaveformHistViewer(WidgetBase):
         self.image.setImage(hist2d, lut=self.lut)#, levels=[0, self._max])
         self.image.show()
         
+        
         for k, curve in zip(visibles, [self.curve1, self.curve2]):
             
             if self.params['data']=='waveforms':
@@ -167,7 +170,7 @@ class WaveformHistViewer(WidgetBase):
             curve.setPen(pg.mkPen(color, width=2))
             
             curve.show()
-    
+        
         if self._x_range is None:
             self._x_range = 0, hist2d.shape[0]
             self._y_range = 0, hist2d.shape[1]

@@ -161,6 +161,9 @@ class CatalogueController(ControllerBase):
             self.change_spike_label(mask, new_label, on_new_cluster=False)
         self.on_new_cluster()
     
+    def tag_same_cell(self, labels_to_group):
+        self.cc.tag_same_cell(labels_to_group)
+    
     def update_visible_spikes(self):
         visibles = np.array([k for k, v in self.cluster_visible.items() if v ])
         self.spike_visible[:] = np.in1d(self.spike_label, visibles)

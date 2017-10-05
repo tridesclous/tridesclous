@@ -221,6 +221,8 @@ class ClusterPeakList(WidgetBase):
         act.triggered.connect(self.merge_selection)
         act = self.menu.addAction('Select')
         act.triggered.connect(self.select_peaks_of_clusters)
+        act = self.menu.addAction('Tag selection as same cell')
+        act.triggered.connect(self.selection_tag_same_cell)
         
         act = self.menu.addAction('Split selection')
         act.triggered.connect(self.split_selection)        
@@ -403,6 +405,11 @@ class ClusterPeakList(WidgetBase):
         self.refresh()
         self.spike_label_changed.emit()
 
+    def selection_tag_same_cell(self):
+        labels_to_group = self.selected_cluster()
+        self.controller.tag_same_cell(labels_to_group)
+        self.refresh()
+        self.cluster_tag_changed.emit()
     
     def select_peaks_of_clusters(self):
         self.controller.spike_selection[:] = self._selected_spikes()

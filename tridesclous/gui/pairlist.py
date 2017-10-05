@@ -27,6 +27,9 @@ class PairList(WidgetBase):
         self.menu = QT.QMenu()
         act = self.menu.addAction('Merge')
         act.triggered.connect(self.do_merge)
+
+        act = self.menu.addAction('Tag same cell')
+        act.triggered.connect(self.do_tag_same_cell)
         
         self.refresh()
     
@@ -53,7 +56,17 @@ class PairList(WidgetBase):
         self.controller.merge_cluster(label_to_merge)
         self.refresh()
         self.spike_label_changed.emit()
-
+    
+    def do_tag_same_cell(self):
+        if len(self.table.selectedIndexes())==0:
+            return
+        ind = self.table.selectedIndexes()[0].row()
+        
+        label_to_merge = list(self.pairs[ind])
+        self.controller.tag_same_cell(label_to_merge)
+        self.refresh()
+        self.cluster_tag_changed.emit()
+        
     
     def refresh(self):
         self.table.clear()

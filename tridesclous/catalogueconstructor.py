@@ -124,10 +124,7 @@ class CatalogueConstructor:
         
         for name in _persitent_arrays:
             # this set attribute to class if exsits
-            print('ici', name)
             self.arrays.load_if_exists(name)
-        
-        
     
     def set_preprocessor_params(self, chunksize=1024,
             memory_mode='memmap',
@@ -656,7 +653,13 @@ class CatalogueConstructor:
         pairs = list(zip(labels[ind0], labels[ind1]))
         
         return pairs
-
+    
+    
+    def tag_same_cell(self, labels_to_group):
+        inds, = np.nonzero(np.in1d(self.clusters['cluster_label'], labels_to_group))
+        self.clusters['cell_label'][inds] = min(labels_to_group)
+        
+        
     
     def order_clusters(self):
         """
@@ -675,16 +678,23 @@ class CatalogueConstructor:
         for k in cluster_labels:
             power = np.sum(self.centroids[k]['median'].flatten()**2)
             powers.append(power)
-        sorted_labels = cluster_labels[np.argsort(powers)[::-1]]
+        order = np.argsort(powers)[::-1]
+        sorted_labels = cluster_labels[order]
         
-        #reassign labels
+        #TODO reorder self.clusters for cell_label!!!!!
+        
+        #reassign labels for peaks and clusters
         N = int(max(cluster_labels)*10)
         self.all_peaks['label'][self.all_peaks['label']>=0] += N
+        self.clusters['cluster_label'] += N
+        self.clusters['cell_label'] += N
         for new, old in enumerate(sorted_labels+N):
             #~ self.all_peaks['label'][self.all_peaks['label']==old] = cluster_labels[new]
             self.all_peaks['label'][self.all_peaks['label']==old] = new
+            self.clusters['cluster_label'][self.clusters['cluster_label']==old] = new
+            self.clusters['cell_label'][self.clusters['cell_label']==old] = new
         
-        self.on_new_cluster()
+        #~ self.on_new_cluster()
     
     def compute_similarity(self, cluster_labels=None):
         if cluster_labels is None:
