@@ -11,9 +11,18 @@ from .tools import ParamDialog
 
 class MyViewBox(pg.ViewBox):
     doubleclicked = QT.pyqtSignal()
+    gain_zoom = QT.pyqtSignal(float)
     def mouseDoubleClickEvent(self, ev):
         self.doubleclicked.emit()
         ev.accept()
+    def wheelEvent(self, ev):
+        if ev.modifiers() == QT.Qt.ControlModifier:
+            z = 10 if ev.delta()>0 else 1/10.
+        else:
+            z = 1.3 if ev.delta()>0 else 1/1.3
+        self.gain_zoom.emit(z)
+        ev.accept()
+        
 
 class WaveformHistViewer(WidgetBase):
     def __init__(self, controller=None, parent=None):
@@ -76,6 +85,7 @@ class WaveformHistViewer(WidgetBase):
     def initialize_plot(self):
         self.viewBox = MyViewBox()
         self.viewBox.doubleclicked.connect(self.open_settings)
+        self.viewBox.gain_zoom.connect(self.gain_zoom)
         self.viewBox.disableAutoRange()
         
         self.plot = pg.PlotItem(viewBox=self.viewBox)
@@ -92,7 +102,10 @@ class WaveformHistViewer(WidgetBase):
 
  
         
-        
+    def gain_zoom(self, v):
+        #~ print('v', v)
+        levels = self.image.getLevels()*v
+        self.image.setLevels(levels, update=True)
 
     def refresh(self):
 
