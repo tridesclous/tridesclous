@@ -4,6 +4,8 @@ import pyqtgraph as pg
 import time
 import os
 from collections import OrderedDict
+import pickle
+
 from ..dataio import DataIO
 from ..datasource import data_source_classes
 from .tools import get_dict_from_group_param, ParamDialog
@@ -34,8 +36,12 @@ class MainWindow(QT.QMainWindow):
         
         self.resize(800, 600)
 
+        appname = 'tridesclous'
+        settings_name = 'settings'
+        self.settings = QT.QSettings(appname, settings_name)
+        
         self.create_actions_and_menu()
-
+        
         w = QT.QWidget()
         self.setCentralWidget(w)
         mainlayout  = QT.QVBoxLayout()
@@ -49,17 +55,14 @@ class MainWindow(QT.QMainWindow):
         self.open_windows = []
         
         self.win_viewer = None
-        
-        
+    
 
     def create_actions_and_menu(self):
-        #~ self.actions = OrderedDict()
         
         self.toolbar = QT.QToolBar(orientation=QT.Vertical)
         self.toolbar.setToolButtonStyle(QT.Qt.ToolButtonTextUnderIcon)
         self.addToolBar(QT.LeftToolBarArea, self.toolbar)
         self.toolbar.setIconSize(QT.QSize(60, 40))
-        #~ self.toolbar.setOrient
         
         self.file_menu = self.menuBar().addMenu(self.tr("File"))
         
@@ -72,6 +75,9 @@ class MainWindow(QT.QMainWindow):
         do_init.triggered.connect(self.initialize_dataset_dialog)
         self.file_menu.addAction(do_init)
         self.toolbar.addAction(do_init)
+        
+        self.recetly_opened_menu = self.file_menu.addMenu('Recently opened')
+        self._refresh_recetly_opened()
         
         self.toolbar.addSeparator()
         
@@ -127,16 +133,42 @@ class MainWindow(QT.QMainWindow):
             if DataIO.check_initialized(dirname):
                 self._open_dataio(dirname)
     
+    def _refresh_recetly_opened(self):
+        self.recetly_opened_menu.clear()
+        for dirname in self.recently_opened():
+            act = self.recetly_opened_menu.addAction(dirname)
+            act.dirname = dirname
+            act.triggered.connect(self.do_open_recent)
+            
+    def do_open_recent(self):
+        self._open_dataio(self.sender().dirname)
+    
+    def recently_opened(self):
+        value = self.settings.value('recently_opened')
+        if value is None:
+            recently_opened = []
+        else:
+            recently_opened = pickle.loads(value)
+        return recently_opened
+    
     def _open_dataio(self, dirname):
+        recently_opened =self.recently_opened()
+        if dirname not in recently_opened:
+            recently_opened = [dirname] + recently_opened
+            recently_opened = recently_opened[:5]
+            self.settings.setValue('recently_opened', pickle.dumps(recently_opened))
+            self._refresh_recetly_opened()
+        
         for win in self.open_windows:
             win.close()
         self.open_windows = []
         
         self.dataio = DataIO(dirname=dirname)
         
-        
+        self.combo_chan_grp.blockSignals(True)
         self.combo_chan_grp.clear()
         self.combo_chan_grp.addItems([str(k) for k in self.dataio.channel_groups.keys()])
+        self.combo_chan_grp.blockSignals(False)
         self.on_chan_grp_change()
     
     @property
