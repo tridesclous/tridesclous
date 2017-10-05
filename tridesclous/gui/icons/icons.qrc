@@ -1,10 +1,15 @@
 <!DOCTYPE RCC><RCC version="1.0">
     <qresource>
-            <file alias="document-save.svg">png/document-save.svg</file>
-            <file alias="document-new.svg">png/document-new.svg</file>
-            <file alias="preferences-other.svg">png/preferences-other.svg</file>
-            <file alias="view-refresh.svg">png/view-refresh.svg</file>
-            <file alias="document-open.svg">png/document-open.svg</file>
+            <file alias="ephyviewer.png">png/ephyviewer.png</file>
+            <file alias="configure-shortcuts.svg">png/configure-shortcuts.svg</file>
+            <file alias="autocorrection.svg">png/autocorrection.svg</file>
+            <file alias="peelerwindow.png">png/peelerwindow.png</file>
             <file alias="main_icon.png">png/main_icon.png</file>
+            <file alias="preferences-other.svg">png/preferences-other.svg</file>
+            <file alias="document-open.svg">png/document-open.svg</file>
+            <file alias="catalogwinodw.png">png/catalogwinodw.png</file>
+            <file alias="document-new.svg">png/document-new.svg</file>
+            <file alias="view-refresh.svg">png/view-refresh.svg</file>
+            <file alias="document-save.svg">png/document-save.svg</file>
     </qresource>
 </RCC>

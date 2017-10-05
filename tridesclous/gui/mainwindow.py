@@ -16,6 +16,13 @@ from .initializedatasetwindow import InitializeDatasetWindow
 
 from . import icons
 
+try:
+    import ephyviewer
+    HAVE_EPHYVIEWER = True
+except:
+    HAVE_EPHYVIEWER = False
+
+
 class MainWindow(QT.QMainWindow):
     def __init__(self):
         QT.QMainWindow.__init__(self)
@@ -40,6 +47,8 @@ class MainWindow(QT.QMainWindow):
         mainlayout.addStretch()
         
         self.open_windows = []
+        
+        self.win_viewer = None
         
         
 
@@ -66,24 +75,32 @@ class MainWindow(QT.QMainWindow):
         
         self.toolbar.addSeparator()
         
+        if HAVE_EPHYVIEWER:
+            open_viewer = QT.QAction('&Preview raw signals', self, icon=QT.QIcon(":ephyviewer.png"))
+            open_viewer.triggered.connect(self.open_ephyviewer)
+            self.toolbar.addAction(open_viewer)
+            self.toolbar.addSeparator()
+            
+        
         self.toolbar.addWidget(QT.QLabel('chan_grp:'))
         self.combo_chan_grp = QT.QComboBox()
         self.toolbar.addWidget(self.combo_chan_grp)
         self.combo_chan_grp.currentIndexChanged .connect(self.on_chan_grp_change)
 
-        do_init_cataloguewin = QT.QAction('1- Initialize Catalogue', self)
+        do_init_cataloguewin = QT.QAction('1- Initialize Catalogue', self, icon=QT.QIcon(":autocorrection.svg"))
         do_init_cataloguewin.triggered.connect(self.initialize_catalogue)
         self.toolbar.addAction(do_init_cataloguewin)
         
-        do_open_cataloguewin = QT.QAction('2- open CatalogueWindow', self)
+        do_open_cataloguewin = QT.QAction('2- open CatalogueWindow', self,  icon=QT.QIcon(":catalogwinodw.png"))
         do_open_cataloguewin.triggered.connect(self.open_cataloguewin)
         self.toolbar.addAction(do_open_cataloguewin)
 
-        do_run_peeler = QT.QAction('4- run Peeler', self)
+
+        do_run_peeler = QT.QAction('4- run Peeler', self,  icon=QT.QIcon(":configure-shortcuts.svg"))
         do_run_peeler.triggered.connect(self.run_peeler)
         self.toolbar.addAction(do_run_peeler)
         
-        do_open_peelerwin = QT.QAction('4- open PeelerWindow', self)
+        do_open_peelerwin = QT.QAction('5- open PeelerWindow', self,  icon=QT.QIcon(":peelerwindow.png"))
         do_open_peelerwin.triggered.connect(self.open_peelerwin)
         self.toolbar.addAction(do_open_peelerwin)
         
@@ -278,7 +295,31 @@ class MainWindow(QT.QMainWindow):
         except Exception as e:
             print(e)
 
-    
+    def open_ephyviewer(self):
+        if self.win_viewer is not None:
+            self.win_viewer.close()
+            self.win_viewer = None
+        
+        if self.dataio  is None:
+            return
+        if not hasattr(self.dataio.datasource, 'rawio'):
+            return
+        
+        sources = ephyviewer.get_source_from_neo(self.dataio.datasource.rawio)
+        
+        self.win_viewer = ephyviewer.MainViewer()
+        
+        for i, sig_source in enumerate(sources['signal']):
+            view = ephyviewer.TraceViewer(source=sig_source, name='signal {}'.format(i))
+            view.params['scale_mode'] = 'same_for_all'
+            view.params['display_labels'] = True
+            view.auto_scale()
+            if i==0:
+                self.win_viewer.add_view(view)
+            else:
+                self.win_viewer.add_view(view, tabify_with='signal {}'.format(i-1))
+        
+        self.win_viewer.show()
 
 
 
