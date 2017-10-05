@@ -32,9 +32,13 @@ LABEL_UNSLASSIFIED = -10
 
 
 _persitent_arrays = ['all_peaks', 'some_peaks_index', 'some_waveforms', 
-                    'some_features', 'signals_medians','signals_mads', ]
+                    'some_features', 'signals_medians','signals_mads', 
+                    'clusters',
+                    ]
 
 _dtype_peak = [('index', 'int64'), ('label', 'int64'), ('segment', 'int64'),]
+
+_dtype_cluster = [('cluster_label', 'int64'), ('cell_label', 'int64')]
 
 
 class CatalogueConstructor:
@@ -525,8 +529,32 @@ class CatalogueConstructor:
         #~ if order_clusters:
             #~ self.order_clusters()
     
+    @property
+    def cluster_labels(self):
+        if self.clusters is not None:
+            return self.clusters['cluster_label']
+        else:
+            return np.array([], dtype='int64')
+    
     def on_new_cluster(self):
-        self.cluster_labels = np.unique(self.all_peaks['label'])
+        #~ print('on_new_cluster')
+        
+        cluster_labels = np.unique(self.all_peaks['label'])
+        clusters = np.zeros(cluster_labels.shape, dtype=_dtype_cluster)
+        clusters['cluster_label'][:] = cluster_labels
+        clusters['cell_label'][:] = cluster_labels
+        
+        if self.clusters is not None:
+            #get previous cell_label
+            for i, c in enumerate(clusters):
+                #~ print(i, c)
+                if c['cluster_label'] in self.clusters['cluster_label']:
+                    j = np.nonzero(c['cluster_label']==self.clusters['cluster_label'])[0][0]
+                    self.clusters[j]['cell_label'] in cluster_labels
+                    clusters[i]['cell_label'] = self.clusters[j]['cell_label']
+                    #~ print('j', j)
+            
+        self.arrays.add_array('clusters', clusters, self.memory_mode)
     
     def compute_centroid(self, label_changed=None):
         if label_changed is None:
@@ -594,69 +622,41 @@ class CatalogueConstructor:
                 self.all_peaks['label'][mask] = -1
         self.on_new_cluster()
     
-    def detect_same_shape_ratio(self, threshold=0.975):
-        self.compute_centroid()
-        
+    def compute_similarity_ratio(self):
         labels = self.cluster_labels[self.cluster_labels>=0] 
         
-        #compute max ratio to best max
-        #~ ratios = {}
-        ratios = []
+        wf_normed = []
         for k in labels:
             chan = self.centroids[k]['max_on_channel']
-            mad = self.centroids[k]['mad']
+            median = self.centroids[k]['median']
             n_left = int(self.info['params_waveformextractor']['n_left'])
-            ratios.append(mad[-n_left, :]/mad[-n_left, chan])
-        ratios = np.array(ratios)
-        print(ratios.shape)
-        print(ratios)
+            wf_normed.append(median/np.abs(median[-n_left, chan]))
+        wf_normed = np.array(wf_normed)
         
-        similarity = sklearn.metrics.pairwise.cosine_similarity(ratios)
-        #~ similarity = sklearn.metrics.pairwise.polynomial_kernel(ratios, degree=3)
-        
-        #~ distance = sklearn.metrics.pairwise.euclidean_distances(ratios)
-        #~ similarity = np.exp(-distance * (1./ratios.shape[1]))
-        #~ similarity = 1. / (distance / np.max(distance))
-        
-        
-        
-        #~ similarity[np.eye(similarity.shape[0]).astype(bool)] =0
-        similarity = np.triu(similarity)
-        
-        ind0, ind1 = np.where(similarity>threshold)
-        print(ind0, ind1)
-        
-        
-        #~ sklearn.metrics.pairwise.linear_kernel
-        
-        print(labels)
-        
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots()
-        im  = ax.matshow(similarity, cmap='viridis')
-        fig.colorbar(im)
-        
-        fig, ax = plt.subplots()
-        im  = ax.matshow(ratios, cmap='viridis')
-        fig.colorbar(im)
-        
-        fig, ax = plt.subplots()
-        ax.plot(ratios.T)
-        
-
-        plt.show()
-
-        
-        
-            
-
-                        
-            
-        
-        
-        
+        wf_normed_flat = wf_normed.swapaxes(1, 2).reshape(wf_normed.shape[0], -1)
+        ratio_similarity = sklearn.metrics.pairwise.cosine_similarity(wf_normed_flat)
+        return labels, ratio_similarity, wf_normed_flat
     
-    
+    def detect_similar_waveform_ratio(self, threshold=0.9):
+        if not hasattr(self, 'centroids'):
+            self.compute_centroid()
+        
+        labels, ratio_similarity, wf_normed_flat = self.compute_similarity_ratio()
+        
+        #upper triangle
+        ratio_similarity = np.triu(ratio_similarity)
+        
+        ind0, ind1 = np.nonzero(ratio_similarity>threshold)
+        
+        #remove diag
+        keep = ind0!=ind1
+        ind0 = ind0[keep]
+        ind1 = ind1[keep]
+        
+        pairs = list(zip(labels[ind0], labels[ind1]))
+        
+        return pairs
+
     
     def order_clusters(self):
         """
@@ -711,7 +711,7 @@ class CatalogueConstructor:
         
         self.catalogue = {}
         self.catalogue['chan_grp'] = self.chan_grp
-        self.catalogue['n_left'] = int(self.info['params_waveformextractor']['n_left'] +2)
+        n_left = self.catalogue['n_left'] = int(self.info['params_waveformextractor']['n_left'] +2)
         self.catalogue['n_right'] = int(self.info['params_waveformextractor']['n_right'] -2)
         self.catalogue['peak_width'] = self.catalogue['n_right'] - self.catalogue['n_left']
         
@@ -775,7 +775,7 @@ class CatalogueConstructor:
         self.catalogue['max_on_channel'] = np.zeros_like(self.catalogue['cluster_labels'])
         for i, k in enumerate(cluster_labels):
             center = self.catalogue['centers0'][i,:,:]
-            self.catalogue['max_on_channel'][i] = np.argmax(np.max(np.abs(center), axis=0))
+            self.catalogue['max_on_channel'][i] = np.argmax(np.abs(center[-n_left,:]), axis=0)
         
         #colors
         if not hasattr(self, 'colors'):

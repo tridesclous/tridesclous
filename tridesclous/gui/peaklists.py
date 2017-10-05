@@ -231,7 +231,7 @@ class ClusterPeakList(WidgetBase):
         self.table.itemChanged.disconnect(self.on_item_changed)
         
         self.table.clear()
-        labels = ['label', 'show/hide', 'nb_peaks', 'max_on_channel']
+        labels = ['cluster_label', 'show/hide', 'nb_peaks', 'max_on_channel', 'cell_label',]
         self.table.setColumnCount(len(labels))
         self.table.setHorizontalHeaderLabels(labels)
         #~ self.table.setMinimumWidth(100)
@@ -271,8 +271,15 @@ class ClusterPeakList(WidgetBase):
                 item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
                 self.table.setItem(i,3, item)
 
+            item = QT.QTableWidgetItem('{}'.format(self.controller.cell_labels[i]))
+            item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
+            self.table.setItem(i,4, item)
+            
+            
+            
+
         
-        for i in range(3):
+        for i in range(5):
             self.table.resizeColumnToContents(i)
         self.table.itemChanged.connect(self.on_item_changed)        
 

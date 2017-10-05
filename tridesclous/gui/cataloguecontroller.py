@@ -62,6 +62,10 @@ class CatalogueController(ControllerBase):
     @property
     def cluster_labels(self):
         return self.cc.cluster_labels
+    
+    @property
+    def cell_labels(self):
+        return self.cc.clusters['cell_label']
         
     @property
     def spike_index(self):

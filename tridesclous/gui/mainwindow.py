@@ -35,7 +35,7 @@ class MainWindow(QT.QMainWindow):
         self.dataio = None
         self.catalogueconstructor = None
         
-        self.resize(800, 600)
+        self.resize(800, 700)
 
         appname = 'tridesclous'
         settings_name = 'settings'
@@ -96,7 +96,7 @@ class MainWindow(QT.QMainWindow):
             self.toolbar.addSeparator()
             
         
-        self.toolbar.addWidget(QT.QLabel('chan_grp:'))
+        self.toolbar.addWidget(QT.QLabel('Select chanel group:'))
         self.combo_chan_grp = QT.QComboBox()
         self.toolbar.addWidget(self.combo_chan_grp)
         self.combo_chan_grp.currentIndexChanged .connect(self.on_chan_grp_change)
