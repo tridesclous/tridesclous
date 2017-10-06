@@ -4,7 +4,8 @@ import numpy as np
 
 from tridesclous import download_dataset
 #~ from tridesclous import DataIO
-from tridesclous.datasource import RawDataSource,InMemoryDataSource
+from tridesclous.datasource import RawDataSource,InMemoryDataSource, NEO_VERSION
+
 
 
 
@@ -31,10 +32,28 @@ def test_RawDataSource():
     assert data.shape==datasource.get_segment_shape(0)
 
 
+def test_NeoRawIOWrapper():
+    
+    #~ if NEO_VERSION is None or NEO_VERSION<'0.6':
+        #~ return
+    
+    from tridesclous import BlackrockDataSource
+    filename = '/home/samuel/Documents/files_for_testing_neo/blackrock/FileSpec2.3001.ns5'
+    
+    datasource = BlackrockDataSource(filename=filename)
+    print(datasource.total_channel)
+    print(datasource.nb_segment)
+    print(datasource.get_segment_shape(0))
+    print(datasource.get_channel_names())
+    data = datasource.get_signals_chunk(seg_num=0)
+    assert data.shape==datasource.get_segment_shape(0)
+
+    
 
 
 
 if __name__=='__main__':
-    test_InMemoryDataSource()
-    test_RawDataSource()
+    #~ test_InMemoryDataSource()
+    #~ test_RawDataSource()
+    test_NeoRawIOWrapper()
     

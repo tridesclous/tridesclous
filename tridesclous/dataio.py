@@ -158,6 +158,15 @@ class DataIO:
         self._reload_channel_group()
         self._open_processed_data()
     
+    def _make_fake_geometry(self, channels):
+        if len(channels)!=4:
+            # assume that it is a linear probes
+            geometry = { c: [0, i] for i, c in enumerate(channels) }
+        else:
+            # except for tetrode
+            geometry = dict(zip(channels, [(0., 50.), (50., 0.), (0., -50.), (-50, 0.)]))
+        return geometry
+        
     def set_channel_groups(self, channel_groups, probe_filename='channels.prb'):
         self._rm_old_probe_file()
         
@@ -165,9 +174,10 @@ class DataIO:
         for chan_grp, channel_group in channel_groups.items():
             assert 'channels' in channel_group
             channel_group['channels'] = list(channel_group['channels'])
-            if 'geometry' not in channel_group:
+            if 'geometry' not in channel_group or channel_group['geometry'] is None:
                 channels = channel_group['channels']
-                geometry = { c: [0, i] for i, c in enumerate(channels) }
+                #~ geometry = { c: [0, i] for i, c in enumerate(channels) }
+                geometry = self._make_fake_geometry(channels)
                 channel_group['geometry'] = geometry
         
         # write with hack on json to put key as inteteger (normally not possible in json)
@@ -188,8 +198,7 @@ class DataIO:
     def add_one_channel_group(self, channels=[], chan_grp=0, geometry=None):
         channels = list(channels)
         if geometry is None:
-            # assume that it is a linear probes
-            geometry = { c: [0, i] for i, c in enumerate(channels) }
+            geometry = self._make_fake_geometry(channels)
         
         self.channel_groups[chan_grp] = {'channels': channels, 'geometry':geometry}
         #rewrite with same name

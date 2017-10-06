@@ -11,6 +11,7 @@ from .waveformviewer import WaveformViewer
 from .similarity import SimilarityView
 from .pairlist import PairList
 from .silhouette import Silhouette
+from .waveformhistviewer import WaveformHistViewer
 
 from .tools import ParamDialog
 
@@ -38,6 +39,8 @@ class CatalogueWindow(QT.QMainWindow):
         self.similarityview = SimilarityView(controller=self.controller)
         self.pairlist = PairList(controller=self.controller)
         self.silhouette = Silhouette(controller=self.controller)
+        self.waveformhistviewer = WaveformHistViewer(controller=self.controller)
+        
         
         
         
@@ -51,6 +54,10 @@ class CatalogueWindow(QT.QMainWindow):
         docks['silhouette'] = QT.QDockWidget('silhouette',self)
         docks['silhouette'].setWidget(self.silhouette)
         self.tabifyDockWidget(docks['waveformviewer'], docks['silhouette'])
+
+        docks['waveformhistviewer'] = QT.QDockWidget('waveformhistviewer',self)
+        docks['waveformhistviewer'].setWidget(self.waveformhistviewer)
+        self.tabifyDockWidget(docks['waveformviewer'], docks['waveformhistviewer'])
         
         
         docks['traceviewer'] = QT.QDockWidget('traceviewer',self)
@@ -68,17 +75,14 @@ class CatalogueWindow(QT.QMainWindow):
         
         docks['clusterlist'] = QT.QDockWidget('clusterlist',self)
         docks['clusterlist'].setWidget(self.clusterlist)
-        #~ self.splitDockWidget(docks['peaklist'], docks['clusterlist'], QT.Qt.Horizontal)
         self.tabifyDockWidget(docks['pairlist'], docks['clusterlist'])
         
         docks['similarityview'] = QT.QDockWidget('similarityview',self)
         docks['similarityview'].setWidget(self.similarityview)
-        #~ self.tabifyDockWidget(docks['waveformviewer'], docks['similarityview'])
         self.addDockWidget(QT.Qt.LeftDockWidgetArea, docks['similarityview'])
         
         docks['ndscatter'] = QT.QDockWidget('ndscatter',self)
         docks['ndscatter'].setWidget(self.ndscatter)
-        #~ self.addDockWidget(QT.Qt.LeftDockWidgetArea, docks['ndscatter'])
         self.tabifyDockWidget(docks['similarityview'], docks['ndscatter'])
         
         self.create_actions()
@@ -122,6 +126,7 @@ class CatalogueWindow(QT.QMainWindow):
         self.catalogueconstructor.save_catalogue()
     
     def refresh(self):
+        self.controller.reload_data()
         for w in self.controller.views:
             #~ print(w)
             w.refresh()

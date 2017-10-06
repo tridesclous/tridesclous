@@ -15,9 +15,11 @@ def test_catalogue_constructor():
         
     dataio = DataIO(dirname='test_catalogueconstructor')
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
+    #~ localdir, filenames, params = download_dataset(name='locust')
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
     
     channels=range(14)
+    #~ channels=list(range(4))
     dataio.add_one_channel_group(channels=channels, chan_grp=0)
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
@@ -250,6 +252,75 @@ def test_make_catalogue():
     catalogueconstructor.make_catalogue()
     
 
+
+def test_ratio_amplitude():
+
+    #~ if os.path.exists('test_catalogueconstructor'):
+        #~ shutil.rmtree('test_catalogueconstructor')
+        
+    dataio = DataIO(dirname='test_catalogueconstructor')
+    
+    #~ localdir, filenames, params = download_dataset(name='locust')
+    #~ dataio.set_data_source(type='RawData', filenames=filenames, **params)
+    
+    #~ channels=list(range(4))
+    #~ dataio.add_one_channel_group(channels=channels, chan_grp=0)
+    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+
+    #~ catalogueconstructor.set_preprocessor_params(chunksize=1024,
+            #~ memory_mode='memmap',
+            
+            #~ #signal preprocessor
+            #~ highpass_freq=None, 
+            #~ lowpass_freq=None,
+            #~ smooth_size=1,
+            #~ common_ref_removal=False,
+            
+            #~ backward_chunksize=1280,
+            
+            #~ #peak detector
+            #~ peakdetector_engine='numpy',
+            #~ peak_sign='-', relative_threshold=7, peak_span=0.0005,
+            
+            #~ )
+    #~ t1 = time.perf_counter()
+    #~ catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
+    #~ t2 = time.perf_counter()
+    #~ print('estimate_signals_noise', t2-t1)
+    
+    #~ t1 = time.perf_counter()
+    #~ catalogueconstructor.run_signalprocessor(duration=60.)
+    #~ t2 = time.perf_counter()
+    #~ print('run_signalprocessor_loop', t2-t1)
+    
+    #~ t1 = time.perf_counter()
+    #~ catalogueconstructor.extract_some_waveforms(n_left=-12, n_right=22, mode='rand', nb_max=5000)
+    #~ t2 = time.perf_counter()
+    #~ print('extract_some_waveforms rand', t2-t1)
+    #~ print(catalogueconstructor.some_waveforms.shape)
+
+    #~ t1 = time.perf_counter()
+    #~ n_left, n_right = catalogueconstructor.find_good_limits()
+    #~ print(n_left, n_right)
+    #~ t2 = time.perf_counter()
+    #~ print('find_good_limits', t2-t1)
+    #~ print(catalogueconstructor.some_waveforms.shape)
+
+    #~ # PCA
+    #~ t1 = time.perf_counter()
+    #~ catalogueconstructor.project(method='pca', n_components=4, batch_size=16384)
+    #~ t2 = time.perf_counter()
+    #~ print('project', t2-t1)
+    
+    #~ # cluster
+    #~ t1 = time.perf_counter()
+    #~ catalogueconstructor.find_clusters(method='kmeans', n_clusters=7)
+    #~ t2 = time.perf_counter()
+    #~ print('find_clusters', t2-t1)
+    
+    catalogueconstructor.on_new_cluster()
+    catalogueconstructor.detect_same_shape_ratio()
+
     
 if __name__ == '__main__':
     test_catalogue_constructor()
@@ -257,3 +328,6 @@ if __name__ == '__main__':
     #~ compare_nb_waveforms()
     
     #~ test_make_catalogue()
+    #~ test_ratio_amplitude()
+
+

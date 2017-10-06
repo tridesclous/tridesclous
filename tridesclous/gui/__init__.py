@@ -9,6 +9,7 @@ from .cataloguewindow import CatalogueWindow
 from .similarity import SimilarityView
 from .pairlist import PairList
 from .silhouette import Silhouette
+from .waveformhistviewer import WaveformHistViewer
 
 #for peeler window
 from .peelercontroller import PeelerController

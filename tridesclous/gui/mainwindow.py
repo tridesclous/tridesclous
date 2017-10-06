@@ -4,9 +4,12 @@ import pyqtgraph as pg
 import time
 import os
 from collections import OrderedDict
+import pickle
+
 from ..dataio import DataIO
 from ..datasource import data_source_classes
 from .tools import get_dict_from_group_param, ParamDialog
+from  ..datasets import datasets_info, download_dataset
 
 from ..catalogueconstructor import CatalogueConstructor
 from .cataloguewindow import CatalogueWindow
@@ -15,6 +18,13 @@ from .peelerwindow import PeelerWindow
 from .initializedatasetwindow import InitializeDatasetWindow
 
 from . import icons
+
+try:
+    import ephyviewer
+    HAVE_EPHYVIEWER = True
+except:
+    HAVE_EPHYVIEWER = False
+
 
 class MainWindow(QT.QMainWindow):
     def __init__(self):
@@ -25,10 +35,14 @@ class MainWindow(QT.QMainWindow):
         self.dataio = None
         self.catalogueconstructor = None
         
-        self.resize(800, 600)
+        self.resize(800, 700)
 
+        appname = 'tridesclous'
+        settings_name = 'settings'
+        self.settings = QT.QSettings(appname, settings_name)
+        
         self.create_actions_and_menu()
-
+        
         w = QT.QWidget()
         self.setCentralWidget(w)
         mainlayout  = QT.QVBoxLayout()
@@ -41,44 +55,66 @@ class MainWindow(QT.QMainWindow):
         
         self.open_windows = []
         
-        
+        self.win_viewer = None
+    
 
     def create_actions_and_menu(self):
-        #~ self.actions = OrderedDict()
         
-        self.toolbar = QT.QToolBar()
+        self.toolbar = QT.QToolBar(orientation=QT.Vertical)
         self.toolbar.setToolButtonStyle(QT.Qt.ToolButtonTextUnderIcon)
-        self.addToolBar(self.toolbar)
+        self.addToolBar(QT.LeftToolBarArea, self.toolbar)
         self.toolbar.setIconSize(QT.QSize(60, 40))
         
         self.file_menu = self.menuBar().addMenu(self.tr("File"))
         
-        do_open = QT.QAction('&Open', self, shortcut = "Ctrl+O")
+        do_open = QT.QAction('&Open', self, shortcut = "Ctrl+O", icon=QT.QIcon(":document-open.svg"))
         do_open.triggered.connect(self.open_dialog)
         self.file_menu.addAction(do_open)
+        self.toolbar.addAction(do_open)
 
-        do_init = QT.QAction('&Initialize dataset', self, shortcut = "Ctrl+I")
+        do_init = QT.QAction('&Initialize dataset', self, shortcut = "Ctrl+I", icon=QT.QIcon(":document-new.svg"))
         do_init.triggered.connect(self.initialize_dataset_dialog)
         self.file_menu.addAction(do_init)
+        self.toolbar.addAction(do_init)
         
-        self.toolbar.addWidget(QT.QLabel('chan_grp:'))
+        self.recetly_opened_menu = self.file_menu.addMenu('Recently opened')
+        self._refresh_recetly_opened()
+        
+        self.dw_dataset_menu = self.file_menu.addMenu('Download test datasets')
+        for name in datasets_info:
+            act = self.dw_dataset_menu.addAction(name)
+            act.name = name
+            act.triggered.connect(self.do_download_dataset)        
+        
+        
+        self.toolbar.addSeparator()
+        
+        if HAVE_EPHYVIEWER:
+            open_viewer = QT.QAction('&Preview raw signals', self, icon=QT.QIcon(":ephyviewer.png"))
+            open_viewer.triggered.connect(self.open_ephyviewer)
+            self.toolbar.addAction(open_viewer)
+            self.toolbar.addSeparator()
+            
+        
+        self.toolbar.addWidget(QT.QLabel('Select chanel group:'))
         self.combo_chan_grp = QT.QComboBox()
         self.toolbar.addWidget(self.combo_chan_grp)
         self.combo_chan_grp.currentIndexChanged .connect(self.on_chan_grp_change)
 
-        do_init_cataloguewin = QT.QAction('1- Initialize Catalogue', self)
+        do_init_cataloguewin = QT.QAction('1- Initialize Catalogue', self, icon=QT.QIcon(":autocorrection.svg"))
         do_init_cataloguewin.triggered.connect(self.initialize_catalogue)
         self.toolbar.addAction(do_init_cataloguewin)
         
-        do_open_cataloguewin = QT.QAction('2- open CatalogueWindow', self)
+        do_open_cataloguewin = QT.QAction('2- open CatalogueWindow', self,  icon=QT.QIcon(":catalogwinodw.png"))
         do_open_cataloguewin.triggered.connect(self.open_cataloguewin)
         self.toolbar.addAction(do_open_cataloguewin)
 
-        do_run_peeler = QT.QAction('4- run Peeler', self)
+
+        do_run_peeler = QT.QAction('4- run Peeler', self,  icon=QT.QIcon(":configure-shortcuts.svg"))
         do_run_peeler.triggered.connect(self.run_peeler)
         self.toolbar.addAction(do_run_peeler)
         
-        do_open_peelerwin = QT.QAction('4- open PeelerWindow', self)
+        do_open_peelerwin = QT.QAction('5- open PeelerWindow', self,  icon=QT.QIcon(":peelerwindow.png"))
         do_open_peelerwin.triggered.connect(self.open_peelerwin)
         self.toolbar.addAction(do_open_peelerwin)
         
@@ -105,16 +141,57 @@ class MainWindow(QT.QMainWindow):
             if DataIO.check_initialized(dirname):
                 self._open_dataio(dirname)
     
+    def _refresh_recetly_opened(self):
+        self.recetly_opened_menu.clear()
+        for dirname in self.recently_opened():
+            act = self.recetly_opened_menu.addAction(dirname)
+            act.dirname = dirname
+            act.triggered.connect(self.do_open_recent)
+            
+    def do_open_recent(self):
+        self._open_dataio(self.sender().dirname)
+    
+    def recently_opened(self):
+        value = self.settings.value('recently_opened')
+        if value is None:
+            recently_opened = []
+        else:
+            recently_opened = pickle.loads(value)
+        return recently_opened
+    
+    def do_download_dataset(self):
+        name = self.sender().name
+        fd = QT.QFileDialog(fileMode=QT.QFileDialog.DirectoryOnly, acceptMode=QT.QFileDialog.AcceptOpen)
+        fd.setViewMode( QT.QFileDialog.Detail )
+        if fd.exec_():
+            localdir = fd.selectedFiles()[0]
+            localdir, filenames, params = download_dataset(name, localdir=localdir)
+            
+            dirname = os.path.join(localdir, 'tdc_'+name)
+            dataio = DataIO(dirname=dirname)
+            dataio.set_data_source(type='RawData', filenames=filenames, **params)
+            
+            self._open_dataio( dirname)
+        
+    
     def _open_dataio(self, dirname):
+        recently_opened =self.recently_opened()
+        if dirname not in recently_opened:
+            recently_opened = [dirname] + recently_opened
+            recently_opened = recently_opened[:5]
+            self.settings.setValue('recently_opened', pickle.dumps(recently_opened))
+            self._refresh_recetly_opened()
+        
         for win in self.open_windows:
             win.close()
         self.open_windows = []
         
         self.dataio = DataIO(dirname=dirname)
         
-        
+        self.combo_chan_grp.blockSignals(True)
         self.combo_chan_grp.clear()
         self.combo_chan_grp.addItems([str(k) for k in self.dataio.channel_groups.keys()])
+        self.combo_chan_grp.blockSignals(False)
         self.on_chan_grp_change()
     
     @property
@@ -139,7 +216,9 @@ class MainWindow(QT.QMainWindow):
             {'name':'preprocessor', 'type':'group', 
                 'children':[
                     {'name': 'highpass_freq', 'type': 'float', 'value':400., 'step': 10., 'suffix': 'Hz', 'siPrefix': True},
-                    {'name': 'common_ref_removal', 'type': 'bool', 'value':True},
+                    {'name': 'lowpass_freq', 'type': 'float', 'value':5000., 'step': 10., 'suffix': 'Hz', 'siPrefix': True},
+                    {'name': 'smooth_size', 'type': 'int', 'value':0},
+                    {'name': 'common_ref_removal', 'type': 'bool', 'value':False},
                     {'name': 'chunksize', 'type': 'int', 'value':1024, 'decilmals':5},
                     {'name': 'backward_chunksize', 'type': 'int', 'value':1280, 'decilmals':5},
                     
@@ -271,7 +350,31 @@ class MainWindow(QT.QMainWindow):
         except Exception as e:
             print(e)
 
-    
+    def open_ephyviewer(self):
+        if self.win_viewer is not None:
+            self.win_viewer.close()
+            self.win_viewer = None
+        
+        if self.dataio  is None:
+            return
+        if not hasattr(self.dataio.datasource, 'rawio'):
+            return
+        
+        sources = ephyviewer.get_source_from_neo(self.dataio.datasource.rawio)
+        
+        self.win_viewer = ephyviewer.MainViewer()
+        
+        for i, sig_source in enumerate(sources['signal']):
+            view = ephyviewer.TraceViewer(source=sig_source, name='signal {}'.format(i))
+            view.params['scale_mode'] = 'same_for_all'
+            view.params['display_labels'] = True
+            view.auto_scale()
+            if i==0:
+                self.win_viewer.add_view(view)
+            else:
+                self.win_viewer.add_view(view, tabify_with='signal {}'.format(i-1))
+        
+        self.win_viewer.show()
 
 
 

@@ -3,12 +3,14 @@ import json
 from collections import OrderedDict
 import time
 import pickle
+import itertools
 
 import numpy as np
 import scipy.signal
 import scipy.interpolate
 import seaborn as sns
 sns.set_style("white")
+import sklearn
 
 from . import signalpreprocessor
 from . import  peakdetector
@@ -30,9 +32,13 @@ LABEL_UNSLASSIFIED = -10
 
 
 _persitent_arrays = ['all_peaks', 'some_peaks_index', 'some_waveforms', 
-                    'some_features', 'signals_medians','signals_mads', ]
+                    'some_features', 'signals_medians','signals_mads', 
+                    'clusters',
+                    ]
 
 _dtype_peak = [('index', 'int64'), ('label', 'int64'), ('segment', 'int64'),]
+
+_dtype_cluster = [('cluster_label', 'int64'), ('cell_label', 'int64')]
 
 
 class CatalogueConstructor:
@@ -112,7 +118,13 @@ class CatalogueConstructor:
         
         return t
     
-    
+    def reload_data(self):
+        if not hasattr(self, 'memory_mode') or not self.memory_mode=='memmap':
+            return
+        
+        for name in _persitent_arrays:
+            # this set attribute to class if exsits
+            self.arrays.load_if_exists(name)
     
     def set_preprocessor_params(self, chunksize=1024,
             memory_mode='memmap',
@@ -121,8 +133,13 @@ class CatalogueConstructor:
             
             #signal preprocessor
             signalpreprocessor_engine='numpy',
-            highpass_freq=300, backward_chunksize=1280,
-            common_ref_removal=True,
+            highpass_freq=300., 
+            lowpass_freq=None,
+            smooth_size=0,
+            common_ref_removal=False,
+            
+            backward_chunksize=1280,
+            
             
             #peak detector
             peakdetector_engine='numpy',
@@ -143,8 +160,9 @@ class CatalogueConstructor:
         self.arrays.initialize_array('all_peaks', self.memory_mode,  _dtype_peak, (-1, ))
         
         
-        self.params_signalpreprocessor = dict(highpass_freq=highpass_freq, backward_chunksize=backward_chunksize,
-                    common_ref_removal=common_ref_removal, output_dtype=internal_dtype)
+        self.params_signalpreprocessor = dict(highpass_freq=highpass_freq, lowpass_freq=lowpass_freq, 
+                        smooth_size=smooth_size, common_ref_removal=common_ref_removal,
+                        backward_chunksize=backward_chunksize, output_dtype=internal_dtype)
         SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[signalpreprocessor_engine]
         self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.nb_channel, chunksize, self.dataio.source_dtype)
         
@@ -172,28 +190,29 @@ class CatalogueConstructor:
         length = int(duration*self.dataio.sample_rate)
         length -= length%self.chunksize
         
+        assert length<self.dataio.get_segment_length(seg_num), 'duration exeed size'
+        
         name = 'filetered_sigs_for_noise_estimation_seg_{}'.format(seg_num)
-        shape=(length, self.nb_channel)
+        shape=(length - (self.params_signalpreprocessor['backward_chunksize']-self.chunksize), self.nb_channel)
         filtered_sigs = self.arrays.create_array(name, self.info['internal_dtype'], shape, 'memmap')
         
         params2 = dict(self.params_signalpreprocessor)
         params2['normalize'] = False
         self.signalpreprocessor.change_params(**params2)
         
-        
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp, chunksize=self.chunksize, i_stop=length,
                                                     signal_type='initial',  return_type='raw_numpy')
         for pos, sigs_chunk in iterator:
             pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
+            #~ print(pos2, preprocessed_chunk)
             if preprocessed_chunk is not None:
                 filtered_sigs[pos2-preprocessed_chunk.shape[0]:pos2, :] = preprocessed_chunk
-        
 
         #create  persistant arrays
         self.arrays.create_array('signals_medians', self.info['internal_dtype'], (self.nb_channel,), 'memmap')
         self.arrays.create_array('signals_mads', self.info['internal_dtype'], (self.nb_channel,), 'memmap')
         
-        self.signals_medians[:] = signals_medians = np.median(filtered_sigs, axis=0)
+        self.signals_medians[:] = signals_medians = np.median(filtered_sigs[:pos2], axis=0)
         self.signals_mads[:] = np.median(np.abs(filtered_sigs-signals_medians),axis=0)*1.4826
         
         #detach filetered signals even if the file remains.
@@ -283,7 +302,7 @@ class CatalogueConstructor:
         
     def extract_some_waveforms(self, n_left=None, n_right=None, index=None, 
                                     mode='rand', nb_max=10000,
-                                    align_waveform=True, subsample_ratio=20):
+                                    align_waveform=False, subsample_ratio=20):
         """
         
         """
@@ -352,7 +371,7 @@ class CatalogueConstructor:
                     #~ i1=peak_width*ratio+ind_max
                     #~ i1_old = (peak_width-n_left-1)*ratio + ind_max + n_left*ratio 
                     #~ i1 = peak_width*ratio + shift
-                    i1 = peak_width*ratio
+                    i1 = peak_width*ratio + shift
                     #~ print('i1_old', i1_old, 'i1', i1)
                     i2 = i1+peak_width*ratio
                     wf_short = wf2[i1:i2:ratio, :]
@@ -365,8 +384,10 @@ class CatalogueConstructor:
                     #~ ax.plot(wf2[:, ind_chan_max])
                     #~ x = (peak_width-n_left-2)*ratio + ind_max
                     #~ print(x, n_left, n_right, peak_width, ratio)
-                    #~ y = wf2_around_peak[ind_max, ind_chan_max]
-                    #~ ax.plot([x], [y], marker='o', markersize=10)
+                    #~ y = wf2[(peak_width-n_left-2)*ratio+ind_max, ind_chan_max]
+                    #~ y_av = wf2[(peak_width-n_left-2)*ratio+ind_max-ratio, ind_chan_max]
+                    #~ y_af = wf2[(peak_width-n_left-2)*ratio+ind_max+ratio, ind_chan_max]
+                    #~ ax.plot([x-ratio, x, x+ratio], [y_av, y, y_af], marker='o', markersize=10)
                     #~ ax.axvline((peak_width-n_left-2)*ratio)
                     #~ ax.axvline((peak_width-n_left+3)*ratio)
                     #~ ax.plot(np.arange(wf_short.shape[0])*ratio+peak_width*ratio, wf_short[:, ind_chan_max], ls='--')
@@ -455,7 +476,7 @@ class CatalogueConstructor:
                 return n_left, n_right
 
 
-    def project(self, method='pca', selection = None, n_components=5, **params):
+    def project(self, method='pca', selection = None, **params): #n_components=5, 
         """
         params:
         n_components
@@ -464,7 +485,7 @@ class CatalogueConstructor:
         #TODO selection
         
         #~ wf = self.some_waveforms.reshape(self.some_waveforms.shape[0], -1)
-        params['n_components'] = n_components
+        #~ params['n_components'] = n_components
         features, self.projector = decomposition.project_waveforms(self.some_waveforms, method=method, selection=None,
                     catalogueconstructor=self, **params)
         
@@ -505,8 +526,32 @@ class CatalogueConstructor:
         #~ if order_clusters:
             #~ self.order_clusters()
     
+    @property
+    def cluster_labels(self):
+        if self.clusters is not None:
+            return self.clusters['cluster_label']
+        else:
+            return np.array([], dtype='int64')
+    
     def on_new_cluster(self):
-        self.cluster_labels = np.unique(self.all_peaks['label'])
+        #~ print('on_new_cluster')
+        
+        cluster_labels = np.unique(self.all_peaks['label'])
+        clusters = np.zeros(cluster_labels.shape, dtype=_dtype_cluster)
+        clusters['cluster_label'][:] = cluster_labels
+        clusters['cell_label'][:] = cluster_labels
+        
+        if self.clusters is not None:
+            #get previous cell_label
+            for i, c in enumerate(clusters):
+                #~ print(i, c)
+                if c['cluster_label'] in self.clusters['cluster_label']:
+                    j = np.nonzero(c['cluster_label']==self.clusters['cluster_label'])[0][0]
+                    self.clusters[j]['cell_label'] in cluster_labels
+                    clusters[i]['cell_label'] = self.clusters[j]['cell_label']
+                    #~ print('j', j)
+            
+        self.arrays.add_array('clusters', clusters, self.memory_mode)
     
     def compute_centroid(self, label_changed=None):
         if label_changed is None:
@@ -528,7 +573,7 @@ class CatalogueConstructor:
             median, mad = median_mad(wf, axis = 0)
             mean, std = np.mean(wf, axis=0), np.std(wf, axis=0)
             #~ max_on_channel = np.argmax(np.max(np.abs(mean), axis=0))
-            max_on_channel = np.argmax(np.abs(mean[-n_left,:]))
+            max_on_channel = np.argmax(np.abs(median[-n_left,:]))
             
             self.centroids[k] = {'median':median, 'mad':mad, 'max_on_channel' : max_on_channel, 
                         'mean': mean, 'std': std}
@@ -573,6 +618,46 @@ class CatalogueConstructor:
             if np.sum(mask)<=n:
                 self.all_peaks['label'][mask] = -1
         self.on_new_cluster()
+    
+    def compute_similarity_ratio(self):
+        labels = self.cluster_labels[self.cluster_labels>=0] 
+        
+        wf_normed = []
+        for k in labels:
+            chan = self.centroids[k]['max_on_channel']
+            median = self.centroids[k]['median']
+            n_left = int(self.info['params_waveformextractor']['n_left'])
+            wf_normed.append(median/np.abs(median[-n_left, chan]))
+        wf_normed = np.array(wf_normed)
+        
+        wf_normed_flat = wf_normed.swapaxes(1, 2).reshape(wf_normed.shape[0], -1)
+        ratio_similarity = sklearn.metrics.pairwise.cosine_similarity(wf_normed_flat)
+        return labels, ratio_similarity, wf_normed_flat
+    
+    def detect_similar_waveform_ratio(self, threshold=0.9):
+        if not hasattr(self, 'centroids'):
+            self.compute_centroid()
+        
+        labels, ratio_similarity, wf_normed_flat = self.compute_similarity_ratio()
+        
+        #upper triangle
+        ratio_similarity = np.triu(ratio_similarity)
+        
+        ind0, ind1 = np.nonzero(ratio_similarity>threshold)
+        
+        #remove diag
+        keep = ind0!=ind1
+        ind0 = ind0[keep]
+        ind1 = ind1[keep]
+        
+        pairs = list(zip(labels[ind0], labels[ind1]))
+        
+        return pairs
+    
+    
+    def tag_same_cell(self, labels_to_group):
+        inds, = np.nonzero(np.in1d(self.clusters['cluster_label'], labels_to_group))
+        self.clusters['cell_label'][inds] = min(labels_to_group)
         
         
     
@@ -593,16 +678,23 @@ class CatalogueConstructor:
         for k in cluster_labels:
             power = np.sum(self.centroids[k]['median'].flatten()**2)
             powers.append(power)
-        sorted_labels = cluster_labels[np.argsort(powers)[::-1]]
+        order = np.argsort(powers)[::-1]
+        sorted_labels = cluster_labels[order]
         
-        #reassign labels
+        #TODO reorder self.clusters for cell_label!!!!!
+        
+        #reassign labels for peaks and clusters
         N = int(max(cluster_labels)*10)
         self.all_peaks['label'][self.all_peaks['label']>=0] += N
+        self.clusters['cluster_label'] += N
+        self.clusters['cell_label'] += N
         for new, old in enumerate(sorted_labels+N):
             #~ self.all_peaks['label'][self.all_peaks['label']==old] = cluster_labels[new]
             self.all_peaks['label'][self.all_peaks['label']==old] = new
+            self.clusters['cluster_label'][self.clusters['cluster_label']==old] = new
+            self.clusters['cell_label'][self.clusters['cell_label']==old] = new
         
-        self.on_new_cluster()
+        #~ self.on_new_cluster()
     
     def compute_similarity(self, cluster_labels=None):
         if cluster_labels is None:
@@ -629,7 +721,7 @@ class CatalogueConstructor:
         
         self.catalogue = {}
         self.catalogue['chan_grp'] = self.chan_grp
-        self.catalogue['n_left'] = int(self.info['params_waveformextractor']['n_left'] +2)
+        n_left = self.catalogue['n_left'] = int(self.info['params_waveformextractor']['n_left'] +2)
         self.catalogue['n_right'] = int(self.info['params_waveformextractor']['n_right'] -2)
         self.catalogue['peak_width'] = self.catalogue['n_right'] - self.catalogue['n_left']
         
@@ -692,8 +784,8 @@ class CatalogueConstructor:
         #find max  channel for each cluster for peak alignement
         self.catalogue['max_on_channel'] = np.zeros_like(self.catalogue['cluster_labels'])
         for i, k in enumerate(cluster_labels):
-            center = self.catalogue['centers0'][i]
-            self.catalogue['max_on_channel'][i] = np.argmax(np.max(np.abs(center), axis=0))
+            center = self.catalogue['centers0'][i,:,:]
+            self.catalogue['max_on_channel'][i] = np.argmax(np.abs(center[-n_left,:]), axis=0)
         
         #colors
         if not hasattr(self, 'colors'):

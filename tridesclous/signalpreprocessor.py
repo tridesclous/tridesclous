@@ -12,7 +12,76 @@ except ImportError:
 #~ from pyacq.dsp.overlapfiltfilt import SosFiltfilt_Scipy
 from .tools import FifoBuffer
 
-class SignalPreprocessor_Numpy:
+
+class SignalPreprocessor_base:
+    def __init__(self,sample_rate, nb_channel, chunksize, input_dtype):
+        self.sample_rate = sample_rate
+        self.nb_channel = nb_channel
+        self.chunksize = chunksize
+        self.input_dtype = input_dtype
+
+    
+    def change_params(self, common_ref_removal=True,
+                                            highpass_freq=300.,
+                                            lowpass_freq=None,
+                                            smooth_size=0,
+                                            output_dtype='float32', 
+                                            normalize=True,
+                                            backward_chunksize=None,
+                                            signals_medians=None, signals_mads=None):
+        
+        self.signals_medians = signals_medians
+        self.signals_mads = signals_mads
+        
+        self.common_ref_removal = common_ref_removal
+        self.highpass_freq = highpass_freq
+        self.lowpass_freq = lowpass_freq
+        self.smooth_size = int(smooth_size)
+        self.output_dtype = np.dtype(output_dtype)
+        self.normalize = normalize
+        self.backward_chunksize = backward_chunksize
+        
+        assert self.backward_chunksize>self.chunksize
+        
+        self.coefficients = np.zeros((0, 6))
+        
+        
+        if self.highpass_freq is not None:
+            coeff_hp = scipy.signal.iirfilter(5, highpass_freq/self.sample_rate*2, analog=False,
+                                    btype = 'highpass', ftype = 'butter', output = 'sos')
+            self.coefficients = np.concatenate((self.coefficients, coeff_hp))
+        if self.lowpass_freq is not None:
+            if self.lowpass_freq>(self.sample_rate/2.):
+                self.lowpass_freq=(self.sample_rate/2.01)
+            
+            coeff_lp = scipy.signal.iirfilter(5, lowpass_freq/self.sample_rate*2, analog=False,
+                                    btype = 'lowpass', ftype = 'butter', output = 'sos')
+            self.coefficients = np.concatenate((self.coefficients, coeff_lp))
+        
+        if self.smooth_size>0:
+            b0 = (1./3)**.5
+            b1 = (1-b0)
+            b2 = 0.
+            coeff_smooth = np.array([[b0, b1, b2, 1,0,0]], dtype=self.output_dtype)
+            coeff_smooth = np.tile(coeff_smooth, (self.smooth_size, 1))
+            self.coefficients = np.concatenate((self.coefficients, coeff_smooth))
+        
+        
+        
+        
+        if self.coefficients.shape[0]==0:
+            #this is the null filter
+            self.coefficients = np.array([[1, 0, 0, 1,0,0]], dtype=self.output_dtype)
+        
+        self.overlapsize = self.backward_chunksize - self.chunksize
+        #~ self.filtfilt_engine = SosFiltfilt_Scipy(self.coefficients, self.nb_channel, output_dtype, self.chunksize, overlapsize)
+        self.nb_section =self. coefficients.shape[0]
+        self.forward_buffer = FifoBuffer((self.backward_chunksize, self.nb_channel), self.output_dtype)
+        self.zi = np.zeros((self.nb_section, 2, self.nb_channel), dtype= self.output_dtype)
+            
+
+
+class SignalPreprocessor_Numpy(SignalPreprocessor_base):
     """
     This apply chunk by chunk on a multi signal:
        * baseline removal
@@ -20,11 +89,6 @@ class SignalPreprocessor_Numpy:
        * normalize (optional)
     
     """
-    def __init__(self,sample_rate, nb_channel, chunksize, input_dtype):
-        self.sample_rate = sample_rate
-        self.nb_channel = nb_channel
-        self.chunksize = chunksize
-        self.input_dtype = input_dtype
         
     def process_data(self, pos, data):
         
@@ -42,6 +106,7 @@ class SignalPreprocessor_Numpy:
         chunk = data.astype(self.output_dtype)
         forward_chunk_filtered, self.zi = scipy.signal.sosfilt(self.coefficients, chunk, zi=self.zi, axis=0)
         forward_chunk_filtered = forward_chunk_filtered.astype(self.output_dtype)
+        
         self.forward_buffer.new_chunk(forward_chunk_filtered, index=pos)
         start = pos-self.backward_chunksize
         if start<-self.overlapsize:
@@ -53,6 +118,7 @@ class SignalPreprocessor_Numpy:
         backward_filtered = scipy.signal.sosfilt(self.coefficients, backward_chunk[::-1, :], zi=None, axis=0)
         backward_filtered = backward_filtered[::-1, :]
         backward_filtered = backward_filtered.astype(self.output_dtype)
+            
         if start>0:
             backward_filtered = backward_filtered[:self.chunksize]
         else:
@@ -70,52 +136,22 @@ class SignalPreprocessor_Numpy:
         if self.normalize:
             data2 -= self.signals_medians
             data2 /= self.signals_mads
-        
         return pos2, data2
     
-    
-    def change_params(self, common_ref_removal=True,
-                                            highpass_freq=300.,
-                                            output_dtype='float32', 
-                                            normalize=True,
-                                            backward_chunksize=None,
-                                            signals_medians=None, signals_mads=None):
-        self.signals_medians = signals_medians
-        self.signals_mads = signals_mads
-        
-        self.common_ref_removal = common_ref_removal
-        self.highpass_freq = highpass_freq
-        self.output_dtype = np.dtype(output_dtype)
-        self.normalize = normalize
-        self.backward_chunksize = backward_chunksize
-        
-        assert self.backward_chunksize>self.chunksize
-        
-        self.coefficients = scipy.signal.iirfilter(5, highpass_freq/self.sample_rate*2, analog=False,
-                                    btype = 'highpass', ftype = 'butter', output = 'sos')
-        
-        self.overlapsize = self.backward_chunksize - self.chunksize
-        #~ self.filtfilt_engine = SosFiltfilt_Scipy(self.coefficients, self.nb_channel, output_dtype, self.chunksize, overlapsize)
-        self.nb_section =self. coefficients.shape[0]
-        self.forward_buffer = FifoBuffer((self.backward_chunksize, self.nb_channel), self.output_dtype)
-        self.zi = np.zeros((self.nb_section, 2, self.nb_channel), dtype= self.output_dtype)
-        
+
         
         
 
 
 
-class SignalPreprocessor_OpenCL:
+class SignalPreprocessor_OpenCL(SignalPreprocessor_base):
     """
     Implementation in OpenCL depending on material and nb_channel
     this can lead to a smal speed improvement...
     
     """
     def __init__(self,sample_rate, nb_channel, chunksize, input_dtype):
-        self.sample_rate = sample_rate
-        self.nb_channel = nb_channel
-        self.chunksize = chunksize
-        self.input_dtype = input_dtype        
+        SignalPreprocessor_base.__init__(self,sample_rate, nb_channel, chunksize, input_dtype)
         
         self.ctx = pyopencl.create_some_context()
         #~ print(self.ctx)
@@ -128,18 +164,18 @@ class SignalPreprocessor_OpenCL:
     def process_data(self, pos, data):
         
         assert data.shape[0]==self.chunksize
-        
-        
-        
+                
         if not data.flags['C_CONTIGUOUS'] or data.dtype!=self.output_dtype:
             chunk = np.ascontiguousarray(data, dtype=self.output_dtype)
         
         
         #Online filtfilt
         
+        
         #forward filter
         event = pyopencl.enqueue_copy(self.queue,  self.input_cl, chunk)
         #~ event.wait()
+        
         event = self.kern_forward_filter(self.queue,  (self.nb_channel,), (self.nb_channel,),
                                 self.input_cl, self.output_forward_cl, self.coefficients_cl, self.zi1_cl)
         #~ event.wait()
@@ -156,6 +192,7 @@ class SignalPreprocessor_OpenCL:
         # backwward
         self.zi2[:]=0
         pyopencl.enqueue_copy(self.queue,  self.zi2_cl, self.zi2)
+
         event = self.kern_backward_filter(self.queue,  (self.nb_channel,), (self.nb_channel,),
                                 self.fifo_input_backward_cl, self.output_backward_cl, self.coefficients_cl, self.zi2_cl)
         event.wait()
@@ -196,37 +233,17 @@ class SignalPreprocessor_OpenCL:
         return pos2, data2        
         
         
-    def change_params(self,common_ref_removal=True,
-                                            highpass_freq=300.,
-                                            output_dtype='float32', 
-                                            normalize=True,
-                                            backward_chunksize=None,
-                                            signals_medians=None, signals_mads=None):
+    def change_params(self, **kargs):
         
-        assert output_dtype=='float32', 'SignalPreprocessor_OpenCL support only float32 at the moment'
-        
-        
-        self.signals_medians = signals_medians
-        self.signals_mads = signals_mads
-        
-        self.common_ref_removal = common_ref_removal
-        self.highpass_freq = highpass_freq
-        self.output_dtype = np.dtype(output_dtype)
-        self.normalize = normalize
-        self.backward_chunksize = backward_chunksize
-
-        self.overlapsize = self.backward_chunksize - self.chunksize
-        
-        
-        assert self.backward_chunksize>self.chunksize
+        SignalPreprocessor_base.change_params(self, **kargs)
+        assert self.output_dtype=='float32', 'SignalPreprocessor_OpenCL support only float32 at the moment'
         assert self.overlapsize<self.chunksize, 'OpenCL fifo work only for self.overlapsize<self.chunksize'
         
         
-        self.coefficients = scipy.signal.iirfilter(5, highpass_freq/self.sample_rate*2, analog=False,
-                                    btype = 'highpass', ftype = 'butter', output = 'sos')
-        self.coefficients = np.ascontiguousarray(self.coefficients, dtype=self.output_dtype)
         
-        self.nb_section =self. coefficients.shape[0]
+        self.coefficients = np.ascontiguousarray(self.coefficients, dtype=self.output_dtype)
+        print(self.coefficients.shape)
+        
         
         self.zi1 = np.zeros((self.nb_channel, self.nb_section, 2), dtype= self.output_dtype)
         self.zi2 = np.zeros((self.nb_channel, self.nb_section, 2), dtype= self.output_dtype)

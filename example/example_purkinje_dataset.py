@@ -7,22 +7,20 @@ but in a standard python script.
 from tridesclous import *
 import pyqtgraph as pg
 
+import os
+import shutil
 
 from matplotlib import pyplot
 import time
 
 
-dirname = 'tridesclous_olfactory_bulb'
+dirname = 'tridesclous_purkinje'
 
 def initialize_catalogueconstructor():
     #download dataset
-    localdir, filenames, params = download_dataset(name='olfactory_bulb')
-    print(filenames)
-    print(params)
+    localdir, filenames, params = download_dataset(name='purkinje')
 
-    print()
     #create a DataIO
-    import os, shutil
     
     if os.path.exists(dirname):
         #remove is already exists
@@ -32,8 +30,8 @@ def initialize_catalogueconstructor():
     # feed DataIO
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
 
-    #The dataset contains 16 channels but 14 and 15 are respiration and trigs.
-    dataio.add_one_channel_group(channels=range(14), chan_grp=0)
+    #The dataset contains 4 channels : we use them all
+    dataio.add_one_channel_group(channels=[0, 1, 2, 3])
 
     print(dataio)
 
@@ -46,14 +44,19 @@ def preprocess_signals_and_peaks():
     catalogueconstructor.set_preprocessor_params(chunksize=1024,
             
             #signal preprocessor
-            highpass_freq=300, 
-            common_ref_removal=True,
+            highpass_freq=None,
+            lowpass_freq=None,
+            smooth_size=0,
+            common_ref_removal=False,
             backward_chunksize=1280,
             
             #peak detector
+            peakdetector_engine='numpy',
             peak_sign='-', 
-            relative_threshold=4,
-            peak_span=0.0005,
+            relative_threshold=5,
+            #~ peak_span=0.0005,
+            peak_span=0.0004,
+            
             )
     
     
@@ -77,45 +80,67 @@ def extract_waveforms_pca_cluster():
     
     
     t1 = time.perf_counter()
-    catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40, mode='all',  align_waveform=True)
-    #~ catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40, mode='rand',  nb_max=20000, align_waveform=True)
-    #~ catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40,  nb_max=20000, align_waveform=True)
-    #~ catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40,  nb_max=20000, align_waveform=False)
-    
+    catalogueconstructor.extract_some_waveforms(n_left=-35, n_right=60,  nb_max=10000, align_waveform=True, subsample_ratio=20)
+    #~ catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40,  nb_max=10000, align_waveform=False)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
     #~ print(catalogueconstructor.some_waveforms.shape)
     print(catalogueconstructor)
     
-    #~ t1 = time.perf_counter()
-    #~ n_left, n_right = catalogueconstructor.find_good_limits(mad_threshold = 1.1,)
-    #~ t2 = time.perf_counter()
+    t1 = time.perf_counter()
+    n_left, n_right = catalogueconstructor.find_good_limits(mad_threshold = 1.1,)
+    t2 = time.perf_counter()
     #~ print('n_left', n_left, 'n_right', n_right)
     #~ print(catalogueconstructor.some_waveforms.shape)
-    #~ print(catalogueconstructor)
+    print(catalogueconstructor)
     
+    #~ print(catalogueconstructor.all_peaks)
+    #~ exit()
     
     t1 = time.perf_counter()
-    #~ catalogueconstructor.project(method='pca', n_components=5)
-    catalogueconstructor.project(method='tsne', n_components=2, perplexity=40., init='pca')
+    catalogueconstructor.project(method='pca', n_components=4)
+    #~ catalogueconstructor.project(method='tsne', n_components=2, perplexity=40., init='pca')
     t2 = time.perf_counter()
     print('project', t2-t1)
     print(catalogueconstructor)
     
     t1 = time.perf_counter()
-    catalogueconstructor.find_clusters(method='kmeans', n_clusters=7)
+    catalogueconstructor.find_clusters(method='kmeans', n_clusters=12)
     t2 = time.perf_counter()
     print('find_clusters', t2-t1)
     print(catalogueconstructor)
-    
-    catalogueconstructor.trash_small_cluster(n=5)
-    
-    catalogueconstructor.order_clusters()
 
 
+def detect_similar_ratio():
+    dataio = DataIO(dirname=dirname)
+    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    catalogueconstructor.on_new_cluster()
+    catalogueconstructor.compute_centroid()
+    
+    labels, ratio_similarity, wf_normed_flat = catalogueconstructor.compute_similarity_ratio()
+    
+    pairs = catalogueconstructor.detect_similar_waveform_ratio(threshold=.9)
+    print(pairs)
+    
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    im  = ax.matshow(ratio_similarity, cmap='viridis')
+    fig.colorbar(im)
+    #~ ax.plot(ind1, ind0, marker='o', color='r', ls='None')
+    
+    
+    fig, ax = plt.subplots()
+    ax.plot(wf_normed_flat.T)
+    
+
+    plt.show()
+    
+    
 
 
 def open_cataloguewindow():
+    
+    
     dataio = DataIO(dirname=dirname)
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
@@ -142,7 +167,6 @@ def run_peeler():
     
 def open_PeelerWindow():
     dataio = DataIO(dirname=dirname)
-    print(dataio)
     initial_catalogue = dataio.load_catalogue(chan_grp=0)
 
     app = pg.mkQApp()
@@ -154,11 +178,10 @@ def open_PeelerWindow():
 
 if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
-    
-    preprocess_signals_and_peaks()
-    extract_waveforms_pca_cluster()
+    #~ preprocess_signals_and_peaks()
+    #~ extract_waveforms_pca_cluster()
+    #~ detect_similar_ratio()
     open_cataloguewindow()
-    
     #~ run_peeler()
     #~ open_PeelerWindow()
     

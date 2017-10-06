@@ -154,7 +154,11 @@ class PeakDetectorEngine_OpenCL:
         self.queue = pyopencl.CommandQueue(self.ctx)
 
     def process_data(self, pos, newbuf):
-        assert newbuf.shape[0] ==self.chunksize
+        #~ assert newbuf.shape[0] ==self.chunksize
+        if newbuf.shape[0] <self.chunksize:
+            newbuf2 = np.zeros((self.chunksize, self.nb_channel), dtype=self.dtype)
+            newbuf2[-newbuf.shape[0]:, :] = newbuf
+            newbuf = newbuf2
 
         if not newbuf.flags['C_CONTIGUOUS']:
             newbuf = newbuf.copy()
@@ -172,7 +176,8 @@ class PeakDetectorEngine_OpenCL:
         ind_peaks,  = np.nonzero(self.peaks)
         
         if ind_peaks.size>0:
-            ind_peaks += pos - newbuf.shape[0] - self.n_span
+            #~ ind_peaks += pos - newbuf.shape[0] - self.n_span
+            ind_peaks += pos - self.chunksize - self.n_span
             self.n_peak += ind_peaks.size
             #~ peaks = np.zeros(ind_peaks.size, dtype = [('index', 'int64'), ('code', 'int64')])
             #~ peaks['index'] = ind_peaks

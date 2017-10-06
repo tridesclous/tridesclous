@@ -54,7 +54,8 @@ class WaveformViewer(WidgetBase):
                           {'name': 'plot_limit_for_flatten', 'type': 'bool', 'value': True },
                           {'name': 'metrics', 'type': 'list', 'values': ['median/mad', 'mean/std'] },
                           {'name': 'fillbetween', 'type': 'bool', 'value': True },
-                          
+                          {'name': 'show_channel_num', 'type': 'bool', 'value': False},
+                          {'name': 'flip_y', 'type': 'bool', 'value': False},
                           ]
         self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
         
@@ -62,7 +63,7 @@ class WaveformViewer(WidgetBase):
             self.params['fillbetween'] = False
             self.params['plot_limit_for_flatten'] = False
         
-        self.params.sigTreeStateChanged.connect(self.refresh)
+        self.params.sigTreeStateChanged.connect(self.on_params_changed)
         self.tree_params = pg.parametertree.ParameterTree(parent  = self)
         self.tree_params.header().hide()
         self.tree_params.setParameters(self.params, showTop=True)
@@ -108,7 +109,15 @@ class WaveformViewer(WidgetBase):
             self.tree_params.show()
         else:
             self.tree_params.hide()
-
+    
+    
+    def on_params_changed(self, params, changes):
+        for param, change, data in changes:
+            if change != 'value': continue
+            if param.name()=='flip_y':
+                self.initialize_plot()
+        self.refresh()
+        
     
     def initialize_plot(self):
         self.viewBox1 = MyViewBox()
@@ -147,22 +156,25 @@ class WaveformViewer(WidgetBase):
                 self.xvect = None
             else:
 
-                shape = list(self.controller.centroids.values())[0]['median'].shape
+                #~ shape = list(self.controller.centroids.values())[0]['median'].shape
+                shape = self.controller.some_waveforms.shape[1:]
                 width = shape[0]
                 
                 self.xvect = np.zeros(shape[0]*shape[1], dtype='float32')
 
                 self.arr_geometry = []
-                for i, chan in enumerate(channel_group['channels']):
+                for i, chan in enumerate(self.controller.channel_indexes):
                     x, y = channel_group['geometry'][chan]
                     self.arr_geometry.append([x, y])
                 self.arr_geometry = np.array(self.arr_geometry)
+                
+                if self.params['flip_y']:
+                    self.arr_geometry[:, 1] *= -1.
                 
                 xpos = self.arr_geometry[:,0]
                 ypos = self.arr_geometry[:,1]
                 
                 if np.unique(xpos).size>1:
-                    #~ print('yep')
                     self.delta_x = np.min(np.diff(np.sort(np.unique(xpos))))
                 else:
                     self.delta_x = np.unique(xpos)[0]
@@ -171,10 +183,6 @@ class WaveformViewer(WidgetBase):
                 else:
                     self.delta_y = np.unique(ypos)[0]
                 self.factor_y = .3
-                #~ print(np.sort(np.unique(xpos)))
-                #~ print(np.sort(np.unique(ypos)))
-                #~ print('self.delta_x',self.delta_x )
-                #~ print('self.delta_y',self.delta_y)
                 if self.delta_x>0.:
                     espx = self.delta_x/2. *.95
                 else:
@@ -182,11 +190,14 @@ class WaveformViewer(WidgetBase):
                 for i, chan in enumerate(channel_group['channels']):
                     x, y = channel_group['geometry'][chan]
                     self.xvect[i*width:(i+1)*width] = np.linspace(x-espx, x+espx, num=width)
-                self.arr_geometry = np.array(self.arr_geometry)
-
-        self.wf_min = min(np.min(centroid['median']) for centroid in self.controller.centroids.values())
-        self.wf_max = max(np.max(centroid['median']) for centroid in self.controller.centroids.values())
         
+        if len(self.controller.centroids)>0:
+            self.wf_min = min(np.min(centroid['median']) for centroid in self.controller.centroids.values())
+            self.wf_max = max(np.max(centroid['median']) for centroid in self.controller.centroids.values())
+        else:
+            self.wf_min = 0.
+            self.wf_max = 0.
+            
         self._x_range = None
         self._y1_range = None
         self._y2_range = None
@@ -246,24 +257,21 @@ class WaveformViewer(WidgetBase):
         
         if self.controller.spike_index ==[]:
             return
+
+        nb_channel = self.controller.nb_channel
+        d = self.controller.info['params_waveformextractor']
+        n_left, n_right = d['n_left'], d['n_right']
+        width = n_right - n_left
         
         #lines
         def addSpan(plot):
-        
-            nb_channel = self.controller.nb_channel
-            #~ n_left, n_right = min(samples)+2, max(samples)-1
-            
-            d = self.controller.info['params_waveformextractor']
-            n_left, n_right = d['n_left'], d['n_right']
             white = pg.mkColor(255, 255, 255, 20)
-            width = n_right - n_left
             for i in range(nb_channel):
                 if i%2==1:
                     region = pg.LinearRegionItem([width*i, width*(i+1)-1], movable = False, brush = white)
                     plot.addItem(region, ignoreBounds=True)
                     for l in region.lines:
                         l.setPen(white)
-                    
                 vline = pg.InfiniteLine(pos = -n_left + width*i, angle=90, movable=False, pen = pg.mkPen('w'))
                 plot.addItem(vline)
         
@@ -308,12 +316,18 @@ class WaveformViewer(WidgetBase):
             
             curve = pg.PlotCurveItem(xvect, mad, pen=color)
             self.plot2.addItem(curve)        
+
+        if self.params['show_channel_num']:
+            for i, (chan, name) in enumerate(self.controller.channel_indexes_and_names):
+                itemtxt = pg.TextItem('{}: {}'.format(chan, name), anchor=(.5,.5))
+                self.plot1.addItem(itemtxt)
+                itemtxt.setPos(width*i-n_left, 0)
+
         
         if self._x_range is None:
             self._x_range = xvect[0], xvect[-1]
             self._y1_range = self.wf_min*1.1, self.wf_max*1.1
-            self._y2_range = 0., 5.,
-            
+            self._y2_range = 0., 5.
         
         self.plot1.setXRange(*self._x_range, padding = 0.0)
         self.plot1.setYRange(*self._y1_range, padding = 0.0)
@@ -356,6 +370,14 @@ class WaveformViewer(WidgetBase):
             curve = pg.PlotCurveItem(self.xvect, wf, pen=pg.mkPen(color, width=2), connect='finite')
             self.plot1.addItem(curve)
         
+        if self.params['show_channel_num']:
+            chan_grp = self.controller.chan_grp
+            channel_group = self.controller.dataio.channel_groups[chan_grp]            
+            for i, (chan, name) in enumerate(self.controller.channel_indexes_and_names):
+                x, y = self.arr_geometry[i, : ]
+                itemtxt = pg.TextItem('{}: {}'.format(chan, name), anchor=(.5,.5))
+                self.plot1.addItem(itemtxt)
+                itemtxt.setPos(x, y)
         
         if self._x_range is None:
             self._x_range = np.min(self.xvect), np.max(self.xvect)
@@ -366,10 +388,7 @@ class WaveformViewer(WidgetBase):
         
     
     def _refresh_one_spike(self, n_selected):
-                #~ pass
         #TODO peak the selected peak if only one
-
-        
         
         if n_selected!=1 or not self.params['plot_selected_spike']: 
             self.curve_one_waveform.setData([], [])

@@ -41,7 +41,7 @@ class SimilarityView(WidgetBase):
         self.create_settings()
         
         self.initialize_plot()
-        self.compute_similarity()
+        self.similarity = None
         
         self.on_params_change()#this do refresh
         #~ self.refresh()
@@ -85,6 +85,7 @@ class SimilarityView(WidgetBase):
         self.lut = np.array(lut, dtype='uint8')
         
         self.compute_similarity()
+        #~ self.similarity = None
         
         self.refresh()
     
@@ -103,19 +104,31 @@ class SimilarityView(WidgetBase):
         self._text_items = []
     
     def compute_similarity(self):
+        #~ print('compute_similarity')
         if self.params['data']=='waveforms':
             wf = self.controller.some_waveforms
             feat = wf.reshape(wf.shape[0], -1)
         if self.params['data']=='features':
             feat = self.controller.some_features
         
-        func = getattr(sklearn.metrics.pairwise, self.params['similarity_metric'])
         
-        self.similarity = func(feat)
-        self._max = np.max(self.similarity)
+        if feat.size>1e6:
+            print('compute_similarity: TOO BIG')
+            #~ print(feat.size)
+            self.similarity = None
+        else:
+            func = getattr(sklearn.metrics.pairwise, self.params['similarity_metric'])
+            
+            self.similarity = func(feat)
+            self._max = np.max(self.similarity)
+            #~ print('compute_similarity DONE')
     
     
     def refresh(self):
+        if self.similarity is None:
+            self.image.hide()
+            return
+            
         cluster_visible = self.controller.cluster_visible
         visibles = [c for c, v in self.controller.cluster_visible.items() if v and c>=0]
         
@@ -156,6 +169,7 @@ class SimilarityView(WidgetBase):
     
     def on_spike_label_changed(self):
         self.compute_similarity()
+        #~ self.similarity = None
         self.refresh()
     
     def on_colors_changed(self):

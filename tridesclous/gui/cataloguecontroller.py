@@ -28,6 +28,11 @@ class CatalogueController(ControllerBase):
         #~ self.init_plot_attributes()
         #~ self.refresh_colors()
     
+    def reload_data(self):
+        self.cc.reload_data()
+        self.cc.on_new_cluster()
+        self.init_plot_attributes()
+    
     def init_plot_attributes(self):
         self.cluster_visible = {k:i<20 for i, k  in enumerate(self.cluster_labels)}
         self.cluster_count = { k:np.sum(self.cc.all_peaks['label']==k) for k in self.cluster_labels}
@@ -57,6 +62,10 @@ class CatalogueController(ControllerBase):
     @property
     def cluster_labels(self):
         return self.cc.cluster_labels
+    
+    @property
+    def cell_labels(self):
+        return self.cc.clusters['cell_label']
         
     @property
     def spike_index(self):
@@ -151,6 +160,9 @@ class CatalogueController(ControllerBase):
             mask = self.spike_label == k
             self.change_spike_label(mask, new_label, on_new_cluster=False)
         self.on_new_cluster()
+    
+    def tag_same_cell(self, labels_to_group):
+        self.cc.tag_same_cell(labels_to_group)
     
     def update_visible_spikes(self):
         visibles = np.array([k for k, v in self.cluster_visible.items() if v ])

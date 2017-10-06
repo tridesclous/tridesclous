@@ -48,7 +48,7 @@ class BaseTraceViewer(WidgetBase):
         self.setLayout(self.layout)
         
         self.create_toolbar()
-        self.layout.addWidget(self.toolbar)
+        
         
         # create graphic view and 2 scroll bar
         g = QT.QGridLayout()
@@ -126,7 +126,10 @@ class BaseTraceViewer(WidgetBase):
         self.select_button = QT.QPushButton('select', checkable = True)
         tb.addWidget(self.select_button)
         
-        self._create_toolbar()
+        
+        self.layout.addWidget(self.toolbar)
+        
+        self._create_other_toolbar()
     
 
     def initialize_plot(self):
@@ -161,9 +164,9 @@ class BaseTraceViewer(WidgetBase):
         
         self.channel_labels = []
         self.threshold_lines =[]
-        for c in range(self.controller.nb_channel):
+        for i, chan_name in enumerate(self.controller.channel_names):
             #TODO label channels
-            label = pg.TextItem('chan{}'.format(c), color='#FFFFFF', anchor=(0, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
+            label = pg.TextItem(chan_name, color='#FFFFFF', anchor=(0, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
             self.plot.addItem(label)
             self.channel_labels.append(label)
         
@@ -490,7 +493,7 @@ class CatalogueTraceViewer(BaseTraceViewer):
     def __init__(self, controller=None, signal_type = 'processed', parent=None):
         BaseTraceViewer.__init__(self, controller=controller, signal_type=signal_type, parent=parent)
     
-    def _create_toolbar(self):
+    def _create_other_toolbar(self):
         pass
         
     def _initialize_plot(self):
@@ -504,12 +507,17 @@ class PeelerTraceViewer(BaseTraceViewer):
     def __init__(self, controller=None, signal_type = 'processed', parent=None):
         BaseTraceViewer.__init__(self, controller=controller, signal_type=signal_type, parent=parent)
     
-    def _create_toolbar(self):
+    def _create_other_toolbar(self):
+        
+        self.toolbar2 = QT.QToolBar()
+        self.layout.insertWidget(1, self.toolbar2)
+        #~ addToolBarBreak
+        
         self.plot_buttons = {}
         for name in ['signals', 'prediction', 'residual']:
             self.plot_buttons[name] = but = QT.QPushButton(name,  checkable = True)
             but.clicked.connect(self.refresh)
-            self.toolbar.addWidget(but)
+            self.toolbar2.addWidget(but)
             
             if name in ['signals', 'prediction']:
                 but.setChecked(True)

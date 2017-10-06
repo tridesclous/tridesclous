@@ -27,6 +27,9 @@ class PairList(WidgetBase):
         self.menu = QT.QMenu()
         act = self.menu.addAction('Merge')
         act.triggered.connect(self.do_merge)
+
+        act = self.menu.addAction('Tag same cell')
+        act.triggered.connect(self.do_tag_same_cell)
         
         self.refresh()
     
@@ -53,16 +56,30 @@ class PairList(WidgetBase):
         self.controller.merge_cluster(label_to_merge)
         self.refresh()
         self.spike_label_changed.emit()
-
+    
+    def do_tag_same_cell(self):
+        if len(self.table.selectedIndexes())==0:
+            return
+        ind = self.table.selectedIndexes()[0].row()
+        
+        label_to_merge = list(self.pairs[ind])
+        self.controller.tag_same_cell(label_to_merge)
+        self.refresh()
+        self.cluster_tag_changed.emit()
+        
     
     def refresh(self):
         self.table.clear()
-        labels = ['cluster1', 'cluster2']
+        labels = ['cluster1', 'cluster2' ]
         self.table.setColumnCount(len(labels))
         self.table.setHorizontalHeaderLabels(labels)
+        self.table.setColumnWidth(0, 100)
+        self.table.setColumnWidth(1, 100)
+        
+        
         
         labels = self.controller.cluster_labels
-        labels = labels[labels>0]
+        labels = labels[labels>=0]
         self.pairs = list(itertools.combinations(labels, 2))
         
         self.table.setRowCount(len(self.pairs))
@@ -76,11 +93,13 @@ class PairList(WidgetBase):
                 pix.fill(color)
                 icon = QT.QIcon(pix)
                 
-                name = '{}'.format(k)
+                name = '{} (nb={})'.format(k, self.controller.cluster_count[k])
                 item = QT.QTableWidgetItem(name)
                 item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
-                self.table.setItem(r,0+c, item)
+                self.table.setItem(r,c, item)
                 item.setIcon(icon)
+
+
         
 
     def on_spike_selection_changed(self):
