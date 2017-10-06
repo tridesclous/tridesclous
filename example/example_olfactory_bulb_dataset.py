@@ -96,8 +96,8 @@ def extract_waveforms_pca_cluster():
     
     
     t1 = time.perf_counter()
-    #~ catalogueconstructor.project(method='pca', n_components=5)
-    catalogueconstructor.project(method='tsne', n_components=2, perplexity=40., init='pca')
+    catalogueconstructor.project(method='pca', n_components=25)
+    #~ catalogueconstructor.project(method='tsne', n_components=2, perplexity=40., init='pca')
     t2 = time.perf_counter()
     print('project', t2-t1)
     print(catalogueconstructor)
@@ -155,7 +155,7 @@ def open_PeelerWindow():
 if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
     
-    preprocess_signals_and_peaks()
+    #~ preprocess_signals_and_peaks()
     extract_waveforms_pca_cluster()
     open_cataloguewindow()
     

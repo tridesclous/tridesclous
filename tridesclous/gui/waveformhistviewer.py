@@ -8,6 +8,7 @@ import matplotlib.colors
 
 from .base import WidgetBase
 from .tools import ParamDialog
+from ..tools import median_mad
 
 class MyViewBox(pg.ViewBox):
     doubleclicked = QT.pyqtSignal()
@@ -141,6 +142,8 @@ class WaveformHistViewer(WidgetBase):
         data_kept = data[keep]
         
         min, max = np.min(data_kept), np.max(data_kept)
+        #~ med, mad = median_mad(data_kept, axis=0)
+        #~ min, max = np.min(med-10*mad), np.max(med+10*mad)
         n = self.params['nb_bin']
         bin = (max-min)/(n-1)
         
@@ -148,6 +151,8 @@ class WaveformHistViewer(WidgetBase):
         indexes0 = np.arange(data_kept.shape[1])
         
         data_bined = np.floor((data_kept-min)/bin).astype('int32')
+        data_bined = data_bined.clip(0, n-1)
+        
         for d in data_bined:
             hist2d[indexes0, d] += 1
 
@@ -163,7 +168,7 @@ class WaveformHistViewer(WidgetBase):
             else:
                 feat0 = np.median(data[labels==k], axis=0)
                 curve_bined = np.ceil((feat0-min)/bin).astype('int32')
-            
+            curve_bined = curve_bined.clip(0, n-1)
             
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
             curve.setData(x=indexes0+.5, y=curve_bined)
