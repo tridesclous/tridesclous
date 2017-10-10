@@ -12,8 +12,8 @@ from sklearn.mixture import GaussianMixture
 
 p = '../example/'
 #~ dirname =  p + 'tridesclous_locust'
-#~ dirname = p +'tridesclous_olfactory_bulb'
-dirname = p +'tridesclous_purkinje'
+dirname = p +'tridesclous_olfactory_bulb'
+#~ dirname = p +'tridesclous_purkinje'
 dataio = tdc.DataIO(dirname=dirname)
 
 
@@ -149,22 +149,85 @@ def test_range_to_find_residual_minimize():
     
 def test_split_to_find_residual_minimize():
     
+    import scipy.signal
+    import diptest
+    
     labels = cc.all_peaks['label'][cc.some_peaks_index]
     #~ keep = labels>=0
     #~ labels = labels[keep]
     #~ features = cc.some_features[keep]
     waveforms = cc.some_waveforms
+
+    n_left = cc.info['params_waveformextractor']['n_left']
+    n_right = cc.info['params_waveformextractor']['n_right']
+    width = n_right - n_left
+
+
     
     cluster_labels = np.zeros(waveforms.shape[0], dtype='int64')
     
     
+    bins=np.arange(-30,0, 0.1)
+    
+    def dirty_cut(x, bins):
+        labels = np.zeros(x.size, dtype='int64')
+        count, bins = np.histogram(x, bins=bins)
+        #~ kernel = scipy.signal.get_window(10
+        
+        kernel = scipy.signal.gaussian(51, 10)
+        kernel/= np.sum(kernel)
+        
+        #~ fig, ax = plt.subplots()
+        #~ ax.plot(kernel)
+        #~ plt.show()
+        
+        
+        #~ count[count==1]=0
+        count_smooth = np.convolve(count, kernel, mode='same')
+        
+        
+        local_min_indexes, = np.nonzero((count_smooth[1:-1]<count_smooth[:-2])& (count_smooth[1:-1]<=count_smooth[2:]))
+        
+        if local_min_indexes.size==0:
+            lim = 0
+        else:
+        
+            for ind in local_min_indexes:
+                lim = bins[ind]
+                n = np.sum(count[bins[:-1]<=lim])
+                print('lim', lim, n)
+                
+                if n>30:
+                    break
+                else:
+                    lim = None
+        
+        #~ lim = bins[local_min[0]]
+        #~ print(local_min, min(x), lim)
+        
+        
+        #~ fig, ax = plt.subplots()
+        #~ ax.plot(bins[:-1], count, color='b')
+        #~ ax.plot(bins[:-1], count_smooth, color='g')
+        #~ if lim is not None:
+            #~ ax.axvline(lim)
+        #~ plt.show()
+        
+
+        if lim is None:
+            return None, None
+        
+        labels[x>lim] = 1
+        
+        return labels, lim
+        
+    
     wf = waveforms.swapaxes(1,2).reshape(waveforms.shape[0], -1)
     
     k = 0
-    
+    dim_visited = []
     for i in range(1000):
-        
-        
+                
         left_over = np.sum(cluster_labels>=k)
         
         print('i', i, 'k', k, 'left_over', left_over)
@@ -173,30 +236,34 @@ def test_split_to_find_residual_minimize():
         
         if i!=0 and left_over<30:# or k==40:
             cluster_labels[sel] = -k
+            print('BREAK left_over<30')
             break
         
         wf_sel = wf[sel]
-        #~ print(wf_sel .shape[0])
+        n_with_label = wf_sel .shape[0]
+        print('n_with_label', n_with_label)
         
         if wf_sel .shape[0]<30:
+            print('too few')
             cluster_labels[sel] = -k
             k+=1
+            dim_visited = []
             continue
         
         med, mad = compute_median_mad(wf_sel)
         
         if np.all(mad<1.6):
+            print('mad<1.6')
             k+=1
+            dim_visited = []
+            continue
+
+        if np.all(wf_sel.shape[0]<100):
+            print('Too small cluster')
+            k+=1
+            dim_visited = []
             continue
         
-        
-        #~ fig, axs = plt.subplots(nrows=2)
-        #~ axs[0].fill_between(np.arange(med.size), med-mad, med+mad, alpha=.5)
-        #~ axs[0].plot(np.arange(med.size), med)
-        #~ axs[0].set_title(str(wf_sel.shape[0]))
-        #~ axs[1].plot(mad)
-        #~ axs[1].axvline(np.argmax(mad), color='r')
-        #~ plt.show()
         
         #~ weight = mad-1
         #~ feat = wf_sel * weight
@@ -204,34 +271,107 @@ def test_split_to_find_residual_minimize():
         #~ print(feat.shape)
         #~ print(feat)
         
-        ind, = np.nonzero(med<0)
-        i = ind[np.argmax(mad[ind])]
-        feat = wf_sel[:, i, None]
         
-        labels = KMeans(n_clusters=2).fit_predict(feat)
-        #~ gmm = GaussianMixture(n_components=2, covariance_type='full')
-        #~ labels = gmm.fit(feat).predict(feat)
+        #~ while True:
+        
+        possible_dim, = np.nonzero(med<0)
+        possible_dim = possible_dim[~np.in1d(possible_dim, dim_visited)]
+        if len(possible_dim)==0:
+            print('BREAK len(possible_dim)==0')
+            #~ dim = None
+            break
+        dim = possible_dim[np.argmax(mad[possible_dim])]
+        dim_visited.append(dim)
+        #~ print('dim', dim, 'dim_visited',dim_visited)
+        #~ feat = wf_sel[:, dim]
+        
+        #~ dip_values = np.zeros(possible_dim.size)
+        #~ for j, dim in enumerate(possible_dim):
+            #~ print('j', j)
+            #~ dip, f = diptest.dip(wf_sel[:, dim], full_output=True, x_is_sorted=False)
+            #~ dip_values[j] = dip
+        
+        #~ dip_values[j] = dip
+
+        #~ dim = possible_dim[np.argmin(dip_values)]
+        #~ dip = dip_values[np.argmin(dip_values)]
+        
+        
+        #~ dip, f = diptest.dip(wf_sel[:, dim], full_output=True, x_is_sorted=False)
+        #~ dip, pval = diptest.diptest(wf_sel[:, dim])
+        
+        #~ print('dim', dim, 'dip', dip, 'pval', pval)
+
+        #~ fig, axs = plt.subplots(nrows=2, sharex=True)
+        #~ axs[0].fill_between(np.arange(med.size), med-mad, med+mad, alpha=.5)
+        #~ axs[0].plot(np.arange(med.size), med)
+        #~ axs[0].set_title(str(wf_sel.shape[0]))
+        #~ axs[1].plot(mad)
+        #~ axs[1].axvline(dim, color='r')
+        #~ plt.show()
+
+            
+            #~ if dip<0.01:
+                #~ break
+        
+        
+        
+        feat = wf_sel[:, dim]
+        
+        labels, lim = dirty_cut(feat, bins)
+        if labels is None:
+            dim_visited.append(dim)
+            print('loop', dim_visited)
+            continue
+        
+        
+            
+        
+        print(feat[labels==0].size, feat[labels==1].size)
         
         #~ fig, ax = plt.subplots()
-        #~ count, bins = np.histogram(feat, bins=50)
+        #~ count, bins = np.histogram(feat, bins=bins)
         #~ count0, bins = np.histogram(feat[labels==0], bins=bins)
         #~ count1, bins = np.histogram(feat[labels==1], bins=bins)
+        #~ ax.axvline(lim)
         #~ ax.plot(bins[:-1], count, color='b')
         #~ ax.plot(bins[:-1], count0,  color='r')
         #~ ax.plot(bins[:-1], count1, color='g')
+        #~ ax.set_title('dim {} dip {:.4f} pval {:.4f}'.format(dim, dip, pval))
         #~ plt.show()
         
-        #~ cluster_labels += 1
+
+        #~ if pval>0.1:
+            #~ print('BREAK pval>0.05')
+            #~ break
+        
+
         ind, = np.nonzero(sel)
         
-        med0, mad0 = compute_median_mad(feat[labels==0])
-        med1, mad1 = compute_median_mad(feat[labels==1])
-        if np.abs(med0)>np.abs(med1):
+        #~ med0, mad0 = compute_median_mad(feat[labels==0])
+        #~ med1, mad1 = compute_median_mad(feat[labels==1])
+        #~ if np.abs(med0)>np.abs(med1):
         #~ if mad0<mad1:
-            cluster_labels[ind[labels==1]] += 1
-        else:
-            cluster_labels[ind[labels==0]] += 1
+            #~ cluster_labels[ind[labels==1]] += 1
+        #~ else:
+            #~ cluster_labels[ind[labels==0]] += 1
+        
+        #~ if dip>0.05 and pval<0.01:
+        
+        cluster_labels[ind[labels==1]] += 1
+        
+        if np.sum(labels==1)==0 or np.sum(labels==1)==0:
+            k+=1
+            dim_visited = []
+        
+
+        #~ med0, mad0 = compute_median_mad(feat[labels==0])
+        
+
+        
     
+
+
     
     fig, axs = plt.subplots(nrows=2)
     for k in np.unique(cluster_labels):
@@ -280,4 +420,4 @@ if __name__ =='__main__':
     #~ find_clusters_and_show()
     
     
-    
+    local_min
