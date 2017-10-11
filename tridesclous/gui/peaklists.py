@@ -245,6 +245,8 @@ class ClusterPeakList(WidgetBase):
         
         self.table.setRowCount(self.controller.cluster_labels.size)
         
+        channel_names = self.controller.channel_names
+        
         for i, k in enumerate(self.controller.cluster_labels):
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
             pix = QT.QPixmap(16,16)
@@ -267,9 +269,10 @@ class ClusterPeakList(WidgetBase):
             item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
             self.table.setItem(i,2, item)
             
-            chan = self.controller.get_max_on_channel(k)
-            if chan is not None:
-                item = QT.QTableWidgetItem('{}'.format(chan))
+            c = self.controller.get_max_on_channel(k)
+            if c is not None:
+                
+                item = QT.QTableWidgetItem('{}: {}'.format(c, channel_names[c]))
                 item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
                 self.table.setItem(i,3, item)
 

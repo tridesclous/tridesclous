@@ -119,8 +119,8 @@ class CatalogueController(ControllerBase):
     
     def get_max_on_channel(self, label):
         if label in self.centroids:
-            chan = self.centroids[label]['max_on_channel']
-            return chan
+            c = self.centroids[label]['max_on_channel']
+            return c
     
     def on_new_cluster(self, label_changed=None):
         """

@@ -573,8 +573,13 @@ class CatalogueConstructor:
             median, mad = median_mad(wf, axis = 0)
             mean, std = np.mean(wf, axis=0), np.std(wf, axis=0)
             #~ max_on_channel = np.argmax(np.max(np.abs(mean), axis=0))
-            max_on_channel = np.argmax(np.abs(median[-n_left,:]))
-            
+            max_on_channel = np.argmax(np.abs(median[-n_left,:]), axis=0)
+            #~ print('k', k, max_on_channel)
+            #~ print(median.shape)
+            #~ fig, ax = plt.subplots()
+            #~ ax.plot(median.T.flatten())
+            #~ ax.axvspan(max_on_channel*median.shape[0], (max_on_channel+1)*median.shape[0], alpha=.2)
+            #~ plt.show()
             self.centroids[k] = {'median':median, 'mad':mad, 'max_on_channel' : max_on_channel, 
                         'mean': mean, 'std': std}
         

@@ -13,7 +13,9 @@ from sklearn.mixture import GaussianMixture
 p = '../example/'
 #~ dirname =  p + 'tridesclous_locust'
 #~ dirname = p +'tridesclous_olfactory_bulb'
-dirname = p +'tridesclous_purkinje'
+#~ dirname = p +'tridesclous_purkinje'
+
+dirname = '/media/samuel/SamCNRS/DataSpikeSorting/pierre/GT 252/tridesclous_GT256_20160426'
 dataio = tdc.DataIO(dirname=dirname)
 
 
@@ -177,7 +179,9 @@ def test_split_to_find_residual_minimize():
         count, bins = np.histogram(x, bins=bins)
         #~ kernel = scipy.signal.get_window(10
         
-        kernel = scipy.signal.gaussian(51, 10)
+        #~ kernel = scipy.signal.gaussian(51, 10)
+        kernel = scipy.signal.gaussian(51, 5)
+        #~ kernel = scipy.signal.gaussian(31, 10)
         kernel/= np.sum(kernel)
         
         #~ fig, ax = plt.subplots()
@@ -385,6 +389,7 @@ def test_split_to_find_residual_minimize():
             
             continue
         
+        #~ cluster_labels[cluster_labels>k] += 1#TODO reflechir la dessus!!!
         cluster_labels[ind[labels==1]] += 1
         
         if np.sum(labels==1)==0:

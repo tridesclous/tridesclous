@@ -319,7 +319,7 @@ class WaveformViewer(WidgetBase):
 
         if self.params['show_channel_num']:
             for i, (chan, name) in enumerate(self.controller.channel_indexes_and_names):
-                itemtxt = pg.TextItem('{}: {}'.format(chan, name), anchor=(.5,.5))
+                itemtxt = pg.TextItem('{}: {}'.format(i, name), anchor=(.5,.5))
                 self.plot1.addItem(itemtxt)
                 itemtxt.setPos(width*i-n_left, 0)
 
@@ -375,7 +375,7 @@ class WaveformViewer(WidgetBase):
             channel_group = self.controller.dataio.channel_groups[chan_grp]            
             for i, (chan, name) in enumerate(self.controller.channel_indexes_and_names):
                 x, y = self.arr_geometry[i, : ]
-                itemtxt = pg.TextItem('{}: {}'.format(chan, name), anchor=(.5,.5))
+                itemtxt = pg.TextItem('{}: {}'.format(i, name), anchor=(.5,.5))
                 self.plot1.addItem(itemtxt)
                 itemtxt.setPos(x, y)
         
