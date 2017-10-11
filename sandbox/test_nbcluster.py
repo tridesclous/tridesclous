@@ -12,8 +12,8 @@ from sklearn.mixture import GaussianMixture
 
 p = '../example/'
 #~ dirname =  p + 'tridesclous_locust'
-dirname = p +'tridesclous_olfactory_bulb'
-#~ dirname = p +'tridesclous_purkinje'
+#~ dirname = p +'tridesclous_olfactory_bulb'
+dirname = p +'tridesclous_purkinje'
 dataio = tdc.DataIO(dirname=dirname)
 
 
@@ -84,6 +84,9 @@ def test_range_to_find_residual_minimize():
     labels = labels[keep]
     features = cc.some_features[keep]
     waveforms = cc.some_waveforms[keep]
+    n_left = cc.info['params_waveformextractor']['n_left']
+    n_right = cc.info['params_waveformextractor']['n_right']
+    width  = n_right - n_left
     
     
     range_n_clusters = list(range(9, 11))
@@ -191,21 +194,30 @@ def test_split_to_find_residual_minimize():
         if local_min_indexes.size==0:
             lim = 0
         else:
-        
+            
+            n_on_left = []
             for ind in local_min_indexes:
                 lim = bins[ind]
                 n = np.sum(count[bins[:-1]<=lim])
-                print('lim', lim, n)
+                n_on_left.append(n)
+                #~ print('lim', lim, n)
                 
-                if n>30:
-                    break
-                else:
-                    lim = None
+                #~ if n>30:
+                    #~ break
+                #~ else:
+                    #~ lim = None
+            n_on_left = np.array(n_on_left)
+            print('n_on_left', n_on_left, 'local_min_indexes', local_min_indexes,  x.size)
+            p = np.argmin(np.abs(n_on_left-x.size//2))
+            print('p', p)
+            lim = bins[local_min_indexes[p]]
+            
+            
         
         #~ lim = bins[local_min[0]]
         #~ print(local_min, min(x), lim)
         
-        
+        #~ if x.size==3296:
         #~ fig, ax = plt.subplots()
         #~ ax.plot(bins[:-1], count, color='b')
         #~ ax.plot(bins[:-1], count_smooth, color='g')
@@ -229,7 +241,7 @@ def test_split_to_find_residual_minimize():
     for i in range(1000):
                 
         left_over = np.sum(cluster_labels>=k)
-        
+        print()
         print('i', i, 'k', k, 'left_over', left_over)
         
         sel = cluster_labels == k
@@ -281,7 +293,8 @@ def test_split_to_find_residual_minimize():
             #~ dim = None
             break
         dim = possible_dim[np.argmax(mad[possible_dim])]
-        dim_visited.append(dim)
+        print('dim', dim)
+        #~ dim_visited.append(dim)
         #~ print('dim', dim, 'dim_visited',dim_visited)
         #~ feat = wf_sel[:, dim]
         
@@ -320,7 +333,9 @@ def test_split_to_find_residual_minimize():
         
         labels, lim = dirty_cut(feat, bins)
         if labels is None:
-            dim_visited.append(dim)
+            channel_index = dim // width
+            #~ dim_visited.append(dim)
+            dim_visited.extend(range(channel_index*width, (channel_index+1)*width))
             print('loop', dim_visited)
             continue
         
@@ -358,9 +373,21 @@ def test_split_to_find_residual_minimize():
         
         #~ if dip>0.05 and pval<0.01:
         
+        
+        
+        print('nb1', np.sum(labels==1), 'nb0', np.sum(labels==0))
+        
+        if np.sum(labels==0)==0:
+            channel_index = dim // width
+            #~ dim_visited.append(dim)
+            dim_visited.extend(range(channel_index*width, (channel_index+1)*width))
+            print('nb0==0', dim_visited)
+            
+            continue
+        
         cluster_labels[ind[labels==1]] += 1
         
-        if np.sum(labels==1)==0 or np.sum(labels==1)==0:
+        if np.sum(labels==1)==0:
             k+=1
             dim_visited = []
         
@@ -419,5 +446,5 @@ if __name__ =='__main__':
     
     #~ find_clusters_and_show()
     
-    
-    local_min
+ 
+ 
