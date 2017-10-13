@@ -31,6 +31,15 @@ datasets_info = {
         'dtype': 'float32',
         'sample_rate': 15000.,
     },
+    'striatum_rat': {
+        'url': 'https://raw.githubusercontent.com/tridesclous/tridesclous_datasets/master/striatum_rat/',
+        'filenames': ['tetrode_striatum.dat'],
+        'total_channel': 4,
+        'dtype': 'int16',
+        'sample_rate': 20000.,
+        'prb_filename' : 'tetrode_striatum.prb',
+    },
+    
     
 }
 
@@ -51,7 +60,12 @@ def download_dataset(name='locust', localdir=None):
     
     info = datasets_info[name]
     
-    for filename in info['filenames']:
+    filenames = info['filenames']
+    if 'prb_filename' in info:
+        filenames = filenames + [ info['prb_filename'] ]
+    
+    for filename in filenames:
+        print(filename)
         localfile = os.path.join(localdir, filename)
         
         if not os.path.exists(localfile):
@@ -73,7 +87,9 @@ def get_dataset(name='locust', localdir=None, seg_num=0):
     
     data = data.reshape(-1, params['total_channel'])
     
-    if 'channel_group' in datasets_info[name]:
+    info = datasets_info[name]
+    
+    if 'channel_group' in info:
         data = data[:, datasets_info[name]['channel_group']]
     
     return data, params['sample_rate']
