@@ -313,9 +313,14 @@ class MainWindow(QT.QMainWindow):
             print(e)
     
     def run_peeler(self):
+        
+        #TODO find something better when several segment
+        lengths = [ self.dataio.datasource.get_segment_shape(i)[0] for i in range(self.dataio.nb_segment)]
+        duration = max(lengths)/self.dataio.sample_rate
+        
         params = [
             {'name':'limit_duration', 'type': 'bool', 'value':True},
-            {'name':'duration', 'type': 'float', 'value':300, 'suffix': 's', 'siPrefix': True},
+            {'name':'duration', 'type': 'float', 'value':duration, 'suffix': 's', 'siPrefix': True},
             {'name': 'n_peel_level', 'type': 'int', 'value':2},
         ]
         

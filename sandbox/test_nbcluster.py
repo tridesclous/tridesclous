@@ -10,12 +10,15 @@ from sklearn.metrics import silhouette_samples, silhouette_score
 from sklearn.cluster import KMeans, MeanShift
 from sklearn.mixture import GaussianMixture
 
-p = '../example/'
+#~ p = '../example/'
 #~ dirname =  p + 'tridesclous_locust'
 #~ dirname = p +'tridesclous_olfactory_bulb'
 #~ dirname = p +'tridesclous_purkinje'
 
-dirname = '/media/samuel/SamCNRS/DataSpikeSorting/pierre/GT 252/tridesclous_GT256_20160426'
+#~ dirname = '/media/samuel/SamCNRS/DataSpikeSorting/pierre/GT 252/tridesclous_GT256_20160426'
+dirname = '/home/samuel/Documents/projet/DataSpikeSorting/david robbe/test_2017_03_24_14_35/tdc_test_2017_03_24_14_35/'
+
+
 dataio = tdc.DataIO(dirname=dirname)
 
 
