@@ -50,8 +50,8 @@ def preprocess_signals_and_peaks():
             backward_chunksize=1280,
             
             #peak detector
-            peakdetector_engine='numpy',
-            #~ peakdetector_engine='opencl',
+            #~ peakdetector_engine='numpy',
+            peakdetector_engine='opencl',
             peak_sign='-', 
             relative_threshold=7,
             peak_span=0.0002,
@@ -74,20 +74,18 @@ def extract_waveforms_pca_cluster():
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
     t1 = time.perf_counter()
-    #~ catalogueconstructor.extract_some_waveforms(mode='rand', n_left=-45, n_right=60,  nb_max=10000)
-    catalogueconstructor.extract_some_waveforms(mode='all', n_left=-45, n_right=60)
+    catalogueconstructor.extract_some_waveforms(mode='rand', n_left=-45, n_right=60,  nb_max=10000)
+    #~ catalogueconstructor.extract_some_waveforms(mode='all', n_left=-45, n_right=60)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
 
     t1 = time.perf_counter()
-    catalogueconstructor.project(method='pca', n_components=25)
-    #~ catalogueconstructor.project(method='spatial_sliding_pca', n_components_by_channel=3)
-    #~ catalogueconstructor.project(method='pca_by_channel_then_tsne', n_components_by_channel=3)
+    catalogueconstructor.project(method='peak_max')
     t2 = time.perf_counter()
     print('project', t2-t1)
     
     t1 = time.perf_counter()
-    catalogueconstructor.find_clusters(method='kmeans', n_clusters=16)
+    catalogueconstructor.find_clusters(method='dirtycut')
     t2 = time.perf_counter()
     print('find_clusters', t2-t1)
     
@@ -115,13 +113,7 @@ def run_peeler():
     initial_catalogue = dataio.load_catalogue(chan_grp=0)
 
     peeler = Peeler(dataio)
-    peeler.change_params(catalogue=initial_catalogue, n_peel_level=2,
-                signalpreprocessor_engine='numpy',
-                #~ signalpreprocessor_engine='opencl',
-                
-                peakdetector_engine='numpy',
-                #~ peakdetector_engine='opencl',
-                )
+    peeler.change_params(catalogue=initial_catalogue, n_peel_level=2)
     
     t1 = time.perf_counter()
     peeler.run(duration=60)
@@ -141,7 +133,7 @@ def open_PeelerWindow():
 
 if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
-    preprocess_signals_and_peaks()
+    #~ preprocess_signals_and_peaks()
     extract_waveforms_pca_cluster()
     #~ open_cataloguewindow()
     #~ run_peeler()
