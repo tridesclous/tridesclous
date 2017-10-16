@@ -1,5 +1,5 @@
 #for catalogue window
-from .myqt import QT
+from .myqt import QT,mkQApp
 from .cataloguecontroller import CatalogueController
 from .traceviewer import CatalogueTraceViewer
 from .peaklists import PeakList, ClusterPeakList

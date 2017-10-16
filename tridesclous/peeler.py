@@ -25,8 +25,7 @@ except ImportError:
 
 _dtype_spike = [('index', 'int64'), ('label', 'int64'), ('jitter', 'float64'),]
 
-LABEL_TRASH = -1
-LABEL_UNSLASSIFIED = -10
+from .labelcodes import (LABEL_TRASH, LABEL_UNSLASSIFIED)
 LABEL_LEFT_LIMIT = -11
 LABEL_RIGHT_LIMIT = -12
 LABEL_MAXIMUM_SHIFT = -13

@@ -16,7 +16,8 @@ from sklearn.mixture import GaussianMixture
 #~ dirname = p +'tridesclous_purkinje'
 
 #~ dirname = '/media/samuel/SamCNRS/DataSpikeSorting/pierre/GT 252/tridesclous_GT256_20160426'
-dirname = '/home/samuel/Documents/projet/DataSpikeSorting/david robbe/test_2017_03_24_14_35/tdc_test_2017_03_24_14_35/'
+#~ dirname = '/home/samuel/Documents/projet/DataSpikeSorting/david robbe/test_2017_03_24_14_35/tdc_test_2017_03_24_14_35/'
+dirname = '/home/samuel/Documents/projet/DataSpikeSorting/kampff/2014_11_25_Pair_3_0/tdc_adc2014-11-25T23_00_08/'
 
 
 dataio = tdc.DataIO(dirname=dirname)

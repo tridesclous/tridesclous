@@ -24,8 +24,7 @@ from .iotools import ArrayCollection
 
 import matplotlib.pyplot as plt
 
-LABEL_TRASH = -1
-LABEL_UNSLASSIFIED = -10
+from . import labelcodes
 
 
 # TODO extract some noise
@@ -250,7 +249,7 @@ class CatalogueConstructor:
             peaks = np.zeros(chunk_peaks.size, dtype=_dtype_peak)
             peaks['index'] = chunk_peaks
             peaks['segment'][:] = seg_num
-            peaks['label'][:] = LABEL_UNSLASSIFIED
+            peaks['label'][:] = labelcodes.LABEL_UNSLASSIFIED
             self.arrays.append_chunk('all_peaks',  peaks)
             
             #~ self.nb_peak += peaks.size
@@ -505,23 +504,16 @@ class CatalogueConstructor:
         
     
     
-    def find_clusters(self, method='kmeans', n_clusters=1, order_clusters=True, selection=None, **kargs):
-        #TODO clustering on all peaks
+    def find_clusters(self, method='kmeans', n_clusters=1, selection=None, **kargs):
+        #done in a separate module cluster.py
+        cluster.find_clusters(self, method=method, n_clusters=n_clusters, selection=selection, **kargs)
         
-        if selection is None:
-            labels = cluster.find_clusters(self.some_features, method=method, n_clusters=n_clusters, **kargs)
-            #~ self.peak_label[self.some_peaks_index] = labels
-            self.all_peaks['label'][:] = LABEL_UNSLASSIFIED
-            self.all_peaks['label'][self.some_peaks_index] = labels
-        else:
-            #TODO
-            sel = selection[self.some_peaks_index]
-            features = self.some_features[sel]
-            labels = cluster.find_clusters(features, method=method, n_clusters=n_clusters, **kargs)
-            labels += max(self.cluster_labels)+1
-            self.all_peaks['label'][self.some_peaks_index[sel]] = labels
         
         self.on_new_cluster()
+        
+        
+        
+        
         
         #~ if order_clusters:
             #~ self.order_clusters()
@@ -598,8 +590,8 @@ class CatalogueConstructor:
             if k not in self.colors:
                 self.colors[k] = color_table[i]
         
-        self.colors[LABEL_TRASH] = (.4, .4, .4)
-        self.colors[LABEL_UNSLASSIFIED] = (.4, .4, .4)
+        self.colors[labelcodes.LABEL_TRASH] = (.4, .4, .4)
+        self.colors[labelcodes.LABEL_UNSLASSIFIED] = (.4, .4, .4)
         
         
     #~ def merge_cluster(self, labels_to_merge):
