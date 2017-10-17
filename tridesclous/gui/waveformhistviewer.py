@@ -47,7 +47,10 @@ class WaveformHistViewer(WidgetBase):
         _params = [
                           {'name': 'colormap', 'type': 'list', 'values' : ['hot', 'viridis', 'jet', 'gray',  ] },
                           {'name': 'data', 'type': 'list', 'values' : ['waveforms', 'features', ] },
-                          {'name': 'nb_bin', 'type': 'int', 'value' : 500 },
+                          {'name': 'bin_min', 'type': 'int', 'value' : -20 },
+                          {'name': 'bin_max', 'type': 'int', 'value' : 8 },
+                          {'name': 'bin_size', 'type': 'int', 'value' : .1 },
+                          {'name': 'display_threshold', 'type': 'bool', 'value' : True },
                           ]
         self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
         
@@ -100,8 +103,11 @@ class WaveformHistViewer(WidgetBase):
         self.plot.addItem(self.curve1)
         self.curve2 = pg.PlotCurveItem()
         self.plot.addItem(self.curve2)
-
- 
+        
+        thresh = self.controller.get_threshold()
+        self.thresh_line = pg.InfiniteLine(pos=thresh, angle=0, movable=False, pen = pg.mkPen('w'))
+        self.plot.addItem(self.thresh_line)
+        
         
     def gain_zoom(self, v):
         #~ print('v', v)
@@ -133,7 +139,7 @@ class WaveformHistViewer(WidgetBase):
         if self.params['data']=='waveforms':
             wf = self.controller.some_waveforms
             data = wf.swapaxes(1,2).reshape(wf.shape[0], -1)
-        if self.params['data']=='features':
+        elif self.params['data']=='features':
             data = self.controller.some_features
         
         
@@ -141,44 +147,58 @@ class WaveformHistViewer(WidgetBase):
         keep = np.in1d(labels, visibles)
         data_kept = data[keep]
         
-        min, max = np.min(data_kept), np.max(data_kept)
-        #~ med, mad = median_mad(data_kept, axis=0)
-        #~ min, max = np.min(med-10*mad), np.max(med+10*mad)
-        n = self.params['nb_bin']
-        bin = (max-min)/(n-1)
+        #TODO change for PCA
+        if self.params['data']=='waveforms':
+            bin_min, bin_max = self.params['bin_min'], self.params['bin_max']
+            bin_size = self.params['bin_size']
+            bins = np.arange(bin_min, bin_max, self.params['bin_size'])
+            
+        elif self.params['data']=='features':
+            bin_min, bin_max = np.min(data_kept), np.max(data_kept)
+            #~ n = 500
+            bins = np.linspace(bin_min, bin_max, 500)
+            bin_size = bins[1]  - bins[0]
+            #~ med, mad = median_mad(data_kept, axis=0)
+            #~ min, max = np.min(med-10*mad), np.max(med+10*mad)
+            #~ n = self.params['nb_bin']
+            #~ bin = (max-min)/(n-1)
+        n = bins.size
         
-        hist2d = np.zeros((data_kept.shape[1], n))
+        hist2d = np.zeros((data_kept.shape[1], bins.size))
         indexes0 = np.arange(data_kept.shape[1])
         
-        data_bined = np.floor((data_kept-min)/bin).astype('int32')
-        data_bined = data_bined.clip(0, n-1)
+        data_bined = np.floor((data_kept-bin_min)/bin_size).astype('int32')
+        data_bined = data_bined.clip(0, bins.size-1)
         
         for d in data_bined:
             hist2d[indexes0, d] += 1
 
         self.image.setImage(hist2d, lut=self.lut)#, levels=[0, self._max])
+        self.image.setRect(QT.QRectF(-0.5, bin_min, data_kept.shape[1], bin_max-bin_min))
         self.image.show()
         
         
         for k, curve in zip(visibles, [self.curve1, self.curve2]):
-            
             if self.params['data']=='waveforms':
-                wf0 = self.controller.centroids[k]['median'].T.flatten()
-                curve_bined = np.ceil((wf0-min)/bin).astype('int32')
+                data = self.controller.centroids[k]['median'].T.flatten()
             else:
-                feat0 = np.median(data[labels==k], axis=0)
-                curve_bined = np.ceil((feat0-min)/bin).astype('int32')
-            curve_bined = curve_bined.clip(0, n-1)
-            
+                data = np.median(data[labels==k], axis=0)
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
-            curve.setData(x=indexes0+.5, y=curve_bined)
+            curve.setData(x=indexes0, y=data)
             curve.setPen(pg.mkPen(color, width=2))
             
             curve.show()
         
+        if self.params['display_threshold'] and self.params['data']=='waveforms' :
+            self.thresh_line.show()
+        else:
+            self.thresh_line.hide()
+        
+        
         if self._x_range is None:
-            self._x_range = 0, hist2d.shape[0]
-            self._y_range = 0, hist2d.shape[1]
+            self._x_range = 0, indexes0[-1] #hist2d.shape[1]
+            self._y_range = bin_min, bin_max
+            
         
 
         self.plot.setXRange(*self._x_range, padding = 0.0)

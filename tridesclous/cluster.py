@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import time
 
 import sklearn
 import sklearn.cluster
@@ -73,13 +74,14 @@ class DirtyCut:
         self.n_right = n_right
         self.width = n_right - n_left
         self.peak_sign = peak_sign
+        
         self.threshold = threshold
         
         self.binsize = 0.1
         
         #~ self.smooth_kernel = scipy.signal.gaussian(51, 5)
-        self.smooth_kernel = scipy.signal.gaussian(51, 15)
-        self.smooth_kernel /= np.sum(self.smooth_kernel)
+        #~ self.smooth_kernel = scipy.signal.gaussian(51, 15)
+        #~ self.smooth_kernel /= np.sum(self.smooth_kernel)
         
         self.nb_min = 10
         
@@ -98,51 +100,107 @@ class DirtyCut:
         
         # test with histogram
         #~ count, bins = np.histogram(x, bins=self.bins)
-        #~ count_smooth = np.convolve(count, self.smooth_kernel, mode='same')
+        #~ density = np.convolve(count, self.smooth_kernel, mode='same')
         #~ bins = bins[:1]
         
         # test with kernel density
         #~ kernel = stats.gaussian_kde(values)
-        kern = scipy.stats.gaussian_kde(x)
-        count = kern(self.bins)
-        count_smooth = count
+        kde = scipy.stats.gaussian_kde(x, bw_method=0.2)
+        print('kde.factor', kde.factor)
+        density = kde(self.bins)
+        density /= np.sum(density)
+        print('density', np.sum(density))
         bins = self.bins
-        count_smooth[np.abs(bins)<self.threshold] = 0
+        #~ density[np.abs(bins)<self.threshold] = 0
+        density[np.abs(bins)<3.5] = 0
         
+
+        # maxima
+        local_max_indexes, = np.nonzero((density[1:-1]>density[:-2])& (density[1:-1]>=density[2:]))
+        keep = np.abs(bins[local_max_indexes])>(self.threshold + self.binsize)
+        local_max_indexes = local_max_indexes[keep]
         
-        local_min_indexes, = np.nonzero((count_smooth[1:-1]<count_smooth[:-2])& (count_smooth[1:-1]<=count_smooth[2:]))
-        
-        #TODO work on this: accept cut unerthrehold ????
+        # minima
+        local_min_indexes, = np.nonzero((density[1:-1]<density[:-2])& (density[1:-1]<=density[2:]))
         keep = np.abs(bins[local_min_indexes])>(self.threshold + self.binsize)
         local_min_indexes = local_min_indexes[keep]
         
-        nb_over_thresh = np.sum(np.abs(x)>self.threshold)
+        #~ import matplotlib.pyplot as plt
+        #~ fig, ax = plt.subplots()
+        #~ ax.plot(density)
+        #~ ax.plot(local_max_indexes, density[local_max_indexes], ls='None',marker='o')
+        #~ ax.plot(local_min_indexes, density[local_min_indexes], ls='None',marker='o')
+        #~ plt.show()
+        
+        #keep a local minimum in density if near max are big
+        print('local_max_indexes', local_max_indexes)
+        print('local_min_indexes', local_min_indexes)
+        for i, ind in enumerate(local_min_indexes):
+            i_r = np.searchsorted(local_max_indexes, ind, side='left')
+            i_l = i_r - 1
+            if i_r>=len(local_max_indexes):
+                break
+            delta_l = density[local_max_indexes[i_l]] - density[ind]
+            delta_r = density[local_max_indexes[i_r]] - density[ind]
+            print('search', ind, i_l, local_max_indexes[i_l], i_r, local_max_indexes[i_r])
+            print('delta_l', delta_l, 'delta_r', delta_r, 'density[ind]', density[ind])
+            
+            if min(delta_l, delta_r)<density[ind]/5.:
+                #reject this minimum
+                print('REJECT')
+                local_min_indexes[i] = -1
+        
+        local_min_indexes = local_min_indexes[local_min_indexes!=-1]
+        
+            
+            
+            
+        
+        
+        #~ nb_over_thresh = np.sum(np.abs(x)>self.threshold)
+        sum_cut_density = np.sum(density)
+        print('sum_cut_density', sum_cut_density)
         
         if local_min_indexes.size==0:
+            labels[:] = 1
             lim = 0
         else:
             #several cut possible
             n_on_left = []
             for ind in local_min_indexes:
                 lim = bins[ind]
-                n = np.sum(count[bins<=lim])
+                n = np.sum(density[bins<=lim])
                 n_on_left.append(n)
 
             n_on_left = np.array(n_on_left)
             #~ print('n_on_left', n_on_left, 'local_min_indexes', local_min_indexes,  x.size)
             #~ p = np.argmin(np.abs(n_on_left-x.size//2))
-            p = np.argmin(np.abs(n_on_left-nb_over_thresh//2))
+            #~ p = np.argmin(np.abs(n_on_left-nb_over_thresh//2))
+            print(n_on_left)
+            print(np.abs(n_on_left-sum_cut_density/2))
+            p = np.argmin(np.abs(n_on_left-sum_cut_density/2))
+            
+            
+            print('p', p, n_on_left[p])
             
             #~ print('p', p)
             lim = bins[local_min_indexes[p]]
 
         
-        if self.peak_sign == '-':
-            labels[x>lim] = 1
-        elif self.peak_sign == '+':
-            labels[x<lim] = 1
+            if self.peak_sign == '-':
+                if np.sum(x<=lim)<=self.nb_min:
+                    lim = 0
+                    labels[:] = 1
+                else:
+                    labels[x>lim] = 1
+            elif self.peak_sign == '+':
+                if np.sum(x>=lim)<=self.nb_min:
+                    labels[:] = 1
+                    lim = 0
+                else:
+                    labels[x<lim] = 1
         
-        return labels, lim, bins, count_smooth
+        return labels, lim, bins, density
     
     def split_loop(self):
         cluster_labels = np.zeros(self.waveforms.shape[0], dtype='int64')
@@ -213,36 +271,100 @@ class DirtyCut:
             
             #~ while True:
             
+            #TODO to converge fastly be more strict here
             if self.peak_sign == '-':
                 possible_dim, = np.nonzero(med<0)
             elif self.peak_sign == '+':
                 possible_dim, = np.nonzero(med>0)
             
             possible_dim = possible_dim[~np.in1d(possible_dim, dim_visited)]
+            
             if len(possible_dim)==0:
-                print('BREAK len(possible_dim)==0')
-                break
+                print('len(possible_dim)==0')
+                if np.sum(cluster_labels>k)>0:
+                    k+=1
+                    dim_visited = []
+                    continue
+                else:
+                    cluster_labels[sel] = -1
+                    print('BREAK no  more dim')
+                    break
                 
             #strategy1: take max mad
             #~ dim = possible_dim[np.argmax(mad[possible_dim])]
             
             #strategy2: take where bigest nb of devian
-            #~ factor = 6
-            factor = self.threshold
+            #~ factor = self.threshold
+            #~ if self.peak_sign == '-':
+                #~ nb_outer = np.sum(wf_sel[:, possible_dim]<(med[possible_dim]-factor*mad[possible_dim]), axis=0)
+            #~ elif self.peak_sign == '+':
+                #~ nb_outer = np.sum(wf_sel[:, possible_dim]>(med[possible_dim]+factor*mad[possible_dim]), axis=0)
+            #~ print('nb_outer', nb_outer.shape, nb_outer, wf_sel.shape, len(possible_dim))
+            #~ dim = possible_dim[np.argmax(nb_outer)]
+            
+            #strategy3: take hiher mean over threshold
+            #~ wf_sel2 = wf_sel[:, possible_dim].copy()
+            #~ if self.peak_sign == '-':
+                #~ wf_sel2[wf_sel2>=-self.threshold] = np.nan
+                #~ dim = possible_dim[np.argmin(np.nanmean(wf_sel2, axis=0))]
+            #~ elif self.peak_sign == '+':
+                #~ raise(NotImplementedError)
+
+            #strategy4: take best percentile 25
+            wf_sel2 = wf_sel[:, possible_dim].copy()
             if self.peak_sign == '-':
-                nb_outer = np.sum(wf_sel[:, possible_dim]<(med[possible_dim]-factor*mad[possible_dim]), axis=0)
+                #~ print()
+                wf_sel2[wf_sel2>=-self.threshold] = np.nan
+                per = np.nanpercentile(wf_sel2, 10., axis=0)
+                if np.all(np.isnan(per)):
+                    k+=1
+                    dim_visited = []
+                    continue
+                    
+                #~ per = np.nanmean(wf_sel2, axis=0)
+                #~ print(per)
+                print(np.nanmin(per), np.nanargmin(per), per[np.nanargmin(per)])
+                dim = possible_dim[np.nanargmin(per)]
             elif self.peak_sign == '+':
-                nb_outer = np.sum(wf_sel[:, possible_dim]>(med[possible_dim]+factor*mad[possible_dim]), axis=0)
-            print('nb_outer', nb_outer.shape, nb_outer, wf_sel.shape, len(possible_dim))
-            dim = possible_dim[np.argmax(nb_outer)]
+                raise(NotImplementedError)
+            
+            
+            
+            
             
             
             print('dim', dim)
             
             feat = wf_sel[:, dim]
             
-            labels, lim, bins, count_smooth = self.one_cut(feat)
+            labels, lim, bins, density = self.one_cut(feat)
 
+            
+            t0 = time.perf_counter()
+            density2d = np.zeros((wf_sel.shape[1], self.bins.size))
+            
+            indexes0 = np.arange(wf_sel.shape[1], dtype='int64')
+            data_bined = np.floor((wf_sel-self.bins[0])/self.binsize).astype('int32')
+            data_bined = data_bined.clip(0, bins.size-1)
+            for d in data_bined:
+                density2d[indexes0, d] += 1
+            density2d[:, np.abs(self.bins)<self.threshold] = 0
+            
+            #~ for d in range(wf_sel.shape[1]):
+                #~ print(d)
+                #~ kern = scipy.stats.gaussian_kde(wf_sel[:, d])
+                #~ count = kern(self.bins)
+                #~ count[np.abs(self.bins)<self.threshold] = 0
+                #~ density2d[d, :] = count
+            
+            t1 = time.perf_counter()
+            print(t1-t0)
+            
+            
+            
+
+            #~ print(density2d)
+            
             if self.debug:
             #~ if False:
                 import matplotlib.pyplot as plt
@@ -262,7 +384,7 @@ class DirtyCut:
                 count = count.astype(float)/np.sum(count)
                 
                 filename = 'debug_dirtycut/one_cut {}.png'.format(self.n_cut)
-                fig, axs = plt.subplots(nrows=3)
+                fig, axs = plt.subplots(nrows=4)
 
                 axs[0].fill_between(np.arange(med.size), med-mad, med+mad, alpha=.5)
                 axs[0].plot(np.arange(med.size), med)
@@ -275,9 +397,14 @@ class DirtyCut:
                 axs[1].set_ylim(0,5)
                 
                 axs[2].plot(self.bins[:-1], count, color='b')
-                axs[2].plot(bins, count_smooth, color='k')
+                axs[2].plot(bins, density, color='k')
                 axs[2].axvline(lim, color='k')
-                axs[2].set_xlim(-80,0.1)
+                axs[2].set_xlim(-80,0.5)
+                
+                
+                im = axs[3].imshow(density2d.T, cmap='hot', aspect='auto')
+                im.set_clim(0, np.max(density2d)/8.)
+                
                 
                 fig.savefig(filename)
                 
@@ -287,23 +414,25 @@ class DirtyCut:
             
             
             
-            print('nb1', np.sum(labels==1), 'nb0', np.sum(labels==0))
+            print('nb0', np.sum(labels==0), 'nb1', np.sum(labels==1))
             
             if np.sum(labels==0)==0:
                 channel_index = dim // self.width
                 #~ dim_visited.append(dim)
-                dim_visited.extend(range(channel_index*width, (channel_index+1)*width))
+                dim_visited.extend(range(channel_index*self.width, (channel_index+1)*self.width))
                 print('nb0==0', dim_visited)
                 
                 continue
+
             
             ind, = np.nonzero(sel)
-            #~ cluster_labels[cluster_labels>k] += 1#TODO reflechir la dessus!!!
+            cluster_labels[cluster_labels>k] += 1#TODO reflechir la dessus!!!
             cluster_labels[ind[labels==1]] += 1
-            
+
             if np.sum(labels==1)==0:
                 k+=1
                 dim_visited = []
+            
                     
         
         
@@ -373,7 +502,7 @@ class DirtyCut:
     def do_the_job(self):
         
         cluster_labels = self.split_loop()
-        cluster_labels = self.merge_loop(cluster_labels)
+        #~ cluster_labels = self.merge_loop(cluster_labels)
         
         return cluster_labels
 

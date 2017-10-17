@@ -133,9 +133,9 @@ if __name__ == '__main__':
     #~ test_SimilarityView()
     #~ test_PairList()
     #~ test_Silhouette()
-    #~ test_WaveformHistViewer()
+    test_WaveformHistViewer()
     
-    test_CatalogueWindow()
+    #~ test_CatalogueWindow()
 
 
 

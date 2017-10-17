@@ -56,6 +56,7 @@ class WaveformViewer(WidgetBase):
                           {'name': 'fillbetween', 'type': 'bool', 'value': True },
                           {'name': 'show_channel_num', 'type': 'bool', 'value': False},
                           {'name': 'flip_y', 'type': 'bool', 'value': False},
+                          {'name': 'display_threshold', 'type': 'bool', 'value' : True },
                           ]
         self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
         
@@ -144,7 +145,7 @@ class WaveformViewer(WidgetBase):
             self.plot2.showAxis('left', True)
             self.viewBox2.setXLink(self.viewBox1)
             self.factor_y = 1.
-            
+
         elif self.mode=='geometry':
             self.plot2 = None
             
@@ -166,7 +167,7 @@ class WaveformViewer(WidgetBase):
                 for i, chan in enumerate(self.controller.channel_indexes):
                     x, y = channel_group['geometry'][chan]
                     self.arr_geometry.append([x, y])
-                self.arr_geometry = np.array(self.arr_geometry)
+                self.arr_geometry = np.array(self.arr_geometry, dtype='float64')
                 
                 if self.params['flip_y']:
                     self.arr_geometry[:, 1] *= -1.
@@ -278,6 +279,15 @@ class WaveformViewer(WidgetBase):
         if self.params['plot_limit_for_flatten']:
             addSpan(self.plot1)
             addSpan(self.plot2)
+        
+        if self.params['display_threshold']:
+            thresh = self.controller.get_threshold()
+            thresh_line = pg.InfiniteLine(pos=thresh, angle=0, movable=False, pen = pg.mkPen('w'))
+            self.plot1.addItem(thresh_line)
+
+            
+            
+        
         
         #waveforms
         
