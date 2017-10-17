@@ -605,9 +605,9 @@ class CatalogueConstructor:
         
         #~ self.on_new_cluster(label_changed=labels_to_merge+[new_label])
     
-    def split_cluster(self, label, n, method='kmeans', order_clusters=True, **kargs):
+    def split_cluster(self, label, n, method='kmeans',  **kargs): #order_clusters=True,
         mask = self.all_peaks['label']==label
-        self.find_clusters(method=method, n_clusters=n, order_clusters=order_clusters, selection=mask, **kargs)
+        self.find_clusters(method=method, n_clusters=n, selection=mask, **kargs) # order_clusters=order_clusters,
     
     def trash_small_cluster(self, n=10):
         for k in self.cluster_labels:

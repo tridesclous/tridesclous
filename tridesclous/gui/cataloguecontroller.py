@@ -180,8 +180,8 @@ class CatalogueController(ControllerBase):
     def project(self, method='pca', selection=None, **kargs):
         self.cc.project(method=method, selection=selection, **kargs)
     
-    def split_cluster(self, label_to_split, n, method=None, order_clusters=True, **kargs):
-        self.cc.split_cluster(label_to_split, n, method=method, order_clusters=order_clusters, **kargs)
+    def split_cluster(self, label_to_split, n, method=None,  **kargs): #order_clusters=True,
+        self.cc.split_cluster(label_to_split, n, method=method,  **kargs) #order_clusters=order_clusters,
         self.on_new_cluster()
         self.refresh_colors(reset = False)
 

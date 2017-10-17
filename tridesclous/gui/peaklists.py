@@ -404,7 +404,7 @@ class ClusterPeakList(WidgetBase):
         
         n = kargs.pop('n')
         
-        self.controller.split_cluster(label_to_split, n, method=method, order_clusters=True, **kargs)
+        self.controller.split_cluster(label_to_split, n, method=method,  **kargs) #order_clusters=True,
         self.refresh()
         self.spike_label_changed.emit()
 

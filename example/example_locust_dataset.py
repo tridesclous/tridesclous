@@ -105,7 +105,8 @@ def extract_waveforms_pca_cluster():
     print(catalogueconstructor)
     
     t1 = time.perf_counter()
-    catalogueconstructor.find_clusters(method='kmeans', n_clusters=10)
+    #~ catalogueconstructor.find_clusters(method='kmeans', n_clusters=10)
+    catalogueconstructor.find_clusters(method='dirtycut', n_clusters=10)
     t2 = time.perf_counter()
     print('find_clusters', t2-t1)
     print(catalogueconstructor)
@@ -178,7 +179,7 @@ if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
     preprocess_signals_and_peaks()
     extract_waveforms_pca_cluster()
-    #~ open_cataloguewindow()
+    open_cataloguewindow()
     #~ detect_similar_ratio()
     #~ run_peeler()
     #~ open_PeelerWindow()
