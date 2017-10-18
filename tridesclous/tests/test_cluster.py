@@ -25,8 +25,11 @@ def test_dirtycut():
     print(dataio)
     print(cc)
     
-    
-    cc.find_clusters(method='dirtycut', selection=None)
+    t0 = time.perf_counter()
+    cc.find_clusters(method='dirtycut')
+    t1 = time.perf_counter()
+    print('cluster', t1-t0)
+    #~ exit()
     
     print(cc)
 

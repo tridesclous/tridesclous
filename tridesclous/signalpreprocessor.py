@@ -242,7 +242,7 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base):
         
         
         self.coefficients = np.ascontiguousarray(self.coefficients, dtype=self.output_dtype)
-        print(self.coefficients.shape)
+        #~ print(self.coefficients.shape)
         
         
         self.zi1 = np.zeros((self.nb_channel, self.nb_section, 2), dtype= self.output_dtype)

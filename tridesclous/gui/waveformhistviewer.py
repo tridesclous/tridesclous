@@ -47,8 +47,8 @@ class WaveformHistViewer(WidgetBase):
         _params = [
                           {'name': 'colormap', 'type': 'list', 'values' : ['hot', 'viridis', 'jet', 'gray',  ] },
                           {'name': 'data', 'type': 'list', 'values' : ['waveforms', 'features', ] },
-                          {'name': 'bin_min', 'type': 'int', 'value' : -20 },
-                          {'name': 'bin_max', 'type': 'int', 'value' : 8 },
+                          {'name': 'bin_min', 'type': 'float', 'value' : -20. },
+                          {'name': 'bin_max', 'type': 'float', 'value' : 8. },
                           {'name': 'bin_size', 'type': 'int', 'value' : .1 },
                           {'name': 'display_threshold', 'type': 'bool', 'value' : True },
                           ]
@@ -69,7 +69,10 @@ class WaveformHistViewer(WidgetBase):
         else:
             self.tree_params.hide()
             
-    def on_params_change(self):
+    def on_params_change(self, ): #params, changes
+        #~ for param, change, data in changes:
+            #~ if change != 'value': continue
+            #~ if param.name()=='data':
         
         N = 512
         cmap_name = self.params['colormap']
@@ -83,6 +86,10 @@ class WaveformHistViewer(WidgetBase):
 
         self._x_range = None
         self._y_range = None
+
+
+        
+        
         
         self.refresh()
     
@@ -107,6 +114,17 @@ class WaveformHistViewer(WidgetBase):
         thresh = self.controller.get_threshold()
         self.thresh_line = pg.InfiniteLine(pos=thresh, angle=0, movable=False, pen = pg.mkPen('w'))
         self.plot.addItem(self.thresh_line)
+
+        self.params.blockSignals(True)
+        #~ self.params['bin_min'] = np.min(self.controller.some_waveforms)
+        #~ self.params['bin_max'] = np.max(self.controller.some_waveforms)
+        self.params['bin_min'] = np.percentile(self.controller.some_waveforms, .05)
+        self.params['bin_max'] = np.percentile(self.controller.some_waveforms, 99.95)
+        self.params.blockSignals(False)
+                
+
+        
+
         
         
     def gain_zoom(self, v):

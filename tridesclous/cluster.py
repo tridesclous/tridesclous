@@ -14,6 +14,7 @@ from . import labelcodes
 from .tools import median_mad
 
 
+import matplotlib.pyplot as plt
 
 
 def find_clusters(catalogueconstructor, method='kmeans', selection=None, n_clusters=1, **kargs):
@@ -80,21 +81,20 @@ class DirtyCut:
         self.binsize = 0.1
         self.kde_bandwith  = 0.2
         
-        #~ self.smooth_kernel = scipy.signal.gaussian(51, 5)
-        #~ self.smooth_kernel = scipy.signal.gaussian(51, 15)
-        #~ self.smooth_kernel /= np.sum(self.smooth_kernel)
-        
         self.nb_min = 10
         
         self.max_loop = 1000
         
-        self.break_left_over = 30
+        self.break_nb_remain = 30
         
         self.threshold_similarity = 0.9
         
         self.debug = True
         #~ self.debug = False
+        
+        
 
+    
     
     def one_cut(self, x):
         labels = np.zeros(x.size, dtype='int64')
@@ -107,12 +107,12 @@ class DirtyCut:
         # test with kernel density
         #~ kernel = stats.gaussian_kde(values)
         
-
+        #TODO: adapt self.kde_bandwith with N
         kde = scipy.stats.gaussian_kde(x, bw_method=self.kde_bandwith)
-        print('kde.factor', kde.factor)
+        #~ print('kde.factor', kde.factor)
         density = kde(self.bins)
         density /= np.sum(density)
-        print('density', np.sum(density))
+        #~ print('density', np.sum(density))
 
         bins = self.bins.copy()
         #TODO work on this
@@ -150,18 +150,18 @@ class DirtyCut:
         #~ plt.show()
         
         #keep a local minimum in density if near max are big
-        print('local_max_indexes', local_max_indexes, bins[local_max_indexes])
-        print('local_min_indexes', local_min_indexes, bins[local_min_indexes])
+        #~ print('local_max_indexes', local_max_indexes, bins[local_max_indexes])
+        #~ print('local_min_indexes', local_min_indexes, bins[local_min_indexes])
         for i, ind in enumerate(local_min_indexes):
             lim = bins[ind]
-            print('ici', ind, lim, np.sum(x<=lim))
+            #~ print('ici', ind, lim, np.sum(x<=lim))
             #TODO trash too small 
             if self.peak_sign == '-' and np.sum(x<=lim)<=self.nb_min:
                 local_min_indexes[i] = -1
-                print('REJECT under self.nb_min')
+                #~ print('REJECT under self.nb_min')
             elif self.peak_sign == '+' and np.sum(x>=lim)<=self.nb_min:
                 local_min_indexes[i] = -1
-                print('REJECT under self.nb_min')
+                #~ print('REJECT under self.nb_min')
             
             i_r = np.searchsorted(local_max_indexes, ind, side='left')
             i_l = i_r - 1
@@ -169,17 +169,17 @@ class DirtyCut:
                 break
             delta_l = density[local_max_indexes[i_l]] - density[ind]
             delta_r = density[local_max_indexes[i_r]] - density[ind]
-            print('search', ind, i_l, local_max_indexes[i_l], i_r, local_max_indexes[i_r])
-            print('delta_l', delta_l, 'delta_r', delta_r, 'density[ind]', density[ind])
+            #~ print('search', ind, i_l, local_max_indexes[i_l], i_r, local_max_indexes[i_r])
+            #~ print('delta_l', delta_l, 'delta_r', delta_r, 'density[ind]', density[ind])
             
             if min(delta_l, delta_r)<density[ind]/5.:
                 #reject this minimum
-                print('REJECT minimum not enought depth')
+                #~ print('REJECT minimum not enought depth')
                 local_min_indexes[i] = -1
             
         
         local_min_indexes = local_min_indexes[local_min_indexes!=-1]
-        print('local_min_indexes', local_min_indexes, bins[local_min_indexes])
+        #~ print('local_min_indexes', local_min_indexes, bins[local_min_indexes])
             
             
             
@@ -187,7 +187,7 @@ class DirtyCut:
         
         #~ nb_over_thresh = np.sum(np.abs(x)>self.threshold)
         sum_cut_density = np.sum(density)
-        print('sum_cut_density', sum_cut_density)
+        #~ print('sum_cut_density', sum_cut_density)
         
         if local_min_indexes.size==0:
             labels[:] = 1
@@ -204,16 +204,16 @@ class DirtyCut:
             #~ print('n_on_left', n_on_left, 'local_min_indexes', local_min_indexes,  x.size)
             #~ p = np.argmin(np.abs(n_on_left-x.size//2))
             #~ p = np.argmin(np.abs(n_on_left-nb_over_thresh//2))
-            print(n_on_left)
-            print(np.abs(n_on_left-sum_cut_density/2))
+            #~ print(n_on_left)
+            #~ print(np.abs(n_on_left-sum_cut_density/2))
             p = np.argmin(np.abs(n_on_left-sum_cut_density/2))
             
             
-            print('p', p, n_on_left[p])
+            #~ print('p', p, n_on_left[p])
             
             #~ print('p', p)
             lim = bins[local_min_indexes[p]]
-            print('lim', lim)
+            #~ print('lim', lim)
 
         
             if self.peak_sign == '-':
@@ -236,77 +236,68 @@ class DirtyCut:
     def split_loop(self):
         cluster_labels = np.zeros(self.waveforms.shape[0], dtype='int64')
 
+        flat_waveforms = self.waveforms.swapaxes(1,2).reshape(self.waveforms.shape[0], -1)
+        nan_waveforms = flat_waveforms.copy()
         if self.peak_sign == '-':
+            nan_waveforms[nan_waveforms>=-self.threshold] = np.nan
             m = np.min(self.waveforms[:, -self.n_left, :])
             self.bins=np.arange(m,0, self.binsize)
         elif self.peak_sign == '+':
+            nan_waveforms[nan_waveforms<=-self.threshold] = np.nan
             m = np.min(self.waveforms[:, -self.n_left, :])
             self.bins=np.arange(0, m, self.binsize)
+
         print('bins', self.bins[0], '...', self.bins[-1])
         
         
-        flat_wf = self.waveforms.swapaxes(1,2).reshape(self.waveforms.shape[0], -1)
-        
         k = 0
         dim_visited = []
+        
         for i in range(self.max_loop):
                     
-            left_over = np.sum(cluster_labels>=k)
-            print()
-            print('i', i, 'k', k, 'left_over', left_over)
-            
+            nb_remain = np.sum(cluster_labels>=k)
             sel = cluster_labels == k
+            nb_working = np.sum(sel)
+            print()
+            print('i', i, 'k', k, 'nb_remain', nb_remain, 'nb_working', nb_working, {True:'full', False:'partial'}[nb_remain==nb_working])
             
-            if i!=0 and left_over<self.break_left_over:# or k==40:
-                #~ cluster_labels[sel] = -k
+            
+            if i!=0 and nb_remain<self.break_nb_remain:
                 cluster_labels[sel] = -1
-                print('BREAK left_over<', self.break_left_over)
+                print('BREAK nb_remain', nb_remain, '<', self.break_nb_remain)
                 break
             
-            wf_sel = flat_wf[sel]
-            n_with_label = wf_sel .shape[0]
-            print('n_with_label', n_with_label)
+            wf_sel = flat_waveforms[sel, :]
             
-            if wf_sel .shape[0]<30:
-                print('too few')
+            if nb_working<self.nb_min:
+                print('TRASH: too few')
                 cluster_labels[sel] = -1
-                k+=1
+                k += 1
                 dim_visited = []
                 continue
             
             med, mad = median_mad(wf_sel)
-            #~ med = np.mean(wf_sel, axis=0)
-            #~ mad = np.std(wf_sel, axis=0)
-            
             
             if np.all(mad<1.6):
-                print('mad<1.6')
-                k+=1
+                print('ACCEPT: mad<1.6')
+                k += 1
                 dim_visited = []
                 continue
 
-            if np.all(wf_sel.shape[0]<100):
-                #TODO remove this!!!!!
-                print('Too small cluster')
-                k+=1
-                dim_visited = []
-                continue
-            
-            
-            #~ weight = mad-1
-            #~ feat = wf_sel * weight
-            #~ feat = wf_sel[:, np.argmax(mad), None]
-            #~ print(feat.shape)
-            #~ print(feat)
-            
-            
-            #~ while True:
             
             #TODO to converge fastly be more strict here
             if self.peak_sign == '-':
-                possible_dim, = np.nonzero(med<0)
+                if nb_remain==nb_working:
+                    possible_dim, = np.nonzero(med<0)
+                else:
+                    possible_dim, = np.nonzero(med<-3.5)
+                    print('ICI', len(possible_dim))
             elif self.peak_sign == '+':
-                possible_dim, = np.nonzero(med>0)
+                if nb_remain==nb_working:
+                    possible_dim, = np.nonzero(med>0)
+                else:
+                    possible_dim, = np.nonzero(med>3.5)
+                    print('ICI', len(possible_dim))
             
             possible_dim = possible_dim[~np.in1d(possible_dim, dim_visited)]
             
@@ -354,7 +345,7 @@ class DirtyCut:
                     
                 #~ per = np.nanmean(wf_sel2, axis=0)
                 #~ print(per)
-                print(np.nanmin(per), np.nanargmin(per), per[np.nanargmin(per)])
+                #~ print(np.nanmin(per), np.nanargmin(per), per[np.nanargmin(per)])
                 dim = possible_dim[np.nanargmin(per)]
             elif self.peak_sign == '+':
                 raise(NotImplementedError)
@@ -368,38 +359,11 @@ class DirtyCut:
             feat = wf_sel[:, dim]
             labels, lim, bins, density = self.one_cut(feat)
 
-            
-            
-            #~ t0 = time.perf_counter()
-            #~ density2d = np.zeros((wf_sel.shape[1], self.bins.size))
-            
-            #~ indexes0 = np.arange(wf_sel.shape[1], dtype='int64')
-            #~ data_bined = np.floor((wf_sel-self.bins[0])/self.binsize).astype('int32')
-            #~ data_bined = data_bined.clip(0, bins.size-1)
-            #~ for d in data_bined:
-                #~ density2d[indexes0, d] += 1
-            #~ density2d[:, np.abs(self.bins)<self.threshold] = 0
-            
-            #~ for d in range(wf_sel.shape[1]):
-                #~ print(d)
-                #~ kern = scipy.stats.gaussian_kde(wf_sel[:, d])
-                #~ count = kern(self.bins)
-                #~ count[np.abs(self.bins)<self.threshold] = 0
-                #~ density2d[d, :] = count
-            
-            #~ t1 = time.perf_counter()
-            #~ print(t1-t0)
-            
-            
-            
-
-            #~ print(density2d)
-            
             print('nb0', np.sum(labels==0), 'nb1', np.sum(labels==1))
             
-            if self.debug:
-            #~ if False:
-                import matplotlib.pyplot as plt
+            #~ if self.debug:
+            if False:
+                
             #~ if False:
                 if not os.path.exists('debug_dirtycut'):
                     os.mkdir('debug_dirtycut')
@@ -432,7 +396,7 @@ class DirtyCut:
                 axs[2].plot(bins, density, color='k')
                 axs[2].axvline(lim, color='k')
                 axs[2].set_xlim(-80,0.5)
-                
+                axs[2].set_ylim(0,max(density)*1.2)
                 
                 #~ im = axs[3].imshow(density2d.T, cmap='hot', aspect='auto')
                 #~ im.set_clim(0, np.max(density2d)/8.)
@@ -452,7 +416,7 @@ class DirtyCut:
                 channel_index = dim // self.width
                 #~ dim_visited.append(dim)
                 dim_visited.extend(range(channel_index*self.width, (channel_index+1)*self.width))
-                print('nb0==0', dim_visited)
+                print('EXPLORE NEW DIM nb0==0 ', flat_waveforms.shape[1], len(dim_visited))
                 
                 continue
 
@@ -462,10 +426,10 @@ class DirtyCut:
             cluster_labels[ind[labels==1]] += 1
 
             if np.sum(labels==1)==0:
+                print('ACCEPT: nb1==0')
                 k+=1
                 dim_visited = []
-            
-                    
+                continue
         
         
         return cluster_labels
@@ -494,25 +458,23 @@ class DirtyCut:
         labels = labels[labels>=0]
         
         #regroup if very high similarity
-        flat_wf = self.waveforms.swapaxes(1,2).reshape(self.waveforms.shape[0], -1)
-        centroids = []
-        for k in labels:
-            sel = cluster_labels==k
-            med = np.median(flat_wf[sel], axis=0)
-            centroids.append(med)
-        centroids = np.array(centroids)
-        similarity = sklearn.metrics.pairwise.cosine_similarity(centroids)
-        similarity = np.triu(similarity)
+        #~ flat_waveforms = self.waveforms.swapaxes(1,2).reshape(self.waveforms.shape[0], -1)
+        #~ centroids = []
+        #~ for k in labels:
+            #~ sel = cluster_labels==k
+            #~ med = np.median(flat_waveforms[sel], axis=0)
+            #~ centroids.append(med)
+        #~ centroids = np.array(centroids)
+        #~ similarity = sklearn.metrics.pairwise.cosine_similarity(centroids)
+        #~ similarity = np.triu(similarity)
 
-        ind0, ind1 = np.nonzero(similarity>self.threshold_similarity)
-        keep = ind0!=ind1
-        ind0 = ind0[keep]
-        ind1 = ind1[keep]
-        pairs = list(zip(labels[ind0], labels[ind1]))
-        #~ print(pairs)
-        for k1, k2 in pairs:
-            #~ print(k1, k2, similarity[k1, k2])
-            cluster_labels[cluster_labels==k2] = k1
+        #~ ind0, ind1 = np.nonzero(similarity>self.threshold_similarity)
+        #~ keep = ind0!=ind1
+        #~ ind0 = ind0[keep]
+        #~ ind1 = ind1[keep]
+        #~ pairs = list(zip(labels[ind0], labels[ind1]))
+        #~ for k1, k2 in pairs:
+            #~ cluster_labels[cluster_labels==k2] = k1
         
         #~ fig, ax = plt.subplots()
         #~ im  = ax.matshow(centroids, cmap='viridis', aspect='auto')
@@ -534,7 +496,7 @@ class DirtyCut:
     def do_the_job(self):
         
         cluster_labels = self.split_loop()
-        #~ cluster_labels = self.merge_loop(cluster_labels)
+        cluster_labels = self.merge_loop(cluster_labels)
         
         return cluster_labels
 
