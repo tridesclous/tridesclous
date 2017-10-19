@@ -22,6 +22,23 @@ def median_mad(data, axis=0):
     return med, mad
 
 
+def get_pairs_over_threshold(m, labels, threshold):
+    """
+    detect pairs over threhold in a similarity matrice
+    """
+    m = np.triu(m)
+    ind0, ind1 = np.nonzero(m>threshold)
+    
+    #remove diag
+    keep = ind0!=ind1
+    ind0 = ind0[keep]
+    ind1 = ind1[keep]
+    
+    pairs = list(zip(labels[ind0], labels[ind1]))
+    
+    return pairs
+    
+
 
 class FifoBuffer:
     """

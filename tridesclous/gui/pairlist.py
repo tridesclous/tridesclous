@@ -16,6 +16,17 @@ class PairList(WidgetBase):
         
         self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
+        
+        self.combo = QT.QComboBox()
+        self.layout.addWidget(self.combo)
+        self.combo.addItems(['all pairs', 'similar amplitude ratio', ]) #'high similarity'
+        self.combo.currentTextChanged.connect(self.refresh)
+        
+        but = QT.QPushButton('settings')
+        self.layout.addWidget(but)
+        but.clicked.connect(self.open_settings)
+        
+        
 
         self.table = QT.QTableWidget(selectionMode=QT.QAbstractItemView.SingleSelection,
                                                         selectionBehavior=QT.QAbstractItemView.SelectRows)
@@ -31,8 +42,33 @@ class PairList(WidgetBase):
         act = self.menu.addAction('Tag same cell')
         act.triggered.connect(self.do_tag_same_cell)
         
+        self.create_settings()
+        
         self.refresh()
+
+    def create_settings(self):
+        _params = [
+                          {'name': 'threshold', 'type': 'float', 'value' :.9},
+                          ]
+        self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
+        
+        self.params.sigTreeStateChanged.connect(self.refresh)
+        self.tree_params = pg.parametertree.ParameterTree(parent  = self)
+        self.tree_params.header().hide()
+        self.tree_params.setParameters(self.params, showTop=True)
+        self.tree_params.setWindowTitle(u'Options for waveforms viewer')
+        self.tree_params.setWindowFlags(QT.Qt.Window)
+        
+        self.params.sigTreeStateChanged.connect(self.on_params_change)
     
+    def open_settings(self):
+        if not self.tree_params.isVisible():
+            self.tree_params.show()
+        else:
+            self.tree_params.hide()
+    
+    def on_params_change(self):
+        self.refresh()
     
     def on_item_selection_changed(self):
         inds = self.table.selectedIndexes()
@@ -70,17 +106,27 @@ class PairList(WidgetBase):
     
     def refresh(self):
         self.table.clear()
-        labels = ['cluster1', 'cluster2' ]
+        labels = ['cluster_label_1', 'cluster_label_2', 'cell_label_1', 'cell_label_2' ]
         self.table.setColumnCount(len(labels))
         self.table.setHorizontalHeaderLabels(labels)
         self.table.setColumnWidth(0, 100)
         self.table.setColumnWidth(1, 100)
         
+        mode = self.combo.currentText()
+        print('mode', mode)
         
+
         
-        labels = self.controller.cluster_labels
-        labels = labels[labels>=0]
-        self.pairs = list(itertools.combinations(labels, 2))
+        if mode == 'all pairs':
+            labels = self.controller.positive_cluster_labels
+            #~ labels = labels[labels>=0]
+            self.pairs = list(itertools.combinations(labels, 2))
+        elif mode == 'similar amplitude ratio':
+            self.pairs = self.controller.detect_similar_waveform_ratio(threshold=self.params['threshold'])
+            print(self.controller.cc.ratio_similarity[1, 5])
+        #~ elif mode == 'high similarity':
+            #~ self.pairs = self.controller.detect_high_similarity(threshold=0.9)
+            #~ print(self.controller.cc.similarity[1, 5])
         
         self.table.setRowCount(len(self.pairs))
         
@@ -98,6 +144,15 @@ class PairList(WidgetBase):
                 item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
                 self.table.setItem(r,c, item)
                 item.setIcon(icon)
+                
+                
+                cell_label = self.controller.cell_labels[self.controller.cluster_labels==k][0]
+                name = '{}'.format(cell_label)
+                item = QT.QTableWidgetItem(name)
+                item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
+                self.table.setItem(r,c+2, item)
+                
+                
 
 
         

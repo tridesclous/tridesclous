@@ -64,6 +64,10 @@ class CatalogueController(ControllerBase):
         return self.cc.cluster_labels
     
     @property
+    def positive_cluster_labels(self):
+        return self.cc.positive_cluster_labels
+    
+    @property
     def cell_labels(self):
         return self.cc.clusters['cell_label']
         
@@ -126,7 +130,9 @@ class CatalogueController(ControllerBase):
         """
         label_changed can be remove/add/modify
         """
-        if self.cc.all_peaks['index']==[]: return
+        if len(self.cc.all_peaks['index']) == 0:
+            return
+        
         self.cc.on_new_cluster()
         
         if label_changed is None:
@@ -141,6 +147,7 @@ class CatalogueController(ControllerBase):
                         self.cluster_count.pop(k)
         
         self.cc.compute_centroid(label_changed=label_changed)
+        self.compute_similarity_ratio()
         
         self.check_plot_attributes()
 
@@ -184,4 +191,12 @@ class CatalogueController(ControllerBase):
         self.cc.split_cluster(label_to_split, n, method=method,  **kargs) #order_clusters=order_clusters,
         self.on_new_cluster()
         self.refresh_colors(reset = False)
-
+    
+    def detect_similar_waveform_ratio(self, threshold=0.9):
+        return self.cc.detect_similar_waveform_ratio(threshold=threshold)
+        
+    def detect_high_similarity(self, threshold=0.95):
+        return self.cc.detect_high_similarity(threshold=threshold)
+    
+    
+    

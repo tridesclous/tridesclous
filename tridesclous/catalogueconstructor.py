@@ -17,7 +17,7 @@ from . import  peakdetector
 from . import decomposition
 from . import cluster 
 
-from .tools import median_mad
+from .tools import median_mad, get_pairs_over_threshold
 
 
 from .iotools import ArrayCollection
@@ -50,9 +50,6 @@ class CatalogueConstructor:
     def __init__(self, dataio, chan_grp=None, name='catalogue_constructor'):
         self.dataio = dataio
         
-        
-        
-        
         if chan_grp is None:
             chan_grp = min(self.dataio.channel_groups.keys())
         self.chan_grp = chan_grp
@@ -62,7 +59,7 @@ class CatalogueConstructor:
         
         if not os.path.exists(self.catalogue_path):
             os.mkdir(self.catalogue_path)
-        #~ print('self.catalogue_path', self.catalogue_path)
+        
         self.arrays = ArrayCollection(parent=self, dirname=self.catalogue_path)
         
         self.info_filename = os.path.join(self.catalogue_path, 'info.json')
@@ -77,14 +74,9 @@ class CatalogueConstructor:
         
         for name in _persitent_arrays:
             # this set attribute to class if exsits
-            #~ print('ici', name)
             self.arrays.load_if_exists(name)
             
-        
-        #~ if self.peak_pos is not None:
         if self.all_peaks is not None:
-            #~ self.nb_peak = self.peak_pos.size
-            #~ self.nb_peak = self.all_peaks.size
             self.memory_mode='memmap'
         
         self.projector = None
@@ -116,6 +108,24 @@ class CatalogueConstructor:
         
         
         return t
+
+    @property
+    def nb_peak(self):
+        if self.all_peaks is None:
+            return 0
+        return self.all_peaks.size
+
+    @property
+    def cluster_labels(self):
+        if self.clusters is not None:
+            return self.clusters['cluster_label']
+        else:
+            return np.array([], dtype='int64')
+    
+    @property
+    def positive_cluster_labels(self):
+        return self.cluster_labels[self.cluster_labels>=0] 
+
     
     def reload_data(self):
         if not hasattr(self, 'memory_mode') or not self.memory_mode=='memmap':
@@ -293,11 +303,7 @@ class CatalogueConstructor:
         self.finalize_signalprocessor_loop()
         
     
-    @property
-    def nb_peak(self):
-        if self.all_peaks is None:
-            return 0
-        return self.all_peaks.size
+        
         
     def extract_some_waveforms(self, n_left=None, n_right=None, index=None, 
                                     mode='rand', nb_max=10000,
@@ -518,12 +524,6 @@ class CatalogueConstructor:
         #~ if order_clusters:
             #~ self.order_clusters()
     
-    @property
-    def cluster_labels(self):
-        if self.clusters is not None:
-            return self.clusters['cluster_label']
-        else:
-            return np.array([], dtype='int64')
     
     def on_new_cluster(self):
         #~ print('on_new_cluster')
@@ -615,10 +615,35 @@ class CatalogueConstructor:
             if np.sum(mask)<=n:
                 self.all_peaks['label'][mask] = -1
         self.on_new_cluster()
+
+    def compute_similarity(self):
+        print('compute_similarity')
+        
+        labels = self.positive_cluster_labels
+
+        wfs = np.array([self.centroids[k]['median'] for k in labels])
+        
+        wfs_flat = wfs.swapaxes(1, 2).reshape(wfs.shape[0], -1)
+        similarity = sklearn.metrics.pairwise.cosine_similarity(wfs_flat)
+        self.similarity = similarity
+        return labels, similarity, wfs_flat
+
+    def detect_high_similarity(self, threshold=0.95):
+        if not hasattr(self, 'centroids'):
+            self.compute_centroid()
+        if not hasattr(self, 'similarity'):
+            self.compute_similarity()
+        pairs = get_pairs_over_threshold(self.similarity, self.positive_cluster_labels, threshold)
+        return pairs
+    
     
     def compute_similarity_ratio(self):
-        labels = self.cluster_labels[self.cluster_labels>=0] 
+        print('compute_similarity_ratio')
+        labels = self.positive_cluster_labels
         
+        #TODO: this is stupid because cosine_similarity is the same at every scale!!!
+        #so this is identique to compute_similarity()
+        #find something else
         wf_normed = []
         for k in labels:
             chan = self.centroids[k]['max_on_channel']
@@ -629,28 +654,17 @@ class CatalogueConstructor:
         
         wf_normed_flat = wf_normed.swapaxes(1, 2).reshape(wf_normed.shape[0], -1)
         ratio_similarity = sklearn.metrics.pairwise.cosine_similarity(wf_normed_flat)
+        self.ratio_similarity = ratio_similarity
         return labels, ratio_similarity, wf_normed_flat
-    
+
+
     def detect_similar_waveform_ratio(self, threshold=0.9):
         if not hasattr(self, 'centroids'):
             self.compute_centroid()
-        
-        labels, ratio_similarity, wf_normed_flat = self.compute_similarity_ratio()
-        
-        #upper triangle
-        ratio_similarity = np.triu(ratio_similarity)
-        
-        ind0, ind1 = np.nonzero(ratio_similarity>threshold)
-        
-        #remove diag
-        keep = ind0!=ind1
-        ind0 = ind0[keep]
-        ind1 = ind1[keep]
-        
-        pairs = list(zip(labels[ind0], labels[ind1]))
-        
+        if not hasattr(self, 'ratio_similarity'):
+            self.compute_similarity_ratio()
+        pairs = get_pairs_over_threshold(self.ratio_similarity, self.positive_cluster_labels, threshold)
         return pairs
-    
     
     def tag_same_cell(self, labels_to_group):
         inds, = np.nonzero(np.in1d(self.clusters['cluster_label'], labels_to_group))
@@ -693,21 +707,7 @@ class CatalogueConstructor:
         
         #~ self.on_new_cluster()
     
-    def compute_similarity(self, cluster_labels=None):
-        if cluster_labels is None:
-            cluster_labels = self.cluster_labels[self.cluster_labels>=0]
-        n = cluster_labels.size
-        
-        #~ similarity = np.zeros((n, n))
-        all = []
-        for i, k in enumerate(cluster_labels):
-            all.append(self.centroids[k]['median'].flatten())
-        
-        similarity = np.corrcoef(all)
-        
-        similarity[np.arange(n), np.arange(n)] = np.nan
-        
-        return similarity, cluster_labels
+
         
     
     def make_catalogue(self):
