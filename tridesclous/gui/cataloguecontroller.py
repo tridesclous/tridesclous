@@ -148,6 +148,7 @@ class CatalogueController(ControllerBase):
         
         self.cc.compute_centroid(label_changed=label_changed)
         self.compute_similarity_ratio()
+        self.compute_similarity()
         
         self.check_plot_attributes()
 

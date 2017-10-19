@@ -72,7 +72,7 @@ class PairList(WidgetBase):
     
     def on_item_selection_changed(self):
         inds = self.table.selectedIndexes()
-        if len(inds)!=2:
+        if len(inds)!=4:
             return
         k1, k2 = self.pairs[inds[0].row()]
         for k in self.controller.cluster_visible:
@@ -113,9 +113,6 @@ class PairList(WidgetBase):
         self.table.setColumnWidth(1, 100)
         
         mode = self.combo.currentText()
-        print('mode', mode)
-        
-
         
         if mode == 'all pairs':
             labels = self.controller.positive_cluster_labels
@@ -123,10 +120,8 @@ class PairList(WidgetBase):
             self.pairs = list(itertools.combinations(labels, 2))
         elif mode == 'similar amplitude ratio':
             self.pairs = self.controller.detect_similar_waveform_ratio(threshold=self.params['threshold'])
-            print(self.controller.cc.ratio_similarity[1, 5])
         #~ elif mode == 'high similarity':
             #~ self.pairs = self.controller.detect_high_similarity(threshold=0.9)
-            #~ print(self.controller.cc.similarity[1, 5])
         
         self.table.setRowCount(len(self.pairs))
         
