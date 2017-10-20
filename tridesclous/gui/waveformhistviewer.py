@@ -16,7 +16,7 @@ class MyViewBox(pg.ViewBox):
     def mouseDoubleClickEvent(self, ev):
         self.doubleclicked.emit()
         ev.accept()
-    def wheelEvent(self, ev):
+    def wheelEvent(self, ev, axis=None):
         if ev.modifiers() == QT.Qt.ControlModifier:
             z = 10 if ev.delta()>0 else 1/10.
         else:
@@ -94,6 +94,9 @@ class WaveformHistViewer(WidgetBase):
         self.refresh()
     
     def initialize_plot(self):
+        if self.controller.some_waveforms is None:
+            return
+        
         self.viewBox = MyViewBox()
         self.viewBox.doubleclicked.connect(self.open_settings)
         self.viewBox.gain_zoom.connect(self.gain_zoom)
@@ -133,7 +136,12 @@ class WaveformHistViewer(WidgetBase):
         self.image.setLevels(levels, update=True)
 
     def refresh(self):
-
+        if not hasattr(self, 'viewBox'):
+            self.initialize_plot()
+        
+        if not hasattr(self, 'viewBox'):
+            return
+        
         if self._x_range is not None:
             #~ self._x_range = self.plot.getXRange()
             #~ self._y_range = self.plot.getYRange()

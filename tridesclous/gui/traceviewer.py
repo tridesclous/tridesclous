@@ -25,7 +25,7 @@ class MyViewBox(pg.ViewBox):
         ev.accept()
     def mouseDragEvent(self, ev):
         ev.ignore()
-    def wheelEvent(self, ev):
+    def wheelEvent(self, ev, axis=None):
         if ev.modifiers() == QT.Qt.ControlModifier:
             z = 10 if ev.delta()>0 else 1/10.
         else:
@@ -333,9 +333,9 @@ class BaseTraceViewer(WidgetBase):
             self.spinbox_xsize.sigValueChanged.connect(self.on_xsize_changed)
             
             label = self.controller.spikes[ind]['label']
-            if label>=0:
-                c = self.controller.get_max_on_channel(label)
-            else:
+            c = self.controller.get_max_on_channel(label)
+            
+            if c  is None:
                 wf = self.controller.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.controller.chan_grp,
                         i_start=peak_ind, i_stop=peak_ind+1,
                         signal_type='processed', return_type='raw_numpy')

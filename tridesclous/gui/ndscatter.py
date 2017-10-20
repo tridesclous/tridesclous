@@ -37,7 +37,7 @@ class MyViewBox(pg.ViewBox):
         ev.accept()
     def mouseDragEvent(self, ev):
         ev.ignore()
-    def wheelEvent(self, ev):
+    def wheelEvent(self, ev, axis=None):
         if ev.modifiers() == QT.Qt.ControlModifier:
             z = 10 if ev.delta()>0 else 1/10.
         else:
@@ -181,6 +181,8 @@ class NDScatter(WidgetBase):
 
     
     def initialize(self):
+        if self.data is None:
+            return
         self.viewBox = MyViewBox()
         self.viewBox.gain_zoom.connect(self.gain_zoom)
         #~ self.viewBox.lasso_started.connect(self.on_lasso_started)
@@ -276,6 +278,9 @@ class NDScatter(WidgetBase):
         return projected
     
     def refresh(self):
+        if self.data is None:
+            return
+
         if not hasattr(self, 'viewBox'):
             self.initialize()
         

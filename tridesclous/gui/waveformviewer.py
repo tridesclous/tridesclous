@@ -20,7 +20,7 @@ class MyViewBox(pg.ViewBox):
         ev.accept()
     #~ def mouseDragEvent(self, ev):
         #~ ev.ignore()
-    def wheelEvent(self, ev):
+    def wheelEvent(self, ev, axis=None):
         if ev.modifiers() == QT.Qt.ControlModifier:
             z = 10 if ev.delta()>0 else 1/10.
         else:
@@ -121,6 +121,9 @@ class WaveformViewer(WidgetBase):
         
     
     def initialize_plot(self):
+        #~ print('WaveformViewer.initialize_plot', self.controller.some_waveforms)
+        if self.controller.some_waveforms is None:
+            return
         self.viewBox1 = MyViewBox()
         self.viewBox1.disableAutoRange()
 
@@ -222,6 +225,13 @@ class WaveformViewer(WidgetBase):
         self.refresh()
     
     def refresh(self):
+        
+        if not hasattr(self, 'viewBox1'):
+            self.initialize_plot()
+        
+        if not hasattr(self, 'viewBox1'):
+            return
+        
         n_selected = np.sum(self.controller.spike_selection)
         
         if self.params['show_only_selected_cluster'] and n_selected==1:

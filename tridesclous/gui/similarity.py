@@ -107,9 +107,16 @@ class SimilarityView(WidgetBase):
         #~ print('compute_similarity')
         if self.params['data']=='waveforms':
             wf = self.controller.some_waveforms
-            feat = wf.reshape(wf.shape[0], -1)
+            if wf is not None:
+                feat = wf.reshape(wf.shape[0], -1)
+            else:
+                feat = None
         if self.params['data']=='features':
             feat = self.controller.some_features
+
+        if feat is None:
+            self.similarity = None
+            return
         
         
         if feat.size>1e6:

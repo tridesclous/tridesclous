@@ -90,10 +90,18 @@ class ArrayCollection:
 
     
     def delete_array(self, name):
+        if name not in self._array:
+            return
+        #~ if self._array_attr[name]['memory_mode'] == 'memmap':
+            #~ #delete file if exist
+            #~ filename = self._fname(name)
         self.detach_array(name)
-        raise(NotImplementedError)
+        raise(NotimplementedError)
+        
         
     def detach_array(self, name):
+        if name not in self._array:
+            return
         self._array.pop(name)
         self._array_attr.pop(name)
         delattr(self.parent, name)

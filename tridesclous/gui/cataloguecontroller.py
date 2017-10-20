@@ -147,8 +147,8 @@ class CatalogueController(ControllerBase):
                         self.cluster_count.pop(k)
         
         self.cc.compute_centroid(label_changed=label_changed)
-        self.compute_similarity_ratio()
-        self.compute_similarity()
+        self.cc.compute_similarity_ratio()
+        self.cc.compute_similarity()
         
         self.check_plot_attributes()
 

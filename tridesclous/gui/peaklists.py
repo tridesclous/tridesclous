@@ -4,7 +4,8 @@ import pyqtgraph as pg
 import numpy as np
 
 from .base import WidgetBase
-from .tools import ParamDialog
+from .tools import ParamDialog, open_dialog_methods
+from . import gui_params
 
 
 class PeakModel(QT.QAbstractItemModel):
@@ -105,7 +106,8 @@ class PeakList(WidgetBase):
         self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
         
-        self.layout.addWidget(QT.QLabel('<b>All peaks</b>') )
+        self.label_title = QT.QLabel('<b>All peaks {}</b>'.format(self.controller.spikes.size))
+        self.layout.addWidget(self.label_title)
         
         self.tree = QT.QTreeView(minimumWidth = 100, uniformRowHeights = True,
                     selectionMode= QT.QAbstractItemView.ExtendedSelection, selectionBehavior = QT.QTreeView.SelectRows,
@@ -124,6 +126,7 @@ class PeakList(WidgetBase):
     
     def refresh(self):
         self.model.refresh_colors()
+        self.label_title.setText('<b>All peaks {}</b>'.format(self.controller.spikes.size))
     
     def on_tree_selection(self):
         self.controller.spike_selection[:] = False
@@ -338,33 +341,9 @@ class ClusterPeakList(WidgetBase):
         self.refresh()
         self.spike_label_changed.emit()
     
-    def _dialog_methods(self, methods, _params_by_method):
-        _params = [{'name' : 'method', 'type' : 'list', 'values' : methods}]
-        dialog1 = ParamDialog(_params, title = 'Which method ?', parent = self)
-        if not dialog1.exec_():
-            return None, None
-
-        method = dialog1.params['method']
-        
-        _params =  _params_by_method[method]
-        dialog2 = ParamDialog(_params, title = '{} parameters'.format(method), parent = self)
-        if not dialog2.exec_():
-            return None, None
-        kargs = dialog2.get()
-        
-        return method, kargs
-        
-
-    
     def pc_project_all(self, selection=None):
-
+        method, kargs = open_dialog_methods(gui_params.features_params_by_methods, self)
         
-        methods = ['pca', 'peak_max']
-        _params_by_method = {
-            'pca' : [{'name' : 'n_components', 'type' : 'int', 'value' : 5},],
-            'peak_max' : [],
-        }
-        method, kargs = self._dialog_methods(methods, _params_by_method)
         if method is None: return
         
         self.controller.project(method=method, selection=selection, **kargs)
@@ -392,17 +371,11 @@ class ClusterPeakList(WidgetBase):
         if n!=1: return
         label_to_split = self.selected_cluster()[0]
         
-        methods = ['kmeans', 'gmm']
-        _params_by_method = {
-            'kmeans' : [{'name' : 'n', 'type' : 'int', 'value' : 2}],
-            'gmm' : [{'name' : 'n', 'type' : 'int', 'value' : 2},
-                                {'name' : 'covariance_type', 'type' : 'list', 'values' : ['full']},
-                                {'name' : 'n_init', 'type' : 'int', 'value' : 10},],
-        }
-        method, kargs = self._dialog_methods(methods, _params_by_method)
+        method, kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self)
+        
         if method is None: return
         
-        n = kargs.pop('n')
+        n = kargs.pop('n_clusters')
         
         self.controller.split_cluster(label_to_split, n, method=method,  **kargs) #order_clusters=True,
         self.refresh()

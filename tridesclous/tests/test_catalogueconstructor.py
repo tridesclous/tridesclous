@@ -64,7 +64,16 @@ def test_catalogue_constructor():
         
         for seg_num in range(dataio.nb_segment):
             mask = catalogueconstructor.all_peaks['segment']==seg_num
-            print('seg_num', seg_num, np.sum(mask))
+            print('seg_num', seg_num, 'nb peak',  np.sum(mask))
+        
+        #redetect peak
+        catalogueconstructor.re_detect_peak(peakdetector_engine='numpy',
+                                            peak_sign='-', relative_threshold=5, peak_span=0.0002)
+        for seg_num in range(dataio.nb_segment):
+            mask = catalogueconstructor.all_peaks['segment']==seg_num
+            print('seg_num', seg_num, 'nb peak',  np.sum(mask))
+
+        
         
         
         t1 = time.perf_counter()

@@ -91,10 +91,17 @@ class Silhouette(WidgetBase):
     def compute_slihouette(self):
         if self.params['data']=='waveforms':
             wf = self.controller.some_waveforms
-            data = wf.reshape(wf.shape[0], -1)
+            if wf is not None:
+                data = wf.reshape(wf.shape[0], -1)
+            else:
+                data = None
         if self.params['data']=='features':
             data = self.controller.some_features
 
+        if data is None:
+            self.silhouette_avg = None
+            return            
+        
         labels = self.controller.spike_label[self.controller.some_peaks_index]
         keep = labels>=0
         labels = labels[keep]

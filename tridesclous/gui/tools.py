@@ -104,7 +104,25 @@ class ParamDialog(QT.QDialog):
 
     def get(self):
         return get_dict_from_group_param(self.params, cascade=True)
-    
+
+
+def open_dialog_methods(params_by_method, parent):
+        _params = [{'name' : 'method', 'type' : 'list', 'values' : params_by_method.keys()}]
+        dialog1 = ParamDialog(_params, title='Which method ?', parent=parent)
+        if not dialog1.exec_():
+            return None, None
+
+        method = dialog1.params['method']
+        
+        _params =  params_by_method[method]
+        dialog2 = ParamDialog(_params, title='{} parameters'.format(method), parent=parent)
+        if not dialog2.exec_():
+            return None, None
+        kargs = dialog2.get()
+        
+        return method, kargs
+
+
 
 if __name__=='__main__':
     app = pg.mkQApp()

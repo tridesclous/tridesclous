@@ -152,7 +152,7 @@ class CatalogueConstructor:
             
             #peak detector
             peakdetector_engine='numpy',
-            peak_sign='-', relative_threshold=7, peak_span=0.0005,
+            peak_sign='-', relative_threshold=7, peak_span=0.0002,
             
             ):
         
@@ -189,6 +189,7 @@ class CatalogueConstructor:
         
         #TODO put all params in info
         self.info['internal_dtype'] = internal_dtype
+        self.info['chunksize'] = chunksize
         self.info['params_signalpreprocessor'] = self.params_signalpreprocessor
         self.info['params_peakdetector'] = self.params_peakdetector
         self.flush_info()
@@ -213,7 +214,6 @@ class CatalogueConstructor:
                                                     signal_type='initial',  return_type='raw_numpy')
         for pos, sigs_chunk in iterator:
             pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
-            #~ print(pos2, preprocessed_chunk)
             if preprocessed_chunk is not None:
                 filtered_sigs[pos2-preprocessed_chunk.shape[0]:pos2, :] = preprocessed_chunk
 
@@ -225,11 +225,10 @@ class CatalogueConstructor:
         self.signals_mads[:] = np.median(np.abs(filtered_sigs-signals_medians),axis=0)*1.4826
         
         #detach filetered signals even if the file remains.
-        # TODO : maybe remove the file ????
         self.arrays.detach_array(name)
         
 
-    def signalprocessor_one_chunk(self, pos, sigs_chunk, seg_num):
+    def signalprocessor_one_chunk(self, pos, sigs_chunk, seg_num, detect_peak=True):
 
         pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
         if preprocessed_chunk is  None:
@@ -238,35 +237,18 @@ class CatalogueConstructor:
         self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num, chan_grp=self.chan_grp,
                         i_start=pos2-preprocessed_chunk.shape[0], i_stop=pos2, signal_type='processed')
         
-        n_peaks, chunk_peaks = self.peakdetector.process_data(pos2, preprocessed_chunk)
-        #~ print(n_peaks)
-        #~ print(chunk_peaks)
-        #~ if chunk_peaks is  None:
-            #~ chunk_peaks = np.array([], dtype='int64')
-        
-        #~ peak_pos = chunk_peaks
-        #~ peak_segment = np.ones(peak_pos.size, dtype='int64') * seg_num
-        #~ peak_label = np.ones(peak_pos.size, dtype='int32') * LABEL_UNSLASSIFIED
-        
-        #~ self.arrays.append_chunk('peak_pos',  peak_pos)
-        #~ self.arrays.append_chunk('peak_label',  peak_label)
-        #~ self.arrays.append_chunk('peak_segment',  peak_segment)
-
-        #~ self.nb_peak += peak_pos.size
-        
-        if chunk_peaks is not None:
-        
-            peaks = np.zeros(chunk_peaks.size, dtype=_dtype_peak)
-            peaks['index'] = chunk_peaks
-            peaks['segment'][:] = seg_num
-            peaks['label'][:] = labelcodes.LABEL_UNSLASSIFIED
-            self.arrays.append_chunk('all_peaks',  peaks)
+        if detect_peak:
+            n_peaks, chunk_peaks = self.peakdetector.process_data(pos2, preprocessed_chunk)
             
-            #~ self.nb_peak += peaks.size
-        
-
-        
-    def run_signalprocessor_loop_one_segment(self, seg_num=0, duration=60.):
+            if chunk_peaks is not None:
+                peaks = np.zeros(chunk_peaks.size, dtype=_dtype_peak)
+                peaks['index'] = chunk_peaks
+                peaks['segment'][:] = seg_num
+                peaks['label'][:] = labelcodes.LABEL_UNSLASSIFIED
+                self.arrays.append_chunk('all_peaks',  peaks)
+    
+    
+    def run_signalprocessor_loop_one_segment(self, seg_num=0, duration=60., detect_peak=True):
         
         length = int(duration*self.dataio.sample_rate)
         length -= length%self.chunksize
@@ -284,7 +266,7 @@ class CatalogueConstructor:
                                                     signal_type='initial', return_type='raw_numpy')
         for pos, sigs_chunk in iterator:
             #~ print(seg_num, pos, sigs_chunk.shape)
-            self.signalprocessor_one_chunk(pos, sigs_chunk, seg_num)
+            self.signalprocessor_one_chunk(pos, sigs_chunk, seg_num, detect_peak=detect_peak)
     
     
     def finalize_signalprocessor_loop(self):
@@ -295,16 +277,64 @@ class CatalogueConstructor:
         #~ self.arrays.finalize_array('peak_segment')
         
         self.arrays.finalize_array('all_peaks')
+        self._reset_waveform_and_features()
         self.on_new_cluster()
     
-    def run_signalprocessor(self, duration=60.):
+    def run_signalprocessor(self, duration=60., detect_peak=True):
         for seg_num in range(self.dataio.nb_segment):
-            self.run_signalprocessor_loop_one_segment(seg_num=seg_num, duration=duration)
+            self.run_signalprocessor_loop_one_segment(seg_num=seg_num, duration=duration, detect_peak=detect_peak)
         self.finalize_signalprocessor_loop()
+    
+    def re_detect_peak(self, peakdetector_engine='numpy', peak_sign='-', relative_threshold=7, peak_span=0.0002):
+        
+        #TODO if not peak detector in class
+        self.params_peakdetector = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span=peak_span)
+        PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
+        self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.nb_channel,
+                                                        self.info['chunksize'], self.info['internal_dtype'])
+
+        self.peakdetector.change_params(**self.params_peakdetector)
+        
+        self.info['params_peakdetector'] = self.params_peakdetector
+        self.flush_info()
+        
+        self.arrays.initialize_array('all_peaks', self.memory_mode,  _dtype_peak, (-1, ))
+        
+        #TODO clip i_stop with duration ???
+        
+        for seg_num in range(self.dataio.nb_segment):
+            
+            self.peakdetector.change_params(**self.params_peakdetector)#this reset the fifo index
+            
+            iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp,
+                            chunksize=self.info['chunksize'], i_stop=None, signal_type='processed', return_type='raw_numpy')
+            for pos, preprocessed_chunk in iterator:
+                n_peaks, chunk_peaks = self.peakdetector.process_data(pos, preprocessed_chunk)
+            
+                if chunk_peaks is not None:
+                    peaks = np.zeros(chunk_peaks.size, dtype=_dtype_peak)
+                    peaks['index'] = chunk_peaks
+                    peaks['segment'][:] = seg_num
+                    peaks['label'][:] = labelcodes.LABEL_UNSLASSIFIED
+                    self.arrays.append_chunk('all_peaks',  peaks)
+
+        self.arrays.finalize_array('all_peaks')
+        self._reset_waveform_and_features()
+        self.on_new_cluster()
+    
+    def _reset_waveform_and_features(self):
+        #TODO fix this need to delete really this arrays but size=0 is buggy
+        
+        #~ self.arrays.create_array('some_peaks_index', 'int64', (0,), self.memory_mode)
+        #~ self.arrays.create_array('some_waveforms', self.info['internal_dtype'], (0,0,0), self.memory_mode)
+        #~ self.arrays.create_array('some_features', self.info['internal_dtype'], (0,0), self.memory_mode)
+        
+        self.arrays.detach_array('some_peaks_index')
+        self.arrays.detach_array('some_waveforms')
+        self.arrays.detach_array('some_features')
+        
         
     
-        
-        
     def extract_some_waveforms(self, n_left=None, n_right=None, index=None, 
                                     mode='rand', nb_max=10000,
                                     align_waveform=False, subsample_ratio=20):
@@ -481,7 +511,7 @@ class CatalogueConstructor:
                 return n_left, n_right
 
 
-    def project(self, method='pca', selection = None, **params): #n_components=5, 
+    def extract_some_features(self, method='pca', selection = None, **params): #n_components=5, 
         """
         params:
         n_components
@@ -498,6 +528,9 @@ class CatalogueConstructor:
         #~ self.arrays.create_array('some_features', self.info['internal_dtype'], features.shape, self.memory_mode)
         #~ self.some_features[:] = features
         self.arrays.add_array('some_features', features.astype(self.info['internal_dtype']), self.memory_mode)
+    
+    project = extract_some_features
+    
     
     def apply_projection(self):
         assert self.projector is not None
@@ -527,7 +560,8 @@ class CatalogueConstructor:
     
     def on_new_cluster(self):
         #~ print('on_new_cluster')
-        
+        if self.all_peaks is None:
+            return
         cluster_labels = np.unique(self.all_peaks['label'])
         clusters = np.zeros(cluster_labels.shape, dtype=_dtype_cluster)
         clusters['cluster_label'][:] = cluster_labels
@@ -622,6 +656,9 @@ class CatalogueConstructor:
         labels = self.positive_cluster_labels
 
         wfs = np.array([self.centroids[k]['median'] for k in labels])
+
+        if wfs.size == 0:
+            return
         
         wfs_flat = wfs.swapaxes(1, 2).reshape(wfs.shape[0], -1)
         similarity = sklearn.metrics.pairwise.cosine_similarity(wfs_flat)
@@ -651,6 +688,9 @@ class CatalogueConstructor:
             n_left = int(self.info['params_waveformextractor']['n_left'])
             wf_normed.append(median/np.abs(median[-n_left, chan]))
         wf_normed = np.array(wf_normed)
+        
+        if wf_normed.size == 0:
+            return
         
         wf_normed_flat = wf_normed.swapaxes(1, 2).reshape(wf_normed.shape[0], -1)
         ratio_similarity = sklearn.metrics.pairwise.cosine_similarity(wf_normed_flat)
