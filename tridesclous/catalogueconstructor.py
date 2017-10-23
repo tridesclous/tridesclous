@@ -576,8 +576,9 @@ class CatalogueConstructor:
                     self.clusters[j]['cell_label'] in cluster_labels
                     clusters[i]['cell_label'] = self.clusters[j]['cell_label']
                     #~ print('j', j)
-            
-        self.arrays.add_array('clusters', clusters, self.memory_mode)
+        
+        if clusters.size>0:
+            self.arrays.add_array('clusters', clusters, self.memory_mode)
     
     def compute_centroid(self, label_changed=None):
         if label_changed is None:

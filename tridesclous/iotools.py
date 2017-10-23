@@ -75,6 +75,7 @@ class ArrayCollection:
         elif memory_mode=='memmap':
             mode = self._fix_existing(name)
             #~ arr = np.memmap(self._fname(name), dtype=dtype, mode='w+', shape=shape)
+            #TODO detect when 0 size because this bug
             arr = np.memmap(self._fname(name), dtype=dtype, mode=mode, shape=shape)
         self._array[name] = arr
         self._array_attr[name] = {'state':'w', 'memory_mode':memory_mode}
@@ -137,9 +138,14 @@ class ArrayCollection:
             self._array[name] = np.concatenate(self._array[name], axis=0)
         elif memory_mode=='memmap':
             self._array[name].close()
-            self._array[name] = np.memmap(self._fname(name), dtype=self._array_attr[name]['dtype'],
+            try:
+                self._array[name] = np.memmap(self._fname(name), dtype=self._array_attr[name]['dtype'],
                                                 mode='r+').reshape(self._array_attr[name]['shape'])
-        
+            except ValueError:
+                #empty file = 0 elements
+                #FIXME: find something else
+                self._array[name] = np.zeros((0,), dtype=self._array_attr[name]['dtype']).reshape(self._array_attr[name]['shape'])
+            
         self._array_attr[name]['state'] = 'r'
         if self.parent is not None:
             setattr(self.parent, name, self._array[name])

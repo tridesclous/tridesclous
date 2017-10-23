@@ -1,0 +1,145 @@
+import os
+import time
+import configparser
+
+import numpy as np
+
+from .dataio import DataIO
+from . catalogueconstructor import CatalogueConstructor, _dtype_peak
+
+
+try:
+    import h5py
+    HAVE_H5PY = True
+except:
+    HAVE_H5PY = False
+
+def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname):
+    
+    assert HAVE_H5PY, 'h5py is not installed'
+    assert not os.path.exists(tdc_dirname), 'tdc already exisst please remvoe {}'.format(tdc_dirname)
+    
+    if spykingcircus_dirname.endswith('/'):
+        spykingcircus_dirname = spykingcircus_dirname[:-1]
+    
+    #parse spyking circus params file
+    params_filename = spykingcircus_dirname + '.params'
+    config = configparser.ConfigParser(inline_comment_prefixes='#')
+    config.read(params_filename)
+    
+    #Set DataIO and source
+    assert config['data']['file_format'] == 'RAWBINARY', 'only  RAWBINARY supported'
+    dataio = DataIO(dirname=tdc_dirname)
+    
+    dtype = config['data']['data_dtype']
+    nb_channels = config.getint('data', 'nb_channels')
+    data_offset = config.get('data', 'data_offset')
+    if data_offset == 'MCS':
+        data_offset = 1867
+    else:
+        data_offset = int(data_offset)
+    sample_rate = config.getfloat('data', 'sampling_rate')
+    filenames = [data_filename]
+    dataio.set_data_source(type='RawData', filenames=filenames, dtype=dtype,
+                                     total_channel=nb_channels, sample_rate=sample_rate, offset=data_offset)
+    
+    #set probe file (supposed to be in same path)
+    probe = config.get('data', 'mapping')
+    probe_filename = os.path.join(os.path.dirname(data_filename), probe)
+    dataio.set_probe_file(probe_filename)
+    
+    # filter
+    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    
+    
+    if config.getboolean('filtering', 'filter'):
+        highpass_freq = config.getfloat('filtering', 'cut_off')
+    else:
+        highpass_freq = None
+    common_ref_removal = config.getboolean('filtering', 'remove_median')
+    relative_threshold = config.getfloat('data', 'spike_thresh')
+    #TODO
+    peak_sign='-'
+    
+    engine = 'numpy'
+    #engine = 'opencl'
+
+    catalogueconstructor.set_preprocessor_params(chunksize=1024,
+            memory_mode='memmap',
+            
+            #signal preprocessor
+            signalpreprocessor_engine=engine,
+            highpass_freq=highpass_freq, 
+            common_ref_removal=common_ref_removal,
+            lostfront_chunksize=128,
+            
+            #peak detector
+            peakdetector_engine=engine,
+            peak_sign=peak_sign, 
+            relative_threshold=relative_threshold,
+            peak_span=1./sample_rate,
+            )
+    
+    t1 = time.perf_counter()
+    #~ catalogueconstructor.estimate_signals_noise(seg_num=0, duration=30.)
+    catalogueconstructor.estimate_signals_noise(seg_num=0, duration=5.)
+    t2 = time.perf_counter()
+    print('estimate_signals_noise', t2-t1)
+    
+    #~ duration = dataio.get_segment_length(0)/dataio.sample_rate
+    duration = 5.
+    t1 = time.perf_counter()
+    catalogueconstructor.run_signalprocessor(duration=duration, detect_peak=False)
+    t2 = time.perf_counter()
+    print('run_signalprocessor', t2-t1)
+    
+    print(catalogueconstructor)
+
+    
+    
+    
+    
+    #read peaks from results files
+    name = os.path.basename(spykingcircus_dirname)
+    result_filename = os.path.join(spykingcircus_dirname, '{}.result.hdf5'.format(name))
+    result = h5py.File(result_filename,'r')
+    
+    #~ result.visit(lambda p: print(p))
+    all_peaks = []
+    for k in result['spiketimes'].keys():
+        #~ print('k', k)
+        _, label = k.split('_')
+        label = int(label)
+        indexes = np.array(result['spiketimes'][k])
+        peaks = np.zeros(indexes.shape, dtype=_dtype_peak)
+        peaks['index'][:] = indexes
+        peaks['label'][:] = label
+        peaks['segment'][:] = 0
+        
+        all_peaks.append(peaks)
+        
+    
+    all_peaks = np.concatenate(all_peaks)
+    order = np.argsort(all_peaks['index'])
+    all_peaks = all_peaks[order]
+    
+    nb_peak = all_peaks.size
+    
+    catalogueconstructor.arrays.create_array('all_peaks', _dtype_peak, (nb_peak,), 'memmap')
+    catalogueconstructor.all_peaks[:] = all_peaks
+    catalogueconstructor.on_new_cluster()
+    
+    
+    #~ catalogueconstructor.extract_some_waveforms(n_left=-10, n_right=15,   mode='all')
+    
+    #~ catalogueconstructor.project(method='peak_max', n_components=20)
+    
+    
+
+
+
+
+
+
+
+

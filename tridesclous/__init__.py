@@ -14,6 +14,8 @@ from .catalogueconstructor import CatalogueConstructor
 from .peeler import Peeler
 from .peeler_cl import Peeler_OpenCl
 
+from .importers import import_from_spykingcircus
+
 #~ from .mpl_plot import *
 
 
