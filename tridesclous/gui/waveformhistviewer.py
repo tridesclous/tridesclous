@@ -49,8 +49,9 @@ class WaveformHistViewer(WidgetBase):
                           {'name': 'data', 'type': 'list', 'values' : ['waveforms', 'features', ] },
                           {'name': 'bin_min', 'type': 'float', 'value' : -20. },
                           {'name': 'bin_max', 'type': 'float', 'value' : 8. },
-                          {'name': 'bin_size', 'type': 'int', 'value' : .1 },
+                          {'name': 'bin_size', 'type': 'float', 'value' : .1 },
                           {'name': 'display_threshold', 'type': 'bool', 'value' : True },
+                          {'name': 'max_label', 'type': 'int', 'value' : 2 },
                           ]
         self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
         
@@ -109,10 +110,12 @@ class WaveformHistViewer(WidgetBase):
         self.image = pg.ImageItem()
         self.plot.addItem(self.image)
         
-        self.curve1 = pg.PlotCurveItem()
-        self.plot.addItem(self.curve1)
-        self.curve2 = pg.PlotCurveItem()
-        self.plot.addItem(self.curve2)
+        #~ self.curve1 = pg.PlotCurveItem()
+        #~ self.plot.addItem(self.curve1)
+        #~ self.curve2 = pg.PlotCurveItem()
+        #~ self.plot.addItem(self.curve2)
+        
+        self.curves = []
         
         thresh = self.controller.get_threshold()
         self.thresh_line = pg.InfiniteLine(pos=thresh, angle=0, movable=False, pen = pg.mkPen('w'))
@@ -132,8 +135,9 @@ class WaveformHistViewer(WidgetBase):
         
     def gain_zoom(self, v):
         #~ print('v', v)
-        levels = self.image.getLevels()*v
-        self.image.setLevels(levels, update=True)
+        levels = self.image.getLevels()
+        if levels is not None:
+            self.image.setLevels(levels * v, update=True)
 
     def refresh(self):
         if not hasattr(self, 'viewBox'):
@@ -151,16 +155,19 @@ class WaveformHistViewer(WidgetBase):
         
             
         cluster_visible = self.controller.cluster_visible
-        visibles = [c for c, v in self.controller.cluster_visible.items() if v and c>=0]
+        visibles = [c for c, v in cluster_visible.items() if v ]
 
-        if len(visibles) not in [1, 2]:
+        #remove old curves
+        for curve in self.curves:
+            self.plot.removeItem(curve)
+        self.curves = []
+        
+        if len(visibles)>self.params['max_label'] or len(visibles)==0:
             self.image.hide()
-            self.curve1.hide()
-            self.curve2.hide()
             return
         
-        if  len(visibles)==1:
-            self.curve2.hide()
+        #~ if  len(visibles)==1:
+            #~ self.curve2.hide()
 
         if self.params['data']=='waveforms':
             wf = self.controller.some_waveforms
@@ -204,16 +211,22 @@ class WaveformHistViewer(WidgetBase):
         self.image.show()
         
         
-        for k, curve in zip(visibles, [self.curve1, self.curve2]):
+        #~ for k, curve in zip(visibles, [self.curve1, self.curve2]):
+        for k in visibles:
+            if k not in self.controller.centroids:
+                continue
             if self.params['data']=='waveforms':
                 data = self.controller.centroids[k]['median'].T.flatten()
             else:
                 data = np.median(data[labels==k], axis=0)
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
-            curve.setData(x=indexes0, y=data)
-            curve.setPen(pg.mkPen(color, width=2))
             
-            curve.show()
+            curve = pg.PlotCurveItem(x=indexes0, y=data, pen=pg.mkPen(color, width=2))
+            self.plot.addItem(curve)
+            self.curves.append(curve)
+            #~ curve.setData()
+            #~ curve.setPen()
+            #~ curve.show()
         
         if self.params['display_threshold'] and self.params['data']=='waveforms' :
             self.thresh_line.show()

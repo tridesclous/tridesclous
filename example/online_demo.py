@@ -35,7 +35,7 @@ def setup_catalogue():
             
             #signal preprocessor
             highpass_freq=300,
-            backward_chunksize=1280,
+            lostfront_chunksize=64,
             
             #peak detector
             peakdetector_engine='numpy',

@@ -44,11 +44,11 @@ def preprocess_signals_and_peaks():
             #~ signalpreprocessor_engine='numpy',
             signalpreprocessor_engine='opencl',
             highpass_freq=300, 
-            lowpass_freq=10000., 
-            smooth_size=2,
+            lowpass_freq=6000., 
+            smooth_size=1,
             
             common_ref_removal=True,
-            backward_chunksize=1280,
+            lostfront_chunksize=64,
             
             #peak detector
             #~ peakdetector_engine='numpy',
@@ -134,10 +134,10 @@ def open_PeelerWindow():
 
 if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
-    #~ preprocess_signals_and_peaks()
-    #~ extract_waveforms_pca_cluster()
-    #~ open_cataloguewindow()
-    run_peeler()
-    open_PeelerWindow()
+    preprocess_signals_and_peaks()
+    extract_waveforms_pca_cluster()
+    open_cataloguewindow()
+    #~ run_peeler()
+    #~ open_PeelerWindow()
 
     

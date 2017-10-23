@@ -32,7 +32,7 @@ def setup_catalogue():
             
             #signal preprocessor
             highpass_freq=300,
-            backward_chunksize=1280,
+            lostfront_chunksize=128,
             
             #peak detector
             peak_sign='-', relative_threshold=7, peak_span=0.0005,
@@ -162,10 +162,10 @@ if __name__ =='__main__':
     
     #~ open_catalogue_window()
     
-    test_peeler()
+    #~ test_peeler()
     
     #~ open_PeelerWindow()
     
     #~ test_compare_peeler()
     
-    #~ open_PeelerWindow()
+    open_PeelerWindow()

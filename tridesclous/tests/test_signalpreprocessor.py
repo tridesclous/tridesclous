@@ -71,10 +71,10 @@ def test_compare_offline_online_engines():
     
     print('sig duration', sigs.shape[0]/sample_rate)
     
-    #~ highpass_freq = 300.
+    highpass_freq = 300.
     highpass_freq = None
-    #~ lowpass_freq = 4000.
-    lowpass_freq = None
+    lowpass_freq = 4000.
+    #~ lowpass_freq = None
     #~ smooth_kernel = True
     smooth_size = 0
     
@@ -85,7 +85,7 @@ def test_compare_offline_online_engines():
                 'smooth_size':smooth_size,
                 'output_dtype': 'float32',
                 'normalize' : True,
-                'backward_chunksize':chunksize+chunksize//4}
+                'lostfront_chunksize': 128}
     
     t1 = time.perf_counter()
     offline_sig = offline_signal_preprocessor(sigs, sample_rate, **params)
@@ -135,17 +135,14 @@ def test_compare_offline_online_engines():
         online_sig = online_sigs[engine]
         residual = np.abs((online_sig.astype('float64')-offline_sig.astype('float64'))/np.mean(np.abs(offline_sig.astype('float64'))))
 
-        print(np.max(residual))
-        #~ print(np.mean(np.abs(offline_sig.astype('float64'))))
-        assert np.max(residual)<7e-5, 'online differt from offline'
-    
+
         # plot
         #~ fig, axs = pyplot.subplots(nrows=nb_channel, sharex=True)
         #~ fig, axs = pyplot.subplots(nrows=4, sharex=True)
         #~ for i in range(nb_channel):
         #~ for i in range(4):
             #~ ax = axs[i]
-            
+            #~ ax.plot(residual[:, i], color = 'k')
             #~ ax.plot(offline_sig[:, i], color = 'g')
             #~ ax.plot(online_sig[:, i], color = 'r', ls='--')
             
@@ -153,6 +150,11 @@ def test_compare_offline_online_engines():
                 #~ ax.axvline(i*chunksize, color='k', alpha=0.4)
         
         #~ pyplot.show()
+
+        print(np.max(residual))
+        #~ print(np.mean(np.abs(offline_sig.astype('float64'))))
+        assert np.max(residual)<7e-5, 'online differt from offline'
+    
 
 
 def test_smooth_with_filtfilt():
@@ -208,6 +210,6 @@ def test_smooth_with_filtfilt():
 
     
 if __name__ == '__main__':
-    #~ test_compare_offline_online_engines()
-    test_smooth_with_filtfilt()
+    test_compare_offline_online_engines()
+    #~ test_smooth_with_filtfilt()
 

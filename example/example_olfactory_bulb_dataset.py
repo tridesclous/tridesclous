@@ -46,10 +46,10 @@ def preprocess_signals_and_peaks():
     catalogueconstructor.set_preprocessor_params(chunksize=1024,
             
             #signal preprocessor
-            highpass_freq=300,
-            highpass_freq=5000,
+            highpass_freq=300.,
+            lowpass_freq=5000.,
             common_ref_removal=True,
-            backward_chunksize=1280,
+            lostfront_chunksize=64,
             
             #peak detector
             peak_sign='-', 
@@ -97,15 +97,16 @@ def extract_waveforms_pca_cluster():
     
     
     t1 = time.perf_counter()
-    catalogueconstructor.project(method='pca', n_components=25)
+    #~ catalogueconstructor.project(method='pca', n_components=25)
     #~ catalogueconstructor.project(method='tsne', n_components=2, perplexity=40., init='pca')
+    catalogueconstructor.project(method='peak_max')
     t2 = time.perf_counter()
     print('project', t2-t1)
     print(catalogueconstructor)
     
     t1 = time.perf_counter()
-    #~ catalogueconstructor.find_clusters(method='kmeans', n_clusters=7)
-    catalogueconstructor.find_clusters(method='dirtycut')
+    catalogueconstructor.find_clusters(method='kmeans', n_clusters=7)
+    #~ catalogueconstructor.find_clusters(method='dirtycut')
     t2 = time.perf_counter()
     print('find_clusters', t2-t1)
     print(catalogueconstructor)
@@ -155,7 +156,7 @@ def open_PeelerWindow():
 
 
 if __name__ =='__main__':
-    #~ initialize_catalogueconstructor()
+    initialize_catalogueconstructor()
     
     preprocess_signals_and_peaks()
     extract_waveforms_pca_cluster()

@@ -50,7 +50,7 @@ def preprocess_signals_and_peaks():
             lowpass_freq=None,
             smooth_size=1,
             common_ref_removal=False,
-            backward_chunksize=1280,
+            lostfront_chunksize=64,
             
             #peak detector
             peakdetector_engine='numpy',
@@ -177,10 +177,10 @@ def open_PeelerWindow():
 
 if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
-    preprocess_signals_and_peaks()
-    extract_waveforms_pca_cluster()
-    open_cataloguewindow()
+    #~ preprocess_signals_and_peaks()
+    #~ extract_waveforms_pca_cluster()
+    #~ open_cataloguewindow()
     #~ detect_similar_ratio()
-    #~ run_peeler()
-    #~ open_PeelerWindow()
+    run_peeler()
+    open_PeelerWindow()
     

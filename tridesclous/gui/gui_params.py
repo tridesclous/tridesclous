@@ -7,7 +7,7 @@ preprocessor_params = [
     {'name': 'smooth_size', 'type': 'int', 'value':0},
     {'name': 'common_ref_removal', 'type': 'bool', 'value':False},
     {'name': 'chunksize', 'type': 'int', 'value':1024, 'decilmals':5},
-    {'name': 'backward_chunksize', 'type': 'int', 'value':1280, 'decilmals':5},
+    {'name': 'lostfront_chunksize', 'type': 'int', 'value':128, 'decilmals':0},
     
 ]
 
@@ -51,18 +51,16 @@ cluster_params_by_methods = OrderedDict([
 
 
 fullchain_params = [
-    {'name':'duration', 'type': 'float', 'value':60., 'suffix': 's', 'siPrefix': True},
+    {'name':'duration', 'type': 'float', 'value':300., 'suffix': 's', 'siPrefix': True},
     {'name':'preprocessor', 'type':'group', 'children': preprocessor_params},
     {'name':'peak_detector', 'type':'group', 'children': peak_detector_params},
-    {'name':'extract_waveforms', 'type':'group', 
-        'children' : waveforms_params,
-    },
-    {'name':'features', 'type':'group', 
-        'children':[{'name': 'method', 'type': 'list', 'values': features_params_by_methods.keys()}],
-    },
-    {'name':'find_cluster', 'type':'group', 
-        'children':[{'name': 'method', 'type': 'list', 'values':cluster_params_by_methods.keys()}],
-    },
+    {'name':'extract_waveforms', 'type':'group', 'children' : waveforms_params},
+    #~ {'name':'features', 'type':'group', 
+        #~ 'children':[{'name': 'method', 'type': 'list', 'values': features_params_by_methods.keys()}],
+    #~ },
+    #~ {'name':'find_cluster', 'type':'group', 
+        #~ 'children':[{'name': 'method', 'type': 'list', 'values':cluster_params_by_methods.keys()}],
+    #~ },
 ]
 
 

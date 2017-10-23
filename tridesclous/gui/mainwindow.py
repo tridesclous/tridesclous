@@ -8,7 +8,7 @@ import pickle
 
 from ..dataio import DataIO
 from ..datasource import data_source_classes
-from .tools import get_dict_from_group_param, ParamDialog
+from .tools import get_dict_from_group_param, ParamDialog, open_dialog_methods
 from  ..datasets import datasets_info, download_dataset
 
 from ..catalogueconstructor import CatalogueConstructor
@@ -213,59 +213,67 @@ class MainWindow(QT.QMainWindow):
 
     
     def initialize_catalogue(self):
-
+        
+        #collect parals with UI
         dia = ParamDialog(gui_params.fullchain_params)
         dia.resize(450, 500)
-        if dia.exec_():
-            d = dia.get()
-            print(d)
-            try:
-                #~ catalogueconstructor = CatalogueConstructor(dataio=self.dataio)
-                p = {}
-                p.update(d['preprocessor'])
-                p.update(d['peak_detector'])
-                self.catalogueconstructor.set_preprocessor_params(**p)
-                
-                t1 = time.perf_counter()
-                self.catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
-                t2 = time.perf_counter()
-                print('estimate_signals_noise', t2-t1)
-                
-                t1 = time.perf_counter()
-                self.catalogueconstructor.run_signalprocessor(duration=d['duration'])
-                t2 = time.perf_counter()
-                print('run_signalprocessor', t2-t1)
-
-                t1 = time.perf_counter()
-                self.catalogueconstructor.extract_some_waveforms(**d['extract_waveforms'])
-                t2 = time.perf_counter()
-                print('extract_some_waveforms', t2-t1)
-
-                #~ t1 = time.perf_counter()
-                #~ n_left, n_right = catalogueconstructor.find_good_limits(mad_threshold = 1.1,)
-                #~ t2 = time.perf_counter()
-                #~ print('find_good_limits', t2-t1)
-
-                t1 = time.perf_counter()
-                self.catalogueconstructor.extract_some_features(**d['features'])
-                t2 = time.perf_counter()
-                print('project', t2-t1)
-                
-                t1 = time.perf_counter()
-                self.catalogueconstructor.find_clusters(**d['find_cluster'])
-                t2 = time.perf_counter()
-                print('find_clusters', t2-t1)
-                
-                print(self.catalogueconstructor)
-
-                
-                
-
-            except Exception as e:
-                print(e)
-                
-            self.refresh_info()
+        if not dia.exec_():
+            return
+        d = dia.get()
+        print(d)
         
+        feat_method, feat_kargs = open_dialog_methods(gui_params.features_params_by_methods, self,  title='Which feature method ?')
+        if feat_method is None:
+            return
+        
+        clust_method, clust_kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self,  title='Which cluster method ?')
+        if clust_method is None:
+            return
+        
+        try:
+            #~ catalogueconstructor = CatalogueConstructor(dataio=self.dataio)
+            p = {}
+            p.update(d['preprocessor'])
+            p.update(d['peak_detector'])
+            self.catalogueconstructor.set_preprocessor_params(**p)
+            
+            t1 = time.perf_counter()
+            self.catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
+            t2 = time.perf_counter()
+            print('estimate_signals_noise', t2-t1)
+            
+            t1 = time.perf_counter()
+            self.catalogueconstructor.run_signalprocessor(duration=d['duration'])
+            t2 = time.perf_counter()
+            print('run_signalprocessor', t2-t1)
+
+            t1 = time.perf_counter()
+            self.catalogueconstructor.extract_some_waveforms(**d['extract_waveforms'])
+            t2 = time.perf_counter()
+            print('extract_some_waveforms', t2-t1)
+
+            #~ t1 = time.perf_counter()
+            #~ n_left, n_right = catalogueconstructor.find_good_limits(mad_threshold = 1.1,)
+            #~ t2 = time.perf_counter()
+            #~ print('find_good_limits', t2-t1)
+
+            t1 = time.perf_counter()
+            self.catalogueconstructor.extract_some_features(method=feat_method, **feat_kargs)
+            t2 = time.perf_counter()
+            print('project', t2-t1)
+            
+            t1 = time.perf_counter()
+            self.catalogueconstructor.find_clusters(method=clust_method, **clust_kargs)
+            t2 = time.perf_counter()
+            print('find_clusters', t2-t1)
+            
+            print(self.catalogueconstructor)
+        
+        except Exception as e:
+            print(e)
+                
+        self.refresh_info()
+    
     
     def open_cataloguewin(self):
         if self.dataio is None: return

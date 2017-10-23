@@ -48,7 +48,7 @@ def preprocess_signals_and_peaks():
             lowpass_freq=None,
             smooth_size=0,
             common_ref_removal=False,
-            backward_chunksize=1280,
+            lostfront_chunksize=64,
             
             #peak detector
             peakdetector_engine='numpy',

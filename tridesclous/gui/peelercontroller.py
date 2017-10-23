@@ -89,9 +89,10 @@ class PeelerController(ControllerBase):
         return threshold
 
     def get_max_on_channel(self, label):
-        cluster_idx = self.catalogue['label_to_index'][label]
-        chan = self.catalogue['max_on_channel'][cluster_idx]
-        return chan
+        if label in self.catalogue['label_to_index']:
+            cluster_idx = self.catalogue['label_to_index'][label]
+            c = self.catalogue['max_on_channel'][cluster_idx]
+            return c
 
     def change_spike_visible_mode(self, mode):
         assert mode in spike_visible_modes

@@ -147,7 +147,7 @@ class CatalogueConstructor:
             smooth_size=0,
             common_ref_removal=False,
             
-            backward_chunksize=1280,
+            lostfront_chunksize=128,
             
             
             #peak detector
@@ -171,7 +171,7 @@ class CatalogueConstructor:
         
         self.params_signalpreprocessor = dict(highpass_freq=highpass_freq, lowpass_freq=lowpass_freq, 
                         smooth_size=smooth_size, common_ref_removal=common_ref_removal,
-                        backward_chunksize=backward_chunksize, output_dtype=internal_dtype)
+                        lostfront_chunksize=lostfront_chunksize, output_dtype=internal_dtype)
         SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[signalpreprocessor_engine]
         self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.nb_channel, chunksize, self.dataio.source_dtype)
         
@@ -203,7 +203,7 @@ class CatalogueConstructor:
         assert length<self.dataio.get_segment_length(seg_num), 'duration exeed size'
         
         name = 'filetered_sigs_for_noise_estimation_seg_{}'.format(seg_num)
-        shape=(length - (self.params_signalpreprocessor['backward_chunksize']-self.chunksize), self.nb_channel)
+        shape=(length - self.params_signalpreprocessor['lostfront_chunksize'], self.nb_channel)
         filtered_sigs = self.arrays.create_array(name, self.info['internal_dtype'], shape, 'memmap')
         
         params2 = dict(self.params_signalpreprocessor)
