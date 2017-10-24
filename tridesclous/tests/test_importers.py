@@ -1,3 +1,5 @@
+import os
+import shutil
 
 from tridesclous import import_from_spykingcircus
 
@@ -8,7 +10,13 @@ def test_import_from_spykingcircus():
     spykingcircus_dirname = p+'20160426/patch_2/'
     tdc_dirname = p+'spykingcircus_GT256_20160426'
     
-    import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
+    if os.path.exists(tdc_dirname):
+        shutil.rmtree(tdc_dirname)
+    
+    cc = import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
+    
+    print(cc.dataio)
+    print(cc)
 
 
 

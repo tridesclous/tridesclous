@@ -16,12 +16,15 @@ except:
 
 def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname):
     
+    
+    
     assert HAVE_H5PY, 'h5py is not installed'
     assert not os.path.exists(tdc_dirname), 'tdc already exisst please remvoe {}'.format(tdc_dirname)
     
     if spykingcircus_dirname.endswith('/'):
         spykingcircus_dirname = spykingcircus_dirname[:-1]
     
+
     #parse spyking circus params file
     params_filename = spykingcircus_dirname + '.params'
     config = configparser.ConfigParser(inline_comment_prefixes='#')
@@ -62,7 +65,7 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
     peak_sign='-'
     
     engine = 'numpy'
-    #engine = 'opencl'
+    #~ engine = 'opencl'
 
     catalogueconstructor.set_preprocessor_params(chunksize=1024,
             memory_mode='memmap',
@@ -70,6 +73,7 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
             #signal preprocessor
             signalpreprocessor_engine=engine,
             highpass_freq=highpass_freq, 
+            lowpass_freq=None,
             common_ref_removal=common_ref_removal,
             lostfront_chunksize=128,
             
@@ -81,21 +85,16 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
             )
     
     t1 = time.perf_counter()
-    #~ catalogueconstructor.estimate_signals_noise(seg_num=0, duration=30.)
-    catalogueconstructor.estimate_signals_noise(seg_num=0, duration=5.)
+    duration=30.
+    catalogueconstructor.estimate_signals_noise(seg_num=0, duration=duration)
     t2 = time.perf_counter()
     print('estimate_signals_noise', t2-t1)
     
-    #~ duration = dataio.get_segment_length(0)/dataio.sample_rate
-    duration = 5.
+    duration = dataio.get_segment_length(0)/dataio.sample_rate
     t1 = time.perf_counter()
     catalogueconstructor.run_signalprocessor(duration=duration, detect_peak=False)
     t2 = time.perf_counter()
     print('run_signalprocessor', t2-t1)
-    
-    print(catalogueconstructor)
-
-    
     
     
     
@@ -105,6 +104,7 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
     result = h5py.File(result_filename,'r')
     
     #~ result.visit(lambda p: print(p))
+    
     all_peaks = []
     for k in result['spiketimes'].keys():
         #~ print('k', k)
@@ -130,10 +130,16 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
     catalogueconstructor.on_new_cluster()
     
     
-    #~ catalogueconstructor.extract_some_waveforms(n_left=-10, n_right=15,   mode='all')
+    N_t = config.getfloat('data', 'N_t')
+    n_right = int(N_t*sample_rate/1000.)//2
+    n_left = -n_right
     
-    #~ catalogueconstructor.project(method='peak_max', n_components=20)
+    catalogueconstructor.extract_some_waveforms(n_left=n_left, n_right=n_right,   mode='rand', nb_max=10000)
+    catalogueconstructor.project(method='peak_max')
     
+    
+    
+    return catalogueconstructor
     
 
 
