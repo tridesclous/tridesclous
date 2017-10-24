@@ -366,7 +366,20 @@ if NEO_VERSION is not None and '0.6'<=NEO_VERSION:
     #~ print(rawiolist)
     #~ print('neo.rawio')
     
-    class NeoRawIOWrapper(DataSourceBase):
+    io_gui_params = {
+        'RawBinarySignal':[
+                    {'name': 'dtype', 'type': 'list', 'values':['int16', 'uint16', 'float32', 'float64']},
+                    {'name': 'nb_channel', 'type': 'int', 'value':1},
+                    {'name': 'sampling_rate', 'type': 'float', 'value':10000., 'step': 1000., 'suffix': 'Hz', 'siPrefix': True},
+                    {'name': 'bytesoffset', 'type': 'int', 'value':0},
+        ],
+    }
+    
+    
+    class NeoRawIOAggregator(DataSourceBase):
+        """
+        wrappe and agregate several neo.rawio in the class.
+        """
         gui_params = None
         rawio_class = None
         def __init__(self, **kargs):
@@ -407,13 +420,18 @@ if NEO_VERSION is not None and '0.6'<=NEO_VERSION:
         if name == 'RawBinarySignal':
             continue
         class_name = name+'DataSource'
-        datasource_class = type(class_name,(NeoRawIOWrapper,), { })
+        datasource_class = type(class_name,(NeoRawIOAggregator,), { })
         datasource_class.rawio_class = rawio_class
         if rawio_class.rawmode=='multi-file':
             #multi file in neo have another meaning
             datasource_class.mode = 'one-file'
         else:
             datasource_class.mode = rawio_class.rawmode
+        
+        #gui stuffs
+        if name in io_gui_params:
+            datasource_class.gui_params = io_gui_params[name in io_gui_params]
+            
         data_source_classes[name] = datasource_class
         #~ print(datasource_class, datasource_class.mode )
 
