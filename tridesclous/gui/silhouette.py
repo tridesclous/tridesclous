@@ -28,6 +28,10 @@ class MyViewBox(pg.ViewBox):
 
 
 class Silhouette(WidgetBase):
+    
+    _params = [{'name': 'data', 'type': 'list', 'values' : ['waveforms', 'features', ] },
+                ]
+    
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
         
@@ -47,35 +51,11 @@ class Silhouette(WidgetBase):
         
         self.alpha = 60
         
-        self.create_settings()
         self.initialize_plot()
         self.compute_slihouette()
         self.refresh()
         
-
-    def create_settings(self):
-        _params = [
-                          {'name': 'data', 'type': 'list', 'values' : ['waveforms', 'features', ] },
-                          
-                          ]
-        self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
-        
-        self.params.sigTreeStateChanged.connect(self.refresh)
-        self.tree_params = pg.parametertree.ParameterTree(parent  = self)
-        self.tree_params.header().hide()
-        self.tree_params.setParameters(self.params, showTop=True)
-        self.tree_params.setWindowTitle(u'Options for waveforms viewer')
-        self.tree_params.setWindowFlags(QT.Qt.Window)
-        
-        self.params.sigTreeStateChanged.connect(self.on_params_change)  
-        
-    def open_settings(self):
-        if not self.tree_params.isVisible():
-            self.tree_params.show()
-        else:
-            self.tree_params.hide()
-            
-    def on_params_change(self):
+    def on_params_changed(self):
         self.compute_slihouette()
         self.refresh()
 
@@ -107,7 +87,7 @@ class Silhouette(WidgetBase):
         labels = labels[keep]
         data = data[keep]        
         
-        if data.size>1e6:
+        if data.size>1e7:
             print('compute_slihouette : TOO BIG')
             self.silhouette_avg = None
             return

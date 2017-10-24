@@ -61,6 +61,12 @@ class MyViewBox(pg.ViewBox):
         
 
 class NDScatter(WidgetBase):
+    
+    _params = [{'name': 'refresh_interval', 'type': 'float', 'value': 100 },
+                       {'name': 'nb_step', 'type': 'int', 'value':  10, 'limits' : [5, 100] },
+                       {'name': 'max_visible_by_cluster', 'type': 'int', 'value':  1000, 'limits' : [10, 10000], 'step':50 },
+                   ]
+    
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
         
@@ -76,16 +82,16 @@ class NDScatter(WidgetBase):
         self.graphicsview2 = pg.GraphicsView()
         self.toolbar.addWidget(self.graphicsview2)
 
-        _params = [{'name': 'refresh_interval', 'type': 'float', 'value': 100 },
-                           {'name': 'nb_step', 'type': 'int', 'value':  10, 'limits' : [5, 100] },
-                           {'name': 'max_visible_by_cluster', 'type': 'int', 'value':  1000, 'limits' : [10, 10000], 'step':50 },
-                           ]
-        self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
-        self.tree_params = pg.parametertree.ParameterTree(parent  = self)
-        self.tree_params.header().hide()
-        self.tree_params.setParameters(self.params, showTop=True)
-        self.tree_params.setWindowTitle(u'Options for NDScatter')
-        self.tree_params.setWindowFlags(QT.Qt.Window)
+        #~ _params = [{'name': 'refresh_interval', 'type': 'float', 'value': 100 },
+                           #~ {'name': 'nb_step', 'type': 'int', 'value':  10, 'limits' : [5, 100] },
+                           #~ {'name': 'max_visible_by_cluster', 'type': 'int', 'value':  1000, 'limits' : [10, 10000], 'step':50 },
+                           #~ ]
+        #~ self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
+        #~ self.tree_params = pg.parametertree.ParameterTree(parent  = self)
+        #~ self.tree_params.header().hide()
+        #~ self.tree_params.setParameters(self.params, showTop=True)
+        #~ self.tree_params.setWindowTitle(u'Options for NDScatter')
+        #~ self.tree_params.setWindowFlags(QT.Qt.Window)
 
         
         self.timer_tour = QT.QTimer(interval = 100)
@@ -118,15 +124,6 @@ class NDScatter(WidgetBase):
         but.clicked.connect(self.open_select_component)
         tb.addWidget(but)
         
-        
-        
-
-    def open_settings(self):
-        if not self.tree_params.isVisible():
-            self.tree_params.show()
-        else:
-            self.tree_params.hide()        
-    
     def open_select_component(self):
         
         ndim = self.data.shape[1]

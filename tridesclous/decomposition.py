@@ -58,7 +58,7 @@ class PcaByChannel:
         self.n_components_by_channel = n_components_by_channel
         self.pcas = []
         for c in range(self.waveforms.shape[2]):
-            print('c', c)
+            #~ print('c', c)
             pca = sklearn.decomposition.IncrementalPCA(n_components=n_components_by_channel, **params)
             pca.fit(waveforms[:,:,c])
             self.pcas.append(pca)
@@ -67,7 +67,7 @@ class PcaByChannel:
         n = self.n_components_by_channel
         all = np.zeros((waveforms.shape[0], waveforms.shape[2]*n), dtype=waveforms.dtype)
         for c, pca in enumerate(self.pcas):
-            print('c', c)
+            #~ print('c', c)
             all[:, c*n:(c+1)*n] = pca.transform(waveforms[:, :, c])
         return all
     
@@ -76,10 +76,10 @@ class PeakMaxOnChannel:
     def __init__(self, waveforms, catalogueconstructor=None, **params):
         self.waveforms = waveforms
         self.ind_peak = -catalogueconstructor.info['params_waveformextractor']['n_left']+1
-        print('PeakMaxOnChannel self.ind_peak', self.ind_peak)
+        #~ print('PeakMaxOnChannel self.ind_peak', self.ind_peak)
         
     def transform(self, waveforms):
-        print('ici', waveforms.shape, self.ind_peak)
+        #~ print('ici', waveforms.shape, self.ind_peak)
         features = waveforms[:, self.ind_peak, : ].copy()
         return features
 
@@ -88,7 +88,7 @@ class PeakMax_and_PCA:
     def __init__(self, waveforms, catalogueconstructor=None, **params):
         self.waveforms = waveforms
         self.ind_peak = -catalogueconstructor.info['params_waveformextractor']['n_left']+1
-        print('PeakMaxOnChannel self.ind_peak', self.ind_peak)
+        #~ print('PeakMaxOnChannel self.ind_peak', self.ind_peak)
 
         self.pca =  sklearn.decomposition.IncrementalPCA(**params)
         peaks_val = waveforms[:, self.ind_peak, : ].copy()
@@ -118,7 +118,7 @@ class SpatialSlindingPca:
         
         
         n = cc.nb_channel//8
-        print('n', n)
+        #~ print('n', n)
         km = sklearn.cluster.KMeans(n_clusters=n)
         self.geo_labels = km.fit_predict(geometry)
         
@@ -133,13 +133,13 @@ class SpatialSlindingPca:
             g = geometry[l==self.geo_labels]
             ax.plot(g[:, 0], g[:,1], ls='None', color=colors[l], marker='o')
         plt.show()
-        print(waveforms.shape)
+        #~ print(waveforms.shape)
         #~ exit()
         
         self.pcas = {}
         
         for l in np.unique(self.geo_labels):
-            print('l', l)
+            #~ print('l', l)
             wf = waveforms[:, :, l==self.geo_labels]
             flatten_wf = wf.reshape(wf.shape[0], -1)
             print(flatten_wf.shape)
@@ -155,8 +155,8 @@ class SpatialSlindingPca:
             flatten_wf = wf.reshape(wf.shape[0], -1)
             all_comp.append(self.pcas[l].transform(flatten_wf))
         all_comp = np.concatenate(all_comp, axis=1)
-        print(waveforms.shape)
-        print(all_comp.shape)
+        #~ print(waveforms.shape)
+        #~ print(all_comp.shape)
         return all_comp
 
 

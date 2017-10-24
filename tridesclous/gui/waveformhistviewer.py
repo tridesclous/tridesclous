@@ -26,6 +26,18 @@ class MyViewBox(pg.ViewBox):
         
 
 class WaveformHistViewer(WidgetBase):
+
+    _params = [
+                      {'name': 'colormap', 'type': 'list', 'values' : ['hot', 'viridis', 'jet', 'gray',  ] },
+                      {'name': 'data', 'type': 'list', 'values' : ['waveforms', 'features', ] },
+                      {'name': 'bin_min', 'type': 'float', 'value' : -20. },
+                      {'name': 'bin_max', 'type': 'float', 'value' : 8. },
+                      {'name': 'bin_size', 'type': 'float', 'value' : .1 },
+                      {'name': 'display_threshold', 'type': 'bool', 'value' : True },
+                      {'name': 'max_label', 'type': 'int', 'value' : 2 },
+                      ]
+    
+    
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
 
@@ -40,37 +52,10 @@ class WaveformHistViewer(WidgetBase):
         self.initialize_plot()
         self.similarity = None
         
-        self.on_params_change()#this do refresh
-        #~ self.refresh()
-
-    def create_settings(self):
-        _params = [
-                          {'name': 'colormap', 'type': 'list', 'values' : ['hot', 'viridis', 'jet', 'gray',  ] },
-                          {'name': 'data', 'type': 'list', 'values' : ['waveforms', 'features', ] },
-                          {'name': 'bin_min', 'type': 'float', 'value' : -20. },
-                          {'name': 'bin_max', 'type': 'float', 'value' : 8. },
-                          {'name': 'bin_size', 'type': 'float', 'value' : .1 },
-                          {'name': 'display_threshold', 'type': 'bool', 'value' : True },
-                          {'name': 'max_label', 'type': 'int', 'value' : 2 },
-                          ]
-        self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
-        
-        self.params.sigTreeStateChanged.connect(self.refresh)
-        self.tree_params = pg.parametertree.ParameterTree(parent  = self)
-        self.tree_params.header().hide()
-        self.tree_params.setParameters(self.params, showTop=True)
-        self.tree_params.setWindowTitle(u'Options for waveforms hist viewer')
-        self.tree_params.setWindowFlags(QT.Qt.Window)
-        
-        self.params.sigTreeStateChanged.connect(self.on_params_change)
-
-    def open_settings(self):
-        if not self.tree_params.isVisible():
-            self.tree_params.show()
-        else:
-            self.tree_params.hide()
-            
-    def on_params_change(self, ): #params, changes
+        self.on_params_changed()#this do refresh
+    
+    
+    def on_params_changed(self, ): #params, changes
         #~ for param, change, data in changes:
             #~ if change != 'value': continue
             #~ if param.name()=='data':
@@ -216,12 +201,12 @@ class WaveformHistViewer(WidgetBase):
             if k not in self.controller.centroids:
                 continue
             if self.params['data']=='waveforms':
-                data = self.controller.centroids[k]['median'].T.flatten()
+                y = self.controller.centroids[k]['median'].T.flatten()
             else:
-                data = np.median(data[labels==k], axis=0)
+                y = np.median(data[labels==k], axis=0)
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
             
-            curve = pg.PlotCurveItem(x=indexes0, y=data, pen=pg.mkPen(color, width=2))
+            curve = pg.PlotCurveItem(x=indexes0, y=y, pen=pg.mkPen(color, width=2))
             self.plot.addItem(curve)
             self.curves.append(curve)
             #~ curve.setData()

@@ -30,6 +30,18 @@ class MyViewBox(pg.ViewBox):
 
 
 class WaveformViewer(WidgetBase):
+
+    _params = [{'name': 'plot_selected_spike', 'type': 'bool', 'value': True },
+                        {'name': 'show_only_selected_cluster', 'type': 'bool', 'value': False},
+                      {'name': 'plot_limit_for_flatten', 'type': 'bool', 'value': True },
+                      {'name': 'metrics', 'type': 'list', 'values': ['median/mad', 'mean/std'] },
+                      {'name': 'fillbetween', 'type': 'bool', 'value': True },
+                      {'name': 'show_channel_num', 'type': 'bool', 'value': False},
+                      {'name': 'flip_y', 'type': 'bool', 'value': False},
+                      {'name': 'display_threshold', 'type': 'bool', 'value' : True },
+                      ]
+    
+    
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
         
@@ -48,30 +60,6 @@ class WaveformViewer(WidgetBase):
         self.alpha = 60
         self.refresh()
 
-    def create_settings(self):
-        _params = [{'name': 'plot_selected_spike', 'type': 'bool', 'value': True },
-                            {'name': 'show_only_selected_cluster', 'type': 'bool', 'value': False},
-                          {'name': 'plot_limit_for_flatten', 'type': 'bool', 'value': True },
-                          {'name': 'metrics', 'type': 'list', 'values': ['median/mad', 'mean/std'] },
-                          {'name': 'fillbetween', 'type': 'bool', 'value': True },
-                          {'name': 'show_channel_num', 'type': 'bool', 'value': False},
-                          {'name': 'flip_y', 'type': 'bool', 'value': False},
-                          {'name': 'display_threshold', 'type': 'bool', 'value' : True },
-                          ]
-        self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
-        
-        if self.controller.nb_channel>16:
-            self.params['fillbetween'] = False
-            self.params['plot_limit_for_flatten'] = False
-        
-        self.params.sigTreeStateChanged.connect(self.on_params_changed)
-        self.tree_params = pg.parametertree.ParameterTree(parent  = self)
-        self.tree_params.header().hide()
-        self.tree_params.setParameters(self.params, showTop=True)
-        self.tree_params.setWindowTitle(u'Options for waveforms viewer')
-        self.tree_params.setWindowFlags(QT.Qt.Window)
-        
-    
     def create_toolbar(self):
         tb = self.toolbar = QT.QToolBar()
         
@@ -98,19 +86,10 @@ class WaveformViewer(WidgetBase):
         but.clicked.connect(self.refresh)
         tb.addWidget(but)
     
-        
-    
     def on_combo_mode_changed(self):
         self.mode = str(self.combo_mode.currentText())
         self.initialize_plot()
         self.refresh()
-    
-    def open_settings(self):
-        if not self.tree_params.isVisible():
-            self.tree_params.show()
-        else:
-            self.tree_params.hide()
-    
     
     def on_params_changed(self, params, changes):
         for param, change, data in changes:

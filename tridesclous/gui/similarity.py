@@ -20,6 +20,15 @@ class MyViewBox(pg.ViewBox):
         ev.accept()
 
 class SimilarityView(WidgetBase):
+
+    _params = [
+                      {'name': 'colormap', 'type': 'list', 'values' : ['viridis', 'jet', 'gray', 'hot', ] },
+                      {'name': 'similarity_metric', 'type': 'list', 'values' : [ 'cosine_similarity',  'linear_kernel',
+                                                                'polynomial_kernel', 'sigmoid_kernel', 'rbf_kernel', 'laplacian_kernel' ] },
+                      {'name': 'data', 'type': 'list', 'values' : ['waveforms', 'features', ] },
+              ]
+    
+    
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
         
@@ -38,42 +47,12 @@ class SimilarityView(WidgetBase):
         self.graphicsview = pg.GraphicsView()
         self.layout.addWidget(self.graphicsview)
         
-        self.create_settings()
-        
         self.initialize_plot()
         self.similarity = None
         
-        self.on_params_change()#this do refresh
-        #~ self.refresh()
+        self.on_params_changed()#this do refresh
 
-    def create_settings(self):
-        _params = [
-                          {'name': 'colormap', 'type': 'list', 'values' : ['viridis', 'jet', 'gray', 'hot', ] },
-                          {'name': 'similarity_metric', 'type': 'list', 'values' : [ 'cosine_similarity',  'linear_kernel',
-                                                                    'polynomial_kernel', 'sigmoid_kernel', 'rbf_kernel', 'laplacian_kernel' ] },
-                          {'name': 'data', 'type': 'list', 'values' : ['waveforms', 'features', ] },
-                          
-                          ]
-        self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
-        
-        self.params.sigTreeStateChanged.connect(self.refresh)
-        self.tree_params = pg.parametertree.ParameterTree(parent  = self)
-        self.tree_params.header().hide()
-        self.tree_params.setParameters(self.params, showTop=True)
-        self.tree_params.setWindowTitle(u'Options for waveforms viewer')
-        self.tree_params.setWindowFlags(QT.Qt.Window)
-        
-        self.params.sigTreeStateChanged.connect(self.on_params_change)  
-        
-    
-
-    def open_settings(self):
-        if not self.tree_params.isVisible():
-            self.tree_params.show()
-        else:
-            self.tree_params.hide()
-            
-    def on_params_change(self):
+    def on_params_changed(self):
         N = 512
         cmap_name = self.params['colormap']
         cmap = matplotlib.cm.get_cmap(cmap_name , N)
@@ -119,7 +98,7 @@ class SimilarityView(WidgetBase):
             return
         
         
-        if feat.size>1e6:
+        if feat.size>1e7:
             print('compute_similarity: TOO BIG')
             #~ print(feat.size)
             self.similarity = None

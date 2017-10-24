@@ -10,6 +10,9 @@ from .tools import ParamDialog
 
 
 class PairList(WidgetBase):
+    _params = [{'name': 'threshold', 'type': 'float', 'value' :.9, 'step' : 0.01},
+                ]
+
     
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
@@ -42,32 +45,6 @@ class PairList(WidgetBase):
         act = self.menu.addAction('Tag same cell')
         act.triggered.connect(self.do_tag_same_cell)
         
-        self.create_settings()
-        
-        self.refresh()
-
-    def create_settings(self):
-        _params = [
-                          {'name': 'threshold', 'type': 'float', 'value' :.9},
-                          ]
-        self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
-        
-        self.params.sigTreeStateChanged.connect(self.refresh)
-        self.tree_params = pg.parametertree.ParameterTree(parent  = self)
-        self.tree_params.header().hide()
-        self.tree_params.setParameters(self.params, showTop=True)
-        self.tree_params.setWindowTitle(u'Options for waveforms viewer')
-        self.tree_params.setWindowFlags(QT.Qt.Window)
-        
-        self.params.sigTreeStateChanged.connect(self.on_params_change)
-    
-    def open_settings(self):
-        if not self.tree_params.isVisible():
-            self.tree_params.show()
-        else:
-            self.tree_params.hide()
-    
-    def on_params_change(self):
         self.refresh()
     
     def on_item_selection_changed(self):
