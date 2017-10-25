@@ -51,18 +51,24 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
     probe_filename = os.path.join(os.path.dirname(data_filename), probe)
     dataio.set_probe_file(probe_filename)
     
-    # filter
+    
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
-    
+    # filter
     if config.getboolean('filtering', 'filter'):
         highpass_freq = config.getfloat('filtering', 'cut_off')
     else:
         highpass_freq = None
     common_ref_removal = config.getboolean('filtering', 'remove_median')
-    relative_threshold = config.getfloat('data', 'spike_thresh')
-    #TODO
-    peak_sign='-'
+    
+    # detection
+    relative_threshold = config.getfloat('detection', 'spike_thresh')
+    if config.get('detection', 'peaks') == 'negative':
+        peak_sign='-'
+    elif config.get('detection', 'peaks') == 'positive':
+        peak_sign='+'
+    else:
+        raise(NotImlementedError)
     
     engine = 'numpy'
     #~ engine = 'opencl'
