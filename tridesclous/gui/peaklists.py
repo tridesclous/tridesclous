@@ -106,7 +106,7 @@ class PeakList(WidgetBase):
         self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
         
-        self.label_title = QT.QLabel('<b>All peaks {}</b>'.format(self.controller.spikes.size))
+        self.label_title = QT.QLabel('')
         self.layout.addWidget(self.label_title)
         
         self.tree = QT.QTreeView(minimumWidth = 100, uniformRowHeights = True,
@@ -123,10 +123,17 @@ class PeakList(WidgetBase):
         for i in range(self.model.columnCount(None)):
             self.tree.resizeColumnToContents(i)
         self.tree.setColumnWidth(0,80)
+        
+        self.refresh()
     
     def refresh(self):
         self.model.refresh_colors()
-        self.label_title.setText('<b>All peaks {}</b>'.format(self.controller.spikes.size))
+        nb_peak = self.controller.spikes.size
+        if self.controller.some_waveforms is not None:
+            nb_wf = self.controller.some_waveforms.shape[0]
+        else:
+            nb_wf = 0
+        self.label_title.setText('<b>All peaks {} - Nb waveforms {}</b>'.format(nb_peak, nb_wf))
     
     def on_tree_selection(self):
         self.controller.spike_selection[:] = False

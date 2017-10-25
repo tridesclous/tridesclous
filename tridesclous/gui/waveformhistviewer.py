@@ -156,9 +156,13 @@ class WaveformHistViewer(WidgetBase):
 
         if self.params['data']=='waveforms':
             wf = self.controller.some_waveforms
+            if wf is None:
+                return
             data = wf.swapaxes(1,2).reshape(wf.shape[0], -1)
         elif self.params['data']=='features':
             data = self.controller.some_features
+            if data is None:
+                return
         
         
         labels = self.controller.spike_label[self.controller.some_peaks_index]

@@ -84,14 +84,22 @@ class FeatureTimeViewer(WidgetBase):
         
         seg_index =  self.combo_seg.currentIndex()
         
-        selected = self.controller.spike_segment==seg_index
+        selected = self.controller.spike_segment[self.controller.some_peaks_index]==seg_index
         all_index = self.controller.spike_index[self.controller.some_peaks_index][selected]
         all_times = all_index.astype('float64')/self.controller.dataio.sample_rate
         all_labels = self.controller.spike_label[self.controller.some_peaks_index][selected]
         
         #TODO if None
-        all_waveforms = self.controller.some_waveforms[selected]
-        all_features = self.controller.some_features[selected]
+        if self.params['metric'] == 'max_peak_value':
+            if self.controller.some_waveforms is None:
+                return
+            else:
+                all_waveforms = self.controller.some_waveforms[selected]
+        if self.params['metric'] == 'feat_0':
+            if self.controller.some_features is None:
+                return
+            else:
+                all_features = self.controller.some_features[selected]
         
         #~ print(all_waveforms.shape)
         
