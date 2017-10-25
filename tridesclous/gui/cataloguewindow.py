@@ -12,6 +12,7 @@ from .similarity import SimilarityView
 from .pairlist import PairList
 from .silhouette import Silhouette
 from .waveformhistviewer import WaveformHistViewer
+from .featuretimeviewer import FeatureTimeViewer
 
 from .tools import ParamDialog, open_dialog_methods
 
@@ -42,6 +43,7 @@ class CatalogueWindow(QT.QMainWindow):
         self.pairlist = PairList(controller=self.controller)
         self.silhouette = Silhouette(controller=self.controller)
         self.waveformhistviewer = WaveformHistViewer(controller=self.controller)
+        self.featuretimeviewer = FeatureTimeViewer(controller=self.controller)
         
         
         
@@ -60,6 +62,10 @@ class CatalogueWindow(QT.QMainWindow):
         docks['waveformhistviewer'] = QT.QDockWidget('waveformhistviewer',self)
         docks['waveformhistviewer'].setWidget(self.waveformhistviewer)
         self.tabifyDockWidget(docks['waveformviewer'], docks['waveformhistviewer'])
+
+        docks['featuretimeviewer'] = QT.QDockWidget('featuretimeviewer',self)
+        docks['featuretimeviewer'].setWidget(self.featuretimeviewer)
+        self.tabifyDockWidget(docks['waveformhistviewer'], docks['featuretimeviewer'])
         
         
         docks['traceviewer'] = QT.QDockWidget('traceviewer',self)

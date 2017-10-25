@@ -108,6 +108,14 @@ def test_WaveformHistViewer():
     app.exec_()
 
 
+def test_FeatureTimeViewer():
+    controller = get_controller()
+    app = mkQApp()
+    view = FeatureTimeViewer(controller=controller)
+    view.show()
+    app.exec_()
+
+
 def test_CatalogueWindow():
     dataio = DataIO(dirname='test_catalogueconstructor')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
@@ -129,11 +137,12 @@ if __name__ == '__main__':
     #~ test_PeakList()
     #~ test_ClusterPeakList()
     #~ test_NDScatter()
-    test_WaveformViewer()
+    #~ test_WaveformViewer()
     #~ test_SimilarityView()
     #~ test_PairList()
     #~ test_Silhouette()
     #~ test_WaveformHistViewer()
+    test_FeatureTimeViewer()
     
     #~ test_CatalogueWindow()
 

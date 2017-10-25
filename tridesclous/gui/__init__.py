@@ -10,6 +10,7 @@ from .similarity import SimilarityView
 from .pairlist import PairList
 from .silhouette import Silhouette
 from .waveformhistviewer import WaveformHistViewer
+from .featuretimeviewer import FeatureTimeViewer
 
 #for peeler window
 from .peelercontroller import PeelerController
