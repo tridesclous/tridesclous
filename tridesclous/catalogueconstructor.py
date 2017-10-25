@@ -27,12 +27,10 @@ import matplotlib.pyplot as plt
 from . import labelcodes
 
 
-# TODO extract some noise
-
 
 _persitent_arrays = ['all_peaks', 'some_peaks_index', 'some_waveforms', 
                     'some_features', 'signals_medians','signals_mads', 
-                    'clusters',
+                    'clusters', 'some_noise_index', 'some_noise_snipet',
                     ]
 
 _dtype_peak = [('index', 'int64'), ('label', 'int64'), ('segment', 'int64'),]
@@ -222,7 +220,7 @@ class CatalogueConstructor:
         self.arrays.create_array('signals_mads', self.info['internal_dtype'], (self.nb_channel,), 'memmap')
         
         self.signals_medians[:] = signals_medians = np.median(filtered_sigs[:pos2], axis=0)
-        self.signals_mads[:] = np.median(np.abs(filtered_sigs-signals_medians),axis=0)*1.4826
+        self.signals_mads[:] = np.median(np.abs(filtered_sigs[:pos2]-signals_medians),axis=0)*1.4826
         
         #detach filetered signals even if the file remains.
         self.arrays.detach_array(name)
@@ -332,8 +330,8 @@ class CatalogueConstructor:
         self.arrays.detach_array('some_peaks_index')
         self.arrays.detach_array('some_waveforms')
         self.arrays.detach_array('some_features')
-        
-        
+        self.arrays.detach_array('some_noise_index')
+        self.arrays.detach_array('some_noise_snipet')
     
     def extract_some_waveforms(self, n_left=None, n_right=None, index=None, 
                                     mode='rand', nb_max=10000,
@@ -531,6 +529,55 @@ class CatalogueConstructor:
     
     project = extract_some_features
     
+    
+    def extract_some_noise(self, nb_snipet=300):
+        """
+        Find some snipet of signal that are not overlap with peak waveforms.
+        """
+        #~ 'some_noise_index', 'some_noise_snipet', 
+        assert  'params_waveformextractor' in self.info
+        n_left = self.info['params_waveformextractor']['n_left']
+        n_right = self.info['params_waveformextractor']['n_right']
+        peak_width = n_right - n_left
+        
+        
+        #~ self.all_peaks
+        #~ _dtype_peak = [('index', 'int64'), ('label', 'int64'), ('segment', 'int64'),]
+        
+        some_noise_index = []
+        n_by_seg = nb_snipet//self.dataio.nb_segment
+        for seg_num in range(self.dataio.nb_segment):
+            length = self.dataio.get_segment_length(seg_num)
+            possibles = np.ones(length, dtype='bool')
+            possibles[:peak_width] = False
+            possibles[-peak_width:] = False
+            peaks = self.all_peaks[self.all_peaks['segment']==seg_num]
+            for peak in peaks:
+                possibles[peak['index']+n_left-n_right:peak['index']+n_right-n_left]
+            possible_indexes, = np.nonzero(possibles)
+            noise_index = np.zeros(n_by_seg, dtype=_dtype_peak)
+            noise_index['index'] = possible_indexes[np.sort(np.random.choice(possible_indexes.size, size=n_by_seg))]
+            noise_index['label'] = labelcodes.LABEL_NOISE
+            noise_index['segment'][:] = seg_num
+            some_noise_index.append(noise_index)
+        some_noise_index = np.concatenate(some_noise_index)
+        
+        #make it persistent
+        self.arrays.add_array('some_noise_index', some_noise_index, self.memory_mode)
+        
+        #create snipet
+        shape=(self.some_noise_index.size, peak_width, self.nb_channel)
+        self.arrays.create_array('some_noise_snipet', self.info['internal_dtype'], shape, self.memory_mode)
+        #~ n = 0
+        for n, ind in enumerate(self.some_noise_index):
+        #~ for seg_num in range(self.dataio.nb_segment):
+            #~ insegment_indexes  = self.some_noise_index[(self.some_noise_index['segment']==seg_num)]
+            #~ for ind in insegment_indexes:
+            i_start = ind['index']+n_left
+            i_stop = i_start+peak_width
+            snipet = self.dataio.get_signals_chunk(seg_num=ind['segment'], chan_grp=self.chan_grp, i_start=i_start, i_stop=i_stop, signal_type='processed')
+            self.some_noise_snipet[n, :, :] = snipet
+                #~ n +=1
     
     def apply_projection(self):
         assert self.projector is not None

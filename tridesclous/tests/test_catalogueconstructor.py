@@ -6,6 +6,7 @@ import shutil
 from tridesclous import download_dataset
 from tridesclous.dataio import DataIO
 from tridesclous.catalogueconstructor import CatalogueConstructor
+from tridesclous.tools import median_mad
 
 from matplotlib import pyplot
 
@@ -35,6 +36,8 @@ def test_catalogue_constructor():
                 #signal preprocessor
                 highpass_freq=300,
                 lowpass_freq=5000.,
+                common_ref_removal=False,
+                smooth_size=0,
                 
                 lostfront_chunksize = 128,
                 
@@ -76,24 +79,54 @@ def test_catalogue_constructor():
 
         
         
-        
         t1 = time.perf_counter()
         catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40, mode='rand', nb_max=5000)
         t2 = time.perf_counter()
         print('extract_some_waveforms rand', t2-t1)
         print(catalogueconstructor.some_waveforms.shape)
 
-        t1 = time.perf_counter()
-        catalogueconstructor.find_good_limits()
-        t2 = time.perf_counter()
-        print('find_good_limits', t2-t1)
-        print(catalogueconstructor.some_waveforms.shape)
+        #~ t1 = time.perf_counter()
+        #~ catalogueconstructor.find_good_limits()
+        #~ t2 = time.perf_counter()
+        #~ print('find_good_limits', t2-t1)
+        #~ print(catalogueconstructor.some_waveforms.shape)
 
+        #~ t1 = time.perf_counter()
+        #~ catalogueconstructor.extract_some_waveforms(n_left=None, n_right=None, mode='rand', nb_max=20000)
+        #~ t2 = time.perf_counter()
+        #~ print('extract_some_waveforms rand', t2-t1)
+        #~ print(catalogueconstructor.some_waveforms.shape)
+
+        #extract_some_noise
         t1 = time.perf_counter()
-        catalogueconstructor.extract_some_waveforms(n_left=None, n_right=None, mode='rand', nb_max=20000)
+        catalogueconstructor.extract_some_noise(nb_snipet=10000)
         t2 = time.perf_counter()
-        print('extract_some_waveforms rand', t2-t1)
-        print(catalogueconstructor.some_waveforms.shape)
+        print('extract_some_noise', t2-t1)
+        print(catalogueconstructor.some_noise_index)
+        print(catalogueconstructor.some_noise_index.shape)
+        print(catalogueconstructor.some_noise_snipet.shape)
+        
+        noise = catalogueconstructor.some_noise_snipet
+        #~ noise = catalogueconstructor.some_waveforms
+        flat_noise = noise.swapaxes(1,2).reshape(noise.shape[0], -1)
+        #~ flat_noise = noise.reshape(noise.shape[0], -1)
+        print(flat_noise.shape)
+        med, mad = median_mad(flat_noise)
+        #~ med = np.mean(flat_noise, axis=0)
+        #~ mad = np.std(flat_noise, axis=0)
+        import matplotlib.pyplot as plt
+        #~ for seg_num in range(dataio.nb_segment):
+        fig, ax = plt.subplots()
+        #~ ax.plot(flat_noise.T)
+        #~ keep = catalogueconstructor.some_noise_index['segment']==seg_num
+        #~ med, mad = median_mad(flat_noise[keep])
+        print(med.shape)
+        ax.plot(med)
+        ax.plot(med+mad)
+        ax.plot(med-mad)
+            
+        plt.show()
+        #~ exit()
 
 
         #~ break
@@ -239,6 +272,8 @@ def test_make_catalogue():
     print('run_signalprocessor', t2-t1)
 
     print(catalogueconstructor)
+    
+    
     
     t1 = time.perf_counter()
     catalogueconstructor.extract_some_waveforms(n_left=-12, n_right=15,  nb_max=10000)
