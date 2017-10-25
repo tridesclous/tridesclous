@@ -331,10 +331,10 @@ class MainWindow(QT.QMainWindow):
         
         if self.dataio  is None:
             return
-        if not hasattr(self.dataio.datasource, 'rawio'):
+        if not hasattr(self.dataio.datasource, 'rawios'):
             return
         
-        sources = ephyviewer.get_source_from_neo(self.dataio.datasource.rawio)
+        sources = ephyviewer.get_source_from_neo(self.dataio.datasource.rawios[0])
         
         self.win_viewer = ephyviewer.MainViewer()
         

@@ -73,6 +73,9 @@ class InitializeDatasetWindow(QT.QDialog):
         if step=='source_type':
             source_types = list(data_source_classes.keys())
             source_types.remove('InMemory')
+            if 'RawBinarySignal' in source_types:
+                source_types.remove('RawData')
+            
             params = [{'name': 'source_type', 'type': 'list', 'values':source_types},
                             ]
             self.step_params = pg.parametertree.Parameter.create(name='Select source type', type='group', children = params)
@@ -128,8 +131,9 @@ class InitializeDatasetWindow(QT.QDialog):
             source_params['filenames'] = self.final_params['file_or_dir_names']
         elif self.datasource_class.mode == 'one-dir':
             source_params['dirname'] = self.final_params['file_or_dir_names'][0]
-        elif self.datasource_class == 'multi-dir':
+        elif self.datasource_class.mode == 'multi-dir':
             source_params['dirnames'] = self.final_params['file_or_dir_names']
+        print('source_params', source_params)
         return source_params
    
     def validate_step(self):
