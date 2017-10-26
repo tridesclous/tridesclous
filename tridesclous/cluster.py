@@ -54,7 +54,7 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, n_clust
         raise(ValueError, 'find_clusters method unknown')
     
     if selection is None:
-        cc.all_peaks['label'][:] = labelcodes.LABEL_UNSLASSIFIED
+        cc.all_peaks['label'][:] = labelcodes.LABEL_UNCLASSIFIED
         cc.all_peaks['label'][cc.some_peaks_index] = labels
     else:
         labels += max(cc.cluster_labels) + 1

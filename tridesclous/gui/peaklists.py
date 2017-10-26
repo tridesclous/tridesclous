@@ -3,6 +3,7 @@ import pyqtgraph as pg
 
 import numpy as np
 
+from .. import labelcodes
 from .base import WidgetBase
 from .tools import ParamDialog, open_dialog_methods
 from . import gui_params
@@ -253,17 +254,23 @@ class ClusterPeakList(WidgetBase):
         self.table.setSelectionMode(QT.QAbstractItemView.ExtendedSelection)
         self.table.setSelectionBehavior(QT.QAbstractItemView.SelectRows)
         
-        self.table.setRowCount(self.controller.cluster_labels.size)
+        
         
         channel_names = self.controller.channel_names
+        cluster_labels = self.controller.cluster_labels
+        cluster_labels = [labelcodes.LABEL_NOISE] + cluster_labels.tolist()
+        self.table.setRowCount(len(cluster_labels))
         
-        for i, k in enumerate(self.controller.cluster_labels):
+        for i, k in enumerate(cluster_labels):
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
             pix = QT.QPixmap(16,16)
             pix.fill(color)
             icon = QT.QIcon(pix)
             
-            name = '{}'.format(k)
+            if k<0:
+                name = '{} ({})'.format(k, labelcodes.to_name[k])
+            else:
+                name = '{}'.format(k)
             item = QT.QTableWidgetItem(name)
             item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
             self.table.setItem(i,0, item)
@@ -274,6 +281,7 @@ class ClusterPeakList(WidgetBase):
             
             item.setCheckState({ False: QT.Qt.Unchecked, True : QT.Qt.Checked}[self.controller.cluster_visible[k]])
             self.table.setItem(i,1, item)
+            item.label = k
 
             item = QT.QTableWidgetItem('{}'.format(self.controller.cluster_count[k]))
             item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
@@ -286,7 +294,7 @@ class ClusterPeakList(WidgetBase):
                 item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
                 self.table.setItem(i,3, item)
 
-            item = QT.QTableWidgetItem('{}'.format(self.controller.cell_labels[i]))
+            item = QT.QTableWidgetItem('{}'.format(self.controller.cell_labels[i-1]))
             item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
             self.table.setItem(i,4, item)
             
@@ -301,15 +309,19 @@ class ClusterPeakList(WidgetBase):
     def on_item_changed(self, item):
         if item.column() != 1: return
         sel = {QT.Qt.Unchecked : False, QT.Qt.Checked : True}[item.checkState()]
-        k = self.controller.cluster_labels[item.row()]
+        #~ k = self.controller.cluster_labels[item.row()]
+        k = item.label
         self.controller.cluster_visible[k] = bool(item.checkState())
         self.cluster_visibility_changed.emit()
     
     def selected_cluster(self):
         selected = []
-        for index in self.table.selectedIndexes():
-            if index.column() !=0: continue
-            selected.append(self.controller.cluster_labels[index.row()])
+        #~ for index in self.table.selectedIndexes():
+        for item in self.table.selectedItems():
+            #~ if index.column() !=1: continue
+            if item.column() != 1: continue
+            #~ selected.append(self.controller.cluster_labels[index.row()])
+            selected.append(item.label)
         return selected
     
     def _selected_spikes(self):

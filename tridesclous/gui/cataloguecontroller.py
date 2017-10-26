@@ -6,6 +6,7 @@ import numpy as np
 import seaborn as sns
 
 from ..tools import median_mad
+from .. import labelcodes
 from .base import ControllerBase
 
 
@@ -39,6 +40,7 @@ class CatalogueController(ControllerBase):
         self.spike_selection = np.zeros(self.cc.nb_peak, dtype='bool')
         self.spike_visible = np.ones(self.cc.nb_peak, dtype='bool')
         self.refresh_colors(reset=True)
+        self.check_plot_attributes()
         self.cc.compute_centroid()
         
 
@@ -48,9 +50,18 @@ class CatalogueController(ControllerBase):
             if k not in self.cluster_visible:
                 self.cluster_visible[k] = True
         for k in list(self.cluster_visible.keys()):
-            if k not in self.cluster_labels:
+            if k not in self.cluster_labels and k>0:
                 self.cluster_visible.pop(k)
         
+        if labelcodes.LABEL_NOISE not in self.cluster_visible:
+            self.cluster_visible[labelcodes.LABEL_NOISE] = True
+        
+        if labelcodes.LABEL_NOISE not in self.cluster_count:
+            if self.cc.some_noise_snipet is not None:
+                self.cluster_count[labelcodes.LABEL_NOISE] = self.cc.some_noise_snipet.shape[0]
+            else:
+                self.cluster_count[labelcodes.LABEL_NOISE] = 0
+
         self.refresh_colors(reset=False)
     
     
@@ -97,6 +108,14 @@ class CatalogueController(ControllerBase):
     @property
     def some_waveforms(self):
         return self.cc.some_waveforms
+    
+    @property
+    def some_noise_snipet(self):
+        return self.cc.some_noise_snipet
+    
+    @property
+    def some_noise_features(self):
+        return self.cc.some_noise_features
     
     @property
     def centroids(self):

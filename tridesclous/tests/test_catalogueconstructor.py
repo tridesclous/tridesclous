@@ -85,53 +85,23 @@ def test_catalogue_constructor():
         print('extract_some_waveforms rand', t2-t1)
         print(catalogueconstructor.some_waveforms.shape)
 
-        #~ t1 = time.perf_counter()
-        #~ catalogueconstructor.find_good_limits()
-        #~ t2 = time.perf_counter()
-        #~ print('find_good_limits', t2-t1)
-        #~ print(catalogueconstructor.some_waveforms.shape)
+        t1 = time.perf_counter()
+        catalogueconstructor.find_good_limits()
+        t2 = time.perf_counter()
+        print('find_good_limits', t2-t1)
+        print(catalogueconstructor.some_waveforms.shape)
 
-        #~ t1 = time.perf_counter()
-        #~ catalogueconstructor.extract_some_waveforms(n_left=None, n_right=None, mode='rand', nb_max=20000)
-        #~ t2 = time.perf_counter()
-        #~ print('extract_some_waveforms rand', t2-t1)
-        #~ print(catalogueconstructor.some_waveforms.shape)
+        t1 = time.perf_counter()
+        catalogueconstructor.extract_some_waveforms(n_left=None, n_right=None, mode='rand', nb_max=20000)
+        t2 = time.perf_counter()
+        print('extract_some_waveforms rand', t2-t1)
+        print(catalogueconstructor.some_waveforms.shape)
 
         #extract_some_noise
         t1 = time.perf_counter()
-        catalogueconstructor.extract_some_noise(nb_snipet=10000)
+        catalogueconstructor.extract_some_noise(nb_snipet=400)
         t2 = time.perf_counter()
         print('extract_some_noise', t2-t1)
-        print(catalogueconstructor.some_noise_index)
-        print(catalogueconstructor.some_noise_index.shape)
-        print(catalogueconstructor.some_noise_snipet.shape)
-        
-        noise = catalogueconstructor.some_noise_snipet
-        #~ noise = catalogueconstructor.some_waveforms
-        flat_noise = noise.swapaxes(1,2).reshape(noise.shape[0], -1)
-        #~ flat_noise = noise.reshape(noise.shape[0], -1)
-        print(flat_noise.shape)
-        med, mad = median_mad(flat_noise)
-        #~ med = np.mean(flat_noise, axis=0)
-        #~ mad = np.std(flat_noise, axis=0)
-        import matplotlib.pyplot as plt
-        #~ for seg_num in range(dataio.nb_segment):
-        fig, ax = plt.subplots()
-        #~ ax.plot(flat_noise.T)
-        #~ keep = catalogueconstructor.some_noise_index['segment']==seg_num
-        #~ med, mad = median_mad(flat_noise[keep])
-        print(med.shape)
-        ax.plot(med)
-        ax.plot(med+mad)
-        ax.plot(med-mad)
-            
-        plt.show()
-        #~ exit()
-
-
-        #~ break
-
-
         
         # PCA
         t1 = time.perf_counter()

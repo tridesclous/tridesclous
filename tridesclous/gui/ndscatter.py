@@ -14,7 +14,7 @@ import itertools
 from .base import WidgetBase
 from .tools import ParamDialog
 from ..tools import median_mad
-
+from .. import labelcodes
 
 
 class MyViewBox(pg.ViewBox):
@@ -148,6 +148,8 @@ class NDScatter(WidgetBase):
         
         if k=='sel':
             data = self.data[self.controller.spike_selection[self.controller.some_peaks_index]]
+        elif k==labelcodes.LABEL_NOISE:
+            data = self.controller.some_noise_features
         else:
             data = self.data[(self.controller.spike_label[self.controller.some_peaks_index]==k) & self.point_visible]
             
@@ -199,6 +201,11 @@ class NDScatter(WidgetBase):
         self.scatter_select = pg.ScatterPlotItem(pen=pg.mkPen(None), brush=brush, size=11, pxMode = True)
         self.plot.addItem(self.scatter_select)
         self.scatter_select.setZValue(1000)
+        
+        
+        color = self.controller.qcolors.get(labelcodes.LABEL_NOISE)
+        self.scatter_noise = pg.ScatterPlotItem(pen=pg.mkPen(None), brush=color, size=3, pxMode = True)
+        self.plot.addItem(self.scatter_noise)
         
         self.lasso = pg.PlotCurveItem(pen='#7FFF00')
         self.plot.addItem(self.lasso)
@@ -286,6 +293,7 @@ class NDScatter(WidgetBase):
         
         #ndscatter
         self.scatter.clear()
+
         for k in self.controller.cluster_labels:
             if not self.is_cluster_visible(k): continue
             data = self.data_by_label(k)
@@ -299,6 +307,16 @@ class NDScatter(WidgetBase):
         #~ projected = np.dot(data_sel, self.projection )
         projected = self.apply_dot(data_sel)
         self.scatter_select.setData(projected[:,0], projected[:,1])
+        
+        #noise
+        if self.is_cluster_visible(labelcodes.LABEL_NOISE):
+            data_noise = self.data_by_label(labelcodes.LABEL_NOISE)
+            if data_noise is not None:
+                projected = self.apply_dot(data_noise)
+                self.scatter_noise.setData(projected[:,0], projected[:,1])
+                self.scatter_noise.show()
+        else:
+            self.scatter_noise.hide()
         
         #projection axes
         proj = self.projection.copy()

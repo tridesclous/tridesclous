@@ -9,6 +9,7 @@ import matplotlib.colors
 from .base import WidgetBase
 from .tools import ParamDialog
 from ..tools import median_mad
+from .. import labelcodes
 
 class MyViewBox(pg.ViewBox):
     doubleclicked = QT.pyqtSignal()
@@ -194,6 +195,18 @@ class WaveformHistViewer(WidgetBase):
         
         for d in data_bined:
             hist2d[indexes0, d] += 1
+        
+        if labelcodes.LABEL_NOISE in cluster_visible:
+            if self.params['data']=='waveforms':
+                noise = self.controller.some_noise_snipet
+                noise = noise.swapaxes(1,2).reshape(noise.shape[0], -1)
+                noise_bined = np.floor((noise-bin_min)/bin_size).astype('int32')
+                noise_bined = noise_bined.clip(0, bins.size-1)
+                for d in noise_bined:
+                    hist2d[indexes0, d] += 1
+            #~ elif self.params['data']=='features':
+            
+        
 
         self.image.setImage(hist2d, lut=self.lut)#, levels=[0, self._max])
         self.image.setRect(QT.QRectF(-0.5, bin_min, data_kept.shape[1], bin_max-bin_min))

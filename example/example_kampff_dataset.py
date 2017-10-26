@@ -80,6 +80,14 @@ def extract_waveforms_pca_cluster():
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
 
+
+    #extract_some_noise
+    t1 = time.perf_counter()
+    catalogueconstructor.extract_some_noise(nb_snipet=400)
+    t2 = time.perf_counter()
+    print('extract_some_noise', t2-t1)
+
+
     t1 = time.perf_counter()
     catalogueconstructor.project(method='peak_max')
     t2 = time.perf_counter()
@@ -136,7 +144,7 @@ if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
     preprocess_signals_and_peaks()
     extract_waveforms_pca_cluster()
-    open_cataloguewindow()
+    #~ open_cataloguewindow()
     #~ run_peeler()
     #~ open_PeelerWindow()
 

@@ -96,7 +96,7 @@ class PeakMax_and_PCA:
         
         
     def transform(self, waveforms):
-        print('ici', waveforms.shape, self.ind_peak)
+        #~ print('ici', waveforms.shape, self.ind_peak)
         peaks_val = waveforms[:, self.ind_peak, : ].copy()
         features = self.pca.transform(peaks_val)
         

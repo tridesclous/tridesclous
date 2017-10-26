@@ -96,6 +96,13 @@ def extract_waveforms_pca_cluster():
     
     #~ print(catalogueconstructor.all_peaks)
     #~ exit()
+
+
+    #extract_some_noise
+    t1 = time.perf_counter()
+    catalogueconstructor.extract_some_noise(nb_snipet=400)
+    t2 = time.perf_counter()
+    print('extract_some_noise', t2-t1)    
     
     t1 = time.perf_counter()
     catalogueconstructor.project(method='pca', n_components=9)
@@ -180,9 +187,9 @@ def open_PeelerWindow():
 if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
     #~ preprocess_signals_and_peaks()
-    #~ extract_waveforms_pca_cluster()
+    extract_waveforms_pca_cluster()
     #~ detect_similar_ratio()
     #~ open_cataloguewindow()
-    run_peeler()
-    open_PeelerWindow()
+    #~ run_peeler()
+    #~ open_PeelerWindow()
     

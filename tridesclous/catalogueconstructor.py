@@ -31,6 +31,7 @@ from . import labelcodes
 _persitent_arrays = ['all_peaks', 'some_peaks_index', 'some_waveforms', 
                     'some_features', 'signals_medians','signals_mads', 
                     'clusters', 'some_noise_index', 'some_noise_snipet',
+                    'some_noise_features',
                     ]
 
 _dtype_peak = [('index', 'int64'), ('label', 'int64'), ('segment', 'int64'),]
@@ -242,14 +243,21 @@ class CatalogueConstructor:
                 peaks = np.zeros(chunk_peaks.size, dtype=_dtype_peak)
                 peaks['index'] = chunk_peaks
                 peaks['segment'][:] = seg_num
-                peaks['label'][:] = labelcodes.LABEL_UNSLASSIFIED
+                peaks['label'][:] = labelcodes.LABEL_UNCLASSIFIED
                 self.arrays.append_chunk('all_peaks',  peaks)
     
     
     def run_signalprocessor_loop_one_segment(self, seg_num=0, duration=60., detect_peak=True):
         
+
+        
         length = int(duration*self.dataio.sample_rate)
         length -= length%self.chunksize
+
+        #TODO make this by segment
+        self.info['processed_length'] = length
+        self.flush_info()
+        
         #initialize engines
         
         p = dict(self.params_signalpreprocessor)
@@ -313,7 +321,7 @@ class CatalogueConstructor:
                     peaks = np.zeros(chunk_peaks.size, dtype=_dtype_peak)
                     peaks['index'] = chunk_peaks
                     peaks['segment'][:] = seg_num
-                    peaks['label'][:] = labelcodes.LABEL_UNSLASSIFIED
+                    peaks['label'][:] = labelcodes.LABEL_UNCLASSIFIED
                     self.arrays.append_chunk('all_peaks',  peaks)
 
         self.arrays.finalize_array('all_peaks')
@@ -321,17 +329,18 @@ class CatalogueConstructor:
         self.on_new_cluster()
     
     def _reset_waveform_and_features(self):
+        """Must be called after peak detection
+        """
         #TODO fix this need to delete really this arrays but size=0 is buggy
         
         #~ self.arrays.create_array('some_peaks_index', 'int64', (0,), self.memory_mode)
         #~ self.arrays.create_array('some_waveforms', self.info['internal_dtype'], (0,0,0), self.memory_mode)
         #~ self.arrays.create_array('some_features', self.info['internal_dtype'], (0,0), self.memory_mode)
         
-        self.arrays.detach_array('some_peaks_index')
-        self.arrays.detach_array('some_waveforms')
-        self.arrays.detach_array('some_features')
-        self.arrays.detach_array('some_noise_index')
-        self.arrays.detach_array('some_noise_snipet')
+        for name in ('some_peaks_index', 'some_waveforms', 'some_features',
+                        'some_noise_index', 'some_noise_snipet', 'some_noise_features'):
+            self.arrays.detach_array(name)
+            setattr(self, name, None)
     
     def extract_some_waveforms(self, n_left=None, n_right=None, index=None, 
                                     mode='rand', nb_max=10000,
@@ -509,27 +518,6 @@ class CatalogueConstructor:
                 return n_left, n_right
 
 
-    def extract_some_features(self, method='pca', selection = None, **params): #n_components=5, 
-        """
-        params:
-        n_components
-        
-        """
-        #TODO selection
-        
-        #~ wf = self.some_waveforms.reshape(self.some_waveforms.shape[0], -1)
-        #~ params['n_components'] = n_components
-        features, self.projector = decomposition.project_waveforms(self.some_waveforms, method=method, selection=None,
-                    catalogueconstructor=self, **params)
-        
-        #trick to make it persistant
-        #~ self.arrays.create_array('some_features', self.info['internal_dtype'], features.shape, self.memory_mode)
-        #~ self.some_features[:] = features
-        self.arrays.add_array('some_features', features.astype(self.info['internal_dtype']), self.memory_mode)
-    
-    project = extract_some_features
-    
-    
     def extract_some_noise(self, nb_snipet=300):
         """
         Find some snipet of signal that are not overlap with peak waveforms.
@@ -547,7 +535,9 @@ class CatalogueConstructor:
         some_noise_index = []
         n_by_seg = nb_snipet//self.dataio.nb_segment
         for seg_num in range(self.dataio.nb_segment):
-            length = self.dataio.get_segment_length(seg_num)
+            #~ length = self.dataio.get_segment_length(seg_num) #This is wrong
+            length = self.info['processed_length']
+            
             possibles = np.ones(length, dtype='bool')
             possibles[:peak_width] = False
             possibles[-peak_width:] = False
@@ -578,6 +568,31 @@ class CatalogueConstructor:
             snipet = self.dataio.get_signals_chunk(seg_num=ind['segment'], chan_grp=self.chan_grp, i_start=i_start, i_stop=i_stop, signal_type='processed')
             self.some_noise_snipet[n, :, :] = snipet
                 #~ n +=1
+
+    def extract_some_features(self, method='pca', selection = None, **params): #n_components=5, 
+        """
+        params:
+        n_components
+        
+        """
+        #TODO selection
+        
+        #~ wf = self.some_waveforms.reshape(self.some_waveforms.shape[0], -1)
+        #~ params['n_components'] = n_components
+        features, self.projector = decomposition.project_waveforms(self.some_waveforms, method=method, selection=None,
+                    catalogueconstructor=self, **params)
+        
+        #trick to make it persistant
+        #~ self.arrays.create_array('some_features', self.info['internal_dtype'], features.shape, self.memory_mode)
+        #~ self.some_features[:] = features
+        self.arrays.add_array('some_features', features.astype(self.info['internal_dtype']), self.memory_mode)
+        
+        if self.some_noise_snipet is not None:
+            some_noise_features = self.projector.transform(self.some_noise_snipet)
+            self.arrays.add_array('some_noise_features', some_noise_features.astype(self.info['internal_dtype']), self.memory_mode)
+    
+    #ALIAS TODO remove it
+    project = extract_some_features
     
     def apply_projection(self):
         assert self.projector is not None
@@ -672,9 +687,11 @@ class CatalogueConstructor:
             if k not in self.colors:
                 self.colors[k] = color_table[i]
         
+        #TODO colors distinct
         self.colors[labelcodes.LABEL_TRASH] = (.4, .4, .4)
-        self.colors[labelcodes.LABEL_UNSLASSIFIED] = (.4, .4, .4)
-        
+        self.colors[labelcodes.LABEL_UNCLASSIFIED] = (.4, .4, .4)
+        #~ self.colors[labelcodes.LABEL_NOISE] = (.4, .4, .4)
+        self.colors[labelcodes.LABEL_NOISE] = (.8, .8, .8)
         
     #~ def merge_cluster(self, labels_to_merge):
         #~ #TODO: maybe take the first cluster label instead of new one (except -1)

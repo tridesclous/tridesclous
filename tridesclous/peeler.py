@@ -25,7 +25,7 @@ except ImportError:
 
 _dtype_spike = [('index', 'int64'), ('label', 'int64'), ('jitter', 'float64'),]
 
-from .labelcodes import (LABEL_TRASH, LABEL_UNSLASSIFIED)
+from .labelcodes import (LABEL_TRASH, LABEL_UNCLASSIFIED)
 LABEL_LEFT_LIMIT = -11
 LABEL_RIGHT_LIMIT = -12
 LABEL_MAXIMUM_SHIFT = -13
@@ -115,8 +115,8 @@ class Peeler:
             all_spikes.append(good_spikes)
         
         # append bad spike
-        #~ bad_spikes = spikes[spikes['label']==LABEL_UNSLASSIFIED]
-        bad_spikes = spikes.compress(spikes['label']==LABEL_UNSLASSIFIED)
+        #~ bad_spikes = spikes[spikes['label']==LABEL_UNCLASSIFIED]
+        bad_spikes = spikes.compress(spikes['label']==LABEL_UNCLASSIFIED)
         bad_spikes['index'] += shift
         all_spikes.append(bad_spikes)
         
@@ -378,7 +378,7 @@ def estimate_one_jitter(waveform, catalogue):
     else:
         #otherwise the prediction is bad
         #~ print('bad prediction')
-        return LABEL_UNSLASSIFIED, 0.
+        return LABEL_UNCLASSIFIED, 0.
 
 
 def make_prediction_signals(spikes, dtype, shape, catalogue):
