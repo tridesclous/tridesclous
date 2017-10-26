@@ -171,10 +171,6 @@ class CatalogueController(ControllerBase):
         #reset some metrics
         for name in _persistent_metrics:
             setattr(self.cc, name, None)
-        #~ self.cc.spike_waveforms_similarity = None
-        #~ self.cc.cluster_similarity = None
-        #~ self.cc.cluster_ratio_similarity = None
-        #~ self.cc.spike_silhouette = None
         
         self.check_plot_attributes()
 

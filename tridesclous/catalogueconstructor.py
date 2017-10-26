@@ -756,7 +756,15 @@ class CatalogueConstructor:
             cluster_similarity = None
         else:
             #TODO put a better methods because this is overlapping with ratio
-            cluster_similarity = metrics.compute_similarity(wfs, 'cosine_similarity')
+            #~ cluster_similarity = metrics.compute_similarity(wfs, 'cosine_similarity')
+            import sklearn.metrics.pairwise
+            d = sklearn.metrics.pairwise.euclidean_distances(wfs)
+            #~ dist(x, y) = sqrt(dot(x, x) - 2 * dot(x, y) + dot(y, y))
+            #~ cluster_similarity = -d
+            #~ cluster_similarity = 1. / (d/np.max(d))
+            #~ cluster_similarity = 1. - (d/np.max(d))
+            cluster_similarity = np.exp(-d * (10./wfs.shape[1]))
+            #TODO pnderation par le max des 2 wavefroms point par point
 
         if cluster_similarity is None:
             self.arrays.detach_array('cluster_similarity')
