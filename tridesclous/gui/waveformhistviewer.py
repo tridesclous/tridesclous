@@ -196,7 +196,8 @@ class WaveformHistViewer(WidgetBase):
         for d in data_bined:
             hist2d[indexes0, d] += 1
         
-        if labelcodes.LABEL_NOISE in cluster_visible:
+        if self.controller.cluster_visible[labelcodes.LABEL_NOISE]:
+            #~ print('labelcodes.LABEL_NOISE in cluster_visible', labelcodes.LABEL_NOISE in cluster_visible, cluster_visible)
             if self.params['data']=='waveforms':
                 noise = self.controller.some_noise_snipet
                 noise = noise.swapaxes(1,2).reshape(noise.shape[0], -1)

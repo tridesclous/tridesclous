@@ -7,6 +7,7 @@ import seaborn as sns
 
 from ..tools import median_mad
 from .. import labelcodes
+from ..catalogueconstructor import _persistent_metrics
 from .base import ControllerBase
 
 
@@ -54,6 +55,7 @@ class CatalogueController(ControllerBase):
                 self.cluster_visible.pop(k)
         
         if labelcodes.LABEL_NOISE not in self.cluster_visible:
+            #~ print('self.cluster_visible[labelcodes.LABEL_NOISE] = True')
             self.cluster_visible[labelcodes.LABEL_NOISE] = True
         
         if labelcodes.LABEL_NOISE not in self.cluster_count:
@@ -61,9 +63,8 @@ class CatalogueController(ControllerBase):
                 self.cluster_count[labelcodes.LABEL_NOISE] = self.cc.some_noise_snipet.shape[0]
             else:
                 self.cluster_count[labelcodes.LABEL_NOISE] = 0
-
+        
         self.refresh_colors(reset=False)
-    
     
     #map some attribute
     @property
@@ -166,8 +167,14 @@ class CatalogueController(ControllerBase):
                         self.cluster_count.pop(k)
         
         self.cc.compute_centroid(label_changed=label_changed)
-        self.cc.compute_similarity_ratio()
-        self.cc.compute_similarity()
+        
+        #reset some metrics
+        for name in _persistent_metrics:
+            setattr(self.cc, name, None)
+        #~ self.cc.spike_waveforms_similarity = None
+        #~ self.cc.cluster_similarity = None
+        #~ self.cc.cluster_ratio_similarity = None
+        #~ self.cc.spike_silhouette = None
         
         self.check_plot_attributes()
 
@@ -182,7 +189,10 @@ class CatalogueController(ControllerBase):
 
     def merge_cluster(self, labels_to_merge):
         #TODO: maybe take the first cluster label instead of new one (except -1)
-        new_label = max(self.cluster_labels)+1
+        new_label = min(labels_to_merge)
+        if new_label<0:
+            new_label = max(max(self.cluster_labels)+1, 0)
+        
         for k in labels_to_merge:
             mask = self.spike_label == k
             self.change_spike_label(mask, new_label, on_new_cluster=False)
@@ -212,11 +222,24 @@ class CatalogueController(ControllerBase):
         self.on_new_cluster()
         self.refresh_colors(reset = False)
     
+    @property
+    def spike_waveforms_similarity(self):
+        return self.cc.spike_waveforms_similarity
+
+    @property
+    def spike_silhouette(self):
+        return self.cc.spike_silhouette
+        
+    def compute_spike_waveforms_similarity(self, **kargs):
+        return self.cc.compute_spike_waveforms_similarity(**kargs)
+    
     def detect_similar_waveform_ratio(self, threshold=0.9):
         return self.cc.detect_similar_waveform_ratio(threshold=threshold)
         
     def detect_high_similarity(self, threshold=0.95):
         return self.cc.detect_high_similarity(threshold=threshold)
     
+    def compute_spike_silhouette(self, **kargs):
+        return self.cc.compute_spike_silhouette(**kargs)
     
     

@@ -55,12 +55,12 @@ fullchain_params = [
     {'name':'preprocessor', 'type':'group', 'children': preprocessor_params},
     {'name':'peak_detector', 'type':'group', 'children': peak_detector_params},
     {'name':'extract_waveforms', 'type':'group', 'children' : waveforms_params},
-    #~ {'name':'features', 'type':'group', 
-        #~ 'children':[{'name': 'method', 'type': 'list', 'values': features_params_by_methods.keys()}],
-    #~ },
-    #~ {'name':'find_cluster', 'type':'group', 
-        #~ 'children':[{'name': 'method', 'type': 'list', 'values':cluster_params_by_methods.keys()}],
-    #~ },
+]
+
+metrics_params = [
+                      #~ {'name': 'similarity_metric', 'type': 'list', 'values' : [ 'cosine_similarity',  'linear_kernel',
+                                                                #~ 'polynomial_kernel', 'sigmoid_kernel', 'rbf_kernel', 'laplacian_kernel' ] },
+        #max_size 1e7
 ]
 
 

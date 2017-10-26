@@ -104,7 +104,7 @@ class CatalogueWindow(QT.QMainWindow):
 
         #~ self.act_refresh = QT.QAction(u'Refresh', self,checkable = False, icon=QT.QIcon.fromTheme("view-refresh"))
         self.act_refresh = QT.QAction(u'Refresh', self,checkable = False, icon=QT.QIcon(":/view-refresh.svg"))
-        self.act_refresh.triggered.connect(self.refresh)
+        self.act_refresh.triggered.connect(self.refresh_with_reload)
 
         #~ self.act_setting = QT.QAction(u'Settings', self,checkable = False, icon=QT.QIcon.fromTheme(":/preferences-other.svg"))
         #~ self.act_setting.triggered.connect(self.open_settings)
@@ -120,6 +120,10 @@ class CatalogueWindow(QT.QMainWindow):
 
         self.act_new_cluster = QT.QAction(u'New cluster', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
         self.act_new_cluster.triggered.connect(self.new_cluster)
+
+        self.act_compute_metrics = QT.QAction(u'Compute metrics', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        self.act_compute_metrics.triggered.connect(self.compute_metrics)
+
 
         #~ self.act_new_waveforms = QT.QAction(u'Yep', self,checkable = False, icon=QT.QIcon(":main_icon.png"))
         #~ self.act_new_waveforms.triggered.connect(self.new_waveforms)
@@ -141,12 +145,17 @@ class CatalogueWindow(QT.QMainWindow):
         self.toolbar.addAction(self.act_new_waveforms)
         self.toolbar.addAction(self.act_new_features)
         self.toolbar.addAction(self.act_new_cluster)
+        self.toolbar.addAction(self.act_compute_metrics)
 
     def save_catalogue(self):
         self.catalogueconstructor.save_catalogue()
     
-    def refresh(self):
+    def refresh_with_reload(self):
         self.controller.reload_data()
+        sel.refresh()
+    
+    def refresh(self):
+        #~ self.controller.reload_data()
         for w in self.controller.views:
             #TODO refresh only visible but need catch on visibility changed
             #~ print(w)
@@ -187,6 +196,21 @@ class CatalogueWindow(QT.QMainWindow):
         if method is not None:
             self.catalogueconstructor.find_clusters(method=method, **kargs)
             self.refresh()
+    
+    
+    def compute_metrics(self):
+        dia = ParamDialog(gui_params.metrics_params)
+        dia.resize(450, 500)
+        if dia.exec_():
+            d = dia.get()
+            self.catalogueconstructor.compute_centroid()
+            self.catalogueconstructor.compute_spike_waveforms_similarity()
+            self.catalogueconstructor.compute_cluster_similarity()
+            self.catalogueconstructor.compute_cluster_ratio_similarity()
+            self.catalogueconstructor.compute_spike_silhouette()
+            #TODO refresh only metrics concerned
+            self.refresh()
+        
         
     
 

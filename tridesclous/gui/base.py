@@ -39,6 +39,7 @@ class ControllerBase(QT.QObject):
             view.on_colors_changed()
     
     def on_cluster_visibility_changed(self):
+        #~ print('on_cluster_visibility_changed', self.cluster_visible)
         for view in self.views:
             if view==self.sender(): continue
             view.on_cluster_visibility_changed()

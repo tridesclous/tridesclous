@@ -274,7 +274,7 @@ def test_ratio_amplitude():
     dataio = DataIO(dirname='test_catalogueconstructor')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
 
-    pairs = catalogueconstructor.detect_similar_waveform_ratio()
+    pairs = catalogueconstructor.detect_similar_waveform_ratio(0.5)
     print(pairs)
 
     

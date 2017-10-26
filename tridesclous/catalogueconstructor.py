@@ -10,12 +10,14 @@ import scipy.signal
 import scipy.interpolate
 import seaborn as sns
 sns.set_style("white")
+
 import sklearn
 
 from . import signalpreprocessor
 from . import  peakdetector
 from . import decomposition
 from . import cluster 
+from . import metrics
 
 from .tools import median_mad, get_pairs_over_threshold
 
@@ -28,11 +30,16 @@ from . import labelcodes
 
 
 
-_persitent_arrays = ['all_peaks', 'some_peaks_index', 'some_waveforms', 
-                    'some_features', 'signals_medians','signals_mads', 
-                    'clusters', 'some_noise_index', 'some_noise_snipet',
-                    'some_noise_features',
-                    ]
+_persistent_metrics = ('spike_waveforms_similarity', 'cluster_similarity',
+                        'cluster_ratio_similarity', 'spike_silhouette')
+
+_reset_after_peak_arrays = ('some_peaks_index', 'some_waveforms', 'some_features',
+                        'some_noise_index', 'some_noise_snipet', 'some_noise_features',
+                        ) + _persistent_metrics
+
+_persitent_arrays = ('all_peaks', 'signals_medians','signals_mads', 'clusters') + _reset_after_peak_arrays
+
+
 
 _dtype_peak = [('index', 'int64'), ('label', 'int64'), ('segment', 'int64'),]
 
@@ -337,8 +344,7 @@ class CatalogueConstructor:
         #~ self.arrays.create_array('some_waveforms', self.info['internal_dtype'], (0,0,0), self.memory_mode)
         #~ self.arrays.create_array('some_features', self.info['internal_dtype'], (0,0), self.memory_mode)
         
-        for name in ('some_peaks_index', 'some_waveforms', 'some_features',
-                        'some_noise_index', 'some_noise_snipet', 'some_noise_features'):
+        for name in _reset_after_peak_arrays:
             self.arrays.detach_array(name)
             setattr(self, name, None)
     
@@ -715,32 +721,66 @@ class CatalogueConstructor:
                 self.all_peaks['label'][mask] = -1
         self.on_new_cluster()
 
-    def compute_similarity(self):
-        print('compute_similarity')
+    def compute_spike_waveforms_similarity(self, method='cosine_similarity', size_max = 1e7):
+        """This compute the similarity spike by spike.
+        """
+        t1 = time.perf_counter()
+        spike_waveforms_similarity = None
+        if self.some_waveforms is not None:
+            wf = self.some_waveforms
+            wf = wf.reshape(wf.shape[0], -1)
+            if wf.size<size_max:
+                spike_waveforms_similarity = metrics.compute_similarity(wf, method)
+        
+        if spike_waveforms_similarity is None:
+            self.arrays.detach_array('spike_waveforms_similarity')
+            self.spike_waveforms_similarity = None
+        else:
+            self.arrays.add_array('spike_waveforms_similarity', spike_waveforms_similarity.astype('float32'), self.memory_mode)
+
+        t2 = time.perf_counter()
+        print('compute_spike_waveforms_similarity', t2-t1)
+        
+        return self.spike_waveforms_similarity
+
+    def compute_cluster_similarity(self):
+        if not hasattr(self, 'centroids'):
+            self.compute_centroid()            
+        #~ print('compute_cluster_similarity')
+        t1 = time.perf_counter()
         
         labels = self.positive_cluster_labels
-
         wfs = np.array([self.centroids[k]['median'] for k in labels])
-
+        wfs = wfs.reshape(wfs.shape[0], -1)
         if wfs.size == 0:
-            return
-        
-        wfs_flat = wfs.swapaxes(1, 2).reshape(wfs.shape[0], -1)
-        similarity = sklearn.metrics.pairwise.cosine_similarity(wfs_flat)
-        self.similarity = similarity
-        return labels, similarity, wfs_flat
+            cluster_similarity = None
+        else:
+            #TODO put a better methods because this is overlapping with ratio
+            cluster_similarity = metrics.compute_similarity(wfs, 'cosine_similarity')
+
+        if cluster_similarity is None:
+            self.arrays.detach_array('cluster_similarity')
+            self.cluster_similarity = None
+        else:
+            self.arrays.add_array('cluster_similarity', cluster_similarity.astype('float32'), self.memory_mode)
+
+        t2 = time.perf_counter()
+        print('compute_cluster_similarity', t2-t1)
+
+            
 
     def detect_high_similarity(self, threshold=0.95):
-        if not hasattr(self, 'centroids'):
-            self.compute_centroid()
-        if not hasattr(self, 'similarity'):
-            self.compute_similarity()
-        pairs = get_pairs_over_threshold(self.similarity, self.positive_cluster_labels, threshold)
+        if self.cluster_similarity is None:
+            self.compute_cluster_similarity()
+        pairs = get_pairs_over_threshold(self.cluster_similarity, self.positive_cluster_labels, threshold)
         return pairs
     
-    
-    def compute_similarity_ratio(self):
-        print('compute_similarity_ratio')
+    def compute_cluster_ratio_similarity(self):
+        #~ print('compute_cluster_ratio_similarity')
+        if not hasattr(self, 'centroids'):
+            self.compute_centroid()            
+        
+        t1 = time.perf_counter()
         labels = self.positive_cluster_labels
         
         #TODO: this is stupid because cosine_similarity is the same at every scale!!!
@@ -755,21 +795,49 @@ class CatalogueConstructor:
         wf_normed = np.array(wf_normed)
         
         if wf_normed.size == 0:
-            return
-        
-        wf_normed_flat = wf_normed.swapaxes(1, 2).reshape(wf_normed.shape[0], -1)
-        ratio_similarity = sklearn.metrics.pairwise.cosine_similarity(wf_normed_flat)
-        self.ratio_similarity = ratio_similarity
-        return labels, ratio_similarity, wf_normed_flat
+            cluster_ratio_similarity = None
+        else:
+            wf_normed_flat = wf_normed.swapaxes(1, 2).reshape(wf_normed.shape[0], -1)
+            cluster_ratio_similarity = metrics.compute_similarity(wf_normed_flat, 'cosine_similarity')
 
+        if cluster_ratio_similarity is None:
+            self.arrays.detach_array('cluster_ratio_similarity')
+            self.cluster_ratio_similarity = None
+        else:
+            self.arrays.add_array('cluster_ratio_similarity', cluster_ratio_similarity.astype('float32'), self.memory_mode)
+        #~ return labels, ratio_similarity, wf_normed_flat
+
+
+        t2 = time.perf_counter()
+        print('compute_cluster_ratio_similarity', t2-t1)        
+        
 
     def detect_similar_waveform_ratio(self, threshold=0.9):
-        if not hasattr(self, 'centroids'):
-            self.compute_centroid()
-        if not hasattr(self, 'ratio_similarity'):
-            self.compute_similarity_ratio()
-        pairs = get_pairs_over_threshold(self.ratio_similarity, self.positive_cluster_labels, threshold)
+        if self.cluster_ratio_similarity is None:
+            self.compute_cluster_ratio_similarity()
+        pairs = get_pairs_over_threshold(self.cluster_ratio_similarity, self.positive_cluster_labels, threshold)
         return pairs
+    
+    def compute_spike_silhouette(self, size_max=1e7):
+        t1 = time.perf_counter()
+        
+        spike_silhouette = None
+        wf = self.some_waveforms
+        if wf is not None:
+            wf = wf.reshape(wf.shape[0], -1)
+            labels = self.all_peaks['label'][self.some_peaks_index]
+            if wf.size<size_max:
+                spike_silhouette = metrics.compute_silhouette(wf, labels, metric='euclidean')
+
+        if spike_silhouette is None:
+            self.arrays.detach_array('spike_silhouette')
+            self.spike_silhouette = None
+        else:
+            self.arrays.add_array('spike_silhouette', spike_silhouette.astype('float32'), self.memory_mode)
+
+
+        t2 = time.perf_counter()
+        print('compute_spike_silhouette', t2-t1)                
     
     def tag_same_cell(self, labels_to_group):
         inds, = np.nonzero(np.in1d(self.clusters['cluster_label'], labels_to_group))

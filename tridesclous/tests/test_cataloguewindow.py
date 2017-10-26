@@ -72,7 +72,7 @@ def test_WaveformViewer():
 
 def test_SimilarityView():
     controller = get_controller()
-    
+    controller.compute_spike_waveforms_similarity()
     app = mkQApp()
     similarityview = SimilarityView(controller=controller)
     similarityview.show()
@@ -89,6 +89,8 @@ def test_PairList():
 
 def test_Silhouette():
     controller = get_controller()
+    
+    controller.compute_spike_silhouette()
     
     app = mkQApp()
     similarityview = Silhouette(controller=controller)

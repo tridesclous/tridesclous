@@ -13,10 +13,6 @@ import matplotlib.cm
 import matplotlib.colors
 
 
-
-#~ import sklearn.metrics.pairwise
-from sklearn.metrics import silhouette_samples, silhouette_score
-
 from .base import WidgetBase
 from .tools import ParamDialog
 
@@ -29,8 +25,8 @@ class MyViewBox(pg.ViewBox):
 
 class Silhouette(WidgetBase):
     
-    _params = [{'name': 'data', 'type': 'list', 'values' : ['waveforms', 'features', ] },
-                ]
+    _params = [
+        ]
     
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
@@ -52,7 +48,7 @@ class Silhouette(WidgetBase):
         self.alpha = 60
         
         self.initialize_plot()
-        self.compute_slihouette()
+        
         self.refresh()
         
     def on_params_changed(self):
@@ -67,50 +63,24 @@ class Silhouette(WidgetBase):
         self.plot = pg.PlotItem(viewBox=self.viewBox)
         self.graphicsview.setCentralItem(self.plot)
         self.plot.hideButtons()
-        
-    def compute_slihouette(self):
-        if self.params['data']=='waveforms':
-            wf = self.controller.some_waveforms
-            if wf is not None:
-                data = wf.reshape(wf.shape[0], -1)
-            else:
-                data = None
-        if self.params['data']=='features':
-            data = self.controller.some_features
-
-        if data is None:
-            self.silhouette_avg = None
-            return            
-        
-        labels = self.controller.spike_label[self.controller.some_peaks_index]
-        keep = labels>=0
-        labels = labels[keep]
-        data = data[keep]        
-        
-        if data.size>1e7:
-            print('compute_slihouette : TOO BIG')
-            self.silhouette_avg = None
-            return
-        
-        labels_list = np.unique(labels)
-        if labels_list.size<=1:
-            self.silhouette_avg = None
-            return
-        
-        self.silhouette_avg = silhouette_score(data, labels)
-        silhouette_values = silhouette_samples(data, labels)
-        
-        self.silhouette_by_labels = {}
-        for k in labels_list:
-            v = silhouette_values[k==labels]
-            v.sort()
-            self.silhouette_by_labels[k] = v
     
     def refresh(self):
         self.plot.clear()
-        if self.silhouette_avg is None:
+        silhouette_values = self.controller.spike_silhouette
+        if silhouette_values is None:
             return
-        self.vline = pg.InfiniteLine(pos=self.silhouette_avg, angle = 90, movable = False, pen = '#FF0000')
+        
+        silhouette_avg = np.mean(silhouette_values)
+        silhouette_by_labels = {}
+        labels = self.controller.spike_label
+        labels_list = np.unique(labels)
+        for k in labels_list:
+            v = silhouette_values[k==labels]
+            v.sort()
+            silhouette_by_labels[k] = v
+        
+        
+        self.vline = pg.InfiniteLine(pos=silhouette_avg, angle = 90, movable = False, pen = '#FF0000')
         self.plot.addItem(self.vline)
         
         y_lower = 10
@@ -118,7 +88,7 @@ class Silhouette(WidgetBase):
         visibles = [c for c, v in self.controller.cluster_visible.items() if v and c>=0]
         
         for k in visibles:
-            v = self.silhouette_by_labels[k]
+            v = silhouette_by_labels[k]
             
             color = self.controller.qcolors[k]
             color2 = QT.QColor(color)
@@ -148,7 +118,7 @@ class Silhouette(WidgetBase):
         pass
 
     def on_spike_label_changed(self):
-        self.compute_slihouette()
+        #~ self.compute_slihouette()
         self.refresh()
     
     def on_colors_changed(self):
