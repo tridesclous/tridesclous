@@ -115,6 +115,9 @@ class CatalogueWindow(QT.QMainWindow):
         self.act_new_waveforms = QT.QAction(u'New waveforms', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
         self.act_new_waveforms.triggered.connect(self.new_waveforms)
 
+        self.act_new_noise_snippet = QT.QAction(u'New noise snippet', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        self.act_new_noise_snippet.triggered.connect(self.new_noise_snippet)
+
         self.act_new_features = QT.QAction(u'New features', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
         self.act_new_features.triggered.connect(self.new_features)
 
@@ -143,6 +146,7 @@ class CatalogueWindow(QT.QMainWindow):
         
         self.toolbar.addAction(self.act_redetect_peak)
         self.toolbar.addAction(self.act_new_waveforms)
+        self.toolbar.addAction(self.act_new_noise_snippet)
         self.toolbar.addAction(self.act_new_features)
         self.toolbar.addAction(self.act_new_cluster)
         self.toolbar.addAction(self.act_compute_metrics)
@@ -184,6 +188,15 @@ class CatalogueWindow(QT.QMainWindow):
             self.catalogueconstructor.extract_some_waveforms(**d)
         self.refresh()
 
+    def new_noise_snippet(self):
+        dia = ParamDialog(gui_params.noise_snippet_params)
+        dia.resize(450, 500)
+        if dia.exec_():
+            d = dia.get()
+            self.catalogueconstructor.extract_some_noise(**d)
+            self.controller.check_plot_attributes()#this count noise
+        self.refresh()
+
     def new_features(self):
         method, kargs = open_dialog_methods(gui_params.features_params_by_methods, self)
         if method is not None:
@@ -195,8 +208,8 @@ class CatalogueWindow(QT.QMainWindow):
         method, kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self)
         if method is not None:
             self.catalogueconstructor.find_clusters(method=method, **kargs)
+            self.controller.on_new_cluster()
             self.refresh()
-    
     
     def compute_metrics(self):
         dia = ParamDialog(gui_params.metrics_params)

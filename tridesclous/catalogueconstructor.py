@@ -35,7 +35,7 @@ _persistent_metrics = ('spike_waveforms_similarity', 'cluster_similarity',
 
 _reset_after_peak_arrays = ('some_peaks_index', 'some_waveforms', 'some_features',
                         'channel_to_features', 
-                        'some_noise_index', 'some_noise_snipet', 'some_noise_features',
+                        'some_noise_index', 'some_noise_snippet', 'some_noise_features',
                         ) + _persistent_metrics
 
 _persitent_arrays = ('all_peaks', 'signals_medians','signals_mads', 'clusters') + _reset_after_peak_arrays
@@ -44,7 +44,8 @@ _persitent_arrays = ('all_peaks', 'signals_medians','signals_mads', 'clusters') 
 
 _dtype_peak = [('index', 'int64'), ('label', 'int64'), ('segment', 'int64'),]
 
-_dtype_cluster = [('cluster_label', 'int64'), ('cell_label', 'int64')]
+_dtype_cluster = [('cluster_label', 'int64'), ('cell_label', 'int64'), 
+            ('max_on_channel', 'int64'), ('max_peak_amplitude', 'float64'), ('waveform_rms', 'float64'),]
 
 
 class CatalogueConstructor:
@@ -263,6 +264,7 @@ class CatalogueConstructor:
 
         
         length = int(duration*self.dataio.sample_rate)
+        length = min(length, self.dataio.get_segment_length(seg_num))
         length -= length%self.chunksize
 
         #TODO make this by segment
@@ -529,11 +531,11 @@ class CatalogueConstructor:
                 return n_left, n_right
 
 
-    def extract_some_noise(self, nb_snipet=300):
+    def extract_some_noise(self, nb_snippet=300):
         """
         Find some snipet of signal that are not overlap with peak waveforms.
         """
-        #~ 'some_noise_index', 'some_noise_snipet', 
+        #~ 'some_noise_index', 'some_noise_snippet', 
         assert  'params_waveformextractor' in self.info
         n_left = self.info['params_waveformextractor']['n_left']
         n_right = self.info['params_waveformextractor']['n_right']
@@ -544,7 +546,7 @@ class CatalogueConstructor:
         #~ _dtype_peak = [('index', 'int64'), ('label', 'int64'), ('segment', 'int64'),]
         
         some_noise_index = []
-        n_by_seg = nb_snipet//self.dataio.nb_segment
+        n_by_seg = nb_snippet//self.dataio.nb_segment
         for seg_num in range(self.dataio.nb_segment):
             #~ length = self.dataio.get_segment_length(seg_num) #This is wrong
             length = self.info['processed_length']
@@ -568,7 +570,7 @@ class CatalogueConstructor:
         
         #create snipet
         shape=(self.some_noise_index.size, peak_width, self.nb_channel)
-        self.arrays.create_array('some_noise_snipet', self.info['internal_dtype'], shape, self.memory_mode)
+        self.arrays.create_array('some_noise_snippet', self.info['internal_dtype'], shape, self.memory_mode)
         #~ n = 0
         for n, ind in enumerate(self.some_noise_index):
         #~ for seg_num in range(self.dataio.nb_segment):
@@ -576,8 +578,8 @@ class CatalogueConstructor:
             #~ for ind in insegment_indexes:
             i_start = ind['index']+n_left
             i_stop = i_start+peak_width
-            snipet = self.dataio.get_signals_chunk(seg_num=ind['segment'], chan_grp=self.chan_grp, i_start=i_start, i_stop=i_stop, signal_type='processed')
-            self.some_noise_snipet[n, :, :] = snipet
+            snippet = self.dataio.get_signals_chunk(seg_num=ind['segment'], chan_grp=self.chan_grp, i_start=i_start, i_stop=i_stop, signal_type='processed')
+            self.some_noise_snippet[n, :, :] = snippet
                 #~ n +=1
 
     def extract_some_features(self, method='pca', selection = None, **params): #n_components=5, 
@@ -599,8 +601,8 @@ class CatalogueConstructor:
         self.arrays.add_array('some_features', features.astype(self.info['internal_dtype']), self.memory_mode)
         self.arrays.add_array('channel_to_features', channel_to_features, self.memory_mode)
         
-        if self.some_noise_snipet is not None:
-            some_noise_features = self.projector.transform(self.some_noise_snipet)
+        if self.some_noise_snippet is not None:
+            some_noise_features = self.projector.transform(self.some_noise_snippet)
             self.arrays.add_array('some_noise_features', some_noise_features.astype(self.info['internal_dtype']), self.memory_mode)
     
     #ALIAS TODO remove it
@@ -640,6 +642,9 @@ class CatalogueConstructor:
         clusters = np.zeros(cluster_labels.shape, dtype=_dtype_cluster)
         clusters['cluster_label'][:] = cluster_labels
         clusters['cell_label'][:] = cluster_labels
+        clusters['max_on_channel'][:] = -1
+        clusters['max_peak_amplitude'][:] = np.nan
+        clusters['waveform_rms'][:] = np.nan
         
         if self.clusters is not None:
             #get previous cell_label
@@ -681,8 +686,15 @@ class CatalogueConstructor:
             #~ ax.plot(median.T.flatten())
             #~ ax.axvspan(max_on_channel*median.shape[0], (max_on_channel+1)*median.shape[0], alpha=.2)
             #~ plt.show()
-            self.centroids[k] = {'median':median, 'mad':mad, 'max_on_channel' : max_on_channel, 
+            self.centroids[k] = {'median':median, 'mad':mad, #'max_on_channel' : max_on_channel, 
                         'mean': mean, 'std': std}
+            
+            ind = np.nonzero(self.clusters['cluster_label']==k)[0][0]
+            self.clusters['max_on_channel'][ind] = max_on_channel
+            self.clusters['max_peak_amplitude'][ind] = median[-n_left, max_on_channel]
+            self.clusters['waveform_rms'][ind] = np.sqrt(np.mean(median**2))
+
+        self.arrays.flush_array('clusters')
         
         t2 = time.perf_counter()
         print('compute_centroid', t2-t1)
@@ -699,22 +711,9 @@ class CatalogueConstructor:
             if k not in self.colors:
                 self.colors[k] = color_table[i]
         
-        #TODO colors distinct
         self.colors[labelcodes.LABEL_TRASH] = (.4, .4, .4)
-        self.colors[labelcodes.LABEL_UNCLASSIFIED] = (.4, .4, .4)
-        #~ self.colors[labelcodes.LABEL_NOISE] = (.4, .4, .4)
+        self.colors[labelcodes.LABEL_UNCLASSIFIED] = (.6, .6, .6)
         self.colors[labelcodes.LABEL_NOISE] = (.8, .8, .8)
-        
-    #~ def merge_cluster(self, labels_to_merge):
-        #~ #TODO: maybe take the first cluster label instead of new one (except -1)
-        #~ new_label = max(self.cluster_labels)+1
-        #~ for k in labels_to_merge:
-            #~ take = self.peak_label == k
-            #~ self.peak_label[take] = new_label
-        
-        #~ self.on_new_cluster()
-        
-        #~ self.on_new_cluster(label_changed=labels_to_merge+[new_label])
     
     def split_cluster(self, label, n, method='kmeans',  **kargs): #order_clusters=True,
         mask = self.all_peaks['label']==label
@@ -801,8 +800,10 @@ class CatalogueConstructor:
         #so this is identique to compute_similarity()
         #find something else
         wf_normed = []
-        for k in labels:
-            chan = self.centroids[k]['max_on_channel']
+        for ind, k in enumerate(self.clusters['cluster_label']):
+            if k<0: continue
+            #~ chan = self.centroids[k]['max_on_channel']
+            chan = self.clusters['max_on_channel'][ind]
             median = self.centroids[k]['median']
             n_left = int(self.info['params_waveformextractor']['n_left'])
             wf_normed.append(median/np.abs(median[-n_left, chan]))
@@ -859,7 +860,7 @@ class CatalogueConstructor:
         
         
     
-    def order_clusters(self):
+    def order_clusters(self, by='waveforms_rms'):
         """
         This reorder labels from highest power to lower power.
         The higher power the smaller label.
@@ -869,31 +870,58 @@ class CatalogueConstructor:
         if not hasattr(self, 'centroids'):
             self.compute_centroid()
         
-        cluster_labels = self.cluster_labels.copy()
-        cluster_labels.sort()
-        cluster_labels =  cluster_labels[cluster_labels>=0]
-        powers = [ ]
-        for k in cluster_labels:
-            power = np.sum(self.centroids[k]['median'].flatten()**2)
-            powers.append(power)
-        order = np.argsort(powers)[::-1]
-        sorted_labels = cluster_labels[order]
+        clusters = self.clusters.copy()
+        neg_clusters = clusters[clusters['cluster_label']<0]
+        pos_clusters = clusters[clusters['cluster_label']>=0]
         
-        #TODO reorder self.clusters for cell_label!!!!!
+        print(by)
+        if by=='waveforms_rms':
+            order = np.argsort(pos_clusters['waveform_rms'])[::-1]
+        elif by=='max_peak_amplitude':
+            order = np.argsort(np.abs(pos_clusters['max_peak_amplitude']))[::-1]
+        else:
+            raise(NotImplementedError)
+        #~ cluster_labels = self.cluster_labels.copy()
+        #~ cluster_labels.sort()
+        #~ cluster_labels =  cluster_labels[cluster_labels>=0]
+        #~ powers = [ ]
+        #~ for k in cluster_labels:
+            #~ power = np.sum(self.centroids[k]['median'].flatten()**2)
+            #~ powers.append(power)
+        #~ order = np.argsort(powers)[::-1]
+        
+        
+        sorted_labels = pos_clusters['cluster_label'][order]
         
         #reassign labels for peaks and clusters
-        N = int(max(cluster_labels)*10)
+        N = int(max(sorted_labels)*10)
         self.all_peaks['label'][self.all_peaks['label']>=0] += N
-        self.clusters['cluster_label'] += N
-        self.clusters['cell_label'] += N
+        #~ self.clusters['cluster_label'] += N
+        #~ self.clusters['cell_label'] += N
         for new, old in enumerate(sorted_labels+N):
             #~ self.all_peaks['label'][self.all_peaks['label']==old] = cluster_labels[new]
             self.all_peaks['label'][self.all_peaks['label']==old] = new
-            self.clusters['cluster_label'][self.clusters['cluster_label']==old] = new
-            self.clusters['cell_label'][self.clusters['cell_label']==old] = new
+            #~ self.clusters['cluster_label'][self.clusters['cluster_label']==old] = new
+            #~ self.clusters['cell_label'][self.clusters['cell_label']==old] = new
         
-        #~ self.on_new_cluster()
-    
+        
+        new_cluster = np.concatenate((neg_clusters, pos_clusters[order]))
+        self.clusters[:] = new_cluster
+
+        #~ clusters = self.controller.clusters
+        #~ clusters = clusters[clusters['cluster_label']>=0]
+        #~ if sort_mode=='label':
+            #~ order =np.arange(clusters.size)
+        #~ elif sort_mode=='max_on_channel':
+            #~ order = np.argsort(clusters['max_on_channel'])
+        #~ elif sort_mode=='max_peak_amplitude':
+            #~ order = np.argsort(np.abs(clusters['max_peak_amplitude']))[::-1]
+        #~ elif sort_mode=='waveform_rms':
+            #~ order = np.argsort(clusters['waveform_rms'])[::-1]
+
+
+
+
 
         
     

@@ -58,11 +58,11 @@ class CatalogueController(ControllerBase):
             #~ print('self.cluster_visible[labelcodes.LABEL_NOISE] = True')
             self.cluster_visible[labelcodes.LABEL_NOISE] = True
         
-        if labelcodes.LABEL_NOISE not in self.cluster_count:
-            if self.cc.some_noise_snipet is not None:
-                self.cluster_count[labelcodes.LABEL_NOISE] = self.cc.some_noise_snipet.shape[0]
-            else:
-                self.cluster_count[labelcodes.LABEL_NOISE] = 0
+        #~ if labelcodes.LABEL_NOISE not in self.cluster_count:
+        if self.cc.some_noise_snippet is not None:
+            self.cluster_count[labelcodes.LABEL_NOISE] = self.cc.some_noise_snippet.shape[0]
+        else:
+            self.cluster_count[labelcodes.LABEL_NOISE] = 0
         
         self.refresh_colors(reset=False)
     
@@ -70,10 +70,14 @@ class CatalogueController(ControllerBase):
     @property
     def spikes(self):
         return self.cc.all_peaks
-        
+    
+    @property
+    def clusters(self):
+        return self.cc.clusters
+    
     @property
     def cluster_labels(self):
-        return self.cc.cluster_labels
+        return self.cc.clusters['cluster_label']
     
     @property
     def positive_cluster_labels(self):
@@ -111,8 +115,8 @@ class CatalogueController(ControllerBase):
         return self.cc.some_waveforms
     
     @property
-    def some_noise_snipet(self):
-        return self.cc.some_noise_snipet
+    def some_noise_snippet(self):
+        return self.cc.some_noise_snippet
     
     @property
     def some_noise_features(self):
@@ -150,9 +154,23 @@ class CatalogueController(ControllerBase):
         return threshold
     
     def get_max_on_channel(self, label):
-        if label in self.centroids:
-            c = self.centroids[label]['max_on_channel']
-            return c
+        if label<0:
+            return None
+        
+        ind,  = np.nonzero(self.cc.clusters['cluster_label']==label)
+        if ind.size!=1:
+            return None
+        ind = ind[0]
+        
+        max_on_channel = self.cc.clusters['max_on_channel'][ind]
+        if max_on_channel>=0:
+            return max_on_channel
+        else:
+            return None
+        
+        #~ if label in self.centroids:
+            #~ c = self.centroids[label]['max_on_channel']
+            #~ return c
     
     def on_new_cluster(self, label_changed=None):
         """

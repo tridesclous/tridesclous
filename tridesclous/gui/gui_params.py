@@ -27,6 +27,9 @@ waveforms_params = [
     #~ {'name': 'subsample_ratio', 'type': 'int', 'value':20},
 ]
 
+noise_snippet_params = [
+    {'name': 'nb_snippet', 'type': 'int', 'value':300},
+]
 
 
 
@@ -54,6 +57,7 @@ fullchain_params = [
     {'name':'duration', 'type': 'float', 'value':300., 'suffix': 's', 'siPrefix': True},
     {'name':'preprocessor', 'type':'group', 'children': preprocessor_params},
     {'name':'peak_detector', 'type':'group', 'children': peak_detector_params},
+    {'name':'noise_snippet', 'type':'group', 'children': noise_snippet_params},
     {'name':'extract_waveforms', 'type':'group', 'children' : waveforms_params},
 ]
 

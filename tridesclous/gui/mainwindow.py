@@ -230,7 +230,8 @@ class MainWindow(QT.QMainWindow):
         if clust_method is None:
             return
         
-        try:
+        #~ try:
+        if True:
             #~ catalogueconstructor = CatalogueConstructor(dataio=self.dataio)
             p = {}
             p.update(d['preprocessor'])
@@ -258,6 +259,11 @@ class MainWindow(QT.QMainWindow):
             #~ print('find_good_limits', t2-t1)
 
             t1 = time.perf_counter()
+            self.catalogueconstructor.extract_some_noise(**d['noise_snippet'])
+            t2 = time.perf_counter()
+            print('extract_some_noise', t2-t1)
+
+            t1 = time.perf_counter()
             self.catalogueconstructor.extract_some_features(method=feat_method, **feat_kargs)
             t2 = time.perf_counter()
             print('project', t2-t1)
@@ -267,10 +273,13 @@ class MainWindow(QT.QMainWindow):
             t2 = time.perf_counter()
             print('find_clusters', t2-t1)
             
-            print(self.catalogueconstructor)
+
+            
+            
+            #~ print(self.catalogueconstructor)
         
-        except Exception as e:
-            print(e)
+        #~ except Exception as e:
+            #~ print(e)
                 
         self.refresh_info()
     

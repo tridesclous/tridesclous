@@ -99,7 +99,7 @@ def test_catalogue_constructor():
 
         #extract_some_noise
         t1 = time.perf_counter()
-        catalogueconstructor.extract_some_noise(nb_snipet=400)
+        catalogueconstructor.extract_some_noise(nb_snippet=400)
         t2 = time.perf_counter()
         print('extract_some_noise', t2-t1)
         

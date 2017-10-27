@@ -120,6 +120,7 @@ def test_FeatureTimeViewer():
 
 def test_CatalogueWindow():
     dataio = DataIO(dirname='test_catalogueconstructor')
+
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
     app = mkQApp()
