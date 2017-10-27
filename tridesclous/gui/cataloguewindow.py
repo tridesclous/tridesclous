@@ -12,8 +12,11 @@ from .similarity import SimilarityView
 from .pairlist import PairList
 from .silhouette import Silhouette
 from .waveformhistviewer import WaveformHistViewer
+from .featuretimeviewer import FeatureTimeViewer
 
-from .tools import ParamDialog
+from .tools import ParamDialog, open_dialog_methods
+
+from . import gui_params
 
 from . import icons
 
@@ -40,6 +43,7 @@ class CatalogueWindow(QT.QMainWindow):
         self.pairlist = PairList(controller=self.controller)
         self.silhouette = Silhouette(controller=self.controller)
         self.waveformhistviewer = WaveformHistViewer(controller=self.controller)
+        self.featuretimeviewer = FeatureTimeViewer(controller=self.controller)
         
         
         
@@ -58,6 +62,10 @@ class CatalogueWindow(QT.QMainWindow):
         docks['waveformhistviewer'] = QT.QDockWidget('waveformhistviewer',self)
         docks['waveformhistviewer'].setWidget(self.waveformhistviewer)
         self.tabifyDockWidget(docks['waveformviewer'], docks['waveformhistviewer'])
+
+        docks['featuretimeviewer'] = QT.QDockWidget('featuretimeviewer',self)
+        docks['featuretimeviewer'].setWidget(self.featuretimeviewer)
+        self.tabifyDockWidget(docks['waveformhistviewer'], docks['featuretimeviewer'])
         
         
         docks['traceviewer'] = QT.QDockWidget('traceviewer',self)
@@ -96,14 +104,29 @@ class CatalogueWindow(QT.QMainWindow):
 
         #~ self.act_refresh = QT.QAction(u'Refresh', self,checkable = False, icon=QT.QIcon.fromTheme("view-refresh"))
         self.act_refresh = QT.QAction(u'Refresh', self,checkable = False, icon=QT.QIcon(":/view-refresh.svg"))
-        self.act_refresh.triggered.connect(self.refresh)
+        self.act_refresh.triggered.connect(self.refresh_with_reload)
 
-        #~ self.act_setting = QT.QAction(u'Settings', self,checkable = False, icon=QT.QIcon.fromTheme("preferences-other"))
-        self.act_setting = QT.QAction(u'Settings', self,checkable = False, icon=QT.QIcon.fromTheme(":/preferences-other.svg"))
-        self.act_setting.triggered.connect(self.open_settings)
+        #~ self.act_setting = QT.QAction(u'Settings', self,checkable = False, icon=QT.QIcon.fromTheme(":/preferences-other.svg"))
+        #~ self.act_setting.triggered.connect(self.open_settings)
 
-        self.act_new_waveforms = QT.QAction(u'New waveforms', self,checkable = False, icon=QT.QIcon.fromTheme("TODO"))
+        self.act_redetect_peak = QT.QAction(u'New peaks', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        self.act_redetect_peak.triggered.connect(self.redetect_peak)
+
+        self.act_new_waveforms = QT.QAction(u'New waveforms', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
         self.act_new_waveforms.triggered.connect(self.new_waveforms)
+
+        self.act_new_noise_snippet = QT.QAction(u'New noise snippet', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        self.act_new_noise_snippet.triggered.connect(self.new_noise_snippet)
+
+        self.act_new_features = QT.QAction(u'New features', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        self.act_new_features.triggered.connect(self.new_features)
+
+        self.act_new_cluster = QT.QAction(u'New cluster', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        self.act_new_cluster.triggered.connect(self.new_cluster)
+
+        self.act_compute_metrics = QT.QAction(u'Compute metrics', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        self.act_compute_metrics.triggered.connect(self.compute_metrics)
+
 
         #~ self.act_new_waveforms = QT.QAction(u'Yep', self,checkable = False, icon=QT.QIcon(":main_icon.png"))
         #~ self.act_new_waveforms.triggered.connect(self.new_waveforms)
@@ -117,31 +140,90 @@ class CatalogueWindow(QT.QMainWindow):
         
         self.toolbar.addAction(self.act_save)
         self.toolbar.addAction(self.act_refresh)
-        self.toolbar.addAction(self.act_setting)
+        #~ self.toolbar.addAction(self.act_setting)
         #TODO with correct settings (left and right)
+        
+        
+        self.toolbar.addAction(self.act_redetect_peak)
         self.toolbar.addAction(self.act_new_waveforms)
-    
+        self.toolbar.addAction(self.act_new_noise_snippet)
+        self.toolbar.addAction(self.act_new_features)
+        self.toolbar.addAction(self.act_new_cluster)
+        self.toolbar.addAction(self.act_compute_metrics)
 
     def save_catalogue(self):
         self.catalogueconstructor.save_catalogue()
     
-    def refresh(self):
+    def refresh_with_reload(self):
         self.controller.reload_data()
+        sel.refresh()
+    
+    def refresh(self):
+        #~ self.controller.reload_data()
         for w in self.controller.views:
+            #TODO refresh only visible but need catch on visibility changed
             #~ print(w)
             w.refresh()
     
-    def open_settings(self):
-        _params = [{'name' : 'nb_waveforms', 'type' : 'int', 'value' : 10000}]
-        dialog1 = ParamDialog(_params, title = 'Settings', parent = self)
-        if not dialog1.exec_():
-            return None, None
-        
-        self.settings = dialog1.get()
+    #~ def open_settings(self):
+        #~ _params = [{'name' : 'nb_waveforms', 'type' : 'int', 'value' : 10000}]
+        #~ dialog1 = ParamDialog(_params, title = 'Settings', parent = self)
+        #~ if not dialog1.exec_():
+            #~ return None, None
+        #~ self.settings = dialog1.get()
+    
+    def redetect_peak(self):
+        dia = ParamDialog(gui_params.peak_detector_params)
+        dia.resize(450, 500)
+        if dia.exec_():
+            d = dia.get()
+            self.catalogueconstructor.re_detect_peak(**d)
+        self.refresh()
     
     def new_waveforms(self):
-        pass
-        #~ self.catalogueconstructor.extract_some_waveforms(n_left=-12, n_right=15, mode='rand', nb_max=10000)
-        #~ self.controller.on_new_cluster()
-        #~ self.refresh()
+        dia = ParamDialog(gui_params.waveforms_params)
+        dia.resize(450, 500)
+        if dia.exec_():
+            d = dia.get()
+            self.catalogueconstructor.extract_some_waveforms(**d)
+        self.refresh()
+
+    def new_noise_snippet(self):
+        dia = ParamDialog(gui_params.noise_snippet_params)
+        dia.resize(450, 500)
+        if dia.exec_():
+            d = dia.get()
+            self.catalogueconstructor.extract_some_noise(**d)
+            self.controller.check_plot_attributes()#this count noise
+        self.refresh()
+
+    def new_features(self):
+        method, kargs = open_dialog_methods(gui_params.features_params_by_methods, self)
+        if method is not None:
+            self.catalogueconstructor.extract_some_features(method=method, **kargs)
+            self.refresh()
+
+
+    def new_cluster(self):
+        method, kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self)
+        if method is not None:
+            self.catalogueconstructor.find_clusters(method=method, **kargs)
+            self.controller.on_new_cluster()
+            self.refresh()
+    
+    def compute_metrics(self):
+        dia = ParamDialog(gui_params.metrics_params)
+        dia.resize(450, 500)
+        if dia.exec_():
+            d = dia.get()
+            self.catalogueconstructor.compute_centroid()
+            self.catalogueconstructor.compute_spike_waveforms_similarity()
+            self.catalogueconstructor.compute_cluster_similarity()
+            self.catalogueconstructor.compute_cluster_ratio_similarity()
+            self.catalogueconstructor.compute_spike_silhouette()
+            #TODO refresh only metrics concerned
+            self.refresh()
+        
+        
+    
 

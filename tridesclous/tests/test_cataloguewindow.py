@@ -21,7 +21,7 @@ def test_CatalogueController():
 
 def test_CatalogueTraceViewer():
     controller = get_controller()
-    app = pg.mkQApp()
+    app = mkQApp()
     traceviewer = CatalogueTraceViewer(controller=controller, signal_type = 'processed')
     traceviewer.show()
     traceviewer.resize(800,600)
@@ -33,7 +33,7 @@ def test_CatalogueTraceViewer():
 def test_PeakList():
     controller = get_controller()
     
-    app = pg.mkQApp()
+    app = mkQApp()
     peaklist = PeakList(controller=controller)
     peaklist.show()
     peaklist.resize(800,400)
@@ -43,7 +43,7 @@ def test_PeakList():
 def test_ClusterPeakList():
     controller = get_controller()
     
-    app = pg.mkQApp()
+    app = mkQApp()
     clusterlist = ClusterPeakList(controller=controller)
     clusterlist.show()
     clusterlist.resize(800,400)
@@ -54,7 +54,7 @@ def test_NDScatter():
     controller = get_controller()
     controller.project()
     
-    app = pg.mkQApp()
+    app = mkQApp()
     ndscatter = NDScatter(controller=controller)
     ndscatter.show()
     
@@ -63,7 +63,7 @@ def test_NDScatter():
 def test_WaveformViewer():
     controller = get_controller()
     
-    app = pg.mkQApp()
+    app = mkQApp()
     waveformviewer = WaveformViewer(controller=controller)
     waveformviewer.show()
     
@@ -72,8 +72,8 @@ def test_WaveformViewer():
 
 def test_SimilarityView():
     controller = get_controller()
-    
-    app = pg.mkQApp()
+    controller.compute_spike_waveforms_similarity()
+    app = mkQApp()
     similarityview = SimilarityView(controller=controller)
     similarityview.show()
     app.exec_()
@@ -81,7 +81,7 @@ def test_SimilarityView():
 def test_PairList():
     controller = get_controller()
     
-    app = pg.mkQApp()
+    app = mkQApp()
     similarityview = PairList(controller=controller)
     similarityview.show()
     app.exec_()
@@ -90,7 +90,9 @@ def test_PairList():
 def test_Silhouette():
     controller = get_controller()
     
-    app = pg.mkQApp()
+    controller.compute_spike_silhouette()
+    
+    app = mkQApp()
     similarityview = Silhouette(controller=controller)
     similarityview.show()
     app.exec_()
@@ -102,17 +104,26 @@ def test_WaveformHistViewer():
     for k in controller.cluster_labels[:2]:
         controller.cluster_visible[k] = True
     
-    app = pg.mkQApp()
+    app = mkQApp()
     similarityview = WaveformHistViewer(controller=controller)
     similarityview.show()
     app.exec_()
 
 
+def test_FeatureTimeViewer():
+    controller = get_controller()
+    app = mkQApp()
+    view = FeatureTimeViewer(controller=controller)
+    view.show()
+    app.exec_()
+
+
 def test_CatalogueWindow():
     dataio = DataIO(dirname='test_catalogueconstructor')
+
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
-    app = pg.mkQApp()
+    app = mkQApp()
     win = CatalogueWindow(catalogueconstructor)
     win.show()
     
@@ -134,6 +145,7 @@ if __name__ == '__main__':
     #~ test_PairList()
     #~ test_Silhouette()
     #~ test_WaveformHistViewer()
+    #~ test_FeatureTimeViewer()
     
     test_CatalogueWindow()
 

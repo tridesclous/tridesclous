@@ -48,7 +48,7 @@ def preprocess_signals_and_peaks():
             lowpass_freq=None,
             smooth_size=0,
             common_ref_removal=False,
-            backward_chunksize=1280,
+            lostfront_chunksize=64,
             
             #peak detector
             peakdetector_engine='numpy',
@@ -80,32 +80,40 @@ def extract_waveforms_pca_cluster():
     
     
     t1 = time.perf_counter()
-    catalogueconstructor.extract_some_waveforms(n_left=-35, n_right=60,  nb_max=10000, align_waveform=True, subsample_ratio=20)
-    #~ catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40,  nb_max=10000, align_waveform=False)
+    #~ catalogueconstructor.extract_some_waveforms(n_left=-35, n_right=150,  nb_max=10000, align_waveform=True, subsample_ratio=20)
+    catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=60,  nb_max=20000, align_waveform=False)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
     #~ print(catalogueconstructor.some_waveforms.shape)
     print(catalogueconstructor)
     
-    t1 = time.perf_counter()
-    n_left, n_right = catalogueconstructor.find_good_limits(mad_threshold = 1.1,)
-    t2 = time.perf_counter()
+    #~ t1 = time.perf_counter()
+    #~ n_left, n_right = catalogueconstructor.find_good_limits(mad_threshold = 1.1,)
+    #~ t2 = time.perf_counter()
     #~ print('n_left', n_left, 'n_right', n_right)
     #~ print(catalogueconstructor.some_waveforms.shape)
     print(catalogueconstructor)
     
     #~ print(catalogueconstructor.all_peaks)
     #~ exit()
+
+
+    #extract_some_noise
+    t1 = time.perf_counter()
+    catalogueconstructor.extract_some_noise(nb_snipet=400)
+    t2 = time.perf_counter()
+    print('extract_some_noise', t2-t1)    
     
     t1 = time.perf_counter()
-    catalogueconstructor.project(method='pca', n_components=4)
+    catalogueconstructor.project(method='pca', n_components=9)
     #~ catalogueconstructor.project(method='tsne', n_components=2, perplexity=40., init='pca')
     t2 = time.perf_counter()
     print('project', t2-t1)
     print(catalogueconstructor)
     
     t1 = time.perf_counter()
-    catalogueconstructor.find_clusters(method='kmeans', n_clusters=12)
+    #~ catalogueconstructor.find_clusters(method='gmm', n_clusters=15)
+    catalogueconstructor.find_clusters(method='dirtycut')
     t2 = time.perf_counter()
     print('find_clusters', t2-t1)
     print(catalogueconstructor)
@@ -179,9 +187,9 @@ def open_PeelerWindow():
 if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
     #~ preprocess_signals_and_peaks()
-    #~ extract_waveforms_pca_cluster()
+    extract_waveforms_pca_cluster()
     #~ detect_similar_ratio()
-    open_cataloguewindow()
+    #~ open_cataloguewindow()
     #~ run_peeler()
     #~ open_PeelerWindow()
     

@@ -20,7 +20,7 @@ class MyViewBox(pg.ViewBox):
         ev.accept()
     #~ def mouseDragEvent(self, ev):
         #~ ev.ignore()
-    def wheelEvent(self, ev):
+    def wheelEvent(self, ev, axis=None):
         if ev.modifiers() == QT.Qt.ControlModifier:
             z = 10 if ev.delta()>0 else 1/10.
         else:
@@ -30,6 +30,18 @@ class MyViewBox(pg.ViewBox):
 
 
 class WaveformViewer(WidgetBase):
+
+    _params = [{'name': 'plot_selected_spike', 'type': 'bool', 'value': True },
+                        {'name': 'show_only_selected_cluster', 'type': 'bool', 'value': False},
+                      {'name': 'plot_limit_for_flatten', 'type': 'bool', 'value': True },
+                      {'name': 'metrics', 'type': 'list', 'values': ['median/mad', 'mean/std'] },
+                      {'name': 'fillbetween', 'type': 'bool', 'value': True },
+                      {'name': 'show_channel_num', 'type': 'bool', 'value': False},
+                      {'name': 'flip_y', 'type': 'bool', 'value': False},
+                      {'name': 'display_threshold', 'type': 'bool', 'value' : True },
+                      ]
+    
+    
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
         
@@ -48,29 +60,6 @@ class WaveformViewer(WidgetBase):
         self.alpha = 60
         self.refresh()
 
-    def create_settings(self):
-        _params = [{'name': 'plot_selected_spike', 'type': 'bool', 'value': True },
-                            {'name': 'show_only_selected_cluster', 'type': 'bool', 'value': False},
-                          {'name': 'plot_limit_for_flatten', 'type': 'bool', 'value': True },
-                          {'name': 'metrics', 'type': 'list', 'values': ['median/mad', 'mean/std'] },
-                          {'name': 'fillbetween', 'type': 'bool', 'value': True },
-                          {'name': 'show_channel_num', 'type': 'bool', 'value': False},
-                          {'name': 'flip_y', 'type': 'bool', 'value': False},
-                          ]
-        self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
-        
-        if self.controller.nb_channel>16:
-            self.params['fillbetween'] = False
-            self.params['plot_limit_for_flatten'] = False
-        
-        self.params.sigTreeStateChanged.connect(self.on_params_changed)
-        self.tree_params = pg.parametertree.ParameterTree(parent  = self)
-        self.tree_params.header().hide()
-        self.tree_params.setParameters(self.params, showTop=True)
-        self.tree_params.setWindowTitle(u'Options for waveforms viewer')
-        self.tree_params.setWindowFlags(QT.Qt.Window)
-        
-    
     def create_toolbar(self):
         tb = self.toolbar = QT.QToolBar()
         
@@ -97,19 +86,10 @@ class WaveformViewer(WidgetBase):
         but.clicked.connect(self.refresh)
         tb.addWidget(but)
     
-        
-    
     def on_combo_mode_changed(self):
         self.mode = str(self.combo_mode.currentText())
         self.initialize_plot()
         self.refresh()
-    
-    def open_settings(self):
-        if not self.tree_params.isVisible():
-            self.tree_params.show()
-        else:
-            self.tree_params.hide()
-    
     
     def on_params_changed(self, params, changes):
         for param, change, data in changes:
@@ -120,6 +100,9 @@ class WaveformViewer(WidgetBase):
         
     
     def initialize_plot(self):
+        #~ print('WaveformViewer.initialize_plot', self.controller.some_waveforms)
+        if self.controller.some_waveforms is None:
+            return
         self.viewBox1 = MyViewBox()
         self.viewBox1.disableAutoRange()
 
@@ -144,7 +127,7 @@ class WaveformViewer(WidgetBase):
             self.plot2.showAxis('left', True)
             self.viewBox2.setXLink(self.viewBox1)
             self.factor_y = 1.
-            
+
         elif self.mode=='geometry':
             self.plot2 = None
             
@@ -166,7 +149,7 @@ class WaveformViewer(WidgetBase):
                 for i, chan in enumerate(self.controller.channel_indexes):
                     x, y = channel_group['geometry'][chan]
                     self.arr_geometry.append([x, y])
-                self.arr_geometry = np.array(self.arr_geometry)
+                self.arr_geometry = np.array(self.arr_geometry, dtype='float64')
                 
                 if self.params['flip_y']:
                     self.arr_geometry[:, 1] *= -1.
@@ -221,6 +204,13 @@ class WaveformViewer(WidgetBase):
         self.refresh()
     
     def refresh(self):
+        
+        if not hasattr(self, 'viewBox1'):
+            self.initialize_plot()
+        
+        if not hasattr(self, 'viewBox1'):
+            return
+        
         n_selected = np.sum(self.controller.spike_selection)
         
         if self.params['show_only_selected_cluster'] and n_selected==1:
@@ -279,6 +269,15 @@ class WaveformViewer(WidgetBase):
             addSpan(self.plot1)
             addSpan(self.plot2)
         
+        if self.params['display_threshold']:
+            thresh = self.controller.get_threshold()
+            thresh_line = pg.InfiniteLine(pos=thresh, angle=0, movable=False, pen = pg.mkPen('w'))
+            self.plot1.addItem(thresh_line)
+
+            
+            
+        
+        
         #waveforms
         
         if self.params['metrics']=='median/mad':
@@ -319,7 +318,7 @@ class WaveformViewer(WidgetBase):
 
         if self.params['show_channel_num']:
             for i, (chan, name) in enumerate(self.controller.channel_indexes_and_names):
-                itemtxt = pg.TextItem('{}: {}'.format(chan, name), anchor=(.5,.5))
+                itemtxt = pg.TextItem('{}: {}'.format(i, name), anchor=(.5,.5))
                 self.plot1.addItem(itemtxt)
                 itemtxt.setPos(width*i-n_left, 0)
 
@@ -375,7 +374,7 @@ class WaveformViewer(WidgetBase):
             channel_group = self.controller.dataio.channel_groups[chan_grp]            
             for i, (chan, name) in enumerate(self.controller.channel_indexes_and_names):
                 x, y = self.arr_geometry[i, : ]
-                itemtxt = pg.TextItem('{}: {}'.format(chan, name), anchor=(.5,.5))
+                itemtxt = pg.TextItem('{}: {}'.format(i, name), anchor=(.5,.5))
                 self.plot1.addItem(itemtxt)
                 itemtxt.setPos(x, y)
         

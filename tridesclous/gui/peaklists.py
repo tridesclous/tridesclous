@@ -3,8 +3,10 @@ import pyqtgraph as pg
 
 import numpy as np
 
+from .. import labelcodes
 from .base import WidgetBase
-from .tools import ParamDialog
+from .tools import ParamDialog, open_dialog_methods
+from . import gui_params
 
 
 class PeakModel(QT.QAbstractItemModel):
@@ -105,7 +107,8 @@ class PeakList(WidgetBase):
         self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
         
-        self.layout.addWidget(QT.QLabel('<b>All peaks</b>') )
+        self.label_title = QT.QLabel('')
+        self.layout.addWidget(self.label_title)
         
         self.tree = QT.QTreeView(minimumWidth = 100, uniformRowHeights = True,
                     selectionMode= QT.QAbstractItemView.ExtendedSelection, selectionBehavior = QT.QTreeView.SelectRows,
@@ -121,9 +124,17 @@ class PeakList(WidgetBase):
         for i in range(self.model.columnCount(None)):
             self.tree.resizeColumnToContents(i)
         self.tree.setColumnWidth(0,80)
+        
+        self.refresh()
     
     def refresh(self):
         self.model.refresh_colors()
+        nb_peak = self.controller.spikes.size
+        if self.controller.some_waveforms is not None:
+            nb_wf = self.controller.some_waveforms.shape[0]
+        else:
+            nb_wf = 0
+        self.label_title.setText('<b>All peaks {} - Nb waveforms {}</b>'.format(nb_peak, nb_wf))
     
     def on_tree_selection(self):
         self.controller.spike_selection[:] = False
@@ -190,7 +201,16 @@ class ClusterPeakList(WidgetBase):
         
         self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
-
+        
+        h = QT.QHBoxLayout()
+        self.layout.addLayout(h)
+        h.addWidget(QT.QLabel('sort by'))
+        self.combo_sort = QT.QComboBox()
+        self.combo_sort.addItems(['label', 'max_on_channel', 'max_peak_amplitude', 'waveform_rms'])
+        self.combo_sort.currentIndexChanged.connect(self.refresh)
+        h.addWidget(self.combo_sort)
+        h.addStretch()
+        
         self.table = QT.QTableWidget()
         self.layout.addWidget(self.table)
         self.table.itemChanged.connect(self.on_item_changed)
@@ -208,9 +228,9 @@ class ClusterPeakList(WidgetBase):
         act.triggered.connect(self.show_all)
         act = self.menu.addAction('Hide all')
         act.triggered.connect(self.hide_all)
-        act = self.menu.addAction('Order cluster by power')
+        act = self.menu.addAction('Re-label cluster by rms')
         act.triggered.connect(self.order_clusters)
-            
+        
         act = self.menu.addAction('PC projection with all')
         act.triggered.connect(self.pc_project_all)
         act = self.menu.addAction('PC projection with selection')
@@ -228,8 +248,6 @@ class ClusterPeakList(WidgetBase):
         act.triggered.connect(self.split_selection)        
 
     def refresh(self):
-        #~ self.cc._check_plot_attributes()
-        
         self.table.itemChanged.disconnect(self.on_item_changed)
         
         self.table.clear()
@@ -243,15 +261,37 @@ class ClusterPeakList(WidgetBase):
         self.table.setSelectionMode(QT.QAbstractItemView.ExtendedSelection)
         self.table.setSelectionBehavior(QT.QAbstractItemView.SelectRows)
         
-        self.table.setRowCount(self.controller.cluster_labels.size)
+        #~ cluster_labels = self.controller.cluster_labels
+        #~ cluster_labels = [labelcodes.LABEL_NOISE] + cluster_labels.tolist()
+        _special_label = [labelcodes.LABEL_UNCLASSIFIED, labelcodes.LABEL_NOISE, labelcodes.LABEL_TRASH]
+
+        sort_mode = str(self.combo_sort.currentText())
         
-        for i, k in enumerate(self.controller.cluster_labels):
+        clusters = self.controller.clusters
+        clusters = clusters[clusters['cluster_label']>=0]
+        if sort_mode=='label':
+            order =np.arange(clusters.size)
+        elif sort_mode=='max_on_channel':
+            order = np.argsort(clusters['max_on_channel'])
+        elif sort_mode=='max_peak_amplitude':
+            order = np.argsort(np.abs(clusters['max_peak_amplitude']))[::-1]
+        elif sort_mode=='waveform_rms':
+            order = np.argsort(clusters['waveform_rms'])[::-1]
+        
+        cluster_labels =_special_label + self.controller.positive_cluster_labels[order].tolist()
+        
+        self.table.setRowCount(len(cluster_labels))
+        
+        for i, k in enumerate(cluster_labels):
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
             pix = QT.QPixmap(16,16)
             pix.fill(color)
             icon = QT.QIcon(pix)
             
-            name = '{}'.format(k)
+            if k<0:
+                name = '{} ({})'.format(k, labelcodes.to_name[k])
+            else:
+                name = '{}'.format(k)
             item = QT.QTableWidgetItem(name)
             item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
             self.table.setItem(i,0, item)
@@ -260,27 +300,26 @@ class ClusterPeakList(WidgetBase):
             item = QT.QTableWidgetItem('')
             item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable|QT.Qt.ItemIsUserCheckable)
             
-            item.setCheckState({ False: QT.Qt.Unchecked, True : QT.Qt.Checked}[self.controller.cluster_visible[k]])
+            item.setCheckState({ False: QT.Qt.Unchecked, True : QT.Qt.Checked}[self.controller.cluster_visible.get(k, False)])
             self.table.setItem(i,1, item)
+            item.label = k
 
-            item = QT.QTableWidgetItem('{}'.format(self.controller.cluster_count[k]))
+            item = QT.QTableWidgetItem('{}'.format(self.controller.cluster_count.get(k, 0)))
             item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
             self.table.setItem(i,2, item)
             
-            chan = self.controller.get_max_on_channel(k)
-            if chan is not None:
-                item = QT.QTableWidgetItem('{}'.format(chan))
+            c = self.controller.get_max_on_channel(k)
+            if c is not None:
+                item = QT.QTableWidgetItem('{}: {}'.format(c, self.controller.channel_names[c]))
                 item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
                 self.table.setItem(i,3, item)
-
-            item = QT.QTableWidgetItem('{}'.format(self.controller.cell_labels[i]))
-            item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
-            self.table.setItem(i,4, item)
             
+            if k>0:
+                cell_label = self.controller.cell_labels[self.controller.cluster_labels==k][0]
+                item = QT.QTableWidgetItem('{}'.format(cell_label))
+                item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
+                self.table.setItem(i,4, item)
             
-            
-
-        
         for i in range(5):
             self.table.resizeColumnToContents(i)
         self.table.itemChanged.connect(self.on_item_changed)        
@@ -288,15 +327,19 @@ class ClusterPeakList(WidgetBase):
     def on_item_changed(self, item):
         if item.column() != 1: return
         sel = {QT.Qt.Unchecked : False, QT.Qt.Checked : True}[item.checkState()]
-        k = self.controller.cluster_labels[item.row()]
+        #~ k = self.controller.cluster_labels[item.row()]
+        k = item.label
         self.controller.cluster_visible[k] = bool(item.checkState())
         self.cluster_visibility_changed.emit()
     
     def selected_cluster(self):
         selected = []
-        for index in self.table.selectedIndexes():
-            if index.column() !=0: continue
-            selected.append(self.controller.cluster_labels[index.row()])
+        #~ for index in self.table.selectedIndexes():
+        for item in self.table.selectedItems():
+            #~ if index.column() !=1: continue
+            if item.column() != 1: continue
+            #~ selected.append(self.controller.cluster_labels[index.row()])
+            selected.append(item.label)
         return selected
     
     def _selected_spikes(self):
@@ -332,36 +375,13 @@ class ClusterPeakList(WidgetBase):
     
     def order_clusters(self):
         self.controller.order_clusters()
+        self.controller.on_new_cluster()
         self.refresh()
         self.spike_label_changed.emit()
     
-    def _dialog_methods(self, methods, _params_by_method):
-        _params = [{'name' : 'method', 'type' : 'list', 'values' : methods}]
-        dialog1 = ParamDialog(_params, title = 'Which method ?', parent = self)
-        if not dialog1.exec_():
-            return None, None
-
-        method = dialog1.params['method']
-        
-        _params =  _params_by_method[method]
-        dialog2 = ParamDialog(_params, title = '{} parameters'.format(method), parent = self)
-        if not dialog2.exec_():
-            return None, None
-        kargs = dialog2.get()
-        
-        return method, kargs
-        
-
-    
     def pc_project_all(self, selection=None):
-
+        method, kargs = open_dialog_methods(gui_params.features_params_by_methods, self)
         
-        methods = ['pca', 'peak_max']
-        _params_by_method = {
-            'pca' : [{'name' : 'n_components', 'type' : 'int', 'value' : 5},],
-            'peak_max' : [],
-        }
-        method, kargs = self._dialog_methods(methods, _params_by_method)
         if method is None: return
         
         self.controller.project(method=method, selection=selection, **kargs)
@@ -389,19 +409,13 @@ class ClusterPeakList(WidgetBase):
         if n!=1: return
         label_to_split = self.selected_cluster()[0]
         
-        methods = ['kmeans', 'gmm']
-        _params_by_method = {
-            'kmeans' : [{'name' : 'n', 'type' : 'int', 'value' : 2}],
-            'gmm' : [{'name' : 'n', 'type' : 'int', 'value' : 2},
-                                {'name' : 'covariance_type', 'type' : 'list', 'values' : ['full']},
-                                {'name' : 'n_init', 'type' : 'int', 'value' : 10},],
-        }
-        method, kargs = self._dialog_methods(methods, _params_by_method)
+        method, kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self)
+        
         if method is None: return
         
-        n = kargs.pop('n')
+        n = kargs.pop('n_clusters')
         
-        self.controller.split_cluster(label_to_split, n, method=method, order_clusters=True, **kargs)
+        self.controller.split_cluster(label_to_split, n, method=method,  **kargs) #order_clusters=True,
         self.refresh()
         self.spike_label_changed.emit()
 

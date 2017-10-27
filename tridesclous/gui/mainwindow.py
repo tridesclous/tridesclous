@@ -8,7 +8,7 @@ import pickle
 
 from ..dataio import DataIO
 from ..datasource import data_source_classes
-from .tools import get_dict_from_group_param, ParamDialog
+from .tools import get_dict_from_group_param, ParamDialog, open_dialog_methods
 from  ..datasets import datasets_info, download_dataset
 
 from ..catalogueconstructor import CatalogueConstructor
@@ -18,6 +18,8 @@ from .peelerwindow import PeelerWindow
 from .initializedatasetwindow import InitializeDatasetWindow
 
 from . import icons
+
+from . import gui_params
 
 try:
     import ephyviewer
@@ -211,97 +213,76 @@ class MainWindow(QT.QMainWindow):
 
     
     def initialize_catalogue(self):
-        params = [
-            {'name':'duration', 'type': 'float', 'value':60., 'suffix': 's', 'siPrefix': True},
-            {'name':'preprocessor', 'type':'group', 
-                'children':[
-                    {'name': 'highpass_freq', 'type': 'float', 'value':400., 'step': 10., 'suffix': 'Hz', 'siPrefix': True},
-                    {'name': 'lowpass_freq', 'type': 'float', 'value':5000., 'step': 10., 'suffix': 'Hz', 'siPrefix': True},
-                    {'name': 'smooth_size', 'type': 'int', 'value':0},
-                    {'name': 'common_ref_removal', 'type': 'bool', 'value':False},
-                    {'name': 'chunksize', 'type': 'int', 'value':1024, 'decilmals':5},
-                    {'name': 'backward_chunksize', 'type': 'int', 'value':1280, 'decilmals':5},
-                    
-                    {'name': 'peakdetector_engine', 'type': 'list', 'values':['numpy', 'opencl']},
-                    {'name': 'peak_sign', 'type': 'list', 'values':['-', '+']},
-                    {'name': 'relative_threshold', 'type': 'float', 'value': 6., 'step': .1,},
-                    {'name': 'peak_span', 'type': 'float', 'value':0.0005, 'step': 0.0001, 'suffix': 's', 'siPrefix': True},
-                ]
-            },
-            {'name':'extract_waveforms', 'type':'group', 
-                'children':[
-                    {'name': 'n_left', 'type': 'int', 'value':-20},
-                    {'name': 'n_right', 'type': 'int', 'value':30},
-                    {'name': 'mode', 'type': 'list', 'values':['rand', 'all']},
-                    {'name': 'nb_max', 'type': 'int', 'value':20000},
-                    {'name': 'align_waveform', 'type': 'bool', 'value':True},
-                    #~ {'name': 'subsample_ratio', 'type': 'int', 'value':20},
-                ],
-            },
-            {'name':'project', 'type':'group', 
-                'children':[
-                    {'name': 'method', 'type': 'list', 'values':['pca']},
-                    {'name' : 'n_components', 'type' : 'int', 'value' : 5},
-                ],
-            },
-            {'name':'find_cluster', 'type':'group', 
-                'children':[
-                    {'name': 'method', 'type': 'list', 'values':['kmeans', 'gmm']},
-                    {'name' : 'n_clusters', 'type' : 'int', 'value' : 8},
-                ],
-            },
-            
-            
-        ]
-        dia = ParamDialog(params)
-        dia.resize(450, 500)
-        if dia.exec_():
-            d = dia.get()
-            print(d)
-            try:
-                #~ catalogueconstructor = CatalogueConstructor(dataio=self.dataio)
-                self.catalogueconstructor.set_preprocessor_params(**d['preprocessor'])
-                
-                t1 = time.perf_counter()
-                self.catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
-                t2 = time.perf_counter()
-                print('estimate_signals_noise', t2-t1)
-                
-                t1 = time.perf_counter()
-                self.catalogueconstructor.run_signalprocessor(duration=d['duration'])
-                t2 = time.perf_counter()
-                print('run_signalprocessor', t2-t1)
-
-                t1 = time.perf_counter()
-                self.catalogueconstructor.extract_some_waveforms(**d['extract_waveforms'])
-                t2 = time.perf_counter()
-                print('extract_some_waveforms', t2-t1)
-
-                #~ t1 = time.perf_counter()
-                #~ n_left, n_right = catalogueconstructor.find_good_limits(mad_threshold = 1.1,)
-                #~ t2 = time.perf_counter()
-                #~ print('find_good_limits', t2-t1)
-
-                t1 = time.perf_counter()
-                self.catalogueconstructor.project(**d['project'])
-                t2 = time.perf_counter()
-                print('project', t2-t1)
-                
-                t1 = time.perf_counter()
-                self.catalogueconstructor.find_clusters(**d['find_cluster'])
-                t2 = time.perf_counter()
-                print('find_clusters', t2-t1)
-                
-                print(self.catalogueconstructor)
-
-                
-                
-
-            except Exception as e:
-                print(e)
-                
-            self.refresh_info()
         
+        #collect parals with UI
+        dia = ParamDialog(gui_params.fullchain_params)
+        dia.resize(450, 500)
+        if not dia.exec_():
+            return
+        d = dia.get()
+        print(d)
+        
+        feat_method, feat_kargs = open_dialog_methods(gui_params.features_params_by_methods, self,  title='Which feature method ?')
+        if feat_method is None:
+            return
+        
+        clust_method, clust_kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self,  title='Which cluster method ?')
+        if clust_method is None:
+            return
+        
+        #~ try:
+        if True:
+            #~ catalogueconstructor = CatalogueConstructor(dataio=self.dataio)
+            p = {}
+            p.update(d['preprocessor'])
+            p.update(d['peak_detector'])
+            self.catalogueconstructor.set_preprocessor_params(**p)
+            
+            t1 = time.perf_counter()
+            self.catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
+            t2 = time.perf_counter()
+            print('estimate_signals_noise', t2-t1)
+            
+            t1 = time.perf_counter()
+            self.catalogueconstructor.run_signalprocessor(duration=d['duration'])
+            t2 = time.perf_counter()
+            print('run_signalprocessor', t2-t1)
+
+            t1 = time.perf_counter()
+            self.catalogueconstructor.extract_some_waveforms(**d['extract_waveforms'])
+            t2 = time.perf_counter()
+            print('extract_some_waveforms', t2-t1)
+
+            #~ t1 = time.perf_counter()
+            #~ n_left, n_right = catalogueconstructor.find_good_limits(mad_threshold = 1.1,)
+            #~ t2 = time.perf_counter()
+            #~ print('find_good_limits', t2-t1)
+
+            t1 = time.perf_counter()
+            self.catalogueconstructor.extract_some_noise(**d['noise_snippet'])
+            t2 = time.perf_counter()
+            print('extract_some_noise', t2-t1)
+
+            t1 = time.perf_counter()
+            self.catalogueconstructor.extract_some_features(method=feat_method, **feat_kargs)
+            t2 = time.perf_counter()
+            print('project', t2-t1)
+            
+            t1 = time.perf_counter()
+            self.catalogueconstructor.find_clusters(method=clust_method, **clust_kargs)
+            t2 = time.perf_counter()
+            print('find_clusters', t2-t1)
+            
+
+            
+            
+            #~ print(self.catalogueconstructor)
+        
+        #~ except Exception as e:
+            #~ print(e)
+                
+        self.refresh_info()
+    
     
     def open_cataloguewin(self):
         if self.dataio is None: return
@@ -313,13 +294,15 @@ class MainWindow(QT.QMainWindow):
             print(e)
     
     def run_peeler(self):
-        params = [
-            {'name':'limit_duration', 'type': 'bool', 'value':True},
-            {'name':'duration', 'type': 'float', 'value':300, 'suffix': 's', 'siPrefix': True},
-            {'name': 'n_peel_level', 'type': 'int', 'value':2},
-        ]
         
-        dia = ParamDialog(params)
+        #TODO find something better when several segment
+        lengths = [ self.dataio.datasource.get_segment_shape(i)[0] for i in range(self.dataio.nb_segment)]
+        duration = max(lengths)/self.dataio.sample_rate
+        
+        gui_params.peeler_params[1]['value'] = duration
+        
+        
+        dia = ParamDialog(gui_params.peeler_params)
         dia.resize(450, 500)
         if dia.exec_():
             d = dia.get()
@@ -357,10 +340,10 @@ class MainWindow(QT.QMainWindow):
         
         if self.dataio  is None:
             return
-        if not hasattr(self.dataio.datasource, 'rawio'):
+        if not hasattr(self.dataio.datasource, 'rawios'):
             return
         
-        sources = ephyviewer.get_source_from_neo(self.dataio.datasource.rawio)
+        sources = ephyviewer.get_source_from_neo(self.dataio.datasource.rawios[0])
         
         self.win_viewer = ephyviewer.MainViewer()
         

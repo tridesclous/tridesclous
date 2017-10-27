@@ -160,8 +160,8 @@ class DataIO:
     
     def _make_fake_geometry(self, channels):
         if len(channels)!=4:
-            # assume that it is a linear probes
-            geometry = { c: [0, i] for i, c in enumerate(channels) }
+            # assume that it is a linear probes with 200 um
+            geometry = { c: [0, i*200] for i, c in enumerate(channels) }
         else:
             # except for tetrode
             geometry = dict(zip(channels, [(0., 50.), (50., 0.), (0., -50.), (-50, 0.)]))
@@ -351,5 +351,11 @@ class DataIO:
         
         
         return catalogue
-
+    
+    def get_geometry(self, chan_grp=0):
+        channel_group = self.channel_groups[chan_grp]
+        geometry = [ channel_group['geometry'][chan] for chan in channel_group['channels'] ]
+        geometry = np.array(geometry)
+        return geometry
+        
 

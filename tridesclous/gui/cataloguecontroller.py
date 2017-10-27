@@ -6,6 +6,8 @@ import numpy as np
 import seaborn as sns
 
 from ..tools import median_mad
+from .. import labelcodes
+from ..catalogueconstructor import _persistent_metrics
 from .base import ControllerBase
 
 
@@ -39,6 +41,7 @@ class CatalogueController(ControllerBase):
         self.spike_selection = np.zeros(self.cc.nb_peak, dtype='bool')
         self.spike_visible = np.ones(self.cc.nb_peak, dtype='bool')
         self.refresh_colors(reset=True)
+        self.check_plot_attributes()
         self.cc.compute_centroid()
         
 
@@ -48,20 +51,37 @@ class CatalogueController(ControllerBase):
             if k not in self.cluster_visible:
                 self.cluster_visible[k] = True
         for k in list(self.cluster_visible.keys()):
-            if k not in self.cluster_labels:
+            if k not in self.cluster_labels and k>0:
                 self.cluster_visible.pop(k)
         
+        if labelcodes.LABEL_NOISE not in self.cluster_visible:
+            #~ print('self.cluster_visible[labelcodes.LABEL_NOISE] = True')
+            self.cluster_visible[labelcodes.LABEL_NOISE] = True
+        
+        #~ if labelcodes.LABEL_NOISE not in self.cluster_count:
+        if self.cc.some_noise_snippet is not None:
+            self.cluster_count[labelcodes.LABEL_NOISE] = self.cc.some_noise_snippet.shape[0]
+        else:
+            self.cluster_count[labelcodes.LABEL_NOISE] = 0
+        
         self.refresh_colors(reset=False)
-    
     
     #map some attribute
     @property
     def spikes(self):
         return self.cc.all_peaks
-        
+    
+    @property
+    def clusters(self):
+        return self.cc.clusters
+    
     @property
     def cluster_labels(self):
-        return self.cc.cluster_labels
+        return self.cc.clusters['cluster_label']
+    
+    @property
+    def positive_cluster_labels(self):
+        return self.cc.positive_cluster_labels
     
     @property
     def cell_labels(self):
@@ -95,12 +115,28 @@ class CatalogueController(ControllerBase):
         return self.cc.some_waveforms
     
     @property
+    def some_noise_snippet(self):
+        return self.cc.some_noise_snippet
+    
+    @property
+    def some_noise_features(self):
+        return self.cc.some_noise_features
+    
+    @property
     def centroids(self):
         return self.cc.centroids
 
     @property
     def info(self):
         return self.cc.info
+    
+    @property        
+    def geometry(self):
+        return self.cc.geometry
+
+    @property        
+    def channel_to_features(self):
+        return self.cc.channel_to_features
     
     def change_spike_label(self, mask, label, on_new_cluster=True):
         label_changed = np.unique(self.cc.all_peaks['label'][mask]).tolist() + [label]
@@ -118,15 +154,31 @@ class CatalogueController(ControllerBase):
         return threshold
     
     def get_max_on_channel(self, label):
-        if label in self.centroids:
-            chan = self.centroids[label]['max_on_channel']
-            return chan
+        if label<0:
+            return None
+        
+        ind,  = np.nonzero(self.cc.clusters['cluster_label']==label)
+        if ind.size!=1:
+            return None
+        ind = ind[0]
+        
+        max_on_channel = self.cc.clusters['max_on_channel'][ind]
+        if max_on_channel>=0:
+            return max_on_channel
+        else:
+            return None
+        
+        #~ if label in self.centroids:
+            #~ c = self.centroids[label]['max_on_channel']
+            #~ return c
     
     def on_new_cluster(self, label_changed=None):
         """
         label_changed can be remove/add/modify
         """
-        if self.cc.all_peaks['index']==[]: return
+        if len(self.cc.all_peaks['index']) == 0:
+            return
+        
         self.cc.on_new_cluster()
         
         if label_changed is None:
@@ -142,6 +194,10 @@ class CatalogueController(ControllerBase):
         
         self.cc.compute_centroid(label_changed=label_changed)
         
+        #reset some metrics
+        for name in _persistent_metrics:
+            setattr(self.cc, name, None)
+        
         self.check_plot_attributes()
 
     
@@ -155,7 +211,10 @@ class CatalogueController(ControllerBase):
 
     def merge_cluster(self, labels_to_merge):
         #TODO: maybe take the first cluster label instead of new one (except -1)
-        new_label = max(self.cluster_labels)+1
+        new_label = min(labels_to_merge)
+        if new_label<0:
+            new_label = max(max(self.cluster_labels)+1, 0)
+        
         for k in labels_to_merge:
             mask = self.spike_label == k
             self.change_spike_label(mask, new_label, on_new_cluster=False)
@@ -180,8 +239,29 @@ class CatalogueController(ControllerBase):
     def project(self, method='pca', selection=None, **kargs):
         self.cc.project(method=method, selection=selection, **kargs)
     
-    def split_cluster(self, label_to_split, n, method=None, order_clusters=True, **kargs):
-        self.cc.split_cluster(label_to_split, n, method=method, order_clusters=order_clusters, **kargs)
+    def split_cluster(self, label_to_split, n, method=None,  **kargs): #order_clusters=True,
+        self.cc.split_cluster(label_to_split, n, method=method,  **kargs) #order_clusters=order_clusters,
         self.on_new_cluster()
         self.refresh_colors(reset = False)
+    
+    @property
+    def spike_waveforms_similarity(self):
+        return self.cc.spike_waveforms_similarity
 
+    @property
+    def spike_silhouette(self):
+        return self.cc.spike_silhouette
+        
+    def compute_spike_waveforms_similarity(self, **kargs):
+        return self.cc.compute_spike_waveforms_similarity(**kargs)
+    
+    def detect_similar_waveform_ratio(self, threshold=0.9):
+        return self.cc.detect_similar_waveform_ratio(threshold=threshold)
+        
+    def detect_high_similarity(self, threshold=0.95):
+        return self.cc.detect_high_similarity(threshold=threshold)
+    
+    def compute_spike_silhouette(self, **kargs):
+        return self.cc.compute_spike_silhouette(**kargs)
+    
+    

@@ -5,11 +5,6 @@ import numpy as np
 import matplotlib.cm
 import matplotlib.colors
 
-
-import sklearn.metrics.pairwise
-#~ from sklearn.metrics.pairwise import (linear_kernel, cosine_similarity, 
-                #~ polynomial_kernel, sigmoid_kernel, rbf_kernel, laplacian_kernel)
-
 from .base import WidgetBase
 from .tools import ParamDialog
 
@@ -20,6 +15,11 @@ class MyViewBox(pg.ViewBox):
         ev.accept()
 
 class SimilarityView(WidgetBase):
+
+    _params = [
+                      {'name': 'colormap', 'type': 'list', 'values' : ['viridis', 'jet', 'gray', 'hot', ] },
+        ]
+    
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
         
@@ -38,42 +38,11 @@ class SimilarityView(WidgetBase):
         self.graphicsview = pg.GraphicsView()
         self.layout.addWidget(self.graphicsview)
         
-        self.create_settings()
-        
         self.initialize_plot()
-        self.similarity = None
         
-        self.on_params_change()#this do refresh
-        #~ self.refresh()
+        self.on_params_changed()#this do refresh
 
-    def create_settings(self):
-        _params = [
-                          {'name': 'colormap', 'type': 'list', 'values' : ['viridis', 'jet', 'gray', 'hot', ] },
-                          {'name': 'similarity_metric', 'type': 'list', 'values' : [ 'cosine_similarity',  'linear_kernel',
-                                                                    'polynomial_kernel', 'sigmoid_kernel', 'rbf_kernel', 'laplacian_kernel' ] },
-                          {'name': 'data', 'type': 'list', 'values' : ['waveforms', 'features', ] },
-                          
-                          ]
-        self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
-        
-        self.params.sigTreeStateChanged.connect(self.refresh)
-        self.tree_params = pg.parametertree.ParameterTree(parent  = self)
-        self.tree_params.header().hide()
-        self.tree_params.setParameters(self.params, showTop=True)
-        self.tree_params.setWindowTitle(u'Options for waveforms viewer')
-        self.tree_params.setWindowFlags(QT.Qt.Window)
-        
-        self.params.sigTreeStateChanged.connect(self.on_params_change)  
-        
-    
-
-    def open_settings(self):
-        if not self.tree_params.isVisible():
-            self.tree_params.show()
-        else:
-            self.tree_params.hide()
-            
-    def on_params_change(self):
+    def on_params_changed(self):
         N = 512
         cmap_name = self.params['colormap']
         cmap = matplotlib.cm.get_cmap(cmap_name , N)
@@ -83,9 +52,6 @@ class SimilarityView(WidgetBase):
             r,g,b,_ =  matplotlib.colors.ColorConverter().to_rgba(cmap(i))
             lut.append([r*255,g*255,b*255])
         self.lut = np.array(lut, dtype='uint8')
-        
-        self.compute_similarity()
-        #~ self.similarity = None
         
         self.refresh()
     
@@ -103,32 +69,17 @@ class SimilarityView(WidgetBase):
         
         self._text_items = []
     
-    def compute_similarity(self):
-        #~ print('compute_similarity')
-        if self.params['data']=='waveforms':
-            wf = self.controller.some_waveforms
-            feat = wf.reshape(wf.shape[0], -1)
-        if self.params['data']=='features':
-            feat = self.controller.some_features
-        
-        
-        if feat.size>1e6:
-            print('compute_similarity: TOO BIG')
-            #~ print(feat.size)
-            self.similarity = None
-        else:
-            func = getattr(sklearn.metrics.pairwise, self.params['similarity_metric'])
-            
-            self.similarity = func(feat)
-            self._max = np.max(self.similarity)
-            #~ print('compute_similarity DONE')
-    
+    @property
+    def similarity(self):
+        return self.controller.spike_waveforms_similarity
     
     def refresh(self):
         if self.similarity is None:
             self.image.hide()
             return
-            
+        
+        _max = np.max(self.similarity)
+        
         cluster_visible = self.controller.cluster_visible
         visibles = [c for c, v in self.controller.cluster_visible.items() if v and c>=0]
         
@@ -140,7 +91,7 @@ class SimilarityView(WidgetBase):
         
         if keep_ind.size>0:
             s = self.similarity[keep_ind,:][:, keep_ind]
-            self.image.setImage(s, lut=self.lut, levels=[0, self._max])
+            self.image.setImage(s, lut=self.lut, levels=[0, _max])
             self.image.show()
             self.plot.setXRange(0, s.shape[0])
             self.plot.setYRange(0, s.shape[1])
@@ -168,8 +119,6 @@ class SimilarityView(WidgetBase):
         pass
     
     def on_spike_label_changed(self):
-        self.compute_similarity()
-        #~ self.similarity = None
         self.refresh()
     
     def on_colors_changed(self):

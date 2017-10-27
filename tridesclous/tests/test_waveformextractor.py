@@ -28,13 +28,14 @@ def test_compare_offline_online_engines():
 
     #params
     chunksize = 1024
+    lostfront_chunksize = 128
     nloop = sigs.shape[0]//chunksize
     sigs = sigs[:chunksize*nloop]
     highpass_freq = 300.
     preprocess_params = dict(
                 highpass_freq=highpass_freq,
                 common_ref_removal=True,
-                backward_chunksize=chunksize+chunksize//4,
+                lostfront_chunksize=lostfront_chunksize,
                 output_dtype='float32')
     
     peak_params = dict(peak_sign='-',

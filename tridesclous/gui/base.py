@@ -39,6 +39,7 @@ class ControllerBase(QT.QObject):
             view.on_colors_changed()
     
     def on_cluster_visibility_changed(self):
+        #~ print('on_cluster_visibility_changed', self.cluster_visible)
         for view in self.views:
             if view==self.sender(): continue
             view.on_cluster_visibility_changed()
@@ -71,14 +72,39 @@ class WidgetBase(QT.QWidget):
     cluster_visibility_changed = QT.pyqtSignal()
     cluster_tag_changed = QT.pyqtSignal()
     
+    _params = None
+    
     def __init__(self, parent = None, controller=None):
         QT.QWidget.__init__(self, parent)
         self.controller = controller
         if self.controller is not None:
             self.controller.declare_a_view(self)
+        
+        if self._params is not None:
+            self.create_settings()
     
     def refresh(self):
         raise(NotImplementedError)
+
+    def create_settings(self):
+        self.params = pg.parametertree.Parameter.create( name='settings', type='group', children=self._params)
+        
+        self.tree_params = pg.parametertree.ParameterTree(parent=self)
+        self.tree_params.header().hide()
+        self.tree_params.setParameters(self.params, showTop=True)
+        self.tree_params.setWindowTitle(u'Options for waveforms hist viewer')
+        self.tree_params.setWindowFlags(QT.Qt.Window)
+        
+        self.params.sigTreeStateChanged.connect(self.on_params_changed)
+
+    def open_settings(self):
+        if not self.tree_params.isVisible():
+            self.tree_params.show()
+        else:
+            self.tree_params.hide()
+    
+    def on_params_changed(self):
+        self.refresh()
     
     def on_spike_selection_changed(self):
         self.refresh()

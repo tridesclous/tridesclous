@@ -1,5 +1,5 @@
 import numpy as np
-
+import sklearn.metrics.pairwise
 
 def median_mad(data, axis=0):
     """
@@ -21,6 +21,23 @@ def median_mad(data, axis=0):
     mad = np.median(np.abs(data-med),axis=axis)*1.4826
     return med, mad
 
+
+def get_pairs_over_threshold(m, labels, threshold):
+    """
+    detect pairs over threhold in a similarity matrice
+    """
+    m = np.triu(m)
+    ind0, ind1 = np.nonzero(m>threshold)
+    
+    #remove diag
+    keep = ind0!=ind1
+    ind0 = ind0[keep]
+    ind1 = ind1[keep]
+    
+    pairs = list(zip(labels[ind0], labels[ind1]))
+    
+    return pairs
+    
 
 
 class FifoBuffer:
@@ -54,3 +71,26 @@ class FifoBuffer:
         assert start>=0
         assert stop<=self.buffer.shape[0]
         return self.buffer[start:stop]
+
+
+def get_neighborhood(geometry, radius_um):
+    """
+    get neighborhood given geometry array and radius
+    
+    params
+    -----
+    geometry: numpy array (nb_channel, 2) intresect units ar micro meter (um)
+    
+    radius_um: radius in micro meter
+    
+    returns
+    ----
+    
+    neighborhood: boolean numpy array (nb_channel, nb_channel)
+    
+    """
+    d = sklearn.metrics.pairwise.euclidean_distances(geometry)
+    return d<=radius_um
+    
+
+

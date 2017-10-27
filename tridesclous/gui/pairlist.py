@@ -10,12 +10,26 @@ from .tools import ParamDialog
 
 
 class PairList(WidgetBase):
+    _params = [{'name': 'threshold', 'type': 'float', 'value' :.9, 'step' : 0.01},
+                ]
+
     
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
         
         self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
+        
+        self.combo = QT.QComboBox()
+        self.layout.addWidget(self.combo)
+        self.combo.addItems(['all pairs', 'similar amplitude ratio', ]) #'high similarity'
+        self.combo.currentTextChanged.connect(self.refresh)
+        
+        but = QT.QPushButton('settings')
+        self.layout.addWidget(but)
+        but.clicked.connect(self.open_settings)
+        
+        
 
         self.table = QT.QTableWidget(selectionMode=QT.QAbstractItemView.SingleSelection,
                                                         selectionBehavior=QT.QAbstractItemView.SelectRows)
@@ -33,10 +47,9 @@ class PairList(WidgetBase):
         
         self.refresh()
     
-    
     def on_item_selection_changed(self):
         inds = self.table.selectedIndexes()
-        if len(inds)!=2:
+        if len(inds)!=4:
             return
         k1, k2 = self.pairs[inds[0].row()]
         for k in self.controller.cluster_visible:
@@ -70,17 +83,22 @@ class PairList(WidgetBase):
     
     def refresh(self):
         self.table.clear()
-        labels = ['cluster1', 'cluster2' ]
+        labels = ['cluster_label_1', 'cluster_label_2', 'cell_label_1', 'cell_label_2' ]
         self.table.setColumnCount(len(labels))
         self.table.setHorizontalHeaderLabels(labels)
         self.table.setColumnWidth(0, 100)
         self.table.setColumnWidth(1, 100)
         
+        mode = self.combo.currentText()
         
-        
-        labels = self.controller.cluster_labels
-        labels = labels[labels>=0]
-        self.pairs = list(itertools.combinations(labels, 2))
+        if mode == 'all pairs':
+            labels = self.controller.positive_cluster_labels
+            #~ labels = labels[labels>=0]
+            self.pairs = list(itertools.combinations(labels, 2))
+        elif mode == 'similar amplitude ratio':
+            self.pairs = self.controller.detect_similar_waveform_ratio(threshold=self.params['threshold'])
+        #~ elif mode == 'high similarity':
+            #~ self.pairs = self.controller.detect_high_similarity(threshold=0.9)
         
         self.table.setRowCount(len(self.pairs))
         
@@ -98,6 +116,15 @@ class PairList(WidgetBase):
                 item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
                 self.table.setItem(r,c, item)
                 item.setIcon(icon)
+                
+                
+                cell_label = self.controller.cell_labels[self.controller.cluster_labels==k][0]
+                name = '{}'.format(cell_label)
+                item = QT.QTableWidgetItem(name)
+                item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
+                self.table.setItem(r,c+2, item)
+                
+                
 
 
         

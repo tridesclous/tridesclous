@@ -13,8 +13,8 @@ import itertools
 
 from .base import WidgetBase
 from .tools import ParamDialog
-from ..tools import median_mad
-
+from ..tools import median_mad, get_neighborhood
+from .. import labelcodes
 
 
 class MyViewBox(pg.ViewBox):
@@ -37,7 +37,7 @@ class MyViewBox(pg.ViewBox):
         ev.accept()
     def mouseDragEvent(self, ev):
         ev.ignore()
-    def wheelEvent(self, ev):
+    def wheelEvent(self, ev, axis=None):
         if ev.modifiers() == QT.Qt.ControlModifier:
             z = 10 if ev.delta()>0 else 1/10.
         else:
@@ -61,6 +61,14 @@ class MyViewBox(pg.ViewBox):
         
 
 class NDScatter(WidgetBase):
+    
+    _params = [{'name': 'refresh_interval', 'type': 'float', 'value': 100 },
+                       {'name': 'nb_step', 'type': 'int', 'value':  10, 'limits' : [5, 100] },
+                       {'name': 'max_visible_by_cluster', 'type': 'int', 'value':  1000, 'limits' : [10, 10000], 'step':50 },
+                       {'name': 'auto_select_component', 'type': 'bool', 'value': True},
+                       {'name': 'radius_um', 'type': 'float', 'value': 300.},
+                   ]
+    
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
         
@@ -76,16 +84,16 @@ class NDScatter(WidgetBase):
         self.graphicsview2 = pg.GraphicsView()
         self.toolbar.addWidget(self.graphicsview2)
 
-        _params = [{'name': 'refresh_interval', 'type': 'float', 'value': 100 },
-                           {'name': 'nb_step', 'type': 'int', 'value':  10, 'limits' : [5, 100] },
-                           {'name': 'max_visible_by_cluster', 'type': 'int', 'value':  1000, 'limits' : [10, 10000], 'step':50 },
-                           ]
-        self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
-        self.tree_params = pg.parametertree.ParameterTree(parent  = self)
-        self.tree_params.header().hide()
-        self.tree_params.setParameters(self.params, showTop=True)
-        self.tree_params.setWindowTitle(u'Options for NDScatter')
-        self.tree_params.setWindowFlags(QT.Qt.Window)
+        #~ _params = [{'name': 'refresh_interval', 'type': 'float', 'value': 100 },
+                           #~ {'name': 'nb_step', 'type': 'int', 'value':  10, 'limits' : [5, 100] },
+                           #~ {'name': 'max_visible_by_cluster', 'type': 'int', 'value':  1000, 'limits' : [10, 10000], 'step':50 },
+                           #~ ]
+        #~ self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
+        #~ self.tree_params = pg.parametertree.ParameterTree(parent  = self)
+        #~ self.tree_params.header().hide()
+        #~ self.tree_params.setParameters(self.params, showTop=True)
+        #~ self.tree_params.setWindowTitle(u'Options for NDScatter')
+        #~ self.tree_params.setWindowFlags(QT.Qt.Window)
 
         
         self.timer_tour = QT.QTimer(interval = 100)
@@ -118,25 +126,16 @@ class NDScatter(WidgetBase):
         but.clicked.connect(self.open_select_component)
         tb.addWidget(but)
         
-        
-        
-
-    def open_settings(self):
-        if not self.tree_params.isVisible():
-            self.tree_params.show()
-        else:
-            self.tree_params.hide()        
-    
     def open_select_component(self):
         
         ndim = self.data.shape[1]
-        params = [{'name' : 'comp {}'.format(i), 'type':'bool', 'value' : self.selected_dim[i]} for i in range(ndim)]
+        params = [{'name' : 'comp {}'.format(i), 'type':'bool', 'value' : self.selected_comp[i]} for i in range(ndim)]
         
         dialog = ParamDialog(params, title = 'Select component')
         if dialog.exec_():
             p = dialog.get()
             for i in range(ndim):
-                self.selected_dim[i] = p['comp {}'.format(i)]
+                self.selected_comp[i] = p['comp {}'.format(i)]
             self.refresh()
     
     # this handle data with propties so model change shoudl not affect so much teh code
@@ -151,6 +150,8 @@ class NDScatter(WidgetBase):
         
         if k=='sel':
             data = self.data[self.controller.spike_selection[self.controller.some_peaks_index]]
+        elif k==labelcodes.LABEL_NOISE:
+            data = self.controller.some_noise_features
         else:
             data = self.data[(self.controller.spike_label[self.controller.some_peaks_index]==k) & self.point_visible]
             
@@ -181,6 +182,8 @@ class NDScatter(WidgetBase):
 
     
     def initialize(self):
+        if self.data is None:
+            return
         self.viewBox = MyViewBox()
         self.viewBox.gain_zoom.connect(self.gain_zoom)
         #~ self.viewBox.lasso_started.connect(self.on_lasso_started)
@@ -201,6 +204,11 @@ class NDScatter(WidgetBase):
         self.plot.addItem(self.scatter_select)
         self.scatter_select.setZValue(1000)
         
+        
+        color = self.controller.qcolors.get(labelcodes.LABEL_NOISE)
+        self.scatter_noise = pg.ScatterPlotItem(pen=pg.mkPen(None), brush=color, size=3, pxMode = True)
+        self.plot.addItem(self.scatter_noise)
+        
         self.lasso = pg.PlotCurveItem(pen='#7FFF00')
         self.plot.addItem(self.lasso)
 
@@ -212,7 +220,7 @@ class NDScatter(WidgetBase):
         
         
         ndim = self.data.shape[1]
-        self.selected_dim = np.ones( (ndim), dtype='bool')
+        self.selected_comp = np.ones( (ndim), dtype='bool')
         self.projection = np.zeros( (ndim, 2))
         self.projection[0,0] = 1.
         self.projection[1,1] = 1.
@@ -260,7 +268,7 @@ class NDScatter(WidgetBase):
     def get_one_random_projection(self):
         ndim = self.data.shape[1]
         projection = np.random.rand(ndim,2)*2-1.
-        projection[~self.selected_dim] = 0
+        projection[~self.selected_comp] = 0
         m = np.sqrt(np.sum(projection**2, axis=0))
         projection /= m
         return projection
@@ -272,10 +280,13 @@ class NDScatter(WidgetBase):
         self.refresh()
     
     def apply_dot(self, data):
-        projected = np.dot(data[:, self.selected_dim ], self.projection[self.selected_dim, :])
+        projected = np.dot(data[:, self.selected_comp ], self.projection[self.selected_comp, :])
         return projected
     
     def refresh(self):
+        if self.data is None:
+            return
+
         if not hasattr(self, 'viewBox'):
             self.initialize()
         
@@ -284,6 +295,7 @@ class NDScatter(WidgetBase):
         
         #ndscatter
         self.scatter.clear()
+
         for k in self.controller.cluster_labels:
             if not self.is_cluster_visible(k): continue
             data = self.data_by_label(k)
@@ -298,16 +310,26 @@ class NDScatter(WidgetBase):
         projected = self.apply_dot(data_sel)
         self.scatter_select.setData(projected[:,0], projected[:,1])
         
+        #noise
+        if self.is_cluster_visible(labelcodes.LABEL_NOISE):
+            data_noise = self.data_by_label(labelcodes.LABEL_NOISE)
+            if data_noise is not None:
+                projected = self.apply_dot(data_noise)
+                self.scatter_noise.setData(projected[:,0], projected[:,1])
+                self.scatter_noise.show()
+        else:
+            self.scatter_noise.hide()
+        
         #projection axes
         proj = self.projection.copy()
-        proj[~self.selected_dim, :] = 0
+        proj[~self.selected_comp, :] = 0
         self.direction_data[::, :] =0
         #~ self.direction_data[::2, :] = self.projection
         self.direction_data[::2, :] = proj
         self.direction_lines.setData(self.direction_data[:,0], self.direction_data[:,1])
         
         for i, label in enumerate(self.proj_labels):
-            if self.selected_dim[i]:
+            if self.selected_comp[i]:
                 label.setPos(self.projection[i,0], self.projection[i,1])
                 label.show()
             else:
@@ -382,7 +404,28 @@ class NDScatter(WidgetBase):
         self.refresh()
         
         self.spike_selection_changed.emit()
-
+    
+    def auto_select_component(self):
+        if self.data is None:
+            return
+        
+        # take all component that corespon to a channel max and neighborhood
+        neighborhood = get_neighborhood(self.controller.geometry, self.params['radius_um'])
+        
+        ndim = self.data.shape[1]
+        self.selected_comp = np.zeros( (ndim), dtype='bool')
+        for k, v in self.controller.cluster_visible.items():
+            if not v: continue
+            c = self.controller.get_max_on_channel(k)
+            if c is not None:
+                chan_mask = neighborhood[c,:]
+                #~ print('c', c, chan_mask)
+                feat_mask = np.sum(self.controller.channel_to_features[chan_mask, :], axis=0).astype('bool')
+                #~ print(feat_mask)
+                
+                self.selected_comp |= feat_mask
+        
+        #~ print('auto_select_component', self.selected_comp)
 
     #~ def on_spike_selection_changed(self):
         #~ self.refresh()
@@ -393,8 +436,11 @@ class NDScatter(WidgetBase):
     #~ def on_colors_changed(self):
         #~ self.refresh()
     
-    #~ def on_cluster_visibility_changed(self):
+    def on_cluster_visibility_changed(self):
+        if self.params['auto_select_component']:
+            self.auto_select_component()
         #~ self.refresh()
+        self.random_projection()
 
 
 

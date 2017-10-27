@@ -12,20 +12,21 @@ import time
 
 #~ p = '/media/samuel/SamCNRS/DataSpikeSorting/kampff/'
 p = '/home/samuel/Documents/projet/DataSpikeSorting/kampff/'
-#~ dirname= p+'tdc_2014_11_25_Pair_3_0'
-dirname=p+'tdc_2015_09_03_Cell9.0'
+dirname= p+'tdc_2014_11_25_Pair_3_0'
+#~ dirname=p+'tdc_2015_09_03_Cell9.0'
 #~ dirname=p+'tdc_2015_09_09_Pair_6_0'
 
 
 
 def initialize_catalogueconstructor():
+    filenames = p+'2014_11_25_Pair_3_0/'+'amplifier2014-11-25T23_00_08.bin'
     #~ filenames = p+'2015_09_09_Pair_6_0/'+'amplifier2015-09-09T17_46_43.bin'
-    filenames = p+'2015_09_03_Cell9.0/'+'amplifier2015-09-03T21_18_47.bin'
+    #~ filenames = p+'2015_09_03_Cell9.0/'+'amplifier2015-09-03T21_18_47.bin'
     
     dataio = DataIO(dirname=dirname)
     dataio.set_data_source(type='RawData', filenames=filenames, dtype='uint16',
-                                     total_channel=128, sample_rate=30000.)    
-    dataio.set_probe_file(p+'probe 128.prb')
+                                     total_channel=32, sample_rate=30000.)    
+    dataio.set_probe_file(p+'probe 32.prb')
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
 
@@ -43,15 +44,15 @@ def preprocess_signals_and_peaks():
             #~ signalpreprocessor_engine='numpy',
             signalpreprocessor_engine='opencl',
             highpass_freq=300, 
-            lowpass_freq=10000., 
-            smooth_size=2,
+            lowpass_freq=6000., 
+            smooth_size=1,
             
             common_ref_removal=True,
-            backward_chunksize=1280,
+            lostfront_chunksize=64,
             
             #peak detector
-            peakdetector_engine='numpy',
-            #~ peakdetector_engine='opencl',
+            #~ peakdetector_engine='numpy',
+            peakdetector_engine='opencl',
             peak_sign='-', 
             relative_threshold=7,
             peak_span=0.0002,
@@ -74,20 +75,26 @@ def extract_waveforms_pca_cluster():
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
     t1 = time.perf_counter()
-    #~ catalogueconstructor.extract_some_waveforms(mode='rand', n_left=-45, n_right=60,  nb_max=10000)
-    catalogueconstructor.extract_some_waveforms(mode='all', n_left=-45, n_right=60)
+    catalogueconstructor.extract_some_waveforms(mode='rand', n_left=-45, n_right=60,  nb_max=10000)
+    #~ catalogueconstructor.extract_some_waveforms(mode='all', n_left=-45, n_right=60)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
 
+
+    #extract_some_noise
     t1 = time.perf_counter()
-    catalogueconstructor.project(method='pca', n_components=25)
-    #~ catalogueconstructor.project(method='spatial_sliding_pca', n_components_by_channel=3)
-    #~ catalogueconstructor.project(method='pca_by_channel_then_tsne', n_components_by_channel=3)
+    catalogueconstructor.extract_some_noise(nb_snipet=400)
+    t2 = time.perf_counter()
+    print('extract_some_noise', t2-t1)
+
+
+    t1 = time.perf_counter()
+    catalogueconstructor.project(method='peak_max')
     t2 = time.perf_counter()
     print('project', t2-t1)
     
     t1 = time.perf_counter()
-    catalogueconstructor.find_clusters(method='kmeans', n_clusters=16)
+    catalogueconstructor.find_clusters(method='dirtycut')
     t2 = time.perf_counter()
     print('find_clusters', t2-t1)
     
@@ -115,13 +122,7 @@ def run_peeler():
     initial_catalogue = dataio.load_catalogue(chan_grp=0)
 
     peeler = Peeler(dataio)
-    peeler.change_params(catalogue=initial_catalogue, n_peel_level=2,
-                signalpreprocessor_engine='numpy',
-                #~ signalpreprocessor_engine='opencl',
-                
-                peakdetector_engine='numpy',
-                #~ peakdetector_engine='opencl',
-                )
+    peeler.change_params(catalogue=initial_catalogue, n_peel_level=2)
     
     t1 = time.perf_counter()
     peeler.run(duration=60)

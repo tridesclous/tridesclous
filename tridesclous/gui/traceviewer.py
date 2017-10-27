@@ -25,7 +25,7 @@ class MyViewBox(pg.ViewBox):
         ev.accept()
     def mouseDragEvent(self, ev):
         ev.ignore()
-    def wheelEvent(self, ev):
+    def wheelEvent(self, ev, axis=None):
         if ev.modifiers() == QT.Qt.ControlModifier:
             z = 10 if ev.delta()>0 else 1/10.
         else:
@@ -38,6 +38,12 @@ class MyViewBox(pg.ViewBox):
 
 
 class BaseTraceViewer(WidgetBase):
+    
+    _params = [{'name': 'auto_zoom_on_select', 'type': 'bool', 'value': True },
+                       {'name': 'zoom_size', 'type': 'float', 'value':  0.08, 'step' : 0.001 },
+                      {'name': 'plot_threshold', 'type': 'bool', 'value':  True },
+                      ]
+    
     def __init__(self,controller=None, signal_type='initial', parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
     
@@ -66,18 +72,6 @@ class BaseTraceViewer(WidgetBase):
 
         #handle time by segments
         self.time_by_seg = np.array([0.]*self.dataio.nb_segment, dtype='float64')
-        
-        _params = [{'name': 'auto_zoom_on_select', 'type': 'bool', 'value': True },
-                           {'name': 'zoom_size', 'type': 'float', 'value':  0.08, 'step' : 0.001 },
-                          {'name': 'plot_threshold', 'type': 'bool', 'value':  True },
-                          ]
-        self.params = pg.parametertree.Parameter.create( name='Global options', type='group', children = _params)
-        self.params.param('plot_threshold').sigValueChanged.connect(self.refresh)
-        self.tree_params = pg.parametertree.ParameterTree(parent  = self)
-        self.tree_params.header().hide()
-        self.tree_params.setParameters(self.params, showTop=True)
-        self.tree_params.setWindowTitle(u'Options for signal viewer')
-        self.tree_params.setWindowFlags(QT.Qt.Window)
         
         self.change_segment(0)
         self.refresh()
@@ -187,13 +181,6 @@ class BaseTraceViewer(WidgetBase):
         
         self.gains = None
         self.offsets = None
-
-    def open_settings(self):
-        if not self.tree_params.isVisible():
-            self.tree_params.show()
-        else:
-            self.tree_params.hide()
-        
 
     def prev_segment(self):
         self.change_segment(self._seg_pos - 1)
@@ -333,9 +320,9 @@ class BaseTraceViewer(WidgetBase):
             self.spinbox_xsize.sigValueChanged.connect(self.on_xsize_changed)
             
             label = self.controller.spikes[ind]['label']
-            if label>=0:
-                c = self.controller.get_max_on_channel(label)
-            else:
+            c = self.controller.get_max_on_channel(label)
+            
+            if c  is None:
                 wf = self.controller.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.controller.chan_grp,
                         i_start=peak_ind, i_stop=peak_ind+1,
                         signal_type='processed', return_type='raw_numpy')

@@ -27,7 +27,7 @@ class SignalPreprocessor_base:
                                             smooth_size=0,
                                             output_dtype='float32', 
                                             normalize=True,
-                                            backward_chunksize=None,
+                                            lostfront_chunksize = None,
                                             signals_medians=None, signals_mads=None):
         
         self.signals_medians = signals_medians
@@ -39,9 +39,11 @@ class SignalPreprocessor_base:
         self.smooth_size = int(smooth_size)
         self.output_dtype = np.dtype(output_dtype)
         self.normalize = normalize
-        self.backward_chunksize = backward_chunksize
-        
-        assert self.backward_chunksize>self.chunksize
+        self.lostfront_chunksize = lostfront_chunksize
+        self.backward_chunksize = self.chunksize + lostfront_chunksize
+        #~ print('self.lostfront_chunksize', self.lostfront_chunksize)
+        #~ print('self.backward_chunksize', self.backward_chunksize)
+        #~ assert self.backward_chunksize>self.chunksize
         
         self.coefficients = np.zeros((0, 6))
         
@@ -73,8 +75,7 @@ class SignalPreprocessor_base:
             #this is the null filter
             self.coefficients = np.array([[1, 0, 0, 1,0,0]], dtype=self.output_dtype)
         
-        self.overlapsize = self.backward_chunksize - self.chunksize
-        #~ self.filtfilt_engine = SosFiltfilt_Scipy(self.coefficients, self.nb_channel, output_dtype, self.chunksize, overlapsize)
+        #~ self.filtfilt_engine = SosFiltfilt_Scipy(self.coefficients, self.nb_channel, output_dtype, self.chunksize, lostfront_chunksize)
         self.nb_section =self. coefficients.shape[0]
         self.forward_buffer = FifoBuffer((self.backward_chunksize, self.nb_channel), self.output_dtype)
         self.zi = np.zeros((self.nb_section, 2, self.nb_channel), dtype= self.output_dtype)
@@ -109,7 +110,7 @@ class SignalPreprocessor_Numpy(SignalPreprocessor_base):
         
         self.forward_buffer.new_chunk(forward_chunk_filtered, index=pos)
         start = pos-self.backward_chunksize
-        if start<-self.overlapsize:
+        if start<-self.lostfront_chunksize:
             return None, None
         if start>0:
             backward_chunk = self.forward_buffer.get_data(start,pos)
@@ -122,9 +123,9 @@ class SignalPreprocessor_Numpy(SignalPreprocessor_base):
         if start>0:
             backward_filtered = backward_filtered[:self.chunksize]
         else:
-            backward_filtered = backward_filtered[:-self.overlapsize]
+            backward_filtered = backward_filtered[:-self.lostfront_chunksize]
         data2 = backward_filtered
-        pos2 = pos-self.overlapsize
+        pos2 = pos-self.lostfront_chunksize
         #~ print('pos', pos, 'pos2', pos2, data2.shape)
         
         
@@ -181,7 +182,7 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base):
         #~ event.wait()
         
         #roll and add to bacward fifo
-        event = self.kern_roll_fifo(self.queue,  (self.nb_channel, self.overlapsize), (self.nb_channel, 1),
+        event = self.kern_roll_fifo(self.queue,  (self.nb_channel, self.lostfront_chunksize), (self.nb_channel, 1),
                                 self.fifo_input_backward_cl)
         #~ event.wait()
         
@@ -201,10 +202,10 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base):
         #~ event.wait()
         
         start = pos-self.backward_chunksize
-        if start<-self.overlapsize:
+        if start<-self.lostfront_chunksize:
             return None, None
         
-        pos2 = pos-self.overlapsize
+        pos2 = pos-self.lostfront_chunksize
         
         
         event = pyopencl.enqueue_copy(self.queue,  self.output_backward, self.output_backward_cl)
@@ -212,7 +213,7 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base):
         if start>0:
             data2 = self.output_backward[:self.chunksize, :]
         else:
-            data2 = self.output_backward[self.overlapsize:self.chunksize, :]
+            data2 = self.output_backward[self.lostfront_chunksize:self.chunksize, :]
         
         data2 = data2.copy()
         
@@ -237,12 +238,12 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base):
         
         SignalPreprocessor_base.change_params(self, **kargs)
         assert self.output_dtype=='float32', 'SignalPreprocessor_OpenCL support only float32 at the moment'
-        assert self.overlapsize<self.chunksize, 'OpenCL fifo work only for self.overlapsize<self.chunksize'
+        assert self.lostfront_chunksize<self.chunksize, 'OpenCL fifo work only for self.lostfront_chunksize<self.chunksize'
         
         
         
         self.coefficients = np.ascontiguousarray(self.coefficients, dtype=self.output_dtype)
-        print(self.coefficients.shape)
+        #~ print(self.coefficients.shape)
         
         
         self.zi1 = np.zeros((self.nb_channel, self.nb_section, 2), dtype= self.output_dtype)
@@ -262,7 +263,7 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base):
 
         #CL prog
         kernel = self.kernel%dict(forward_chunksize=self.chunksize, backward_chunksize=self.backward_chunksize,
-                        overlapsize=self.overlapsize, nb_section=self.nb_section, nb_channel=self.nb_channel)
+                        lostfront_chunksize=self.lostfront_chunksize, nb_section=self.nb_section, nb_channel=self.nb_channel)
         #~ print(kernel)
         #~ exit()
         prg = pyopencl.Program(self.ctx, kernel)
@@ -279,7 +280,7 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base):
     kernel = """
     #define forward_chunksize %(forward_chunksize)d
     #define backward_chunksize %(backward_chunksize)d
-    #define overlapsize %(overlapsize)d
+    #define lostfront_chunksize %(lostfront_chunksize)d
     #define nb_section %(nb_section)d
     #define nb_channel %(nb_channel)d
 
@@ -297,7 +298,7 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base):
         int chan = get_global_id(0);
         int pos = get_global_id(1);
         
-        fifo[(pos+overlapsize)*nb_channel+chan] = input[(pos)*nb_channel+chan];
+        fifo[(pos+lostfront_chunksize)*nb_channel+chan] = input[(pos)*nb_channel+chan];
         
     }
     
