@@ -60,7 +60,7 @@ def test_one_decomposition():
 
 
 if __name__ == '__main__':
-    test_all_decomposition()
+    #~ test_all_decomposition()
     
-    #~ test_one_decomposition()
+    test_one_decomposition()
 

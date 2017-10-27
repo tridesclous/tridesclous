@@ -126,6 +126,14 @@ class CatalogueController(ControllerBase):
     def info(self):
         return self.cc.info
     
+    @property        
+    def geometry(self):
+        return self.cc.geometry
+
+    @property        
+    def channel_to_features(self):
+        return self.cc.channel_to_features
+    
     def change_spike_label(self, mask, label, on_new_cluster=True):
         label_changed = np.unique(self.cc.all_peaks['label'][mask]).tolist() + [label]
         label_changed = np.unique(label_changed)
