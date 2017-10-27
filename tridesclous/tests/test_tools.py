@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from tridesclous.tools import median_mad, FifoBuffer
+from tridesclous.tools import median_mad, FifoBuffer, get_neighborhood
 
 import time
 
@@ -18,9 +18,14 @@ def test_FifoBuffer():
     assert np.all(data2[0,:]==3008)
     assert np.all(data2[-1,:]==4095)
     #~ print(data2)
-    
 
+def test_get_neighborhood():
+    geometry = [[0,0], [0, 100], [100, 100]]
+    radius_um = 120
+    n = get_neighborhood(geometry, radius_um)
+    print(n)
 
 if __name__ == '__main__':
     #~ test_get_median_mad()
-    test_FifoBuffer()
+    #~ test_FifoBuffer()
+    test_get_neighborhood()

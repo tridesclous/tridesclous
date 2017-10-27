@@ -1,5 +1,5 @@
 import numpy as np
-
+import sklearn.metrics.pairwise
 
 def median_mad(data, axis=0):
     """
@@ -71,3 +71,26 @@ class FifoBuffer:
         assert start>=0
         assert stop<=self.buffer.shape[0]
         return self.buffer[start:stop]
+
+
+def get_neighborhood(geometry, radius_um):
+    """
+    get neighborhood given geometry array and radius
+    
+    params
+    -----
+    geometry: numpy array (nb_channel, 2) intresect units ar micro meter (um)
+    
+    radius_um: radius in micro meter
+    
+    returns
+    ----
+    
+    neighborhood: boolean numpy array (nb_channel, nb_channel)
+    
+    """
+    d = sklearn.metrics.pairwise.euclidean_distances(geometry)
+    return d<=radius_um
+    
+
+

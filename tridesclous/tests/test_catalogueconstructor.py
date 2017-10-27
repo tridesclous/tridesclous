@@ -105,7 +105,7 @@ def test_catalogue_constructor():
         
         # PCA
         t1 = time.perf_counter()
-        catalogueconstructor.project(method='pca', n_components=7, batch_size=16384)
+        catalogueconstructor.project(method='global_pca', n_components=7, batch_size=16384)
         t2 = time.perf_counter()
         print('project pca', t2-t1)
 

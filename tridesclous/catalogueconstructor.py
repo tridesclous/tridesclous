@@ -34,6 +34,7 @@ _persistent_metrics = ('spike_waveforms_similarity', 'cluster_similarity',
                         'cluster_ratio_similarity', 'spike_silhouette')
 
 _reset_after_peak_arrays = ('some_peaks_index', 'some_waveforms', 'some_features',
+                        'channel_to_features', 
                         'some_noise_index', 'some_noise_snipet', 'some_noise_features',
                         ) + _persistent_metrics
 
@@ -60,6 +61,7 @@ class CatalogueConstructor:
             chan_grp = min(self.dataio.channel_groups.keys())
         self.chan_grp = chan_grp
         self.nb_channel = self.dataio.nb_channel(chan_grp=self.chan_grp)
+        self.geometry = self.dataio.get_geometry(chan_grp=self.chan_grp)
         
         self.catalogue_path = os.path.join(self.dataio.channel_group_path[chan_grp], name)
         
@@ -84,6 +86,8 @@ class CatalogueConstructor:
             
         if self.all_peaks is not None:
             self.memory_mode='memmap'
+        
+        
         
         self.projector = None
     
@@ -458,6 +462,7 @@ class CatalogueConstructor:
                                                                 subsample_ratio=subsample_ratio)
         self.flush_info()
         
+        #TODO recode this
         if self.projector is not None:
             try:
                 self.apply_projection()
@@ -585,13 +590,14 @@ class CatalogueConstructor:
         
         #~ wf = self.some_waveforms.reshape(self.some_waveforms.shape[0], -1)
         #~ params['n_components'] = n_components
-        features, self.projector = decomposition.project_waveforms(self.some_waveforms, method=method, selection=None,
+        features, channel_to_features, self.projector = decomposition.project_waveforms(self.some_waveforms, method=method, selection=None,
                     catalogueconstructor=self, **params)
         
         #trick to make it persistant
         #~ self.arrays.create_array('some_features', self.info['internal_dtype'], features.shape, self.memory_mode)
         #~ self.some_features[:] = features
         self.arrays.add_array('some_features', features.astype(self.info['internal_dtype']), self.memory_mode)
+        self.arrays.add_array('channel_to_features', channel_to_features, self.memory_mode)
         
         if self.some_noise_snipet is not None:
             some_noise_features = self.projector.transform(self.some_noise_snipet)

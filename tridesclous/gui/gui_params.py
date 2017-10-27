@@ -30,13 +30,13 @@ waveforms_params = [
 
 
 
-
 features_params_by_methods = OrderedDict([
-    ('pca',  [{'name' : 'n_components', 'type' : 'int', 'value' : 5}]),
+    ('global_pca',  [{'name' : 'n_components', 'type' : 'int', 'value' : 5}]),
     ('peak_max',  []),
     ('pca_by_channel',  [{'name' : 'n_components_by_channel', 'type' : 'int', 'value' : 3}]),
-    ('peakmax_and_pca',  [{'name' : 'n_components', 'type' : 'int', 'value' : 5}]),
-    ('tsne',  []),
+    ('neighborhood_pca',  [{'name' : 'n_components_by_neighborhood', 'type' : 'int', 'value' : 3}, 
+                                        {'name' : 'radius_um', 'type' : 'float', 'value' : 300., 'step':50.}, 
+                                        ]),
 ])
 
 
