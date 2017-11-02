@@ -1,5 +1,6 @@
+import numpy as np
 import sklearn.metrics.pairwise
-
+import scipy.spatial
 
 
 
@@ -10,6 +11,18 @@ def compute_similarity(data, method):
         return func(data)
     else:
         raise(NotImplementedError)
+
+
+def inverse_weihgted_distance(x):
+    #~ func = lambda u, v: np.sqrt(np.mean((u-v)**2))
+    func = lambda u, v: np.mean(np.abs(u-v)/np.maximum(np.abs(u),np.abs(v)))
+    d = scipy.spatial.distance.pdist(x, metric=func)
+    d = scipy.spatial.distance.squareform(d)
+    print(d)
+    
+    return d
+    
+    
 
 
 def compute_silhouette(data, labels, metric='euclidean'):

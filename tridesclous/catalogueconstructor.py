@@ -763,7 +763,8 @@ class CatalogueConstructor:
             #TODO put a better methods because this is overlapping with ratio
             #~ cluster_similarity = metrics.compute_similarity(wfs, 'cosine_similarity')
             import sklearn.metrics.pairwise
-            d = sklearn.metrics.pairwise.euclidean_distances(wfs)
+            #~ d = sklearn.metrics.pairwise.euclidean_distances(wfs)
+            d = metrics.inverse_weihgted_distance(wfs)
             #~ dist(x, y) = sqrt(dot(x, x) - 2 * dot(x, y) + dot(y, y))
             #~ cluster_similarity = -d
             #~ cluster_similarity = 1. / (d/np.max(d))
