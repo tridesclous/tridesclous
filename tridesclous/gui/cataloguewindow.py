@@ -156,7 +156,7 @@ class CatalogueWindow(QT.QMainWindow):
     
     def refresh_with_reload(self):
         self.controller.reload_data()
-        sel.refresh()
+        self.refresh()
     
     def refresh(self):
         #~ self.controller.reload_data()

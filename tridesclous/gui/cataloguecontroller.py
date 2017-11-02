@@ -33,7 +33,7 @@ class CatalogueController(ControllerBase):
     def reload_data(self):
         self.cc.reload_data()
         self.cc.on_new_cluster()
-        self.init_plot_attributes()
+        self.init_plot_attributes()#this do compute_centroid
     
     def init_plot_attributes(self):
         self.cluster_visible = {k:i<20 for i, k  in enumerate(self.cluster_labels)}
@@ -144,7 +144,8 @@ class CatalogueController(ControllerBase):
         self.cc.all_peaks['label'][mask] = label
         
         if on_new_cluster:
-            self.on_new_cluster(label_changed=label_changed)
+            #self.on_new_cluster(label_changed=label_changed)#bug 
+            self.on_new_cluster(label_changed=None)
             self.refresh_colors(reset=False)
         
     def get_threshold(self):

@@ -314,7 +314,7 @@ class ClusterPeakList(WidgetBase):
                 item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
                 self.table.setItem(i,3, item)
             
-            if k>0:
+            if k>=0:
                 cell_label = self.controller.cell_labels[self.controller.cluster_labels==k][0]
                 item = QT.QTableWidgetItem('{}'.format(cell_label))
                 item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
