@@ -10,7 +10,8 @@ from .tools import ParamDialog
 
 
 class PairList(WidgetBase):
-    _params = [{'name': 'threshold', 'type': 'float', 'value' :.9, 'step' : 0.01},
+    _params = [{'name': 'threshold_similarity', 'type': 'float', 'value' :.8, 'step' : 0.01},
+                    {'name': 'threshold_ratio_similarity', 'type': 'float', 'value' :.9, 'step' : 0.01},
                 ]
 
     
@@ -22,7 +23,7 @@ class PairList(WidgetBase):
         
         self.combo = QT.QComboBox()
         self.layout.addWidget(self.combo)
-        self.combo.addItems(['all pairs', 'similar amplitude ratio', ]) #'high similarity'
+        self.combo.addItems(['all pairs', 'similar amplitude ratio', 'high similarity']) #
         self.combo.currentTextChanged.connect(self.refresh)
         
         but = QT.QPushButton('settings')
@@ -96,9 +97,9 @@ class PairList(WidgetBase):
             #~ labels = labels[labels>=0]
             self.pairs = list(itertools.combinations(labels, 2))
         elif mode == 'similar amplitude ratio':
-            self.pairs = self.controller.detect_similar_waveform_ratio(threshold=self.params['threshold'])
-        #~ elif mode == 'high similarity':
-            #~ self.pairs = self.controller.detect_high_similarity(threshold=0.9)
+            self.pairs = self.controller.detect_similar_waveform_ratio(threshold=self.params['threshold_ratio_similarity'])
+        elif mode == 'high similarity':
+            self.pairs = self.controller.detect_high_similarity(threshold=self.params['threshold_similarity'])
         
         self.table.setRowCount(len(self.pairs))
         

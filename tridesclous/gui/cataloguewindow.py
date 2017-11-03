@@ -8,7 +8,7 @@ from .traceviewer import CatalogueTraceViewer
 from .peaklists import PeakList, ClusterPeakList
 from .ndscatter import NDScatter
 from .waveformviewer import WaveformViewer
-from .similarity import SimilarityView
+from .similarity import SpikeSimilarityView, ClusterSimilarityView, ClusterRatioSimilarityView
 from .pairlist import PairList
 from .silhouette import Silhouette
 from .waveformhistviewer import WaveformHistViewer
@@ -39,7 +39,9 @@ class CatalogueWindow(QT.QMainWindow):
         self.clusterlist = ClusterPeakList(controller=self.controller)
         self.ndscatter = NDScatter(controller=self.controller)
         self.waveformviewer = WaveformViewer(controller=self.controller)
-        self.similarityview = SimilarityView(controller=self.controller)
+        self.spikesimilarityview = SpikeSimilarityView(controller=self.controller)
+        self.clustersimilarityview = ClusterSimilarityView(controller=self.controller)
+        self.clusterratiosimilarityview = ClusterRatioSimilarityView(controller=self.controller)
         self.pairlist = PairList(controller=self.controller)
         self.silhouette = Silhouette(controller=self.controller)
         self.waveformhistviewer = WaveformHistViewer(controller=self.controller)
@@ -55,9 +57,6 @@ class CatalogueWindow(QT.QMainWindow):
         #self.tabifyDockWidget(docks['ndscatter'], docks['waveformviewer'])
         self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['waveformviewer'])
         
-        docks['silhouette'] = QT.QDockWidget('silhouette',self)
-        docks['silhouette'].setWidget(self.silhouette)
-        self.tabifyDockWidget(docks['waveformviewer'], docks['silhouette'])
 
         docks['waveformhistviewer'] = QT.QDockWidget('waveformhistviewer',self)
         docks['waveformhistviewer'].setWidget(self.waveformhistviewer)
@@ -85,13 +84,28 @@ class CatalogueWindow(QT.QMainWindow):
         docks['clusterlist'].setWidget(self.clusterlist)
         self.tabifyDockWidget(docks['pairlist'], docks['clusterlist'])
         
-        docks['similarityview'] = QT.QDockWidget('similarityview',self)
-        docks['similarityview'].setWidget(self.similarityview)
-        self.addDockWidget(QT.Qt.LeftDockWidgetArea, docks['similarityview'])
+        #on bottom left
+        docks['spikesimilarityview'] = QT.QDockWidget('spikesimilarityview',self)
+        docks['spikesimilarityview'].setWidget(self.spikesimilarityview)
+        self.addDockWidget(QT.Qt.LeftDockWidgetArea, docks['spikesimilarityview'])
+
+        docks['clustersimilarityview'] = QT.QDockWidget('clustersimilarityview',self)
+        docks['clustersimilarityview'].setWidget(self.clustersimilarityview)
+        self.tabifyDockWidget(docks['spikesimilarityview'], docks['clustersimilarityview'])
+
+        docks['clusterratiosimilarityview'] = QT.QDockWidget('clusterratiosimilarityview',self)
+        docks['clusterratiosimilarityview'].setWidget(self.clusterratiosimilarityview)
+        self.tabifyDockWidget(docks['spikesimilarityview'], docks['clusterratiosimilarityview'])
+        
+
+        docks['silhouette'] = QT.QDockWidget('silhouette',self)
+        docks['silhouette'].setWidget(self.silhouette)
+        self.tabifyDockWidget(docks['spikesimilarityview'], docks['silhouette'])
+        
         
         docks['ndscatter'] = QT.QDockWidget('ndscatter',self)
         docks['ndscatter'].setWidget(self.ndscatter)
-        self.tabifyDockWidget(docks['similarityview'], docks['ndscatter'])
+        self.tabifyDockWidget(docks['spikesimilarityview'], docks['ndscatter'])
         
         self.create_actions()
         self.create_toolbar()
@@ -105,9 +119,6 @@ class CatalogueWindow(QT.QMainWindow):
         #~ self.act_refresh = QT.QAction(u'Refresh', self,checkable = False, icon=QT.QIcon.fromTheme("view-refresh"))
         self.act_refresh = QT.QAction(u'Refresh', self,checkable = False, icon=QT.QIcon(":/view-refresh.svg"))
         self.act_refresh.triggered.connect(self.refresh_with_reload)
-
-        #~ self.act_setting = QT.QAction(u'Settings', self,checkable = False, icon=QT.QIcon.fromTheme(":/preferences-other.svg"))
-        #~ self.act_setting.triggered.connect(self.open_settings)
 
         self.act_redetect_peak = QT.QAction(u'New peaks', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
         self.act_redetect_peak.triggered.connect(self.redetect_peak)
@@ -165,19 +176,13 @@ class CatalogueWindow(QT.QMainWindow):
             #~ print(w)
             w.refresh()
     
-    #~ def open_settings(self):
-        #~ _params = [{'name' : 'nb_waveforms', 'type' : 'int', 'value' : 10000}]
-        #~ dialog1 = ParamDialog(_params, title = 'Settings', parent = self)
-        #~ if not dialog1.exec_():
-            #~ return None, None
-        #~ self.settings = dialog1.get()
-    
     def redetect_peak(self):
         dia = ParamDialog(gui_params.peak_detector_params)
         dia.resize(450, 500)
         if dia.exec_():
             d = dia.get()
             self.catalogueconstructor.re_detect_peak(**d)
+            self.controller.init_plot_attributes()
         self.refresh()
     
     def new_waveforms(self):

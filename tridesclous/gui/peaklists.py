@@ -405,6 +405,8 @@ class ClusterPeakList(WidgetBase):
         self.spike_label_changed.emit()
     
     def split_selection(self):
+        #TODO bug when not n_clusters
+        
         n = len(self.selected_cluster())
         if n!=1: return
         label_to_split = self.selected_cluster()[0]

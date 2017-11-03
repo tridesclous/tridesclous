@@ -250,11 +250,28 @@ class CatalogueController(ControllerBase):
         return self.cc.spike_waveforms_similarity
 
     @property
+    def cluster_similarity(self):
+        return self.cc.cluster_similarity
+
+    @property
+    def cluster_ratio_similarity(self):
+        return self.cc.cluster_ratio_similarity
+
+    @property
     def spike_silhouette(self):
         return self.cc.spike_silhouette
         
     def compute_spike_waveforms_similarity(self, **kargs):
         return self.cc.compute_spike_waveforms_similarity(**kargs)
+
+    def compute_cluster_similarity(self, **kargs):
+        return self.cc.compute_cluster_similarity(**kargs)
+
+    def compute_cluster_ratio_similarity(self, **kargs):
+        return self.cc.compute_cluster_ratio_similarity(**kargs)
+        
+    def compute_spike_silhouette(self, **kargs):
+        return self.cc.compute_spike_silhouette(**kargs)
     
     def detect_similar_waveform_ratio(self, threshold=0.9):
         return self.cc.detect_similar_waveform_ratio(threshold=threshold)
@@ -262,7 +279,5 @@ class CatalogueController(ControllerBase):
     def detect_high_similarity(self, threshold=0.95):
         return self.cc.detect_high_similarity(threshold=threshold)
     
-    def compute_spike_silhouette(self, **kargs):
-        return self.cc.compute_spike_silhouette(**kargs)
     
     

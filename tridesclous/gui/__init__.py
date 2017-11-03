@@ -6,7 +6,7 @@ from .peaklists import PeakList, ClusterPeakList
 from .ndscatter import NDScatter
 from .waveformviewer import WaveformViewer
 from .cataloguewindow import CatalogueWindow
-from .similarity import SimilarityView
+from .similarity import SpikeSimilarityView, ClusterSimilarityView, ClusterRatioSimilarityView
 from .pairlist import PairList
 from .silhouette import Silhouette
 from .waveformhistviewer import WaveformHistViewer

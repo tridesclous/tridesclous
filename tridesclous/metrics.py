@@ -2,7 +2,7 @@ import numpy as np
 import sklearn.metrics.pairwise
 import scipy.spatial
 
-
+import matplotlib.pyplot as plt
 
 def compute_similarity(data, method):
     if method in ('cosine_similarity',  'linear_kernel', 'polynomial_kernel',
@@ -13,14 +13,29 @@ def compute_similarity(data, method):
         raise(NotImplementedError)
 
 
-def inverse_weihgted_distance(x):
-    #~ func = lambda u, v: np.sqrt(np.mean((u-v)**2))
-    func = lambda u, v: np.mean(np.abs(u-v)/np.maximum(np.abs(u),np.abs(v)))
-    d = scipy.spatial.distance.pdist(x, metric=func)
-    d = scipy.spatial.distance.squareform(d)
-    print(d)
+def cosine_similarity_with_max(x):
+    """
+    Similar to cosine_similarity but normed by the max(abs) on each dim.
     
-    return d
+    m = np.maximum(np.abs(u), np.abs(v))
+    similarity = np.dot(u, v.T)/np.dot(m, m.T)
+    
+    """
+    def func(u, v):
+        #cosine affinity
+        #~ sim_final = np.dot(u, v.T)/(np.sqrt(np.dot(u, u.T))*np.sqrt(np.dot(v, v.T)))
+        
+        #cosine affinity
+        sim_final = np.dot(u, v.T)
+        #~ sim_final /= (np.sqrt(np.dot(u, u.T))*np.sqrt(np.dot(v, v.T)))
+        m = np.maximum(np.abs(u), np.abs(v))
+        sim_final /= np.dot(m, m.T)
+        return sim_final
+    
+    cluster_similarity = scipy.spatial.distance.pdist(x, metric=func)
+    cluster_similarity = scipy.spatial.distance.squareform(cluster_similarity)
+    cluster_similarity += np.eye(cluster_similarity.shape[0])
+    return cluster_similarity
     
     
 

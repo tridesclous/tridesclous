@@ -70,13 +70,30 @@ def test_WaveformViewer():
     app.exec_()
 
 
-def test_SimilarityView():
+def test_SpikeSimilarityView():
     controller = get_controller()
     controller.compute_spike_waveforms_similarity()
     app = mkQApp()
-    similarityview = SimilarityView(controller=controller)
+    similarityview = SpikeSimilarityView(controller=controller)
     similarityview.show()
     app.exec_()
+
+def test_ClusterSimilarityView():
+    controller = get_controller()
+    controller.compute_cluster_similarity()
+    app = mkQApp()
+    similarityview = ClusterSimilarityView(controller=controller)
+    similarityview.show()
+    app.exec_()
+
+def test_ClusterRatioSimilarityView():
+    controller = get_controller()
+    controller.compute_cluster_ratio_similarity()
+    app = mkQApp()
+    similarityview = ClusterRatioSimilarityView(controller=controller)
+    similarityview.show()
+    app.exec_()
+
 
 def test_PairList():
     controller = get_controller()
@@ -141,13 +158,15 @@ if __name__ == '__main__':
     #~ test_ClusterPeakList()
     #~ test_NDScatter()
     #~ test_WaveformViewer()
-    #~ test_SimilarityView()
-    #~ test_PairList()
+    #~ test_SpikeSimilarityView()
+    #~ test_ClusterSimilarityView()
+    #~ test_ClusterRatioSimilarityView()
+    test_PairList()
     #~ test_Silhouette()
     #~ test_WaveformHistViewer()
     #~ test_FeatureTimeViewer()
     
-    test_CatalogueWindow()
+    #~ test_CatalogueWindow()
 
 
 

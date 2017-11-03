@@ -14,12 +14,12 @@ class MyViewBox(pg.ViewBox):
         self.doubleclicked.emit()
         ev.accept()
 
-class SimilarityView(WidgetBase):
 
+
+class BaseSimilarityView(WidgetBase):
     _params = [
                       {'name': 'colormap', 'type': 'list', 'values' : ['viridis', 'jet', 'gray', 'hot', ] },
         ]
-    
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
         
@@ -67,12 +67,34 @@ class SimilarityView(WidgetBase):
         self.image = pg.ImageItem()
         self.plot.addItem(self.image)
         
+        self.plot.hideAxis('bottom')
+        self.plot.hideAxis('left')
+        
         self._text_items = []
+
+
+    @property
+    def similarity(self):
+        raise(NotImplementedError)
+
+    def on_spike_selection_changed(self):
+        pass
     
+    def on_spike_label_changed(self):
+        self.refresh()
+    
+    def on_colors_changed(self):
+        pass
+    
+    def on_cluster_visibility_changed(self):
+        self.refresh()
+
+class SpikeSimilarityView(BaseSimilarityView):
+
     @property
     def similarity(self):
         return self.controller.spike_waveforms_similarity
-    
+
     def refresh(self):
         if self.similarity is None:
             self.image.hide()
@@ -115,14 +137,46 @@ class SimilarityView(WidgetBase):
         else:
             self.image.hide()
         
-    def on_spike_selection_changed(self):
-        pass
-    
-    def on_spike_label_changed(self):
-        self.refresh()
-    
-    def on_colors_changed(self):
-        pass
-    
-    def on_cluster_visibility_changed(self):
-        self.refresh()
+
+
+class BaseClusterSimilarityView(BaseSimilarityView):
+    def refresh(self):
+        if self.similarity is None:
+            self.image.hide()
+            return
+        
+        _max = np.max(self.similarity)
+
+        s = self.similarity
+        #~ _max = np.max(s)
+        _max = 1
+        
+        self.image.setImage(s, lut=self.lut, levels=[0, _max])
+        self.image.show()
+        self.plot.setXRange(0, s.shape[0])
+        self.plot.setYRange(0, s.shape[1])
+
+        for item in self._text_items:
+            self.plot.removeItem(item)
+        
+        for pos, k in enumerate(self.controller.positive_cluster_labels):
+            for i in range(2):
+                item = pg.TextItem(text='{}'.format(k), color='#FFFFFF', anchor=(0.5, 0.5), border=None)
+                self.plot.addItem(item)
+                if i==0:
+                    item.setPos(pos+0.5, 0)
+                else:
+                    item.setPos(0, pos+0.5)
+                self._text_items.append(item)
+
+
+class ClusterSimilarityView(BaseClusterSimilarityView):
+    @property
+    def similarity(self):
+        return self.controller.cluster_similarity
+
+class ClusterRatioSimilarityView(BaseClusterSimilarityView):
+    @property
+    def similarity(self):
+        return self.controller.cluster_ratio_similarity
+

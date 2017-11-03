@@ -343,10 +343,19 @@ class WaveformViewer(WidgetBase):
             self._y1_range = tuple(self.viewBox1.state['viewRange'][1])
 
         self.plot1.clear()
-        self.plot1.addItem(self.curve_one_waveform)
         
         if self.xvect is None:
             return
+        
+        wfs = self.controller.some_waveforms
+        if wfs is None:
+            return
+        if self.xvect.shape[0] !=wfs.shape[1] * wfs.shape[2]:
+            self.initialize_plot()
+        
+        self.plot1.addItem(self.curve_one_waveform)
+
+        
         
         if self.params['metrics']=='median/mad':
             key1, key2 = 'median', 'mad'
