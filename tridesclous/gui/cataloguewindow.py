@@ -222,10 +222,10 @@ class CatalogueWindow(QT.QMainWindow):
         if dia.exec_():
             d = dia.get()
             self.catalogueconstructor.compute_centroid()
-            self.catalogueconstructor.compute_spike_waveforms_similarity()
-            self.catalogueconstructor.compute_cluster_similarity()
-            self.catalogueconstructor.compute_cluster_ratio_similarity()
-            self.catalogueconstructor.compute_spike_silhouette()
+            self.catalogueconstructor.compute_spike_waveforms_similarity(method=d['spike_waveforms_similarity'], size_max=d['size_max'])
+            self.catalogueconstructor.compute_cluster_similarity(method=d['cluster_similarity'])
+            self.catalogueconstructor.compute_cluster_ratio_similarity(method=d['cluster_ratio_similarity'])
+            self.catalogueconstructor.compute_spike_silhouette(size_max=d['size_max'])
             #TODO refresh only metrics concerned
             self.refresh()
         

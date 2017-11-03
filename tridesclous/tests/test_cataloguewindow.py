@@ -161,12 +161,12 @@ if __name__ == '__main__':
     #~ test_SpikeSimilarityView()
     #~ test_ClusterSimilarityView()
     #~ test_ClusterRatioSimilarityView()
-    test_PairList()
+    #~ test_PairList()
     #~ test_Silhouette()
     #~ test_WaveformHistViewer()
     #~ test_FeatureTimeViewer()
     
-    #~ test_CatalogueWindow()
+    test_CatalogueWindow()
 
 
 

@@ -45,7 +45,8 @@ _persitent_arrays = ('all_peaks', 'signals_medians','signals_mads', 'clusters') 
 _dtype_peak = [('index', 'int64'), ('label', 'int64'), ('segment', 'int64'),]
 
 _dtype_cluster = [('cluster_label', 'int64'), ('cell_label', 'int64'), 
-            ('max_on_channel', 'int64'), ('max_peak_amplitude', 'float64'), ('waveform_rms', 'float64'),]
+            ('max_on_channel', 'int64'), ('max_peak_amplitude', 'float64'),
+            ('waveform_rms', 'float64'), ('nb_peak', 'int64'),]
 
 
 class CatalogueConstructor:
@@ -645,6 +646,8 @@ class CatalogueConstructor:
         clusters['max_on_channel'][:] = -1
         clusters['max_peak_amplitude'][:] = np.nan
         clusters['waveform_rms'][:] = np.nan
+        for i, k in enumerate(cluster_labels):
+            clusters['nb_peak'][i] = np.sum(self.all_peaks['label']==k)
         
         if self.clusters is not None:
             #get previous cell_label
@@ -715,9 +718,9 @@ class CatalogueConstructor:
         self.colors[labelcodes.LABEL_UNCLASSIFIED] = (.6, .6, .6)
         self.colors[labelcodes.LABEL_NOISE] = (.8, .8, .8)
     
-    def split_cluster(self, label, n, method='kmeans',  **kargs): #order_clusters=True,
+    def split_cluster(self, label, method='kmeans',  **kargs): #order_clusters=True,
         mask = self.all_peaks['label']==label
-        self.find_clusters(method=method, n_clusters=n, selection=mask, **kargs) # order_clusters=order_clusters,
+        self.find_clusters(method=method, selection=mask, **kargs) # order_clusters=order_clusters,
     
     def trash_small_cluster(self, n=10):
         for k in self.cluster_labels:
@@ -748,7 +751,7 @@ class CatalogueConstructor:
         
         return self.spike_waveforms_similarity
 
-    def compute_cluster_similarity(self):
+    def compute_cluster_similarity(self, method='cosine_similarity_with_max'):
         if not hasattr(self, 'centroids'):
             self.compute_centroid()            
         #~ print('compute_cluster_similarity')
@@ -779,7 +782,7 @@ class CatalogueConstructor:
         pairs = get_pairs_over_threshold(self.cluster_similarity, self.positive_cluster_labels, threshold)
         return pairs
     
-    def compute_cluster_ratio_similarity(self):
+    def compute_cluster_ratio_similarity(self, method='cosine_similarity_with_max'):
         #~ print('compute_cluster_ratio_similarity')
         if not hasattr(self, 'centroids'):
             self.compute_centroid()            
