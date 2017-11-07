@@ -1,5 +1,5 @@
 Installation
-============
+=======
 
 
 If your are familiar with python simply install the depency list as usual.
@@ -96,15 +96,19 @@ Optional if you want fight and you really want fast computing with OpenCl and yo
     If you need one of theses fromat you can install the futur version of neo
     with this::
         
-        pip install https://github.com/NeuralEnemble/python-neo/archive/master.zip
+        pip install https://github.com/NeuralEnsemble/python-neo/archive/master.zip
 
+.. IMPORTANT::
+
+    If you have neo 0.6 installed and want to view signals you can optionally install ephyviewer with::
+    
+        pip install https://github.com/NeuralEnsemble/ephyviewer/archive/master.zip
 
 
 Update tridesclous
 ------------------
 
 There are no official release on pypi at the moment, so you need to take the in developpement code on github.
-
 
 
 For updating to not repeat installation of dependencies, just uninstall and reinstall::

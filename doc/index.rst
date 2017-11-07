@@ -18,6 +18,10 @@ Contents
     overview
     installation
     launch
+    step_by_step
+    catalogue_window
+    important_details
+    parameters
 
 
 ..

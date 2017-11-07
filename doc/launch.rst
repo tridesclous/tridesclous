@@ -37,7 +37,7 @@ Method 2 : Launching tridesclous GUI
 
 Here the method for lazy people (or hurried people).
 
-For demagogic reasons, we wrote a small of GUI in Qt for launching tridesclous.
+For demagogic reasons, we wrote a small GUI in Qt for launching tridesclous.
 
 
 
@@ -55,6 +55,7 @@ Do:
       6. **run Peeler**
       7. **open PeelerWindow**
 
+See :ref:`step_by_step` for complete explanation.
 
 
 Method 3 : launching tridesclous in a bash
