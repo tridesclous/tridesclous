@@ -206,7 +206,7 @@ class ClusterPeakList(WidgetBase):
         self.layout.addLayout(h)
         h.addWidget(QT.QLabel('sort by'))
         self.combo_sort = QT.QComboBox()
-        self.combo_sort.addItems(['label', 'max_on_channel', 'max_peak_amplitude', 'waveform_rms'])
+        self.combo_sort.addItems(['label', 'max_on_channel', 'max_peak_amplitude', 'waveform_rms', 'nb_peak'])
         self.combo_sort.currentIndexChanged.connect(self.refresh)
         h.addWidget(self.combo_sort)
         h.addStretch()
@@ -277,6 +277,8 @@ class ClusterPeakList(WidgetBase):
             order = np.argsort(np.abs(clusters['max_peak_amplitude']))[::-1]
         elif sort_mode=='waveform_rms':
             order = np.argsort(clusters['waveform_rms'])[::-1]
+        elif sort_mode=='nb_peak':
+            order = np.argsort(clusters['nb_peak'])[::-1]
         
         cluster_labels =_special_label + self.controller.positive_cluster_labels[order].tolist()
         
@@ -314,7 +316,7 @@ class ClusterPeakList(WidgetBase):
                 item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
                 self.table.setItem(i,3, item)
             
-            if k>0:
+            if k>=0:
                 cell_label = self.controller.cell_labels[self.controller.cluster_labels==k][0]
                 item = QT.QTableWidgetItem('{}'.format(cell_label))
                 item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
@@ -405,6 +407,8 @@ class ClusterPeakList(WidgetBase):
         self.spike_label_changed.emit()
     
     def split_selection(self):
+        #TODO bug when not n_clusters
+        
         n = len(self.selected_cluster())
         if n!=1: return
         label_to_split = self.selected_cluster()[0]
@@ -413,9 +417,9 @@ class ClusterPeakList(WidgetBase):
         
         if method is None: return
         
-        n = kargs.pop('n_clusters')
+        #~ n = kargs.pop('n_clusters')
         
-        self.controller.split_cluster(label_to_split, n, method=method,  **kargs) #order_clusters=True,
+        self.controller.split_cluster(label_to_split, method=method,  **kargs) #order_clusters=True,
         self.refresh()
         self.spike_label_changed.emit()
 

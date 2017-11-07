@@ -26,6 +26,7 @@ def test_cluster_ratio():
         d = getattr(cc, name)
         fig, ax = plt.subplots()
         im  = ax.matshow(d, cmap='viridis')
+        im.set_clim(0,1)
         fig.colorbar(im)
         ax.set_title(name)
 

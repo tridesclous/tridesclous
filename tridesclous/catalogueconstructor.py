@@ -45,7 +45,8 @@ _persitent_arrays = ('all_peaks', 'signals_medians','signals_mads', 'clusters') 
 _dtype_peak = [('index', 'int64'), ('label', 'int64'), ('segment', 'int64'),]
 
 _dtype_cluster = [('cluster_label', 'int64'), ('cell_label', 'int64'), 
-            ('max_on_channel', 'int64'), ('max_peak_amplitude', 'float64'), ('waveform_rms', 'float64'),]
+            ('max_on_channel', 'int64'), ('max_peak_amplitude', 'float64'),
+            ('waveform_rms', 'float64'), ('nb_peak', 'int64'),]
 
 
 class CatalogueConstructor:
@@ -645,6 +646,8 @@ class CatalogueConstructor:
         clusters['max_on_channel'][:] = -1
         clusters['max_peak_amplitude'][:] = np.nan
         clusters['waveform_rms'][:] = np.nan
+        for i, k in enumerate(cluster_labels):
+            clusters['nb_peak'][i] = np.sum(self.all_peaks['label']==k)
         
         if self.clusters is not None:
             #get previous cell_label
@@ -715,9 +718,9 @@ class CatalogueConstructor:
         self.colors[labelcodes.LABEL_UNCLASSIFIED] = (.6, .6, .6)
         self.colors[labelcodes.LABEL_NOISE] = (.8, .8, .8)
     
-    def split_cluster(self, label, n, method='kmeans',  **kargs): #order_clusters=True,
+    def split_cluster(self, label, method='kmeans',  **kargs): #order_clusters=True,
         mask = self.all_peaks['label']==label
-        self.find_clusters(method=method, n_clusters=n, selection=mask, **kargs) # order_clusters=order_clusters,
+        self.find_clusters(method=method, selection=mask, **kargs) # order_clusters=order_clusters,
     
     def trash_small_cluster(self, n=10):
         for k in self.cluster_labels:
@@ -748,7 +751,7 @@ class CatalogueConstructor:
         
         return self.spike_waveforms_similarity
 
-    def compute_cluster_similarity(self):
+    def compute_cluster_similarity(self, method='cosine_similarity_with_max'):
         if not hasattr(self, 'centroids'):
             self.compute_centroid()            
         #~ print('compute_cluster_similarity')
@@ -760,16 +763,7 @@ class CatalogueConstructor:
         if wfs.size == 0:
             cluster_similarity = None
         else:
-            #TODO put a better methods because this is overlapping with ratio
-            #~ cluster_similarity = metrics.compute_similarity(wfs, 'cosine_similarity')
-            import sklearn.metrics.pairwise
-            d = sklearn.metrics.pairwise.euclidean_distances(wfs)
-            #~ dist(x, y) = sqrt(dot(x, x) - 2 * dot(x, y) + dot(y, y))
-            #~ cluster_similarity = -d
-            #~ cluster_similarity = 1. / (d/np.max(d))
-            #~ cluster_similarity = 1. - (d/np.max(d))
-            cluster_similarity = np.exp(-d * (10./wfs.shape[1]))
-            #TODO pnderation par le max des 2 wavefroms point par point
+            cluster_similarity = metrics.cosine_similarity_with_max(wfs)
 
         if cluster_similarity is None:
             self.arrays.detach_array('cluster_similarity')
@@ -788,7 +782,7 @@ class CatalogueConstructor:
         pairs = get_pairs_over_threshold(self.cluster_similarity, self.positive_cluster_labels, threshold)
         return pairs
     
-    def compute_cluster_ratio_similarity(self):
+    def compute_cluster_ratio_similarity(self, method='cosine_similarity_with_max'):
         #~ print('compute_cluster_ratio_similarity')
         if not hasattr(self, 'centroids'):
             self.compute_centroid()            
@@ -813,7 +807,8 @@ class CatalogueConstructor:
             cluster_ratio_similarity = None
         else:
             wf_normed_flat = wf_normed.swapaxes(1, 2).reshape(wf_normed.shape[0], -1)
-            cluster_ratio_similarity = metrics.compute_similarity(wf_normed_flat, 'cosine_similarity')
+            #~ cluster_ratio_similarity = metrics.compute_similarity(wf_normed_flat, 'cosine_similarity')
+            cluster_ratio_similarity = metrics.cosine_similarity_with_max(wf_normed_flat)
 
         if cluster_ratio_similarity is None:
             self.arrays.detach_array('cluster_ratio_similarity')
@@ -862,8 +857,8 @@ class CatalogueConstructor:
     
     def order_clusters(self, by='waveforms_rms'):
         """
-        This reorder labels from highest power to lower power.
-        The higher power the smaller label.
+        This reorder labels from highest rms to lower rms.
+        The higher rms the smaller label.
         Negative labels are not reassigned.
         """
         
@@ -881,49 +876,28 @@ class CatalogueConstructor:
             order = np.argsort(np.abs(pos_clusters['max_peak_amplitude']))[::-1]
         else:
             raise(NotImplementedError)
-        #~ cluster_labels = self.cluster_labels.copy()
-        #~ cluster_labels.sort()
-        #~ cluster_labels =  cluster_labels[cluster_labels>=0]
-        #~ powers = [ ]
-        #~ for k in cluster_labels:
-            #~ power = np.sum(self.centroids[k]['median'].flatten()**2)
-            #~ powers.append(power)
-        #~ order = np.argsort(powers)[::-1]
-        
         
         sorted_labels = pos_clusters['cluster_label'][order]
         
         #reassign labels for peaks and clusters
         N = int(max(sorted_labels)*10)
         self.all_peaks['label'][self.all_peaks['label']>=0] += N
-        #~ self.clusters['cluster_label'] += N
-        #~ self.clusters['cell_label'] += N
         for new, old in enumerate(sorted_labels+N):
-            #~ self.all_peaks['label'][self.all_peaks['label']==old] = cluster_labels[new]
             self.all_peaks['label'][self.all_peaks['label']==old] = new
-            #~ self.clusters['cluster_label'][self.clusters['cluster_label']==old] = new
-            #~ self.clusters['cell_label'][self.clusters['cell_label']==old] = new
         
+        pos_clusters = pos_clusters[order].copy()
+        n = pos_clusters.size
+        pos_clusters['cluster_label'] = np.arange(n)
         
-        new_cluster = np.concatenate((neg_clusters, pos_clusters[order]))
+        #this shoudl preserve previous identique cell_label
+        pos_clusters['cell_label'] += N
+        for i in range(n):
+            k = pos_clusters['cell_label'][i]
+            inds, = np.nonzero(pos_clusters['cell_label']==k)
+            if (len(inds)>=1) and (inds[0] == i):
+                pos_clusters['cell_label'][inds] = i
+        new_cluster = np.concatenate((neg_clusters, pos_clusters))
         self.clusters[:] = new_cluster
-
-        #~ clusters = self.controller.clusters
-        #~ clusters = clusters[clusters['cluster_label']>=0]
-        #~ if sort_mode=='label':
-            #~ order =np.arange(clusters.size)
-        #~ elif sort_mode=='max_on_channel':
-            #~ order = np.argsort(clusters['max_on_channel'])
-        #~ elif sort_mode=='max_peak_amplitude':
-            #~ order = np.argsort(np.abs(clusters['max_peak_amplitude']))[::-1]
-        #~ elif sort_mode=='waveform_rms':
-            #~ order = np.argsort(clusters['waveform_rms'])[::-1]
-
-
-
-
-
-        
     
     def make_catalogue(self):
         #TODO: offer possibility to resample some waveforms or choose the number

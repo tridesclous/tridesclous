@@ -13,31 +13,34 @@ from .base import ControllerBase
 
 import time
 
+
+
+
 class CatalogueController(ControllerBase):
+    
+    
     def __init__(self, catalogueconstructor=None,parent=None):
         ControllerBase.__init__(self, parent=parent)
         
+        self.cc = self.catalogueconstructor = catalogueconstructor
         self.dataio = catalogueconstructor.dataio
-        self.chan_grp = catalogueconstructor.chan_grp
-        #~ print('CatalogueController', self.chan_grp)
         self.nb_channel = self.dataio.nb_channel(self.chan_grp)
-        
-        self.cc = catalogueconstructor = catalogueconstructor
+
         self.cc.on_new_cluster()
-        
         self.init_plot_attributes()
-        #~ self.on_new_cluster()
-        #~ self.init_plot_attributes()
-        #~ self.refresh_colors()
+    
+    def get_catalogueconstructor_attr(self, name):
+        return getattr(self.cc, name)
     
     def reload_data(self):
         self.cc.reload_data()
         self.cc.on_new_cluster()
-        self.init_plot_attributes()
+        self.init_plot_attributes()#this do compute_centroid
     
     def init_plot_attributes(self):
         self.cluster_visible = {k:i<20 for i, k  in enumerate(self.cluster_labels)}
-        self.cluster_count = { k:np.sum(self.cc.all_peaks['label']==k) for k in self.cluster_labels}
+        #~ self.cluster_count = { k:np.sum(self.cc.all_peaks['label']==k) for k in self.cluster_labels}
+        self.do_cluster_count()
         self.spike_selection = np.zeros(self.cc.nb_peak, dtype='bool')
         self.spike_visible = np.ones(self.cc.nb_peak, dtype='bool')
         self.refresh_colors(reset=True)
@@ -59,14 +62,26 @@ class CatalogueController(ControllerBase):
             self.cluster_visible[labelcodes.LABEL_NOISE] = True
         
         #~ if labelcodes.LABEL_NOISE not in self.cluster_count:
+        #~ if self.cc.some_noise_snippet is not None:
+            #~ self.cluster_count[labelcodes.LABEL_NOISE] = self.cc.some_noise_snippet.shape[0]
+        #~ else:
+            #~ self.cluster_count[labelcodes.LABEL_NOISE] = 0
+        
+        self.refresh_colors(reset=False)
+    
+    def do_cluster_count(self):
+        self.cluster_count = { c['cluster_label']:c['nb_peak'] for c in self.clusters}
+        
         if self.cc.some_noise_snippet is not None:
             self.cluster_count[labelcodes.LABEL_NOISE] = self.cc.some_noise_snippet.shape[0]
         else:
             self.cluster_count[labelcodes.LABEL_NOISE] = 0
-        
-        self.refresh_colors(reset=False)
     
     #map some attribute
+    @property
+    def chan_grp(self):
+        return self.cc.chan_grp
+
     @property
     def spikes(self):
         return self.cc.all_peaks
@@ -89,17 +104,14 @@ class CatalogueController(ControllerBase):
         
     @property
     def spike_index(self):
-        #~ return self.cc.peak_pos
         return self.cc.all_peaks['index']
     
     @property
     def spike_label(self):
-        #~ return self.cc.peak_label
         return self.cc.all_peaks['label']
 
     @property
     def spike_segment(self):
-        #~ return self.cc.peak_segment
         return self.cc.all_peaks['segment']
     
     @property
@@ -144,7 +156,8 @@ class CatalogueController(ControllerBase):
         self.cc.all_peaks['label'][mask] = label
         
         if on_new_cluster:
-            self.on_new_cluster(label_changed=label_changed)
+            #self.on_new_cluster(label_changed=label_changed)#bug 
+            self.on_new_cluster(label_changed=None)
             self.refresh_colors(reset=False)
         
     def get_threshold(self):
@@ -181,16 +194,7 @@ class CatalogueController(ControllerBase):
         
         self.cc.on_new_cluster()
         
-        if label_changed is None:
-            #re count evry clusters
-            self.cluster_count = { k:np.sum(self.cc.all_peaks['label']==k) for k in self.cluster_labels}
-        else:
-            for k in label_changed:
-                if k in self.cluster_labels:
-                    self.cluster_count[k] = np.sum(self.cc.all_peaks['label']==k)
-                else:
-                    if k in self.cluster_count:
-                        self.cluster_count.pop(k)
+        self.do_cluster_count()
         
         self.cc.compute_centroid(label_changed=label_changed)
         
@@ -239,8 +243,8 @@ class CatalogueController(ControllerBase):
     def project(self, method='pca', selection=None, **kargs):
         self.cc.project(method=method, selection=selection, **kargs)
     
-    def split_cluster(self, label_to_split, n, method=None,  **kargs): #order_clusters=True,
-        self.cc.split_cluster(label_to_split, n, method=method,  **kargs) #order_clusters=order_clusters,
+    def split_cluster(self, *args,  **kargs): #order_clusters=True,
+        self.cc.split_cluster(*args,  **kargs) #order_clusters=order_clusters,
         self.on_new_cluster()
         self.refresh_colors(reset = False)
     
@@ -249,11 +253,28 @@ class CatalogueController(ControllerBase):
         return self.cc.spike_waveforms_similarity
 
     @property
+    def cluster_similarity(self):
+        return self.cc.cluster_similarity
+
+    @property
+    def cluster_ratio_similarity(self):
+        return self.cc.cluster_ratio_similarity
+
+    @property
     def spike_silhouette(self):
         return self.cc.spike_silhouette
         
     def compute_spike_waveforms_similarity(self, **kargs):
         return self.cc.compute_spike_waveforms_similarity(**kargs)
+
+    def compute_cluster_similarity(self, **kargs):
+        return self.cc.compute_cluster_similarity(**kargs)
+
+    def compute_cluster_ratio_similarity(self, **kargs):
+        return self.cc.compute_cluster_ratio_similarity(**kargs)
+        
+    def compute_spike_silhouette(self, **kargs):
+        return self.cc.compute_spike_silhouette(**kargs)
     
     def detect_similar_waveform_ratio(self, threshold=0.9):
         return self.cc.detect_similar_waveform_ratio(threshold=threshold)
@@ -261,7 +282,22 @@ class CatalogueController(ControllerBase):
     def detect_high_similarity(self, threshold=0.95):
         return self.cc.detect_high_similarity(threshold=threshold)
     
-    def compute_spike_silhouette(self, **kargs):
-        return self.cc.compute_spike_silhouette(**kargs)
     
-    
+
+#~ _mapped_properties = ['clusters', 'positive_cluster_labels', 'some_features'
+                #~ 'some_peaks_index', 'some_waveforms', 'some_noise_snippet', 'some_noise_features',
+                #~ 'centroids',
+                
+                #~ ]
+
+#~ _mapped_methods = []
+
+#~ for prop in _mapped_properties:
+    #~ getter = lambda self: self.get_catalogueconstructor_attr(prop)
+    #~ print(prop, getter)
+    #~ setattr(CatalogueController, prop, property(getter))
+
+#~ print(CatalogueController.clusters)
+#~ print(CatalogueController.positive_cluster_labels)
+
+

@@ -52,6 +52,13 @@ cluster_params_by_methods = OrderedDict([
     ('dirtycut', []),
 ])
 
+#~ split_params_by_methods = OrderedDict([
+    #~ ('kmeans', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5}]),
+    #~ ('gmm', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5},
+                    #~ {'name' : 'covariance_type', 'type' : 'list', 'values' : ['full']},
+                    #~ {'name' : 'n_init', 'type' : 'int', 'value' : 10}]),
+#~ ])
+
 
 fullchain_params = [
     {'name':'duration', 'type': 'float', 'value':300., 'suffix': 's', 'siPrefix': True},
@@ -62,9 +69,10 @@ fullchain_params = [
 ]
 
 metrics_params = [
-                      #~ {'name': 'similarity_metric', 'type': 'list', 'values' : [ 'cosine_similarity',  'linear_kernel',
-                                                                #~ 'polynomial_kernel', 'sigmoid_kernel', 'rbf_kernel', 'laplacian_kernel' ] },
-        #max_size 1e7
+    {'name': 'spike_waveforms_similarity', 'type': 'list', 'values' : [ 'cosine_similarity']},
+    {'name': 'cluster_similarity', 'type': 'list', 'values' : [ 'cosine_similarity_with_max']},
+    {'name': 'cluster_ratio_similarity', 'type': 'list', 'values' : [ 'cosine_similarity_with_max']},
+    {'name': 'size_max', 'type': 'int', 'value':10000000},
 ]
 
 
