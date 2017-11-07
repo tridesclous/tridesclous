@@ -243,9 +243,9 @@ class BaseTraceViewer(WidgetBase):
     def estimate_auto_scale(self):
 
         if self.signal_type=='initial':
-            i_stop = min(int(60.*self.dataio.sample_rate), self.dataio.get_segment_shape(self.seg_num)[0])
-            sigs = self.dataio.get_signals_chunk(seg_num=self.seg_num, i_start=0, i_stop=i_stop, signal_type=self.signal_type,
-                return_type='raw_numpy')
+            i_stop = min(int(60.*self.dataio.sample_rate), self.dataio.get_segment_shape(self.seg_num, chan_grp=self.controller.chan_grp)[0])
+            sigs = self.dataio.get_signals_chunk(seg_num=self.seg_num, chan_grp=self.controller.chan_grp,
+                    i_start=0, i_stop=i_stop, signal_type=self.signal_type, return_type='raw_numpy')
             self.med, self.mad = median_mad(sigs.astype('float32'), axis = 0)
 
         elif self.signal_type=='processed':
@@ -520,8 +520,9 @@ class PeelerTraceViewer(BaseTraceViewer):
         
         #prediction
         #TODO make prediction only on visible!!!! 
-        prediction = make_prediction_signals(spikes_chunk, sigs_chunk.dtype, sigs_chunk.shape, self.controller.catalogue)
-        residuals = sigs_chunk - prediction
+        if self.signal_type == 'processed':
+            prediction = make_prediction_signals(spikes_chunk, sigs_chunk.dtype, sigs_chunk.shape, self.controller.catalogue)
+            residuals = sigs_chunk - prediction
         
         # plots
         nb_visible = np.sum(self.visible_channels)
@@ -535,12 +536,12 @@ class PeelerTraceViewer(BaseTraceViewer):
             data = data.flatten()
             curve.setData(times_chunk_tile, data)
         
-        if self.plot_buttons['prediction'].isChecked():
+        if self.plot_buttons['prediction'].isChecked() and self.signal_type == 'processed':
             plot_curves(self.curve_predictions, prediction)
         else:
             self.curve_predictions.setData([], [])
 
-        if self.plot_buttons['residual'].isChecked():
+        if self.plot_buttons['residual'].isChecked() and self.signal_type == 'processed':
             plot_curves(self.curve_residuals, residuals)
         else:
             self.curve_residuals.setData([], [])
