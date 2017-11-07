@@ -396,7 +396,9 @@ class ClusterPeakList(WidgetBase):
     def move_selection_to_trash(self):
         for k in self.selected_cluster():
             mask = self.controller.spike_label == k
-            self.controller.change_spike_label(mask, -1)
+            self.controller.change_spike_label(mask, -1, on_new_cluster=False)
+        self.controller.on_new_cluster(label_changed=None)
+        self.controller.refresh_colors(reset=False)
         self.refresh()
         self.spike_label_changed.emit()
     

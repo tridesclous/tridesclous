@@ -8,7 +8,7 @@ preprocessor_params = [
     {'name': 'common_ref_removal', 'type': 'bool', 'value':False},
     {'name': 'chunksize', 'type': 'int', 'value':1024, 'decilmals':5},
     {'name': 'lostfront_chunksize', 'type': 'int', 'value':128, 'decilmals':0},
-    
+    {'name': 'signalpreprocessor_engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl']},
 ]
 
 peak_detector_params = [
@@ -23,7 +23,7 @@ waveforms_params = [
     {'name': 'n_right', 'type': 'int', 'value':30},
     {'name': 'mode', 'type': 'list', 'values':['rand', 'all']},
     {'name': 'nb_max', 'type': 'int', 'value':20000},
-    {'name': 'align_waveform', 'type': 'bool', 'value':True},
+    {'name': 'align_waveform', 'type': 'bool', 'value':False},
     #~ {'name': 'subsample_ratio', 'type': 'int', 'value':20},
 ]
 
