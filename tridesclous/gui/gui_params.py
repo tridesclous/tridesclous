@@ -45,9 +45,11 @@ features_params_by_methods = OrderedDict([
 
 cluster_params_by_methods = OrderedDict([
     ('kmeans', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5}]),
+    ('onecluster', []),
     ('gmm', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5},
                     {'name' : 'covariance_type', 'type' : 'list', 'values' : ['full']},
                     {'name' : 'n_init', 'type' : 'int', 'value' : 10}]),
+    ('agglomerative', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5}]),
     ('dbscan', [{'name' : 'eps', 'type' : 'float', 'value' : 0.5}]),
     ('dirtycut', []),
 ])

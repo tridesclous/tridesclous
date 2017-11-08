@@ -17,7 +17,7 @@ from .tools import median_mad
 import matplotlib.pyplot as plt
 
 
-def find_clusters(catalogueconstructor, method='kmeans', selection=None, n_clusters=1, **kargs):
+def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs):
     cc = catalogueconstructor
     
     if selection is None:
@@ -29,15 +29,17 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, n_clust
         waveforms = cc.some_waveforms[sel]
     
     if method == 'kmeans':
-        km = sklearn.cluster.KMeans(n_clusters=n_clusters,**kargs)
+        km = sklearn.cluster.KMeans(n_clusters=kargs.pop('n_clusters'),**kargs)
         labels = km.fit_predict(features)
+    elif method == 'onecluster':
+        labels = np.zeros(features.shape[0], dtype='int64')
     elif method == 'gmm':
-        gmm = sklearn.mixture.GaussianMixture(n_components=n_clusters,**kargs)
+        gmm = sklearn.mixture.GaussianMixture(n_components=kargs.pop('n_clusters'),**kargs)
         #~ labels =gmm.fit_predict(features)
         gmm.fit(features)
         labels =gmm.predict(features)
     elif method == 'agglomerative':
-        agg = sklearn.cluster.AgglomerativeClustering(n_clusters=n_clusters, **kargs)
+        agg = sklearn.cluster.AgglomerativeClustering(n_clusters=kargs.pop('n_clusters'), **kargs)
         labels = agg.fit_predict(features)
     elif method == 'dbscan':
         dbscan = sklearn.cluster.DBSCAN(**kargs)
