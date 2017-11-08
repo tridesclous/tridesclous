@@ -100,7 +100,7 @@ def extract_waveforms_pca_cluster():
 
 
     t1 = time.perf_counter()
-    catalogueconstructor.project(method='peak_max')
+    catalogueconstructor.extract_some_features(method='peak_max')
     t2 = time.perf_counter()
     print('project', t2-t1)
     
