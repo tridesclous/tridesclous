@@ -166,7 +166,10 @@ class MainWindow(QT.QMainWindow):
         fd = QT.QFileDialog(fileMode=QT.QFileDialog.DirectoryOnly, acceptMode=QT.QFileDialog.AcceptOpen)
         fd.setViewMode( QT.QFileDialog.Detail )
         if fd.exec_():
-            localdir = fd.selectedFiles()[0]
+            localdir = os.path.join(fd.selectedFiles()[0], name)
+            if os.path.exists(localdir):
+                return
+            os.mkdir(localdir)
             localdir, filenames, params = download_dataset(name, localdir=localdir)
             
             dirname = os.path.join(localdir, 'tdc_'+name)

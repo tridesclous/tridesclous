@@ -1,34 +1,45 @@
 """
 The dataset is here http://www.kampff-lab.org/validating-electrodes/
 
+You have to download 2015_09_03_Cell9.0 and put files
+somewhere on your machine.
+
+Them change working_dir = ... to the correct path
+
 """
 from tridesclous import *
 import pyqtgraph as pg
 
-
-from matplotlib import pyplot
+import os
+from urllib.request import urlretrieve
 import time
 
+from matplotlib import pyplot
 
-#~ p = '/media/samuel/SamCNRS/DataSpikeSorting/kampff/'
-p = '/home/samuel/Documents/projet/DataSpikeSorting/kampff/'
-dirname= p+'tdc_2014_11_25_Pair_3_0'
-#~ dirname=p+'tdc_2015_09_03_Cell9.0'
-#~ dirname=p+'tdc_2015_09_09_Pair_6_0'
+
+# !!!!!!!! change the working dir here
+working_dir = '/home/samuel/Documents/projet/DataSpikeSorting/kampff/'
+
+dirname= working_dir+'tdc_2015_09_03_Cell9.0'
 
 
 
 def initialize_catalogueconstructor():
-    filenames = p+'2014_11_25_Pair_3_0/'+'amplifier2014-11-25T23_00_08.bin'
-    #~ filenames = p+'2015_09_09_Pair_6_0/'+'amplifier2015-09-09T17_46_43.bin'
-    #~ filenames = p+'2015_09_03_Cell9.0/'+'amplifier2015-09-03T21_18_47.bin'
-    
+    #setup file source
+    filenames = working_dir+'2015_09_09_Pair_6_0/'+'amplifier2015-09-09T17_46_43.bin'
     dataio = DataIO(dirname=dirname)
     dataio.set_data_source(type='RawData', filenames=filenames, dtype='uint16',
-                                     total_channel=32, sample_rate=30000.)    
-    dataio.set_probe_file(p+'probe 32.prb')
+                                     total_channel=128, sample_rate=30000.)
+    print(dataio)#check
     
+    #setup probe file
+    # Pierre Yger have done the PRB file in spyking-circus lets download
+    # it with the build-in dataio.download_probe
+    dataio.download_probe('kampff_128', origin='spyking-circus')
+    
+    #initiailize catalogue
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    print(catalogueconstructor)
 
 
 def preprocess_signals_and_peaks():
@@ -41,8 +52,8 @@ def preprocess_signals_and_peaks():
             memory_mode='memmap',
             
             #signal preprocessor
-            #~ signalpreprocessor_engine='numpy',
-            signalpreprocessor_engine='opencl',
+            signalpreprocessor_engine='numpy',
+            #signalpreprocessor_engine='opencl',
             highpass_freq=300, 
             lowpass_freq=6000., 
             smooth_size=1,
@@ -51,10 +62,10 @@ def preprocess_signals_and_peaks():
             lostfront_chunksize=64,
             
             #peak detector
-            #~ peakdetector_engine='numpy',
-            peakdetector_engine='opencl',
+            peakdetector_engine='numpy',
+            #peakdetector_engine='opencl',
             peak_sign='-', 
-            relative_threshold=7,
+            relative_threshold=6,
             peak_span=0.0002,
             )
             
@@ -76,14 +87,14 @@ def extract_waveforms_pca_cluster():
     
     t1 = time.perf_counter()
     catalogueconstructor.extract_some_waveforms(mode='rand', n_left=-45, n_right=60,  nb_max=10000)
-    #~ catalogueconstructor.extract_some_waveforms(mode='all', n_left=-45, n_right=60)
+    #catalogueconstructor.extract_some_waveforms(mode='all', n_left=-45, n_right=60)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
 
 
     #extract_some_noise
     t1 = time.perf_counter()
-    catalogueconstructor.extract_some_noise(nb_snipet=400)
+    catalogueconstructor.extract_some_noise(nb_snippet=400)
     t2 = time.perf_counter()
     print('extract_some_noise', t2-t1)
 
@@ -94,7 +105,8 @@ def extract_waveforms_pca_cluster():
     print('project', t2-t1)
     
     t1 = time.perf_counter()
-    catalogueconstructor.find_clusters(method='dirtycut')
+    #catalogueconstructor.find_clusters(method='kmeans', n_clusters=100)#this is faster 
+    catalogueconstructor.find_clusters(method='dirtycut')#this is long
     t2 = time.perf_counter()
     print('find_clusters', t2-t1)
     
@@ -117,21 +129,41 @@ def open_cataloguewindow():
     app.exec_()    
 
 
+def clean_catalogue():
+    # the catalogue need strong attention with teh catalogue windows.
+    # here a dirty way a cleaning is to take on the first 20 bigger cells
+    # the peeler will only detect them
+    dataio = DataIO(dirname=dirname)
+    cc = CatalogueConstructor(dataio=dataio)
+    
+    #re order by rms
+    cc.order_clusters(by='waveforms_rms')
+
+    #re label >20 to trash (-1)
+    mask = cc.all_peaks['label']>20
+    cc.all_peaks['label'][mask] = -1
+    cc.on_new_cluster()
+    
+    #save catalogue before peeler
+    cc.save_catalogue()
+    
+
 def run_peeler():
     dataio = DataIO(dirname=dirname)
-    initial_catalogue = dataio.load_catalogue(chan_grp=0)
+    initial_catalogue = dataio.load_catalogue(chan_grp=1)
 
     peeler = Peeler(dataio)
-    peeler.change_params(catalogue=initial_catalogue, n_peel_level=2)
+    peeler.change_params(catalogue=initial_catalogue)
     
     t1 = time.perf_counter()
-    peeler.run(duration=60)
+    peeler.run(chan_grp=1, duration=None)
     t2 = time.perf_counter()
     print('peeler.run_loop', t2-t1)
-    
+
+
 def open_PeelerWindow():
     dataio = DataIO(dirname=dirname)
-    initial_catalogue = dataio.load_catalogue(chan_grp=0)
+    initial_catalogue = dataio.load_catalogue(chan_grp=1)
 
     app = pg.mkQApp()
     win = PeelerWindow(dataio=dataio, catalogue=initial_catalogue)
@@ -141,10 +173,11 @@ def open_PeelerWindow():
 
 
 if __name__ =='__main__':
-    #~ initialize_catalogueconstructor()
-    preprocess_signals_and_peaks()
-    extract_waveforms_pca_cluster()
+    initialize_catalogueconstructor()
+    #~ preprocess_signals_and_peaks()
+    #~ extract_waveforms_pca_cluster()
     #~ open_cataloguewindow()
+    #~ clean_catalogue()
     #~ run_peeler()
     #~ open_PeelerWindow()
 

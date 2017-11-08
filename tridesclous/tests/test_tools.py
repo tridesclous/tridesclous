@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
-from tridesclous.tools import median_mad, FifoBuffer, get_neighborhood
+from tridesclous.tools import median_mad, FifoBuffer, get_neighborhood, fix_prb_file_py2
 
+from urllib.request import urlretrieve
 import time
 
 def test_get_median_mad():
@@ -25,7 +26,17 @@ def test_get_neighborhood():
     n = get_neighborhood(geometry, radius_um)
     print(n)
 
+
+def test_fix_prb_file_py2():
+    distantfile = 'https://raw.githubusercontent.com/spyking-circus/spyking-circus/master/probes/kampff_128.prb'
+    prb_filename = 'kampff_128.prb'
+    urlretrieve(distantfile, prb_filename)
+
+    fix_prb_file_py2(prb_filename)
+    
+
 if __name__ == '__main__':
     #~ test_get_median_mad()
     #~ test_FifoBuffer()
-    test_get_neighborhood()
+    #~ test_get_neighborhood()
+    test_fix_prb_file_py2()

@@ -620,9 +620,9 @@ class CatalogueConstructor:
         
     
     
-    def find_clusters(self, method='kmeans', n_clusters=1, selection=None, **kargs):
+    def find_clusters(self, method='kmeans', selection=None, **kargs):
         #done in a separate module cluster.py
-        cluster.find_clusters(self, method=method, n_clusters=n_clusters, selection=selection, **kargs)
+        cluster.find_clusters(self, method=method, selection=selection, **kargs)
         
         
         self.on_new_cluster()

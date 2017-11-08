@@ -1,5 +1,6 @@
 import numpy as np
 import sklearn.metrics.pairwise
+import re
 
 def median_mad(data, axis=0):
     """
@@ -93,4 +94,30 @@ def get_neighborhood(geometry, radius_um):
     return d<=radius_um
     
 
+def fix_prb_file_py2(probe_filename):
+    """
+    prb file can be define in python2
+    unfortunatly some of them are done with python
+    and this is not working in python3
+    range(0, 17) + range(18, 128)
+    
+    This script tryp to change range(...) by list(range(...)))
+    """
+    with open(probe_filename, 'rb') as f:
+        prb = f.read()
+    
 
+    pattern = b"list\(range\([^()]*\)\)"
+    already_ok = re.findall( pattern, prb)
+    if len(already_ok)>0:
+        return
+    #~ print(already_ok)
+
+
+    pattern = b"range\([^()]*\)"
+    changes = re.findall( pattern, prb)
+    for change in changes:
+        prb = prb.replace(change, b'list('+change+b')')
+
+    with open(probe_filename, 'wb') as f:
+        f.write(prb)

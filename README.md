@@ -39,25 +39,13 @@ Bonus:
   * some datasets are available for testing it now here https://github.com/tridesclous/tridesclous_datasets
 
 
-# Installation/launch
+# Installation
 
-For installation:
-```
-git clone https://github.com/tridesclous/tridesclous.git
-cd tridesclous
-python setup.py develop
-```
+http://tridesclous.readthedocs.io/en/latest/installation.html
 
-For launch the GUI:
-```
-tdc
-```
+# Launch
 
-For update, while tridesclous is not installed but linked:
-```
-git pull
-```
-
+http://tridesclous.readthedocs.io/en/latest/launch.html
 
 
 # Screenshots
