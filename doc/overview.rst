@@ -10,7 +10,7 @@ This tools is now more mature and can be used for experimental data.
 General workflow
 -------------------
 
-Many tools claim to be "automatic" for spike sorting.titly
+Many tools claim to be "automatic" for spike sorting.
 In tridesclous we don't, the workflow is:
 
   1. Construct catalogue. This part automatic but need carrefully chossen parameters.
