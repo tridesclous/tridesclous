@@ -149,7 +149,7 @@ def detect_similar_ratio():
 def open_cataloguewindow():
     dataio = DataIO(dirname=dirname)
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    
+    print(catalogueconstructor)
     app = pg.mkQApp()
     win = CatalogueWindow(catalogueconstructor)
     win.show()
@@ -185,8 +185,8 @@ def open_PeelerWindow():
 if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
     #~ preprocess_signals_and_peaks()
-    extract_waveforms_pca_cluster()
-    #~ open_cataloguewindow()
+    #~ extract_waveforms_pca_cluster()
+    open_cataloguewindow()
     #~ detect_similar_ratio()
     #~ run_peeler()
     #~ open_PeelerWindow()

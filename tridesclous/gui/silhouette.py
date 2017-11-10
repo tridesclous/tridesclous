@@ -24,6 +24,15 @@ class MyViewBox(pg.ViewBox):
 
 
 class Silhouette(WidgetBase):
+    """
+    **Silhouette**  display the silhouette score.
+    
+    Implemented with sklearn. Must compute metrics first.
+    
+    See:
+      * `Silhouette wikipedia <https://en.wikipedia.org/wiki/Silhouette_(clustering)>`_
+      * `Silhouette sklearn <http://scikit-learn.org/stable/auto_examples/cluster/plot_kmeans_silhouette_analysis.html#sphx-glr-auto-examples-cluster-plot-kmeans-silhouette-analysis-py>`_
+    """
     
     _params = [
         ]

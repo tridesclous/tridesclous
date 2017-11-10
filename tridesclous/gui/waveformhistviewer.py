@@ -27,7 +27,38 @@ class MyViewBox(pg.ViewBox):
         
 
 class WaveformHistViewer(WidgetBase):
-
+    """
+    **Waveform histogram viewer** is also a important thing.
+    
+    It is equivalent to **Waveform veiwer** in **flatten** mode but with
+    a 2d histogram that show the density (probability) of a cluster.
+    So waveforms are flatten from (nb_peak, nb_sample, nb_channel) to
+    (nb_peak, nb_channel*nb_sample) and are binarized on a 2d histogram.
+    Then this is plotted as a map. The color code the density.
+    
+    This is the best friend to see if two cluster are well discrimitated somewhere or
+    if one cluster must be split.
+    
+    Important:
+      * use right click for X/Y zoom
+      * use left clik to move
+      * use **mouse wheel** for color zoom.Really important to play with this
+        to discover low density
+      * intentionnaly not all cluster are displayed other we see nothing. The best is to plot
+        2 by 2. Furthermore it faster to plot with few cluster.
+      * don't forget to display the **noise snippet** to validate that the mad is 1 for all channel.
+    
+    Settings:
+      * **colormap** hot is good because loaw density are black like background.
+      * **data** choose waveforms or features
+      * **bin_min** y limts of histogram
+      * **bin_max** y limts of histogram
+      * **bin_size**
+      * **display_threshold**
+      * **max_label** maximum number of labels displayed simulteneously 
+        (2 by default but you can set more)
+    
+    """
     _params = [
                       {'name': 'colormap', 'type': 'list', 'values' : ['hot', 'viridis', 'jet', 'gray',  ] },
                       {'name': 'data', 'type': 'list', 'values' : ['waveforms', 'features', ] },
