@@ -476,7 +476,36 @@ class BaseTraceViewer(WidgetBase):
         #~ print('seek', tp2-tp1)
         
 
+
 class CatalogueTraceViewer(BaseTraceViewer):
+    """
+    **Trace viewer** allow to browser raw signal and preprocess signals.
+    
+    Note that this viewer do not load the entire signals in memory but load
+    chunk on demand from HD, that is why depending on the drive it can be
+    quite slow. All zoom and scale factor for signals are computed on CPU and
+    not on GPU (it is not vispy!!), so this is not the fastest veiwer but many tips
+    help user to navigate very efficiently.
+    
+    What you can do:
+      * On the bottom there is a slider over time
+      * On the left there is a slider over channels (if nb_channel>16)
+      * If several segments you can switch.
+      * You can select manually jump to any time
+      * You can zoom the X (time) axis with the spinbox ot by **right click** with mouse.
+      * **The mouse wheel make a glocal zoom on signal**
+      * You can "select" manually a spike with "select" button and this will be show in **ND Scatter**
+      * The threshold is a line for each channel. This is very important to why so peak are not detected.
+      * Setting button:
+        * "auto_zoom_on_select" : auto zoom when select on ndscatter on peak list
+        * "zoom_size" in s
+        * disable plot threshold
+    
+    Important:
+      * Ths "preprocessed" signal are normalized (robust Z-score) so that the noise variance is 1.
+        So the apparent noise **must be** inbetween  [-3, 3]
+    
+    """
     def __init__(self, controller=None, signal_type = 'processed', parent=None):
         BaseTraceViewer.__init__(self, controller=controller, signal_type=signal_type, parent=parent)
     

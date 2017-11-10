@@ -61,7 +61,55 @@ class MyViewBox(pg.ViewBox):
         
 
 class NDScatter(WidgetBase):
+    """
+    ND Scatter a central beast for the catalogue window.
     
+    It try to mimic `RGGobi viewer package <http://www.ggobi.org/rggobi/>`_.
+    
+    Displaying clusters in high (more than 3!) dimensional space is difficult.
+    To overcome this problem, some people use a combination of 2D plots 
+    of all pairs of dimensions. Others use various 3D representations.
+    However in this two cases the view angle is seriously restricted: 
+    it is the projection of a big hyper cube (ND) onto only one face (2D or 3D)
+    of this hyper cube. In real life, two clusters are not necessary well separated
+    in one of this hyper-cube's face but better in a complex hyper plane that brings
+    into play a combination of all features/dimensions.
+    
+    ND Scatter project randomly N-D space into 2-D space. Furthermore it do
+    it dynamically. This is the **random tour**. 
+    
+    If you want to compare how 2 by 2 components are displayed in
+    other tools you can use **next face**. This will combined (PC0, PC1), then 
+    (PC0, PC2), ...
+    
+    For very high dimention, ND Scatter is not enough, for so ND scatter is guided in feature
+    selection with the probe geometry. In short when you set visible some label with the
+    **Cluster list** this automatically activated the dimenssions that must but 
+    visible (and rodomized) and hidden. This is based on **max_on_channel**
+    property of clusters. This is the **auto_select_component** in settings. Note 
+    that you can define a radius in  micometers arround the channel of the max so
+    that all component in a neighborhood of thsi channel will be also displayed.
+    this is based on the PRB file that **need to have the units in  μm** (contrary to
+    phy where units is not important for plotting)
+    
+    Note:
+      * for too dense cluster you can limit the nb of dot dsiplayed.
+        It helps a lot when density of clusters are differents.
+        The is the role of **random decimate** button
+      * you can manually activate/deactivate componant just for to understand.
+      * mouse wheel will zoom both X et Y
+      * with right click you can draw a **lasso**. This will select peak inside
+        the poly on the projected hyperplan. This is in fact the secret weappon
+        of tridesclous. It help a lot for au zoom on trace for "strange" point ouside
+        main clouds. It can help to understand if they are in fact superposition of
+        several spikes or very few dense cluster.
+      * not all peak can be visible here only thosse wich have a waveform and so a
+        feature. remember that not all waveforms are taken for clustering but only
+        a subset. Getting everything is the role of the Peeler.
+      * This viewer take some CPU ressource since in **random tour** a numpy.dot
+        is done for each step.
+
+    """
     _params = [{'name': 'refresh_interval', 'type': 'float', 'value': 100 },
                        {'name': 'nb_step', 'type': 'int', 'value':  10, 'limits' : [5, 100] },
                        {'name': 'max_visible_by_cluster', 'type': 'int', 'value':  1000, 'limits' : [10, 10000], 'step':50 },

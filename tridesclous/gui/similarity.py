@@ -90,7 +90,14 @@ class BaseSimilarityView(WidgetBase):
         self.refresh()
 
 class SpikeSimilarityView(BaseSimilarityView):
-
+    """
+    **Spike similarity view** dispplay the spike-to-spike similarity. Only visible
+    cluster are shown.
+    
+    If nothing appear means : metrics are not computed yet or the size of the 
+    similarity is too big (over **max__size**).
+    """
+    
     @property
     def similarity(self):
         return self.controller.spike_waveforms_similarity
@@ -171,11 +178,23 @@ class BaseClusterSimilarityView(BaseSimilarityView):
 
 
 class ClusterSimilarityView(BaseClusterSimilarityView):
+    """
+    **Cluster similarity view** dispplay the clsuter-to-cluster similarity.
+    
+    If nothing appear means : metrics are not computed yet.
+    """
+    
     @property
     def similarity(self):
         return self.controller.cluster_similarity
 
 class ClusterRatioSimilarityView(BaseClusterSimilarityView):
+    """
+    **Cluster similarity ratio view** dispplay the clsuter-to-cluster ratio similarity.
+    
+    If nothing appear means : metrics are not computed yet.
+    """
+    
     @property
     def similarity(self):
         return self.controller.cluster_ratio_similarity

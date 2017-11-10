@@ -52,31 +52,53 @@ Cluster list
 Trace viewer
 ------------
 
+.. autoclass:: tridesclous.gui.traceviewer.CatalogueTraceViewer
+
+
 NDScatter
 ---------
+
+.. autoclass:: tridesclous.gui.ndscatter.NDScatter
 
 Pair list
 ---------
 
+.. autoclass:: tridesclous.gui.pairlist.PairList
+
 Waveform viewer
 ---------------
+
+.. autoclass:: tridesclous.gui.waveformviewer.WaveformViewer
 
 Waveform hist viewer
 --------------------
 
+.. autoclass:: tridesclous.gui.waveformhistviewer.WaveformHistViewer
+
 Feature on time viewer
 ----------------------
+
+.. autoclass:: tridesclous.gui.waveformhistviewer.WaveformHistViewer
 
 Spike similarity
 ----------------
 
+.. autoclass:: tridesclous.gui.similarity.SpikeSimilarityView
+
 Cluster similarity
 ------------------
+
+.. autoclass:: tridesclous.gui.similarity.ClusterSimilarityView
 
 Cluster ratio similarity
 ------------------------
 
-Silhouet
---------
+.. autoclass:: tridesclous.gui.similarity.ClusterRatioSimilarityView
+
+Silhouette
+----------
+
+.. autoclass:: tridesclous.gui.silhouette.Silhouette
+
 
 

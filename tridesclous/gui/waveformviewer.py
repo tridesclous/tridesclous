@@ -30,14 +30,49 @@ class MyViewBox(pg.ViewBox):
 
 
 class WaveformViewer(WidgetBase):
+    """
+    **Waveform viewer** is undoubtedly the view to inspect waveforms.
+    
+    Note that in some aspect **Waveform hist viewer** can be a better firend.
+    
+    All centroid (median or mean) of visible cluster are plotted here.
+    
+    2 main modes:
+      * **geometry** waveforms are organized with 2d geometry given by PRB file.
+      * **flatten** each chunk of each channel is put side by side in channel order
+        than it can be ploted in 1d. The bottom view is th mad. On good cluster the mad
+        must as close as possible from the value 1 because 1 is the normalized noise.
+    
+    The **geometry** mode is more intuitive and help users about spatial
+    information. But the  **flatten**  mode is really important because is give information 
+    about the variance (mad or std) for each point and about peak alignement.
+    
+    The centoid is dfine by median+mad but you can also check with mean+std.
+    For healthy cluster it should more or less the same.
+    
+    Important for zooming:
+      *  **geometry** : zoomXY geometry = right click, move = left click and mouse wheel = zoom waveforms
+      * **flatten**: zoomXY = right click and move = left click
+    
+    
+    Settings:
+      * **plot_selected_spike**: superimposed one slected peak on centroid
+      * **show_only_selected_cluster**: this auto hide all cluster except the one of selected spike
+      * **plot_limit_for_flatten**: for flatten mode this plot line for delimiting channels.
+        Plotting is important but it slow down the zoom.
+      * **metrics**: choose median+mad or mean+std.
+      * *show_channel_num**: what could it be ?
+      * **flip_bottom_up**: in geometry this flip bottom up the channel geometry.
+      * **display_threshold**: what could it be ?
+    """
 
-    _params = [{'name': 'plot_selected_spike', 'type': 'bool', 'value': True },
+    _params = [{'name': 'plot_selected_spike', 'type': 'bool', 'value': False },
                         {'name': 'show_only_selected_cluster', 'type': 'bool', 'value': False},
                       {'name': 'plot_limit_for_flatten', 'type': 'bool', 'value': True },
                       {'name': 'metrics', 'type': 'list', 'values': ['median/mad', 'mean/std'] },
                       {'name': 'fillbetween', 'type': 'bool', 'value': True },
                       {'name': 'show_channel_num', 'type': 'bool', 'value': False},
-                      {'name': 'flip_y', 'type': 'bool', 'value': False},
+                      {'name': 'flip_bottom_up', 'type': 'bool', 'value': False},
                       {'name': 'display_threshold', 'type': 'bool', 'value' : True },
                       ]
     
@@ -94,7 +129,7 @@ class WaveformViewer(WidgetBase):
     def on_params_changed(self, params, changes):
         for param, change, data in changes:
             if change != 'value': continue
-            if param.name()=='flip_y':
+            if param.name()=='flip_bottom_up':
                 self.initialize_plot()
         self.refresh()
         
@@ -151,7 +186,7 @@ class WaveformViewer(WidgetBase):
                     self.arr_geometry.append([x, y])
                 self.arr_geometry = np.array(self.arr_geometry, dtype='float64')
                 
-                if self.params['flip_y']:
+                if self.params['flip_bottom_up']:
                     self.arr_geometry[:, 1] *= -1.
                 
                 xpos = self.arr_geometry[:,0]

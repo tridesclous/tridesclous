@@ -10,6 +10,23 @@ from .tools import ParamDialog
 
 
 class PairList(WidgetBase):
+    """
+    **Pair list**  is an intuituitive list of pair of cluster : when you click on
+    a pair this make visible only this 2 cluster on all others views.
+    
+    This help to validate in a fast way clusters.
+    
+    For convinience this paris can be filtered:
+      * **all pairs** : all combinaison
+      * **high similarity**: select only pairs that have similarity over a threshold (in settings)
+      * **similarity amplitude ratio**! select only pairs that have "similarity ratio" over a threshold (in settings)
+      
+    
+    WIth a right click you can:
+      * **merge** a pair
+      * **tag same cell**, this keep 2 cluster but there tag as same cell.
+    
+    """
     _params = [{'name': 'threshold_similarity', 'type': 'float', 'value' :.9, 'step' : 0.01},
                     {'name': 'threshold_ratio_similarity', 'type': 'float', 'value' :.8, 'step' : 0.01},
                 ]
@@ -128,16 +145,18 @@ class PairList(WidgetBase):
                 self.table.setItem(r,c+2, item)
         
             if self.controller.cluster_similarity is not None:
-                name = '{}'.format(self.controller.cluster_similarity[ind1, ind2])
-                item = QT.QTableWidgetItem(name)
-                item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
-                self.table.setItem(r,4, item)
+                if self.controller.cluster_similarity.shape[0] == self.controller.positive_cluster_labels.size:
+                    name = '{}'.format(self.controller.cluster_similarity[ind1, ind2])
+                    item = QT.QTableWidgetItem(name)
+                    item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
+                    self.table.setItem(r,4, item)
 
             if self.controller.cluster_ratio_similarity is not None:
-                name = '{}'.format(self.controller.cluster_ratio_similarity[ind1, ind2])
-                item = QT.QTableWidgetItem(name)
-                item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
-                self.table.setItem(r,5, item)
+                if self.controller.cluster_ratio_similarity.shape[0] == self.controller.positive_cluster_labels.size:
+                    name = '{}'.format(self.controller.cluster_ratio_similarity[ind1, ind2])
+                    item = QT.QTableWidgetItem(name)
+                    item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
+                    self.table.setItem(r,5, item)
         
                 
 

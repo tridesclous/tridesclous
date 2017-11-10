@@ -297,12 +297,13 @@ class MainWindow(QT.QMainWindow):
     
     def open_cataloguewin(self):
         if self.dataio is None: return
-        try:
+        #~ try:
+        if True:
             win = CatalogueWindow(self.catalogueconstructor)
             win.show()
             self.open_windows.append(win)
-        except Exception as e:
-            print(e)
+        #~ except Exception as e:
+            #~ print(e)
     
     def run_peeler(self):
         
