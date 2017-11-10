@@ -37,11 +37,11 @@ There several situation when you want use **channel_group**:
   * There dead channels
   * The dataset is several tetrode and so several channel group.
 
-Tridesclous manage theses channel_group globaly, this means that withe same DataIO.
+Tridesclous manage theses channel_group globally, this means that withe same DataIO.
 
 But you will need to construct a catalogue for each channel_group and run the Peeler for
 each channel_group. Of course, you can compute each group in parallel if you have enough
-ressource to do it (CPU, RAM, GPU).
+resources to do it (CPU, RAM, GPU).
 
 If you use probe you naturally known the "geometry" the probe. For hand made tetrode, you don't
 known the geometry.
@@ -119,4 +119,5 @@ Clustering
 
 
 In between sample interpolation
-------------------------------------
+-------------------------------
+
