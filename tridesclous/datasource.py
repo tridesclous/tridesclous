@@ -130,7 +130,7 @@ if NEO_VERSION is not None and ('0.5'<=NEO_VERSION<'0.6'):
 
     class MyBlackrockIO(neo.BlackrockIO):
         def read_analogsignals(self):
-            nsx_nb = 5
+            nsx_nb = max(self._BlackrockIO__nsx_spec.keys())
             spec = self._BlackrockIO__nsx_spec[nsx_nb]
             nsx_data = self._BlackrockIO__nsx_data_reader[spec](nsx_nb)
             sampling_rate = self._BlackrockIO__nsx_params[spec]('sampling_rate', nsx_nb)        
@@ -142,7 +142,8 @@ if NEO_VERSION is not None and ('0.5'<=NEO_VERSION<'0.6'):
         
         @property        
         def channel_ids(self):
-            return self._BlackrockIO__nsx_ext_header[5]['electrode_id']
+            nsx_nb = max(self._BlackrockIO__nsx_spec.keys())
+            return self._BlackrockIO__nsx_ext_header[nsx_nb]['electrode_id']
     
     
 
@@ -171,7 +172,7 @@ if NEO_VERSION is not None and ('0.5'<=NEO_VERSION<'0.6'):
             assert os.path.exists(self.filename), 'files does not exist'
             
             
-            for ext in ['.nev', '.ns5']:
+            for ext in ['.nev', '.ns5', '.ns6']:
                 if self.filename.endswith(ext):
                     self.filename = self.filename.strip(ext)
             self.reader = MyBlackrockIO(filename=self.filename, verbose=False)
