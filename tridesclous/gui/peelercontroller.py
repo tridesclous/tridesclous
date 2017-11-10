@@ -110,7 +110,10 @@ class PeelerController(ControllerBase):
         elif self.spike_visible_mode=='overlap':
             self.spikes['visible'][:] = False
             d = np.diff(self.spikes['index'])
-            ind, = np.nonzero((d>0) & (d< self.catalogue['peak_width'] ))
+            labels0 = self.spikes['label'][:-1]
+            labels1 = self.spikes['label'][1:]
+            mask = (d>0) & (d< self.catalogue['peak_width'] ) & (labels0>0) & (labels1>0)
+            ind, = np.nonzero(mask)
             self.spikes['visible'][ind] = True
             self.spikes['visible'][ind+1] = True
             

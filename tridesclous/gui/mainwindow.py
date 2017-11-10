@@ -158,7 +158,15 @@ class MainWindow(QT.QMainWindow):
         if value is None:
             recently_opened = []
         else:
-            recently_opened = pickle.loads(value)
+            try:
+                if type(value) == str:
+                    #bug on some qt
+                    value = value.encode('ascii')
+                recently_opened = pickle.loads(value)
+                if type(recently_opened) != list:
+                    recently_opened = []
+            except:
+                recently_opened = []
         return recently_opened
     
     def do_download_dataset(self):

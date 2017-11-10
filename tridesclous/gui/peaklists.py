@@ -101,6 +101,24 @@ class PeakModel(QT.QAbstractItemModel):
         
         
 class PeakList(WidgetBase):
+    """
+    **Peak List** show all detected peak for the catalogue construction.
+    
+    Here pintentionally peaks are not spikes already (even most of them are spikes)
+    because supperposition of spikes are done here in catalogue in Peeler.
+    
+    Note:
+      * If there are to many peaks, not all of them will have a extracted waveform.
+        This why some peak are not labeled (-10) and nb_peak != nb_wveforms
+        sometimes.
+      * Peaks can belong to diffrents segment, a column indicate it. This is th full list
+        of all peaks of all segment.
+      * A right click open a ontext menu:
+        * move one or several selected spike to trash
+        * create a new cluster with one or several spikes
+      * When you select one spike, this will auto zoom on **Trace View**,  auto select
+        the appriopriate segment and hilight the point on **ND Scatetr**. And vice versa.
+    """
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
         
@@ -195,6 +213,38 @@ class PeakList(WidgetBase):
 
 
 class ClusterPeakList(WidgetBase):
+    """
+    **Cluster list** is the central widget for actions for clusters :
+    make them visible, merge, trash, sort, split, change color, ...
+    
+    A context menu with right propose:
+      * **Reset colors**
+      * **Show all**
+      * **Hide all**
+      * **Re-label cluster by rms**: this re order cluster so that 0 have the bigger rms
+         and N the lowest.
+      * **Feature projection with all**: this re compute feature projection (equivalent to left toolbar)
+      * **Feature projection with selection**: this re compute feature projection but take
+        in account only selected usefull when you have doubt on small cluster and want a specifit
+        PCA because variance is absord by big ones.
+      * **Move selection to trash**
+      * **Merge selection**: re label spikes in the same cluster.
+      * **Select on peak list**: a spike  as selected for theses clusters.
+      * **Tag selection as same cell**: in case of burst some cell
+        can have diffrent waveform shape leading to diferents cluster but
+        with same ratio. If you have that do not merge clusters because the
+        Peeler wll fail. Prefer tag 2 cluster as same cell.
+      * **Split selection**: try to split only selected cluster.
+    
+    Cluster can be visualy ordered by some criteria (rms, amplitude, nb peak, ...)
+    This is useless to explore cluster few peaks, or big amplitudes, ...
+    
+    Negative labels are reserved:
+      * -1 is thrash
+      * -2 is noise snippet
+      * -10 unclassified (because no waveform associated)
+
+    """
     
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
@@ -231,15 +281,15 @@ class ClusterPeakList(WidgetBase):
         act = self.menu.addAction('Re-label cluster by rms')
         act.triggered.connect(self.order_clusters)
         
-        act = self.menu.addAction('PC projection with all')
+        act = self.menu.addAction('Feature projection with all')
         act.triggered.connect(self.pc_project_all)
-        act = self.menu.addAction('PC projection with selection')
+        act = self.menu.addAction('Feature projection with selection')
         act.triggered.connect(self.pc_project_selection)
         act = self.menu.addAction('Move selection to trash')
         act.triggered.connect(self.move_selection_to_trash)
         act = self.menu.addAction('Merge selection')
         act.triggered.connect(self.merge_selection)
-        act = self.menu.addAction('Select')
+        act = self.menu.addAction('Select on peak list')
         act.triggered.connect(self.select_peaks_of_clusters)
         act = self.menu.addAction('Tag selection as same cell')
         act.triggered.connect(self.selection_tag_same_cell)
