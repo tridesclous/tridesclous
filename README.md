@@ -5,14 +5,14 @@
 Authors: Christophe Pouzat and Samuel Garcia
 
 
-**tris des clous** is a very dishonest translation of **spike sorting** to french.
+**tris des clous** is a very dishonest translation of **spike sorting** to French.
 
-Pronouce it [tree day clue] for english speaker.
+It is pronounced [tree day clue] for English speakers.
 
-Documentation is here: http://tridesclous.readthedocs.io/
+The documentation is here: http://tridesclous.readthedocs.io/
 
 This module provides some functions and examples of spike sorting.
-It is our purpose to teach good practices in spike sorting technics.
+It is our purpose to teach good practices in spike sorting techniques.
 
 You can also use it for real data of course. 
 The forest of spike sorting tools is dense and *tridesclous* is a new tree.
