@@ -1,7 +1,7 @@
 .. _step_by_step:
 
 Step by step quickstart
-==============
+=======================
 
 Here a step by step hands on with the user interface.
 Since writting a jupyter notebook is a better methods to keep trace of the spike sorting process.
@@ -9,16 +9,17 @@ The *click and play* approach is prefered by beginners.
 
 
 Launch
---------
+------
 
-```
-tdc
-```
+Ina console::
 
-You have minimalist window with some icons on the left.
+    tdc
+
+
+You have a minimalist window with some icons on the left.
 
 Step 1 - Initialize dataset
---------------------
+---------------------------
 
 This step consist of initializing the datasets and configure everything: nb of channels,
 probe geometry, nombre of channel groups.
@@ -31,12 +32,12 @@ After that step some information are display about the:
   * DataIO: the deal with with the dataset (nb channel, nb channel group, n segment, smaple rate, durations...)
   * CatalogueConstructor: empty for the moment
 
-Here we have a tetrode given by David Robbe and Mostafa Safai from sriatum of a rat.
+Here we have a dataset given by David Robbe and Mostafa Safai recorded with a tetrode in sriatum of a rat.
 The signal is sample at 20kHz.
 
 
 Step 2 - Initialize Catalogue
----------------------
+-----------------------------
 
 This step contain several sub steps to create the catalogue.
 This is automatique but need some parameters.
@@ -52,7 +53,7 @@ Parameters are organized in sections:
 Keep default parameters.
 For complete details on parameters see :ref:`parameters`.
 
-Them you have to chosse a **feature method**. For tetrode **"global_pca"** with 5 component sounds good.
+Them you have to choose a **feature method**. For tetrode **"global_pca"** with 5 component sounds good.
 You will be able to change this in catalogueWindow later on.
 
 Them you have to choose a **cluster method**. Here let choose **"gmm"** (gaussian mixture model) with 3 clusters.
@@ -148,7 +149,7 @@ You can click on the spike list and the trace auto zoom on the spike.
 
 On the trace view y ou can click on "residual".
 
-The main improtanthings to understand here is:
+The main improtan things to understand here is:
   * the green trace is the **preprocessed** signal (filter and normalized)
   * the magenta trace is the **prediction** = zero + waveform interpolated in between samples.
   * the yellow one is the **residual = preprocess - prediction**
@@ -159,7 +160,7 @@ You can see that some spike are not labelled (-10) this means that:
    * we forgot a cluster in the catalogue
    * we deliberatly remove this cluster because it is too close for threshold or noise.
    * the interpolation between sample is wrong and the remaining noise due to sampling jitter is bigger
-      than standard noise (too bad).
+     than standard noise (too bad).
 
 
 
