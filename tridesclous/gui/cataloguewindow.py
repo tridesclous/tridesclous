@@ -24,6 +24,7 @@ from . import icons
 import itertools
 import datetime
 import time
+import webbrowser
 
 class CatalogueWindow(QT.QMainWindow):
     def __init__(self, catalogueconstructor):
@@ -138,9 +139,9 @@ class CatalogueWindow(QT.QMainWindow):
         self.act_compute_metrics = QT.QAction(u'Compute metrics', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
         self.act_compute_metrics.triggered.connect(self.compute_metrics)
 
-
-        #~ self.act_new_waveforms = QT.QAction(u'Yep', self,checkable = False, icon=QT.QIcon(":main_icon.png"))
-        #~ self.act_new_waveforms.triggered.connect(self.new_waveforms)
+        self.help_act = QT.QAction('Help', self,checkable = False, icon=QT.QIcon(":main_icon.png"))
+        self.help_act.triggered.connect(self.open_webbrowser_help)
+        
 
 
     def create_toolbar(self):
@@ -161,6 +162,11 @@ class CatalogueWindow(QT.QMainWindow):
         self.toolbar.addAction(self.act_new_features)
         self.toolbar.addAction(self.act_new_cluster)
         self.toolbar.addAction(self.act_compute_metrics)
+        self.toolbar.addAction(self.help_act)
+
+    def open_webbrowser_help(self):
+        url = "http://tridesclous.readthedocs.io/en/latest/catalogue_window.html"
+        webbrowser.open(url, new=2)
 
     def save_catalogue(self):
         self.catalogueconstructor.save_catalogue()
