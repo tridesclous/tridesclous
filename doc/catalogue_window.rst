@@ -1,4 +1,4 @@
-.. _catalogue_window
+.. _catalogue_window:
 
 Catalogue window
 ================

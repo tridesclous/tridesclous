@@ -1,3 +1,5 @@
+.. _important_details:
+
 Important details
 =================
 

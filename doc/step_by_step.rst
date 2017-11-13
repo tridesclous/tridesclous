@@ -51,7 +51,7 @@ Parameters are organized in sections:
   * extract_waveforms
 
 Keep default parameters.
-For complete details on parameters see :ref:`parameters`.
+For complete details on parameters see :ref:`parameters` and :ref:`important_details`.
 
 Them you have to choose a **feature method**. For tetrode **"global_pca"** with 5 component sounds good.
 You will be able to change this in catalogueWindow later on.

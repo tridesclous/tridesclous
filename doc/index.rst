@@ -22,6 +22,7 @@ Contents
     catalogue_window
     important_details
     parameters
+    release_notes.rst
 
 
 ..
