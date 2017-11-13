@@ -19,6 +19,17 @@ Here some detail on each view.
     and no computation must be done (re compute centroid for instance). So be patient and smart.
 
 
+.. NOTES::
+
+    For some manual actions on catalogue, CatalogueWindow can suddenly crashes. While this is annoying,
+    you should not loose any datasets. Just open again the same dataset and you should be in a previsous
+    situation.
+    
+    In cases of crashes please send a issue on github `<https://github.com/tridesclous/tridesclous/issues>`_
+    It takes some minuts and help a lot to make the tridesclous more stable. Please copy/paste the error
+    message in the console in the issue and descirbe very briefly the actions teh trig the crashe.
+
+
 Toolbar on the left
 -------------------
 
