@@ -1,4 +1,4 @@
-# trisdesclous : spike sorting with a [french touch](https://fr.wikipedia.org/wiki/French_touch_(informatique)).
+# trisdesclous: spike sorting with a [French touch](https://fr.wikipedia.org/wiki/French_touch_(informatique)).
 
 ![icon](tridesclous/gui/icons/png/main_icon.png)
 
