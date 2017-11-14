@@ -1,5 +1,5 @@
 .. _parameters:
 
-Chosse parameters
+Choose parameters
 ============
 

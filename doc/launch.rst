@@ -2,42 +2,42 @@ Launch
 ======
 
 
-There 3 ways for launching **tridesclous**:
-  * Inside a **jupyter notebook** : the best one
-  * With a Graphical User Interface (GUI) : the less frightening for beginners
-  * With command line in a bash terminal : for 90s nostalgic
+There are 3 ways to launch **tridesclous**:
+  * Inside a **jupyter notebook**: this is the best
+  * With a Graphical User Interface (GUI): the least frightening for beginners
+  * With command line in a bash terminal: for 90s nostalgic
 
   
 Please read carrefully, the how and the why for each methods.
 
 
-Method 1 : Launching tridesclous inside a jupyter notebook
+Method 1: Launching tridesclous inside a jupyter notebook
 ----------------------------------------------------------
 
 This is the best method that authors recommend for users.
-People that never code with python or any language can be scarry about this but this is easy!
+People that never code with python or any language can be scared about this but this is easy!
 
-Keep in mind that for reproducible science you need to trace what you are doing and this is the best way.
+Keep in mind that for reproducible science you need to keep track of what you are doing and this is the best way.
 
-Also note that magic all-in-one command line and GUI let you away from deep understanding from spike sorting tool chain.
-Writting simple code block help you a lot to realize and overcome difficulties.
+Also note that magic all-in-one command line and GUI keep you away from deep understanding of your spike sorting tool chain.
+Writting simple code block can help you a lot to realize and overcome difficulties.
 
 
 
 So for this method:
   1. Launch jupyter notebook (easy if you have anaconda)
   2. Copy/paste this `notebook <https://github.com/tridesclous/tridesclous/blob/master/example/example_locust_dataset.ipynb>`_
-  3. Read it carrefully .
+  3. Read it carrefully.
   4. Modify it and do your spike sorting.
 
 
 
-Method 2 : Launching tridesclous GUI
+Method 2: Launching tridesclous GUI
 ------------------------------------
 
-Here the method for lazy people (or hurried people).
+Here's the method for lazy people (or people in a hurry).
 
-For demagogic reasons, we wrote a small GUI in Qt for launching tridesclous.
+For demagogical reasons, we wrote a small GUI in Qt for launching tridesclous.
 
 
 
@@ -58,7 +58,7 @@ Do:
 See :ref:`step_by_step` for complete explanation.
 
 
-Method 3 : launching tridesclous in a bash
+Method 3: launching tridesclous in a bash
 ------------------------------------------
 
 Some other spike sorting projects propose a command line interface
@@ -70,7 +70,7 @@ There are so many parameters that all of them must be written in
 file. So writting all that parameters in a python script sound better.
 
 
-Nevertheless, tridesclous have a command line interface for
+Nevertheless, tridesclous has a command line interface to
 
   * intialize dataset::
 

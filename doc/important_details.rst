@@ -2,25 +2,25 @@ Important details
 =================
 
 A list a miscellaneous details, some of them are related to data handling
-and other to detail of methods at different steps of the chain.
+and other to details of methods at different steps of the chain.
 
 
 Multi segments
 --------------
 
-Many recording are split in several "Segments". Segment here refer to 
+Many recording are split into several "Segments". Segment here refer to the
 `neo meaning <http://neo.readthedocs.io>`_.
 
-This is because the protocol have been recorded in several pieces.
+This is because the protocol has been recorded in several pieces.
 
 There are several cases:
-  * each file correspond to one segment
-  * on file have internally several segment. For instance Blackrock. Because you can
+  * each file corresponds to one segment
+  * on file has internally several segments. For instance Blackrock. Because you can
     make a pause during recording the same file.
-  * several files that themself contains several segment. Outch!!
+  * several files that themselves contain several segment. Outch!!
 
 Tridesclous use neo.rawio for reading signals. In neo, reading signals
-from segment is natural so this notion of segment is the same in tridesclous.
+from segments is natural so this notion of segment is the same in tridesclous.
 
 This means that you can feed tridesclous with a list a files (with same channels maps of course)
 and tridesclous will generate them as a list of segment naturally.
@@ -33,8 +33,8 @@ Channel groups, geometry and PRB file
 There several situation when you want use **channel_group**:
   * The probe have several shank and you want do do
     the spike sorting indenpendently on each shank
-  * Only a subset a channel are used.
-  * There dead channels
+  * Only a subset a channels are used.
+  * There are dead channels
   * The dataset is several tetrode (N-trode) and so several channel group.
 
 Tridesclous manage theses **channel_group** globally, this means that with same DataIO.
@@ -43,16 +43,16 @@ But you will need to construct a catalogue for each channel_group and run the Pe
 each **channel_group**. Of course, you can compute each group in parallel if you have enough
 resources to do it (CPU, RAM, GPU).
 
-If you use probe you naturally known the "geometry" the probe. For hand made tetrode, you don't
-known the geometry.
+If you use probe you naturally know the "geometry" of the probe. For handmade tetrode, you don't
+know the geometry.
 
 
-PRB file are simple files easy to edit with text editor and where introduced 
+PRB files are simple files easy to edit with a text editor and where introduced 
 in `klusta <http://klusta.readthedocs.io>`_. There are also used in 
 `spyking-circus <http://spyking-circus.readthedocs.io/en/latest/code/probe.html>`_
 and certainly in other toolbox.
 
-This files describe both **"channel_group"** and there **"geomtery"**. Klusta also need **"graph"**
+This files describe both **"channel_group"** and there **"geomtery"**. Klusta also needs **"graph"**
 but it is ignored in tridesclous.
 
 
@@ -94,61 +94,61 @@ tridesclous can automatically download them with the DataIO::
 
 
     
-Pre processing
+Pre-processing
 ----------------
 
-The pre processing chain is done as follow:
+The pre-processing chain is done as follows:
   1. **Filter**:  high pass (remove low flucatution) + low pass (remove very high freqs) + kernel smooth
-  2. **common_ref_removal** :  this substract sample by sample the median aceoss channels
-     When there is a strong noise that appear on all channels (sometimes due to reference) you
-     can substarct it. This as if all channels would re referenced numerically to there medians.
-  3. **Normalisisation**:  this is a more or less a robust z-score channel by channel
+  2. **common_ref_removal**:  this substracts sample by sample the median across channels
+     When there is a strong noise that appears on all channels (sometimes due to reference) you
+     can substract it. This is as if all channels would re referenced numerically to there medians.
+  3. **Normalisisation**:  this is more or less a robust z-score channel by channel
 
   
 Important:
-  * For spike sorting it is important to compute the filter with forward-bakcward method.
+  * For spike sorting it is important to compute the filter with forward-backward method.
     This is filtfilt in `matlab <https://fr.mathworks.com/help/signal/ref/filtfilt.html?requestedDomain=www.mathworks.com>`_
     or `in scipy <https://docs.scipy.org/doc/scipy-0.18.1/reference/generated/scipy.signal.filtfilt.html>`_.
-    The medthod prevent phase problem. If we apply only a forward filter the peak would be reduce and harder to detect.
-    THere is a counter part of this filtfilt : if we want to avoid reading the whole dataset forward and then
+    The method prevents phase problems. If we apply only a forward filter the peak would be reduced and harder to detect.
+    There is a counter part of this filtfilt: if we want to avoid reading the whole dataset forward and then
     the whole dataset backward, we need a margin at the edge of each signal chunk to avoid bad side effect due to filter.
-    This parameters is controlled by **lostfront_chunksize**. This lead to more computation and potentially, to small errors.
-    Fortunatly, when filtering in high frequency (case in spike sorting) 128 sample at 20kHz is sufficent to not make
-    mistake.
+    This parameters is controlled by **lostfront_chunksize**. This leads to more computation and potentially, to small errors.
+    Fortunately, when filtering in high frequency (case in spike sorting) 128 sample at 20kHz is sufficent to not make
+    mistakes.
   * The smooth is in fact also a filter with a short kernel applied also forward-backward.
-  * Filter are apply with a `biquad method <https://en.wikipedia.org/wiki/Digital_biquad_filter>`_.
-    High pass + low pass + smooth is computed within the same filter with several section (cascade)
-  * The normalisation is a robust z-score. This means that for each channels **sig_normed = (sig - median) / mad.**
-    Mad is `median absolut deviation <https://en.wikipedia.org/wiki/Median_absolute_deviation>`_
-    So after pre processing chain, the units of each is **signal to noise ratio**. So as the gaussian low:
+  * Filters are applied with a `biquad method <https://en.wikipedia.org/wiki/Digital_biquad_filter>`_.
+    High pass + low pass + smooth is computed within the same filter with several sections (cascade).
+  * The normalisation is a robust z-score. This means that for each channel **sig_normed = (sig - median) / mad.**
+    Mad is `median absolute deviation <https://en.wikipedia.org/wiki/Median_absolute_deviation>`_
+    So after pre processing chain, the units of each is **signal to noise ratio**. So as the Gaussian low:
       * magnitude 1 = 1 mad = 1 robust sd = 68% of the noise
       * magnitude 2 = 2 mad = 2 robust sd = 95% of the noise
       * magnitude 3 = 3 mad = 3 robust sd = 99.7% of the noise
     This is crucial to have this in minds for settings the good threshold.
   * Many software also include a `whitening <https://en.wikipedia.org/wiki/Whitening_transformation>`_ stage.
-    Basically this consist of applying to signals the factorized and inversed covariance matrix.
-    This is not done intentionally in tridesclous for theses reasons:
-      * Contrary to what some user think : this do not denoise signals.
-      * This must be computed on chunk were there are no spikes. This is hard to do it cleanly.
-      * Matrix inversion can lead to numerical error and so some patological tricks are often added.
+    Basically this consists of applying to signals the factorized and inversed covariance matrix.
+    This is intentionally not done in tridesclous for theses reasons:
+      * Contrary to what some user think: this does not denoise signals.
+      * This must be computed on chunks where there are no spikes. This is hard to do it cleanly.
+      * Matrix inversion can lead to numerical error and so some pathological tricks are often added.
   
   
 Peak detection and threshold
 --------------------------------
 
-If understanding that the preprocessed signals units are MAD, the threshold become very intuitive.
+If one understands that the preprocessed signals units are MAD, the threshold become very intuitive.
 
-The best is to have spikes that have the big signal to nosie ratio so that all spikes from a cluster
-do not overlap with noise. This is important because if the threshold is too near from noise
+The best is to have spikes that have the big signal to noise ratio so that all spikes from a cluster
+do not overlap with noise. This is important because if the threshold is too close to the noise
 some of the spikes will not be detected and so the cluster will be partial and so the centroids of the
 cluster will be wrong. Bad practice!!
 
-The algorithm of threshold detection is : every local extremma above the threshold on at
+The algorithm of threshold detection is: every local extrema above the threshold on at
 least one channel is considered as peak.
 
-With high ferquency noise the true peak can be noisy and become a double local extrema. When 
-want to avoid that to not having twice the same peak extracted with some sample delayed. 
-This is the role of the **peak_span** parameters : when 2 local extremam are in the same span, only the
+With high frequency noise the true peak can be noisy and become a double local extremum. When 
+you want to avoid that to not having twice the same peak extracted with some sample delayed. 
+This is the role of the **peak_span** parameters: when 2 local extrema are in the same span, only the
 best is kept.
 
 
