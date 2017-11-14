@@ -8,6 +8,7 @@ import pyqtgraph as pg
 from .peelercontroller import PeelerController
 from .traceviewer import PeelerTraceViewer
 from .spikelists import SpikeList, ClusterSpikeList
+from .waveformviewer import PeelerWaveformViewer
 
 from . import icons
 
@@ -29,15 +30,21 @@ class PeelerWindow(QT.QMainWindow):
         self.traceviewer = PeelerTraceViewer(controller=self.controller)
         self.spikelist = SpikeList(controller=self.controller)
         self.clusterlist = ClusterSpikeList(controller=self.controller)
+        self.waveformviewer = PeelerWaveformViewer(controller=self.controller)
         
         all = [self.traceviewer, self.spikelist, self.clusterlist]
         
         docks = {}
 
+
+        docks['waveformviewer'] = QT.QDockWidget('waveformviewer',self)
+        docks['waveformviewer'].setWidget(self.waveformviewer)
+        self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['waveformviewer'])
         
         docks['traceviewer'] = QT.QDockWidget('traceviewer',self)
         docks['traceviewer'].setWidget(self.traceviewer)
-        self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['traceviewer'])
+        #~ self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['traceviewer'])
+        self.tabifyDockWidget(docks['waveformviewer'], docks['traceviewer'])
 
         docks['spikelist'] = QT.QDockWidget('spikelist',self)
         docks['spikelist'].setWidget(self.spikelist)

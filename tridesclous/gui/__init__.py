@@ -16,6 +16,7 @@ from .featuretimeviewer import FeatureTimeViewer
 from .peelercontroller import PeelerController
 from .traceviewer import PeelerTraceViewer
 from .spikelists import SpikeList, ClusterSpikeList
+from .waveformviewer import PeelerWaveformViewer
 from .peelerwindow import PeelerWindow
 
 #main window

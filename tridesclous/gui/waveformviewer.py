@@ -29,53 +29,11 @@ class MyViewBox(pg.ViewBox):
         ev.accept()
 
 
-class WaveformViewer(WidgetBase):
-    """
-    **Waveform viewer** is undoubtedly the view to inspect waveforms.
-    
-    Note that in some aspect **Waveform hist viewer** can be a better firend.
-    
-    All centroid (median or mean) of visible cluster are plotted here.
-    
-    2 main modes:
-      * **geometry** waveforms are organized with 2d geometry given by PRB file.
-      * **flatten** each chunk of each channel is put side by side in channel order
-        than it can be ploted in 1d. The bottom view is th mad. On good cluster the mad
-        must as close as possible from the value 1 because 1 is the normalized noise.
-    
-    The **geometry** mode is more intuitive and help users about spatial
-    information. But the  **flatten**  mode is really important because is give information 
-    about the variance (mad or std) for each point and about peak alignement.
-    
-    The centoid is dfine by median+mad but you can also check with mean+std.
-    For healthy cluster it should more or less the same.
-    
-    Important for zooming:
-      *  **geometry** : zoomXY geometry = right click, move = left click and mouse wheel = zoom waveforms
-      * **flatten**: zoomXY = right click and move = left click
-    
-    
-    Settings:
-      * **plot_selected_spike**: superimposed one slected peak on centroid
-      * **show_only_selected_cluster**: this auto hide all cluster except the one of selected spike
-      * **plot_limit_for_flatten**: for flatten mode this plot line for delimiting channels.
-        Plotting is important but it slow down the zoom.
-      * **metrics**: choose median+mad or mean+std.
-      * *show_channel_num**: what could it be ?
-      * **flip_bottom_up**: in geometry this flip bottom up the channel geometry.
-      * **display_threshold**: what could it be ?
-    """
 
-    _params = [{'name': 'plot_selected_spike', 'type': 'bool', 'value': False },
-                        {'name': 'show_only_selected_cluster', 'type': 'bool', 'value': False},
-                      {'name': 'plot_limit_for_flatten', 'type': 'bool', 'value': True },
-                      {'name': 'metrics', 'type': 'list', 'values': ['median/mad', 'mean/std'] },
-                      {'name': 'fillbetween', 'type': 'bool', 'value': True },
-                      {'name': 'show_channel_num', 'type': 'bool', 'value': False},
-                      {'name': 'flip_bottom_up', 'type': 'bool', 'value': False},
-                      {'name': 'display_threshold', 'type': 'bool', 'value' : True },
-                      ]
+class WaveformViewerBase(WidgetBase):
+    #base for both WaveformViewer (Catalogue) and PeelerWaveformViewer
     
+
     
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
@@ -83,7 +41,7 @@ class WaveformViewer(WidgetBase):
         self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
         
-        self.create_settings()
+        #~ self.create_settings()
         
         self.create_toolbar()
         self.layout.addWidget(self.toolbar)
@@ -94,7 +52,7 @@ class WaveformViewer(WidgetBase):
         
         self.alpha = 60
         self.refresh()
-
+    
     def create_toolbar(self):
         tb = self.toolbar = QT.QToolBar()
         
@@ -132,11 +90,10 @@ class WaveformViewer(WidgetBase):
             if param.name()=='flip_bottom_up':
                 self.initialize_plot()
         self.refresh()
-        
-    
+
     def initialize_plot(self):
         #~ print('WaveformViewer.initialize_plot', self.controller.some_waveforms)
-        if self.controller.some_waveforms is None:
+        if self.controller.get_waveforms_shape() is None:
             return
         self.viewBox1 = MyViewBox()
         self.viewBox1.disableAutoRange()
@@ -174,8 +131,7 @@ class WaveformViewer(WidgetBase):
                 self.xvect = None
             else:
 
-                #~ shape = list(self.controller.centroids.values())[0]['median'].shape
-                shape = self.controller.some_waveforms.shape[1:]
+                shape = self.controller.get_waveforms_shape()
                 width = shape[0]
                 
                 self.xvect = np.zeros(shape[0]*shape[1], dtype='float32')
@@ -209,13 +165,9 @@ class WaveformViewer(WidgetBase):
                     x, y = channel_group['geometry'][chan]
                     self.xvect[i*width:(i+1)*width] = np.linspace(x-espx, x+espx, num=width)
         
-        if len(self.controller.centroids)>0:
-            self.wf_min = min(np.min(centroid['median']) for centroid in self.controller.centroids.values())
-            self.wf_max = max(np.max(centroid['median']) for centroid in self.controller.centroids.values())
-        else:
-            self.wf_min = 0.
-            self.wf_max = 0.
-            
+        self.wf_min, self.wf_max = self.controller.get_min_max_centroids()
+        
+        
         self._x_range = None
         self._y1_range = None
         self._y2_range = None
@@ -237,7 +189,6 @@ class WaveformViewer(WidgetBase):
         self._y1_range = None
         self._y2_range = None
         self.refresh()
-    
     def refresh(self):
         
         if not hasattr(self, 'viewBox1'):
@@ -284,8 +235,9 @@ class WaveformViewer(WidgetBase):
             return
 
         nb_channel = self.controller.nb_channel
-        d = self.controller.info['params_waveformextractor']
-        n_left, n_right = d['n_left'], d['n_right']
+        #~ d = self.controller.info['params_waveformextractor']
+        #~ n_left, n_right = d['n_left'], d['n_right']
+        n_left, n_right = self.controller.get_waveform_left_right()
         width = n_right - n_left
         
         #lines
@@ -320,24 +272,29 @@ class WaveformViewer(WidgetBase):
         elif self.params['metrics']=='mean/std':
             key1, key2 = 'mean', 'std'
         
-        
-        shape = list(self.controller.centroids.values())[0]['median'].shape
+        shape = self.controller.get_waveforms_shape()
         xvect = np.arange(shape[0]*shape[1])
         
-        for i,k in enumerate(self.controller.centroids):
+        #~ for i,k in enumerate(self.controller.centroids):
+        for k in cluster_visible:
             #~ if not self.controller.cluster_visible[k]:
             if not cluster_visible[k]:
                 continue
             
-            wf0 = self.controller.centroids[k][key1].T.flatten()
-            mad = self.controller.centroids[k][key2].T.flatten()
+            #~ wf0 = self.controller.centroids[k][key1].T.flatten()
+            #~ mad = self.controller.centroids[k][key2].T.flatten()
+            wf0 = self.controller.get_waveform_centroid(k, key1)
+            if wf0 is None: continue
+            wf0 = wf0.T.flatten()
+            mad = self.controller.get_waveform_centroid(k, key2)
             
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
             curve = pg.PlotCurveItem(xvect, wf0, pen=pg.mkPen(color, width=2))
             self.plot1.addItem(curve)
             
             
-            if self.params['fillbetween']:
+            if self.params['fillbetween'] and mad is not None:
+                mad = mad.T.flatten()
                 color2 = QT.QColor(color)
                 color2.setAlpha(self.alpha)
                 curve1 = pg.PlotCurveItem(xvect, wf0+mad, pen=color2)
@@ -348,8 +305,9 @@ class WaveformViewer(WidgetBase):
                 fill = pg.FillBetweenItem(curve1=curve1, curve2=curve2, brush=color2)
                 self.plot1.addItem(fill)
             
-            curve = pg.PlotCurveItem(xvect, mad, pen=color)
-            self.plot2.addItem(curve)        
+            if mad is not None:
+                curve = pg.PlotCurveItem(xvect, mad, pen=color)
+                self.plot2.addItem(curve)        
 
         if self.params['show_channel_num']:
             for i, (chan, name) in enumerate(self.controller.channel_indexes_and_names):
@@ -382,10 +340,10 @@ class WaveformViewer(WidgetBase):
         if self.xvect is None:
             return
         
-        wfs = self.controller.some_waveforms
-        if wfs is None:
+        shape = self.controller.get_waveforms_shape()
+        if shape is None:
             return
-        if self.xvect.shape[0] !=wfs.shape[1] * wfs.shape[2]:
+        if self.xvect.shape[0] != shape[0] * shape[1]:
             self.initialize_plot()
         
         self.plot1.addItem(self.curve_one_waveform)
@@ -399,12 +357,15 @@ class WaveformViewer(WidgetBase):
 
         ypos = self.arr_geometry[:,1]
         
-        for i,k in enumerate(self.controller.centroids):
+        #~ for i,k in enumerate(self.controller.centroids):
+        for k in cluster_visible:
             #~ if not self.controller.cluster_visible[k]:
             if not cluster_visible[k]:
                 continue
-            
-            wf = self.controller.centroids[k][key1]
+
+            #~ wf = self.controller.centroids[k][key1]
+            wf = self.controller.get_waveform_centroid(k, key1)
+            if wf is None: continue
             wf = wf*self.factor_y*self.delta_y + ypos[None, :]
             wf[0,:] = np.nan
             wf = wf.T.reshape(-1)
@@ -442,8 +403,7 @@ class WaveformViewer(WidgetBase):
         seg_num = self.controller.spike_segment[ind]
         peak_ind = self.controller.spike_index[ind]
         
-        d = self.controller.info['params_waveformextractor']
-        n_left, n_right = d['n_left'], d['n_right']
+        n_left, n_right = self.controller.get_waveform_left_right()
         
         wf = self.controller.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.controller.chan_grp,
                 i_start=peak_ind+n_left, i_stop=peak_ind+n_right,
@@ -464,12 +424,67 @@ class WaveformViewer(WidgetBase):
         #~ n_selected = np.sum(self.controller.spike_selection)
         #~ self._refresh_one_spike(n_selected)
         self.refresh()
-            
 
+
+
+
+class WaveformViewer(WaveformViewerBase):
+    """
+    **Waveform viewer** is undoubtedly the view to inspect waveforms.
+    
+    Note that in some aspect **Waveform hist viewer** can be a better firend.
+    
+    All centroid (median or mean) of visible cluster are plotted here.
+    
+    2 main modes:
+      * **geometry** waveforms are organized with 2d geometry given by PRB file.
+      * **flatten** each chunk of each channel is put side by side in channel order
+        than it can be ploted in 1d. The bottom view is th mad. On good cluster the mad
+        must as close as possible from the value 1 because 1 is the normalized noise.
+    
+    The **geometry** mode is more intuitive and help users about spatial
+    information. But the  **flatten**  mode is really important because is give information 
+    about the variance (mad or std) for each point and about peak alignement.
+    
+    The centoid is dfine by median+mad but you can also check with mean+std.
+    For healthy cluster it should more or less the same.
+    
+    Important for zooming:
+      *  **geometry** : zoomXY geometry = right click, move = left click and mouse wheel = zoom waveforms
+      * **flatten**: zoomXY = right click and move = left click
+    
+    
+    Settings:
+      * **plot_selected_spike**: superimposed one slected peak on centroid
+      * **show_only_selected_cluster**: this auto hide all cluster except the one of selected spike
+      * **plot_limit_for_flatten**: for flatten mode this plot line for delimiting channels.
+        Plotting is important but it slow down the zoom.
+      * **metrics**: choose median+mad or mean+std.
+      * *show_channel_num**: what could it be ?
+      * **flip_bottom_up**: in geometry this flip bottom up the channel geometry.
+      * **display_threshold**: what could it be ?
+    """
+    _params = [{'name': 'plot_selected_spike', 'type': 'bool', 'value': False },
+                        {'name': 'show_only_selected_cluster', 'type': 'bool', 'value': False},
+                      {'name': 'plot_limit_for_flatten', 'type': 'bool', 'value': True },
+                      {'name': 'metrics', 'type': 'list', 'values': ['median/mad', 'mean/std'] },
+                      {'name': 'fillbetween', 'type': 'bool', 'value': True },
+                      {'name': 'show_channel_num', 'type': 'bool', 'value': False},
+                      {'name': 'flip_bottom_up', 'type': 'bool', 'value': False},
+                      {'name': 'display_threshold', 'type': 'bool', 'value' : True },
+                      ]
         
-        
 
-        
-
-
-
+class PeelerWaveformViewer(WaveformViewerBase):
+    """
+    **Waveform viewer** 
+    """
+    _params = [{'name': 'plot_selected_spike', 'type': 'bool', 'value': True },
+                        {'name': 'show_only_selected_cluster', 'type': 'bool', 'value': True},
+                      {'name': 'plot_limit_for_flatten', 'type': 'bool', 'value': True },
+                      {'name': 'metrics', 'type': 'list', 'values': ['median/mad'] },
+                      {'name': 'fillbetween', 'type': 'bool', 'value': True },
+                      {'name': 'show_channel_num', 'type': 'bool', 'value': False},
+                      {'name': 'flip_bottom_up', 'type': 'bool', 'value': False},
+                      {'name': 'display_threshold', 'type': 'bool', 'value' : True },
+                      ]
