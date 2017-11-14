@@ -3,9 +3,14 @@ import pyqtgraph as pg
 
 import os
 from collections import OrderedDict
+
+import tempfile
+
 from ..dataio import DataIO
 from ..datasource import data_source_classes
 from .tools import get_dict_from_group_param
+from ..tools import download_probe
+from ..probe_list import probe_list
 
 
 
@@ -242,24 +247,42 @@ class ChannelGroupWidget(QT.QWidget):
         
         self.list_channel = QT.QListWidget(selectionMode=QT.QAbstractItemView.ExtendedSelection, selectionBehavior=QT.QTreeView.SelectRows)
         layout.addWidget(self.list_channel)
-        
-        v = QT.QVBoxLayout()
-        layout.addLayout(v)
-        but = QT.QPushButton('add channel group from selection')
-        v.addWidget(but)
-        but.clicked.connect(self.add_chan_grp)
 
-        but = QT.QPushButton('Set channel group PRB file')
-        v.addWidget(but)
-        but.clicked.connect(self.open_prb_file)
-        
-        
-        self.table_grp = QT.QTableWidget()
-        v.addWidget(self.table_grp)
+        v = QT.QVBoxLayout()
         
         but = QT.QPushButton('clear')
         v.addWidget(but)
         but.clicked.connect(self.clear_table)
+        
+        layout.addLayout(v)
+        but = QT.QPushButton('Set manual channel group from selection')
+        v.addWidget(but)
+        but.clicked.connect(self.add_chan_grp)
+
+        but = QT.QPushButton('Set channel group from PRB file')
+        v.addWidget(but)
+        but.clicked.connect(self.open_prb_file)
+        
+        h = QT.QHBoxLayout()
+        v.addLayout(h)
+        but = QT.QPushButton('Download PRB file')
+        but.clicked.connect(self.download_prb_file)
+        h.addWidget(but)
+        self.comboPrb = QT.QComboBox()
+        h.addWidget(self.comboPrb)
+        all_prb = ['']
+        for origin, probe_names in probe_list.items():
+            for probe_name in probe_names:
+                all_prb.append('{}: {}'.format(origin, probe_name))
+        self.comboPrb.addItems(all_prb)
+        
+        
+        self.table_grp = QT.QTableWidget()
+        v.addWidget(self.table_grp)
+
+        but = QT.QPushButton('Show probes geometry')
+        v.addWidget(but)
+        but.clicked.connect(self.show_prb_geometry)
         
         self.channel_names = None
         self.channel_groups = None
@@ -322,7 +345,29 @@ class ChannelGroupWidget(QT.QWidget):
             self.channel_groups.update(d['channel_groups'])
             self.refresh_table()
     
+    def download_prb_file(self):
+        probe_name = str(self.comboPrb.currentText())
+        if len(probe_name) == 0:
+            return
+        origin, probe_name = probe_name.split(': ')
+        #~ print(origin, probe_name)
+        local_dirname = tempfile.gettempdir()
+        #~ print(local_dirname)
+        prb_filename = download_probe(local_dirname, probe_name, origin=origin)
+        #~ print(prb_filename)
+
+        d = {}
+        exec(open(prb_filename).read(), None, d)
+        
+        #~ print()
+        self.channel_groups = OrderedDict()
+        self.channel_groups.update(d['channel_groups'])
+        self.refresh_table()
+
+    
     def clear_table(self):
         self.channel_groups = OrderedDict()
         self.refresh_table()
 
+    def show_prb_geometry(self):
+        print('yep')

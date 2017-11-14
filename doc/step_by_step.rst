@@ -50,8 +50,7 @@ Parameters are organized in sections:
   * noise_snippets
   * extract_waveforms
 
-Keep the default parameters.
-For complete details on parameters see :ref:`parameters`.
+For complete details on parameters see :ref:`parameters` and :ref:`important_details`.
 
 Then you have to choose a **feature method**. For tetrode **"global_pca"** with 5 component sounds good.
 You will be able to change this in catalogueWindow later on.

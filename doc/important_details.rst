@@ -1,3 +1,5 @@
+.. _important_details:
+
 Important details
 =================
 
@@ -250,7 +252,7 @@ The approach in tridesclous is to let the user choose the method but validate ma
 the CatalogueWindow. The user eye and intuition is better a weappon than a pre parametrised algotihm.
 
 As we are lazy, we did not implement any of theses methods but use them from `sklean <http://scikit-learn.org>`_ package.
-However, one home made method is impleted here: **dirtycut**, be curious and test it.
+However, one home made method is impleted here: **sawchaincut**, be curious and test it.
 
 The actual method list is:
   * **kmeans** super classic, super fast but we need to decide **n_cluster**
@@ -258,7 +260,7 @@ The actual method list is:
   * **agglomerative** for trying, we need to decide **n_cluster**
   * **dbscan** density based algorithm n_cluster should be automatic. But **eps** parameters
     play a role in the results.
-  * **dirtycut** this is a home made and dirty algorithm. It is very slow. It is density based.
+  * **sawchaincut** this is a home made and dirty algorithm. It is very slow. It is density based.
     It is automatic. Take this one if you want automatic and if you are patient.
  
 

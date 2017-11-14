@@ -126,6 +126,28 @@ class CatalogueController(ControllerBase):
     def some_waveforms(self):
         return self.cc.some_waveforms
     
+    def get_waveforms_shape(self):
+        if self.cc.some_waveforms is not None:
+            shape = self.cc.some_waveforms.shape[1:]
+            return shape
+    
+    def get_waveform_centroid(self, label, metric):
+        if label in self.cc.centroids:
+            return self.cc.centroids[label][metric]
+    
+    def get_min_max_centroids(self):
+        if len(self.cc.centroids)>0:
+            wf_min = min(np.min(centroid['median']) for centroid in self.cc.centroids.values())
+            wf_max = max(np.max(centroid['median']) for centroid in self.cc.centroids.values())
+        else:
+            wf_min = 0.
+            wf_max = 0.
+        return wf_min, wf_max
+
+    def get_waveform_left_right(self):
+        d = self.cc.info['params_waveformextractor']
+        return d['n_left'], d['n_right']
+        
     @property
     def some_noise_snippet(self):
         return self.cc.some_noise_snippet

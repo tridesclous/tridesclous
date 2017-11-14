@@ -8,7 +8,7 @@ import pickle
 
 from .datasource import data_source_classes
 from .iotools import ArrayCollection
-from .tools import fix_prb_file_py2
+from .tools import download_probe
 
 _signal_types = ['initial', 'processed']
 
@@ -149,22 +149,24 @@ class DataIO:
         self._rm_old_probe_file()
         
         
-        if origin == 'kwikteam':
-            #Max Hunter made a list of neuronexus probes, many thanks
-            baseurl = 'https://raw.githubusercontent.com/kwikteam/probes/master/neuronexus/'
-        elif origin == 'spyking-circus':
-            # Pierre Yger made a list of various probe file, many thanks
-            baseurl = 'https://raw.githubusercontent.com/spyking-circus/spyking-circus/master/probes/'
-        else:
-            raise(NotImplementedError)
+        probe_filename = download_probe(self.dirname, probe_name, origin=origin)
+        
+        #~ if origin == 'kwikteam':
+            #~ #Max Hunter made a list of neuronexus probes, many thanks
+            #~ baseurl = 'https://raw.githubusercontent.com/kwikteam/probes/master/'
+        #~ elif origin == 'spyking-circus':
+            #~ # Pierre Yger made a list of various probe file, many thanks
+            #~ baseurl = 'https://raw.githubusercontent.com/spyking-circus/spyking-circus/master/probes/'
+        #~ else:
+            #~ raise(NotImplementedError)
         
         
-        if not probe_name.endswith('.prb'):
-            probe_name += '.prb'
-        probe_filename = os.path.join(self.dirname,probe_name)
-        urlretrieve(baseurl+probe_name, probe_filename)
-        fix_prb_file_py2(probe_filename)#fix range to list(range
-        #~ self.set_probe_file(probe_filename)
+        #~ if not probe_name.endswith('.prb'):
+            #~ probe_name += '.prb'
+        #~ probe_filename = os.path.join(self.dirname,probe_name)
+        #~ urlretrieve(baseurl+probe_name, probe_filename)
+        #~ fix_prb_file_py2(probe_filename)#fix range to list(range
+        
         self.info['probe_filename'] = os.path.basename(probe_filename)
         self.flush_info()
         self._reload_channel_group()

@@ -64,7 +64,40 @@ class PeelerController(ControllerBase):
     @property
     def spike_selection(self):
         return self.spikes['selected']
+
+    @property
+    def spike_segment(self):
+        return self.spikes['segment']
+
+    @property
+    def spike_index(self):
+        return self.spikes['index']
     
+    def get_waveforms_shape(self):
+        shape = self.catalogue['centers0'].shape[1:]
+        return shape
+
+    def get_waveform_centroid(self, label, metric):
+        if metric in ('mean', 'std', 'mad'):
+            return None
+        
+        if label in self.catalogue['label_to_index']:
+            i = self.catalogue['label_to_index'][label]
+            wf = self.catalogue['centers0'][i, :, :].copy()
+            return wf
+
+    def get_min_max_centroids(self):
+        if self.catalogue['centers0'].shape[0]>0:
+            wf_min = np.min(self.catalogue['centers0'])
+            wf_max = np.max(self.catalogue['centers0'])
+        else:
+            wf_min = 0.
+            wf_max = 0.
+        return wf_min, wf_max
+
+    def get_waveform_left_right(self):
+        return self.catalogue['n_left'], self.catalogue['n_right']
+        
     def refresh_colors(self, reset=True, palette = 'husl'):
         if reset:
             self.colors = {}

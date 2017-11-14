@@ -51,7 +51,7 @@ cluster_params_by_methods = OrderedDict([
                     {'name' : 'n_init', 'type' : 'int', 'value' : 10}]),
     ('agglomerative', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5}]),
     ('dbscan', [{'name' : 'eps', 'type' : 'float', 'value' : 0.5}]),
-    ('dirtycut', []),
+    ('sawchaincut', []),
 ])
 
 #~ split_params_by_methods = OrderedDict([

@@ -44,14 +44,14 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
     elif method == 'dbscan':
         dbscan = sklearn.cluster.DBSCAN(**kargs)
         labels = dbscan.fit_predict(features)
-    elif method == 'dirtycut':
+    elif method == 'sawchaincut':
         n_left = cc.info['params_waveformextractor']['n_left']
         n_right = cc.info['params_waveformextractor']['n_right']
         peak_sign = cc.info['params_peakdetector']['peak_sign']
         relative_threshold = cc.info['params_peakdetector']['relative_threshold']
 
-        dirtycut = DirtyCut(waveforms, n_left, n_right, peak_sign, relative_threshold)
-        labels = dirtycut.do_the_job()
+        sawchaincut = SawChainCut(waveforms, n_left, n_right, peak_sign, relative_threshold)
+        labels = sawchaincut.do_the_job()
     else:
         raise(ValueError, 'find_clusters method unknown')
     
@@ -70,7 +70,7 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
 
 
 
-class DirtyCut:
+class SawChainCut:
     def __init__(self, waveforms, n_left, n_right, peak_sign, threshold):
         self.waveforms = waveforms
         self.n_left = n_left
@@ -367,8 +367,8 @@ class DirtyCut:
             if False:
                 
             #~ if False:
-                if not os.path.exists('debug_dirtycut'):
-                    os.mkdir('debug_dirtycut')
+                if not os.path.exists('debug_sawchaincut'):
+                    os.mkdir('debug_sawchaincut')
                 
                 if hasattr(self, 'n_cut'):
                     self.n_cut += 1
@@ -376,12 +376,12 @@ class DirtyCut:
                     self.n_cut = 0
                     #~ fig, ax = plt.subplots()
                     #~ ax.plot(np.arange(self.smooth_kernel.size)*self.binsize, self.smooth_kernel)
-                    #~ fig.savefig('debug_dirtycut/smooth_kernel.png')
+                    #~ fig.savefig('debug_sawchaincut/smooth_kernel.png')
                 
                 count, _ = np.histogram(feat, bins=self.bins)
                 count = count.astype(float)/np.sum(count)
                 
-                filename = 'debug_dirtycut/one_cut {}.png'.format(self.n_cut)
+                filename = 'debug_sawchaincut/one_cut {}.png'.format(self.n_cut)
                 fig, axs = plt.subplots(nrows=3)
 
                 axs[0].fill_between(np.arange(med.size), med-mad, med+mad, alpha=.5)

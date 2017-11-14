@@ -5,6 +5,7 @@ import time
 import os
 from collections import OrderedDict
 import pickle
+import webbrowser
 
 from ..dataio import DataIO
 from ..datasource import data_source_classes
@@ -122,10 +123,13 @@ class MainWindow(QT.QMainWindow):
         
         self.toolbar.addSeparator()
         
-        info_act = QT.QAction('Info', self,checkable = False, icon=QT.QIcon(":main_icon.png"))
-        self.toolbar.addAction(info_act)
+        help_act = QT.QAction('Help', self,checkable = False, icon=QT.QIcon(":main_icon.png"))
+        help_act.triggered.connect(self.open_webbrowser_help)
+        self.toolbar.addAction(help_act)
         
-        
+    def open_webbrowser_help(self):
+        url = "http://tridesclous.readthedocs.io"
+        webbrowser.open(url, new=2)
 
     def refresh_info(self):
         txt1 = self.dataio.__repr__()
@@ -233,11 +237,22 @@ class MainWindow(QT.QMainWindow):
         d = dia.get()
         print(d)
         
-        feat_method, feat_kargs = open_dialog_methods(gui_params.features_params_by_methods, self,  title='Which feature method ?')
+        n = self.dataio.nb_channel(chan_grp=self.chan_grp)
+        if 1<=n<9:
+            method0 = 'global_pca'
+        elif 9<=n<65:
+            method0 = 'neighborhood_pca'
+        else:
+            method0 = 'peak_max'
+        
+        feat_method, feat_kargs = open_dialog_methods(gui_params.features_params_by_methods, self,
+                        title='Which feature method ?', selected_method=method0)
+        #~ print('feat_method', feat_method)
         if feat_method is None:
             return
         
-        clust_method, clust_kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self,  title='Which cluster method ?')
+        clust_method, clust_kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self,
+                        title='Which cluster method ?', selected_method=None)
         if clust_method is None:
             return
         

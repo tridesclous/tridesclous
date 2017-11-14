@@ -911,8 +911,12 @@ class CatalogueConstructor:
         self.catalogue['n_right'] = int(self.info['params_waveformextractor']['n_right'] -2)
         self.catalogue['peak_width'] = self.catalogue['n_right'] - self.catalogue['n_left']
         
-        cluster_labels = np.array(self.cluster_labels[self.cluster_labels>=0], copy=True)
-        self.catalogue['cluster_labels'] = cluster_labels
+        keep = self.cluster_labels>=0
+        cluster_labels = np.array(self.cluster_labels[keep], copy=True)
+        # TODO this is redundant with clusters, this shoudl be removed but imply some change in peeler.
+        self.catalogue['cluster_labels'] = cluster_labels 
+        self.catalogue['clusters'] = self.clusters[keep].copy()
+        
         
         n, full_width, nchan = self.some_waveforms.shape
         centers0 = np.zeros((len(cluster_labels), full_width - 4, nchan), dtype=self.info['internal_dtype'])

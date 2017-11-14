@@ -1,0 +1,15 @@
+tridesclous release notes 1.0.0
+===============================
+
+16th November 2017
+
+First public release of tridesclous, it is certainly a festival
+of bugs but at least it is released.
+
+
+
+
+
+
+
+ 

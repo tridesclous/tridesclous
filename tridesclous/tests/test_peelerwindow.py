@@ -45,8 +45,14 @@ def test_ClusterSpikeList():
     traceviewer.resize(800,600)
     app.exec_()
 
-
-
+def test_PeelerWaveformViewer():
+    controller = get_controller()
+    
+    app = pg.mkQApp()
+    traceviewer = PeelerWaveformViewer(controller)
+    traceviewer.show()
+    traceviewer.resize(800,600)
+    app.exec_()
 
 
 
@@ -67,6 +73,7 @@ if __name__ == '__main__':
     #~ test_PeelerTraceViewer()
     #~ test_SpikeList()
     #~ test_ClusterSpikeList()
+    #~ test_PeelerWaveformViewer()
     
     test_PeelerWindow()
 

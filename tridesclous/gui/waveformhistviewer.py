@@ -141,8 +141,8 @@ class WaveformHistViewer(WidgetBase):
         self.params.blockSignals(True)
         #~ self.params['bin_min'] = np.min(self.controller.some_waveforms)
         #~ self.params['bin_max'] = np.max(self.controller.some_waveforms)
-        self.params['bin_min'] = np.percentile(self.controller.some_waveforms, .05)
-        self.params['bin_max'] = np.percentile(self.controller.some_waveforms, 99.95)
+        self.params['bin_min'] = np.percentile(self.controller.some_waveforms, .001)
+        self.params['bin_max'] = np.percentile(self.controller.some_waveforms, 99.999)
         self.params.blockSignals(False)
                 
 

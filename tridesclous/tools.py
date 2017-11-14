@@ -1,6 +1,9 @@
 import numpy as np
 import sklearn.metrics.pairwise
 import re
+from urllib.request import urlretrieve
+import zipfile
+import os
 
 def median_mad(data, axis=0):
     """
@@ -121,3 +124,66 @@ def fix_prb_file_py2(probe_filename):
 
     with open(probe_filename, 'wb') as f:
         f.write(prb)
+
+
+def construct_probe_list():
+    #this download probes list from klusta and circus
+    # and put them in a file
+    urls = [ 
+                ('kwikteam', 'https://codeload.github.com/kwikteam/probes/zip/master', 'probes-master/'),
+                ('spyking-circus', 'https://codeload.github.com/spyking-circus/spyking-circus/zip/master', 'spyking-circus-master/probes/'),
+    ]
+    
+    #download zip from github
+    probes = {}
+    for name, url, path in urls:
+        zip_name = url.split('/')[-1]
+        urlretrieve(url, name+'.zip')
+        
+        with zipfile.ZipFile( name+'.zip') as zfile:
+            probes[name] = []
+            for f in zfile.namelist():
+                if f.startswith(path) and f != path and not f.endswith('/'):
+                    probes[name].append(f.replace(path, '').replace('.prb', ''))
+    
+    #generate .py with probe list
+    with open('probe_list.py', 'w+') as f:
+        f.write('# This file is generated do not modify!!!\n')
+        f.write('probe_list = {\n')
+        for name, url, path in urls:
+            f.write('    #########\n')
+            f.write('    "{}" : [\n'.format(name))
+            for probe in probes[name]:
+                f.write('        "{}",\n'.format(probe))
+            f.write('    ],\n')
+        f.write('}\n')
+
+def download_probe(local_dirname, probe_name, origin='kwikteam'):
+    if origin == 'kwikteam':
+        #Max Hunter made a list of neuronexus probes, many thanks
+        baseurl = 'https://raw.githubusercontent.com/kwikteam/probes/master/'
+    elif origin == 'spyking-circus':
+        # Pierre Yger made a list of various probe file, many thanks
+        baseurl = 'https://raw.githubusercontent.com/spyking-circus/spyking-circus/master/probes/'
+    else:
+        raise(NotImplementedError)
+    
+    
+    if not probe_name.endswith('.prb'):
+        probe_name += '.prb'
+    
+    probe_filename = probe_name
+    if '/' in probe_filename:
+        probe_filename = probe_filename.split('/')[-1]
+    probe_filename = os.path.join(local_dirname, probe_filename)
+    
+    urlretrieve(baseurl+probe_name, probe_filename)
+    fix_prb_file_py2(probe_filename)#fix range to list(range
+    
+    return probe_filename
+    
+
+
+if __name__=='__main__':
+    construct_probe_list()
+
