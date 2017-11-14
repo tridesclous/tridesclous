@@ -74,16 +74,16 @@ def test_DataIO_probes():
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     dataio.set_data_source(type='RawData', filenames=filenames,  **params)
     
-    probe_filename = 'A4x8-5mm-100-400-413-A32.prb'
+    probe_filename = 'neuronexus/A4x8-5mm-100-400-413-A32.prb'
     dataio.download_probe(probe_filename)
-    dataio.download_probe('A4x8-5mm-100-400-413-A32')
+    dataio.download_probe('neuronexus/A4x8-5mm-100-400-413-A32')
     
     #~ print(dataio.channel_groups)
     #~ print(dataio.channels)
     #~ print(dataio.info['probe_filename'])
     
     assert dataio.nb_channel(0) == 8
-    assert probe_filename == dataio.info['probe_filename']
+    assert probe_filename.split('/')[-1] == dataio.info['probe_filename']
     
     dataio = DataIO(dirname='test_DataIO')
     print(dataio)
@@ -119,8 +119,8 @@ def test_dataio_catalogue():
     
 if __name__=='__main__':
     
-    test_DataIO()
-    #~ test_DataIO_probes()
+    #~ test_DataIO()
+    test_DataIO_probes()
     #~ test_dataio_catalogue()
     
     

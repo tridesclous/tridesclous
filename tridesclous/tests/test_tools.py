@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
-from tridesclous.tools import median_mad, FifoBuffer, get_neighborhood, fix_prb_file_py2
+from tridesclous.tools import *
+from tridesclous.probe_list import probe_list
 
 from urllib.request import urlretrieve
 import time
@@ -33,10 +34,21 @@ def test_fix_prb_file_py2():
     urlretrieve(distantfile, prb_filename)
 
     fix_prb_file_py2(prb_filename)
+
+
+def test_construct_probe_list():
+    for k, v in probe_list.items():
+        print('*'*20)
+        print('**', k)
+        print('*'*20)
+        for e in v:
+            print(e)
+        
     
 
 if __name__ == '__main__':
     #~ test_get_median_mad()
     #~ test_FifoBuffer()
     #~ test_get_neighborhood()
-    test_fix_prb_file_py2()
+    #~ test_fix_prb_file_py2()
+    test_construct_probe_list()
