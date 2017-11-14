@@ -106,25 +106,96 @@ class ParamDialog(QT.QDialog):
         return get_dict_from_group_param(self.params, cascade=True)
 
 
-def open_dialog_methods(params_by_method, parent, title='Which method ?'):
-        _params = [{'name' : 'method', 'type' : 'list', 'values' : params_by_method.keys()}]
-        dialog1 = ParamDialog(_params, title=title, parent=parent)
-        if not dialog1.exec_():
-            return None, None
-
-        method = dialog1.params['method']
+class MethodDialog(QT.QDialog):
+    def __init__(self,   params_by_method, title = '', parent = None, selected_method=None):
+        QT.QDialog.__init__(self, parent = parent)
         
-        _params =  params_by_method[method]
-        if len(_params)>0:
-            dialog2 = ParamDialog(_params, title='{} parameters'.format(method), parent=parent)
-            if not dialog2.exec_():
-                return None, None
-            kargs = dialog2.get()
+        self.setWindowTitle(title)
+        self.setModal(True)
+
+        layout = QT.QVBoxLayout()
+        self.setLayout(layout)
+        
+        methods = list(params_by_method.keys())
+        if selected_method is not None:
+            assert selected_method in methods
+        
+        params = [{'name' : 'method', 'type' : 'list', 'values' : methods}]
+        self.param_method = pg.parametertree.Parameter.create( name=title, type='group', children = params)
+        self.tree_params = pg.parametertree.ParameterTree(parent  = self)
+        self.tree_params.header().hide()
+        self.tree_params.setParameters(self.param_method, showTop=True)
+        #self.tree_params.setWindowFlags(QT.Qt.Window)
+        layout.addWidget(self.tree_params, 1)
+        
+        
+        self.all_params = {}
+        self.all_tree_params = {}
+        for method in methods:
+            params = params_by_method[method]
+            self.all_params[method] =  pg.parametertree.Parameter.create(name='params', type='group', children=params)
+            tree = pg.parametertree.ParameterTree(parent=self)
+            tree.header().hide()
+            tree.setParameters(self.all_params[method], showTop=True)
+            layout.addWidget(tree, 5)
+            tree.hide()
+            self.all_tree_params[method] = tree
+
+        but = QT.QPushButton('OK')
+        layout.addWidget(but)
+        but.clicked.connect(self.accept)
+        
+        if selected_method is None:
+            selected_method = methods[0]
+        
+        self.param_method.sigTreeStateChanged.connect(self.on_method_change)
+        self.param_method['method'] = selected_method
+        self.all_tree_params[selected_method].show()
+    
+    def on_method_change(self):
+        #~ print('on_method_change')
+        for tree in self.all_tree_params.values():
+            tree.hide()
+        
+        method =  self.param_method['method']
+        #~ print(method)
+        self.all_tree_params[method].show()
+        
+        
+        
+    
+    
+#~ def open_dialog_methods(params_by_method, parent, title='Which method ?', selected_method=None):
+        #~ _params = [{'name' : 'method', 'type' : 'list', 'values' : params_by_method.keys()}]
+        #~ dialog1 = ParamDialog(_params, title=title, parent=parent)
+        #~ if not dialog1.exec_():
+            #~ return None, None
+
+        #~ method = dialog1.params['method']
+        
+        #~ _params =  params_by_method[method]
+        #~ if len(_params)>0:
+            #~ dialog2 = ParamDialog(_params, title='{} parameters'.format(method), parent=parent)
+            #~ if not dialog2.exec_():
+                #~ return None, None
+            #~ kargs = dialog2.get()
+        #~ else:
+            #~ kargs = {}
+        
+        #~ return method, kargs
+
+def open_dialog_methods(params_by_method, parent, title='Which method ?', selected_method=None):
+        
+        dia = MethodDialog(params_by_method, parent=parent, title=title, selected_method=selected_method)
+        
+        if dia.exec_():
+            method = dia.param_method['method']
+            kargs = get_dict_from_group_param(dia.all_params[method], cascade=True)
+            return method, kargs
         else:
-            kargs = {}
+            return None, None
         
-        return method, kargs
-
+        
 
 
 if __name__=='__main__':
