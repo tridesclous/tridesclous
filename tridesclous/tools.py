@@ -184,6 +184,6 @@ def download_probe(local_dirname, probe_name, origin='kwikteam'):
     
 
 
-#~ if __name__=='__main__':
-    #~ construct_probe_list()
+if __name__=='__main__':
+    construct_probe_list()
 
