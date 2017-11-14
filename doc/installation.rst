@@ -4,15 +4,15 @@ Installation
 
 If your are familiar with python simply install the depency list as usual.
 
-trideclous works with python 3 only.
+tridesclous works with python 3 only.
 
 
 
-If this is your first steps in the python world you have 2 options:
+If these are your first steps in the python world you have 2 options:
   * install python and dependencies with anaconda distribution (prefered on window or OSX)
-  * use python from your system (in a virtual environement) and install dependencies with standard pip (prerered on linux ubuntu/debian/mint)
+  * use python from your system (in a virtual environement) and install dependencies with standard pip (prefered on Linux Ubuntu/Debian/Mint)
 
-Note that you are free to install anaconda on linux.
+Note that you are free to install Anaconda on Linux.
 
 
 
@@ -46,9 +46,9 @@ Do:
 
 
 
-Optional if you want fight and you really want fast computing with OpenCl:
+Optional if you're up for a fight and you really want fast computing with OpenCL:
 
-  1. install driver for GPU (nvidia/intel/amd), this is quite hard in some case because you need to download some OpenCL (or cuda) toolkit.
+  1. install driver for GPU (nvidia/intel/amd), this is quite hard in some cases because you need to download some OpenCL (or cuda) toolkit.
   2. Download PyOpenCl here for windows : http://www.lfd.uci.edu/~gohlke/pythonlibs/
   3. cd C:/users/...../Downloads
   4. pip install pyopencl‑2016.2.1+cl21‑cp36‑cp36m‑win_amd64.whl
@@ -89,11 +89,11 @@ Optional if you want fight and you really want fast computing with OpenCl and yo
 
 .. IMPORTANT::
     
-    Actual official neo version is 0.5.2. If you install this version you will have
+    The current official neo version is 0.5.2. If you install this version you will have
     few reader (Raw+Blackrock+Neuralynx). Coming neo version will be 0.6.0, with 
     this version many format will be available in tridesclous.
     
-    If you need one of theses fromat you can install the futur version of neo
+    If you need one of theses fromat you can install the future version of neo
     with this::
         
         pip install https://github.com/NeuralEnsemble/python-neo/archive/master.zip
