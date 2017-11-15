@@ -2,6 +2,9 @@ from .version import version as __version__
 
 import PyQt5 # this force pyqtgraph to deal with Qt5
 
+#import matplotlib
+#matplotlib.use('Qt5Agg')
+
 from .datasets import download_dataset, get_dataset
 
 #dynamic import 
@@ -16,7 +19,7 @@ from .peeler_cl import Peeler_OpenCl
 
 from .importers import import_from_spykingcircus
 
-#~ from .mpl_plot import *
+from .matplotlibplot import *
 
 
 from .gui import *
