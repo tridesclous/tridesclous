@@ -159,7 +159,7 @@ def plot_features_scatter_2d(cataloguecconstructor, labels=None, nb_max=500):
     all_feat = cc.some_features
     n = all_feat.shape[1]
     
-    fig, axs = plt.subplots(nrows=n, ncols=n)
+    fig, axs = plt.subplots(nrows=n, ncols=n, sharex=True, sharey=True)
     
     l = []
     if labels is None:
@@ -187,7 +187,7 @@ def plot_features_scatter_2d(cataloguecconstructor, labels=None, nb_max=500):
                     ax.plot(x[:-1], y, color=color)
             elif c<r:
                 for feat, color in l:
-                    ax.plot(feat[:, r], feat[:, c], color=color, markersize=2, ls='None', marker='o')
+                    ax.plot(feat[:, c], feat[:, r], color=color, markersize=2, ls='None', marker='o')
             else:
                 fig.delaxes(ax)
     

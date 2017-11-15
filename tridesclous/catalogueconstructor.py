@@ -287,10 +287,13 @@ class CatalogueConstructor:
         for pos, sigs_chunk in iterator:
             #~ print(seg_num, pos, sigs_chunk.shape)
             self.signalprocessor_one_chunk(pos, sigs_chunk, seg_num, detect_peak=detect_peak)
+            
+            #maybe flush at each loop to avoid memory up
+            self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=self.chan_grp)
     
     
     def finalize_signalprocessor_loop(self):
-        self.dataio.flush_processed_signals(seg_num=0, chan_grp=self.chan_grp)
+        #~ self.dataio.flush_processed_signals(seg_num=0, chan_grp=self.chan_grp)
         
         #~ self.arrays.finalize_array('peak_pos')
         #~ self.arrays.finalize_array('peak_label')

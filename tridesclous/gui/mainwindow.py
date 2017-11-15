@@ -317,6 +317,7 @@ class MainWindow(QT.QMainWindow):
             win = CatalogueWindow(self.catalogueconstructor)
             win.show()
             self.open_windows.append(win)
+            #~ win.
         #~ except Exception as e:
             #~ print(e)
     

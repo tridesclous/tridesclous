@@ -17,8 +17,9 @@ from matplotlib import pyplot
 
 
 def test_sawchaincut():
-    dirname = 'test_catalogueconstructor'
+    #~ dirname = 'test_catalogueconstructor'
     #~ dirname = '/home/samuel/Documents/projet/tridesclous/example/tridesclous_locust/'
+    dirname = '/home/samuel/Documents/projet/DataSpikeSorting/GT 252/tdc_20170623_patch1/'
     
     dataio = DataIO(dirname=dirname)
     cc = catalogueconstructor = CatalogueConstructor(dataio=dataio)

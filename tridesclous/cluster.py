@@ -38,6 +38,10 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         #~ labels =gmm.fit_predict(features)
         gmm.fit(features)
         labels =gmm.predict(features)
+    #~ elif method == 'kmedois':
+        #~ import pyclust
+        #~ km = pyclust.KMedoids(n_clusters=kargs.pop('n_clusters'))
+        #~ labels = km.fit_predict(features)
     elif method == 'agglomerative':
         agg = sklearn.cluster.AgglomerativeClustering(n_clusters=kargs.pop('n_clusters'), **kargs)
         labels = agg.fit_predict(features)
@@ -280,11 +284,11 @@ class SawChainCut:
             
             med, mad = median_mad(wf_sel)
             
-            if np.all(mad<1.6):
-                print('ACCEPT: mad<1.6')
-                k += 1
-                dim_visited = []
-                continue
+            #~ if np.all(mad<1.6):
+                #~ print('ACCEPT: mad<1.6')
+                #~ k += 1
+                #~ dim_visited = []
+                #~ continue
 
             
             #TODO to converge fastly be more strict here
@@ -363,8 +367,8 @@ class SawChainCut:
 
             print('nb0', np.sum(labels==0), 'nb1', np.sum(labels==1))
             
-            #~ if self.debug:
-            if False:
+            if self.debug:
+            #~ if False:
                 
             #~ if False:
                 if not os.path.exists('debug_sawchaincut'):
@@ -403,7 +407,7 @@ class SawChainCut:
                 #~ im = axs[3].imshow(density2d.T, cmap='hot', aspect='auto')
                 #~ im.set_clim(0, np.max(density2d)/8.)
                 
-                
+                #~ print(filename)
                 fig.savefig(filename)
                 
                 #~ plt.show()
