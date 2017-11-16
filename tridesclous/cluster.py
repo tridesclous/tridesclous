@@ -9,6 +9,7 @@ import sklearn.metrics
 
 import scipy.signal
 import scipy.stats
+from sklearn.neighbors import KernelDensity
 
 from . import labelcodes
 from .tools import median_mad
@@ -53,7 +54,7 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         n_right = cc.info['params_waveformextractor']['n_right']
         peak_sign = cc.info['params_peakdetector']['peak_sign']
         relative_threshold = cc.info['params_peakdetector']['relative_threshold']
-
+        #~ sawchaincut = SawChainCut_OLD(waveforms, n_left, n_right, peak_sign, relative_threshold)
         sawchaincut = SawChainCut(waveforms, n_left, n_right, peak_sign, relative_threshold)
         labels = sawchaincut.do_the_job()
     else:
@@ -72,9 +73,285 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
 
 
 
-
-
 class SawChainCut:
+    def __init__(self, waveforms, n_left, n_right, peak_sign, threshold):
+        self.waveforms = waveforms
+        self.n_left = n_left
+        self.n_right = n_right
+        self.width = n_right - n_left
+        self.peak_sign = peak_sign
+        
+        self.threshold = threshold
+        
+        self.binsize = 0.1
+        self.kde_bandwith  = 0.4
+        self.minima_rejection_factor = .3
+        self.nb_min = 20
+        self.threshold_margin = 1.
+        self.margin_first_max = 1.
+        
+        self.max_loop = 1000
+        self.break_nb_remain = 30
+
+
+    def do_the_job(self):
+        
+        cluster_labels = self.split_loop()
+        #~ cluster_labels = self.merge_loop(cluster_labels)
+        
+        return cluster_labels
+    
+    def one_cut(self, x):
+
+        #~ x = x[x>(thresh-threshold_margin)]
+        #~ kde = scipy.stats.gaussian_kde(x, bw_method=kde_bandwith)
+        #~ d = kde(bins)
+        #~ d /= np.sum(d)
+        
+        kde = KernelDensity(kernel='gaussian', bandwidth=self.kde_bandwith)
+        d = kde.fit(x[:, np.newaxis]).score_samples(self.bins[:, np.newaxis])
+        d = np.exp(d)
+
+
+
+
+        #local max
+        d0, d1, d2 = d[:-2], d[1:-1], d[2:]
+        ind_max,  = np.nonzero((d0<d1) & (d2<d1))
+        ind_max += 1
+        ind_min,  = np.nonzero((d0>d1) & (d2>d1))
+        ind_min += 1
+        
+        if ind_max.size>0:
+            if ind_min.size==0:
+                assert ind_max.size==1, 'Super louche pas de min mais plusieur max'
+                ind_min = np.array([0, self.bins.size-1], dtype='int64')
+            else:
+                ind_min = ind_min.tolist()
+                if ind_max[0]<ind_min[0]:
+                    ind_min = [0] + ind_min
+                if ind_max[-1]>ind_min[-1]:
+                    ind_min = ind_min + [ self.bins.size-1]
+                ind_min = np.array(ind_min, dtype='int64')
+        
+        
+        #Loop reject small rebounce minimam/maxima
+        #~ print('loop1')
+        ind_max_cleaned = ind_max.tolist()
+        ind_min_cleaned = ind_min.tolist()
+        while True:
+            rejected_minima = None
+            rejected_maxima = None
+            #~ print('ind_min_cleaned', ind_min_cleaned, self.bins[ind_min_cleaned])
+            #~ print('ind_max_cleaned', ind_max_cleaned, self.bins[ind_max_cleaned])
+            for i, ind in enumerate(ind_min_cleaned[1:-1]):
+                prev_max = ind_max_cleaned[i]
+                next_max = ind_max_cleaned[i+1]
+                
+                delta_density_prev = d[prev_max] - d[ind]
+                delta_density_next = d[next_max] - d[ind]
+                
+                if min(delta_density_prev, delta_density_next)<d[ind]*self.minima_rejection_factor:
+                    rejected_minima = ind
+                    if delta_density_prev<delta_density_next:
+                        rejected_maxima = prev_max
+                    else:
+                        rejected_maxima = next_max
+                    break
+            
+            if rejected_minima is None:
+                break
+            
+            ind_max_cleaned.remove(rejected_maxima)
+            ind_min_cleaned.remove(rejected_minima)
+        
+        #~ print('loop2')
+        #loop reject density with too few spikes
+        while True:
+            rejected_minima = None
+            rejected_maxima = None
+            
+            #~ print('ind_min_cleaned', ind_min_cleaned, self.bins[ind_min_cleaned])
+            #~ print('ind_max_cleaned', ind_max_cleaned, self.bins[ind_max_cleaned])
+            
+            for i, ind in enumerate(ind_min_cleaned[:-1]):
+                next_min = ind_min_cleaned[i+1]
+                n = np.sum(d[ind:next_min]*self.binsize) * x.size
+                #~ print('n', n, self.bins[ind], self.bins[next_min], np.sum(d))
+                if n<self.nb_min:
+                    rejected_maxima = ind_max_cleaned[i]
+                    if d[ind]<d[next_min]:
+                        rejected_minima = next_min
+                    else:
+                        rejected_minima = ind
+                    break
+            
+            if rejected_minima is None:
+                break
+            
+            ind_max_cleaned.remove(rejected_maxima)
+            ind_min_cleaned.remove(rejected_minima)
+            
+
+        #~ print('loop3')
+        #TODO eliminate first avec meme critere loop 1
+        if len(ind_min_cleaned)>=2:
+            den_min0 = d[ind_min_cleaned[0]]
+            den_max0 = d[ind_max_cleaned[0]]
+            if (den_max0-den_min0)<den_min0*self.minima_rejection_factor:
+                ind_min_cleaned = ind_min_cleaned[1:]
+                ind_max_cleaned = ind_max_cleaned[1:]
+        
+        #~ print('loop4')
+        if len(ind_min_cleaned)>=2:
+            if self.bins[ind_max_cleaned[0]]<self.threshold+self.margin_first_max:
+                ind_min_cleaned = ind_min_cleaned[1:]
+                ind_max_cleaned = ind_max_cleaned[1:]
+        
+        
+        if len(ind_min_cleaned)>=2:
+            #TODO here criterium for best
+            return self.bins[ind_min_cleaned[-2]], self.bins[ind_min_cleaned[-1]], d
+        else:
+            return None, None, d
+        
+    
+    def split_loop(self):
+        ind_peak = -self.n_left
+        all_peak_max = self.waveforms[:, ind_peak, : ].copy()
+        if self.peak_sign == '-' :
+            all_peak_max = -all_peak_max
+        
+        nb_channel = self.waveforms.shape[2]
+        self.bins = np.arange(self.threshold, np.max(all_peak_max),  self.binsize)
+        
+        cluster_labels = np.zeros(self.waveforms.shape[0], dtype='int64')
+        k = 0
+        chan_visited = []
+        for iloop in range(self.max_loop):
+                    
+            nb_remain = np.sum(cluster_labels>=k)
+            sel = cluster_labels == k
+            nb_working = np.sum(sel)
+            print()
+            print('iloop', iloop, 'k', k, 'nb_remain', nb_remain, 'nb_working', nb_working, {True:'full', False:'partial'}[nb_remain==nb_working])
+            
+            
+            if iloop!=0 and nb_remain<self.break_nb_remain:
+                cluster_labels[sel] = -1
+                print('BREAK nb_remain', nb_remain, '<', self.break_nb_remain)
+                break
+            
+            #~ print(all_peak_max.shape)
+            peak_max = all_peak_max[sel, :]
+            
+            
+            if nb_working<self.nb_min:
+                print('TRASH: too few')
+                cluster_labels[sel] = -1
+                k += 1
+                chan_visited = []
+                continue
+            
+            percentiles = np.zeros(nb_channel)
+            for c in range(nb_channel):
+                x = peak_max[:, c]
+                x = x[x>self.threshold]
+                
+                if x.size>self.nb_min:
+                    per = np.nanpercentile(x, 90)
+                else:
+                    per = 0
+                percentiles[c] = per
+            order_visit = np.argsort(percentiles)[::-1]
+            order_visit = order_visit[percentiles[order_visit]>0]
+            
+            #~ print(order_visit)
+            #~ print(percentiles[order_visit])
+            
+            
+            order_visit = order_visit[~np.in1d(order_visit, chan_visited)]
+            
+            if len(order_visit)==0:
+                print('len(order_visit)==0')
+                if np.sum(cluster_labels>k)>0:
+                    k+=1
+                    chan_visited = []
+                    continue
+                else:
+                    cluster_labels[sel] = -1
+                    print('BREAK no  more channel')
+                    break
+            
+            actual_chan = order_visit[0]
+            x = peak_max[:, actual_chan]
+            x = x[x>(self.threshold-self.threshold_margin)]
+            lim0, lim1, density_ = self.one_cut(x)
+            #~ print('lim0, lim1', lim0, lim1)
+            
+            #~ if True:
+            if False:
+                if not os.path.exists('debug_sawchaincut'):
+                    os.mkdir('debug_sawchaincut')
+                
+                if hasattr(self, 'n_cut'):
+                    self.n_cut += 1
+                else:
+                    self.n_cut = 0
+                    #~ fig, ax = plt.subplots()
+                    #~ ax.plot(np.arange(self.smooth_kernel.size)*self.binsize, self.smooth_kernel)
+                    #~ fig.savefig('debug_sawchaincut/smooth_kernel.png')
+                
+                count, _ = np.histogram(x, bins=self.bins)
+                count = count.astype(float)/np.sum(count)
+                
+                filename = 'debug_sawchaincut/one_cut {}.png'.format(self.n_cut)
+                fig, ax = plt.subplots()
+                
+                ax.set_title('nb_remain {}, nb_working {},  chan {} , x.size {}, k {} {}'.format(nb_remain, nb_working, actual_chan, x.size, k, {True:'full', False:'partial'}[nb_remain==nb_working]))
+                ax.plot(self.bins[:-1], count, color='b')
+                ax.plot(self.bins, density_, color='k')
+                
+                ax.set_xlim(0, self.bins[-1]+.5)
+                ax.set_ylim(0,max(density_)*1.2)
+                
+                if lim0 is not None:
+                    ax.axvline(lim0, color='k')
+                    ax.axvline(lim1, color='k')
+                
+                fig.savefig(filename)
+                
+                #~ plt.show()
+            
+            #~ print(feat[labels==0].size, feat[labels==1].size)
+            
+            
+            if lim0 is None:
+                chan_visited.append(actual_chan)
+                print('EXPLORE NEW DIM lim0 is None ',  len(chan_visited))
+                continue
+            
+            
+            ind, = np.nonzero(sel)
+            #~ print(ind.shape)
+            not_in = ~((peak_max[:, actual_chan]>lim0) & (peak_max[:, actual_chan]<lim1))
+            #~ print(not_in.shape)
+            cluster_labels[cluster_labels>k] += 1#TODO reflechir la dessus!!!
+            cluster_labels[ind[not_in]] += 1
+
+            if np.sum(not_in)==0:
+                print('ACCEPT: not_in.sum()==0')
+                k+=1
+                chan_visited = []
+                continue
+        
+        return cluster_labels
+
+
+
+
+
+class SawChainCut_OLD:
     def __init__(self, waveforms, n_left, n_right, peak_sign, threshold):
         self.waveforms = waveforms
         self.n_left = n_left

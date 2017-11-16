@@ -629,7 +629,7 @@ class CatalogueConstructor:
         
         
         self.on_new_cluster()
-        
+        self.order_clusters(by='waveforms_rms')
         
         
         

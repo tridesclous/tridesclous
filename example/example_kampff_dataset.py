@@ -106,7 +106,7 @@ def extract_waveforms_pca_cluster():
     
     t1 = time.perf_counter()
     #catalogueconstructor.find_clusters(method='kmeans', n_clusters=100)#this is faster 
-    catalogueconstructor.find_clusters(method='dirtycut')#this is long
+    catalogueconstructor.find_clusters(method='sawchaincut')
     t2 = time.perf_counter()
     print('find_clusters', t2-t1)
     

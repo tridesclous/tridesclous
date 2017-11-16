@@ -19,7 +19,14 @@ from matplotlib import pyplot
 def test_sawchaincut():
     #~ dirname = 'test_catalogueconstructor'
     #~ dirname = '/home/samuel/Documents/projet/tridesclous/example/tridesclous_locust/'
-    dirname = '/home/samuel/Documents/projet/DataSpikeSorting/GT 252/tdc_20170623_patch1/'
+
+    #~ dirname = '/home/samuel/Documents/projet/DataSpikeSorting/GT 252/tdc_20170623_patch1/'
+    #~ dirname = '/home/samuel/Documents/projet/tridesclous/example/tridesclous_locust/'
+    #~ dirname = '/home/samuel/Documents/projet/tridesclous/example/tridesclous_olfactory_bulb/'
+    #~ dirname = '/home/samuel/Documents/projet/tridesclous/example/tridesclous_olfactory_bulb/'
+    #~ dirname = '/home/samuel/Documents/projet/DataSpikeSorting/kampff/tdc_2015_09_03_Cell9.0/'
+    #~ dirname = '/home/samuel/Documents/projet/DataSpikeSorting/spikesortingtest/tdc_silico_0/'
+    dirname = '/home/samuel/Documents/projet/tridesclous/example/tridesclous_purkinje/'
     
     dataio = DataIO(dirname=dirname)
     cc = catalogueconstructor = CatalogueConstructor(dataio=dataio)
