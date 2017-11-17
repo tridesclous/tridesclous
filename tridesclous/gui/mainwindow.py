@@ -17,6 +17,7 @@ from .cataloguewindow import CatalogueWindow
 from ..peeler import Peeler
 from .peelerwindow import PeelerWindow
 from .initializedatasetwindow import InitializeDatasetWindow
+from .probegeometryview import ProbeGeometryView
 
 from . import icons
 
@@ -59,6 +60,7 @@ class MainWindow(QT.QMainWindow):
         self.open_windows = []
         
         self.win_viewer = None
+        self.probe_viewer = None
     
 
     def create_actions_and_menu(self):
@@ -96,7 +98,12 @@ class MainWindow(QT.QMainWindow):
             open_viewer = QT.QAction('&Preview raw signals', self, icon=QT.QIcon(":ephyviewer.png"))
             open_viewer.triggered.connect(self.open_ephyviewer)
             self.toolbar.addAction(open_viewer)
-            self.toolbar.addSeparator()
+        
+        open_probe_viewer = QT.QAction('&Probe geometry', self, icon=QT.QIcon(":probe-geometry.svg"))
+        open_probe_viewer.triggered.connect(self.open_probe_viewer)
+        self.toolbar.addAction(open_probe_viewer)
+        
+        self.toolbar.addSeparator()
             
         
         self.toolbar.addWidget(QT.QLabel('Select chanel group:'))
@@ -398,5 +405,17 @@ class MainWindow(QT.QMainWindow):
         
         self.win_viewer.show()
 
+    def open_probe_viewer(self):
+        if self.dataio is None:
+            return
+        
+        if self.probe_viewer is not None:
+            self.probe_viewer.close()
+            self.probe_viewer = None
+        
+        self.probe_viewer = ProbeGeometryView(channel_groups=self.dataio.channel_groups, parent=self)
+        self.probe_viewer.setWindowFlags(QT.Qt.Window)
+        self.probe_viewer.show()
+        
 
 

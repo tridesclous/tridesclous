@@ -629,10 +629,10 @@ class CatalogueConstructor:
         
         
         self.on_new_cluster()
-        self.order_clusters(by='waveforms_rms')
         
-        
-        
+        if selection is None:
+            #maybe remove this
+            self.order_clusters(by='waveforms_rms')
         
         #~ if order_clusters:
             #~ self.order_clusters()

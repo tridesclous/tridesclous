@@ -7,6 +7,7 @@
             <file alias="main_icon.png">png/main_icon.png</file>
             <file alias="preferences-other.svg">png/preferences-other.svg</file>
             <file alias="document-open.svg">png/document-open.svg</file>
+            <file alias="probe-geometry.svg">png/probe-geometry.svg</file>
             <file alias="catalogwinodw.png">png/catalogwinodw.png</file>
             <file alias="document-new.svg">png/document-new.svg</file>
             <file alias="view-refresh.svg">png/view-refresh.svg</file>
