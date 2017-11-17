@@ -8,16 +8,19 @@ from .catalogueconstructor import CatalogueConstructor
 
     
     
-def plot_probe_geometry(dataio, chan_grp=0):
+def plot_probe_geometry(dataio, chan_grp=0,  margin=150,):
     channel_group = dataio.channel_groups[chan_grp]
     channels = channel_group['channels']
-    geometry = channel_group['geometry']
+    geometry = dataio.get_geometry(chan_grp=chan_grp)
     
     fig, ax = plt.subplots()
-    for chan in channels:
-        x, y = geometry[chan]
-        ax.plot([x], [y], marker='o', color='w')
-        ax.text(x, y, str(chan))
+    for c, chan in enumerate(channels):
+        x, y = geometry[c]
+        ax.plot([x], [y], marker='o', color='r')
+        ax.text(x, y, '{}: {}'.format(c, chan),  size=20)
+
+    ax.set_xlim(np.min(geometry[:, 0])-margin, np.max(geometry[:, 0])+margin)
+    ax.set_ylim(np.min(geometry[:, 1])-margin, np.max(geometry[:, 1])+margin)
     
     return fig
 
@@ -115,10 +118,9 @@ def plot_waveforms_with_geometry(waveforms, channels, geometry,
     
     ax.plot(vect, wf, color=color, lw=1, alpha=.3)
 
-    for i, chan in enumerate(channels):
-        x, y = geometry[i, :]
-        #~ ax.plot([x], [y], marker='o', color='w')
-        ax.text(x, y, str(chan), color='r')
+    for c, chan in enumerate(channels):
+        x, y = geometry[c, :]
+        ax.text(x, y, '{}: {}'.format(c, chan), color='r', size=20)
     
     ax.set_xlim(np.min(geometry[:, 0])-margin, np.max(geometry[:, 0])+margin)
     ax.set_ylim(np.min(geometry[:, 1])-margin, np.max(geometry[:, 1])+margin)
