@@ -122,6 +122,10 @@ class MainWindow(QT.QMainWindow):
         self.toolbar.addAction(do_open_peelerwin)
         
         self.toolbar.addSeparator()
+
+        do_refresh = QT.QAction(u'Refresh', self,checkable = False, icon=QT.QIcon(":/view-refresh.svg"))
+        do_refresh.triggered.connect(self.refresh_with_reload)
+        self.toolbar.addAction(do_refresh)
         
         help_act = QT.QAction('Help', self,checkable = False, icon=QT.QIcon(":main_icon.png"))
         help_act.triggered.connect(self.open_webbrowser_help)
@@ -189,7 +193,14 @@ class MainWindow(QT.QMainWindow):
             dataio.set_data_source(type='RawData', filenames=filenames, **params)
             
             self._open_dataio( dirname)
+    
+    
+    def refresh_with_reload(self):
+        if self.dataio is None:
+            return
         
+        self.dataio = DataIO(dirname=self.dataio.dirname)
+        self.refresh_info()
     
     def _open_dataio(self, dirname):
         recently_opened =self.recently_opened()

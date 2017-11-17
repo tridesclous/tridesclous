@@ -14,7 +14,7 @@ preprocessor_params = [
 peak_detector_params = [
     {'name': 'peakdetector_engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl']},
     {'name': 'peak_sign', 'type': 'list', 'values':['-', '+']},
-    {'name': 'relative_threshold', 'type': 'float', 'value': 6., 'step': .1,},
+    {'name': 'relative_threshold', 'type': 'float', 'value': 5., 'step': .1,},
     {'name': 'peak_span', 'type': 'float', 'value':0.0002, 'step': 0.0001, 'suffix': 's', 'siPrefix': True},
 ]
 

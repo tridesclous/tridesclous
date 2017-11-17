@@ -146,7 +146,7 @@ class PeakDetectorEngine_OpenCL:
         
         self.n_peak = 0
 
-        self.ctx = pyopencl.create_some_context()
+        self.ctx = pyopencl.create_some_context(interactive=False)
         #~ print(self.ctx)
         #TODO : add arguments gpu_platform_index/gpu_device_index
         #self.devices =  [pyopencl.get_platforms()[self.gpu_platform_index].get_devices()[self.gpu_device_index] ]

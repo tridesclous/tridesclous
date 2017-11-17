@@ -23,3 +23,5 @@ from .peelerwindow import PeelerWindow
 from .mainwindow import MainWindow
 from .initializedatasetwindow import InitializeDatasetWindow, ChannelGroupWidget
 
+
+from .probegeometryview import ProbeGeometryView
