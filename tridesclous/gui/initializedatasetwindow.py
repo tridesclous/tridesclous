@@ -9,9 +9,9 @@ import tempfile
 from ..dataio import DataIO
 from ..datasource import data_source_classes
 from .tools import get_dict_from_group_param
-from ..tools import download_probe
+from ..tools import download_probe, fix_prb_file_py2
 from ..probe_list import probe_list
-
+from .probegeometryview import ProbeGeometryView
 
 
 
@@ -286,6 +286,8 @@ class ChannelGroupWidget(QT.QWidget):
         
         self.channel_names = None
         self.channel_groups = None
+        
+        self.geometryview = None
     
     def set_channel_names(self, channel_names):
         self.n = len(channel_names)
@@ -335,12 +337,12 @@ class ChannelGroupWidget(QT.QWidget):
         fd.setViewMode(QT.QFileDialog.Detail)
         if fd.exec_():
             prb_filename = fd.selectedFiles()[0]
-            print(prb_filename)
+            
+            fix_prb_file_py2(prb_filename)
             
             d = {}
             exec(open(prb_filename).read(), None, d)
             
-            print()
             self.channel_groups = OrderedDict()
             self.channel_groups.update(d['channel_groups'])
             self.refresh_table()
@@ -370,4 +372,12 @@ class ChannelGroupWidget(QT.QWidget):
         self.refresh_table()
 
     def show_prb_geometry(self):
-        print('yep')
+        if self.geometryview is not None:
+            self.geometryview.close()
+        
+        self.geometryview = ProbeGeometryView(channel_groups=self.channel_groups, parent=self)
+        #~ self.geometryview.setModal(True)
+        self.geometryview.setWindowFlags(QT.Qt.Window)
+        
+        self.geometryview.show()
+        

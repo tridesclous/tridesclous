@@ -89,20 +89,21 @@ def tridesclous_onlinepeeler():
     dataio = DataIO(dirname='tridesclous_onlinepeeler')
     catalogue = dataio.load_catalogue(chan_grp=0)
     
-    def print_dict(d):
-        for k, v in d.items():
-            if type(v) is dict:
-                print('k', k, 'dict')
-                print_dict(v)
-            else:
-                print('k', k, type(v))
+    catalogue.pop('clusters')
+    #~ def print_dict(d):
+        #~ for k, v in d.items():
+            #~ if type(v) is dict:
+                #~ print('k', k, 'dict')
+                #~ print_dict(v)
+            #~ else:
+                #~ print('k', k, type(v))
         
-    print_dict(catalogue)
+    #~ print_dict(catalogue)
     
-    from pyacq.core.rpc.serializer import MsgpackSerializer
-    serializer = MsgpackSerializer()
-    serializer.dumps(catalogue)
-    exit()
+    #~ from pyacq.core.rpc.serializer import MsgpackSerializer
+    #~ serializer = MsgpackSerializer()
+    #~ serializer.dumps(catalogue)
+    #~ exit()
     
     sigs = dataio.datasource.array_sources[0]
     

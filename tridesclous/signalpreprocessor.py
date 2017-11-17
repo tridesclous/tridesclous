@@ -154,7 +154,7 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base):
     def __init__(self,sample_rate, nb_channel, chunksize, input_dtype):
         SignalPreprocessor_base.__init__(self,sample_rate, nb_channel, chunksize, input_dtype)
         
-        self.ctx = pyopencl.create_some_context()
+        self.ctx = pyopencl.create_some_context(interactive=False)
         #~ print(self.ctx)
         #TODO : add arguments gpu_platform_index/gpu_device_index
         #self.devices =  [pyopencl.get_platforms()[self.gpu_platform_index].get_devices()[self.gpu_device_index] ]

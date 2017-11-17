@@ -160,7 +160,7 @@ class BaseTraceViewer(WidgetBase):
         self.threshold_lines =[]
         for i, chan_name in enumerate(self.controller.channel_names):
             #TODO label channels
-            label = pg.TextItem(chan_name, color='#FFFFFF', anchor=(0, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
+            label = pg.TextItem('{}: {}'.format(i, chan_name), color='#FFFFFF', anchor=(0, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
             self.plot.addItem(label)
             self.channel_labels.append(label)
         

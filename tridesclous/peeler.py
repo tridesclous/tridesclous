@@ -17,9 +17,9 @@ import seaborn as sns
 
 try:
     from tqdm import tqdm
-    #~ HAVE_TQDM = True
+    HAVE_TQDM = True
     #TODO: put this when finish
-    HAVE_TQDM = False
+    #~ HAVE_TQDM = False
 except ImportError:
     HAVE_TQDM = False
 
@@ -56,13 +56,12 @@ class Peeler:
         
         return t
 
-    def change_params(self, catalogue=None, n_peel_level=2,chunksize=1024, 
+    def change_params(self, catalogue=None, chunksize=1024, 
                                         internal_dtype='float32', 
                                         #~ signalpreprocessor_engine='numpy',
                                         ):
         assert catalogue is not None
         self.catalogue = catalogue
-        self.n_peel_level = n_peel_level
         self.chunksize = chunksize
         self.internal_dtype= internal_dtype
         
@@ -98,26 +97,53 @@ class Peeler:
         shift = abs_head_index - self.fifo_residuals.shape[0]
         
         all_spikes = []
-        for level in range(self.n_peel_level):
+        while True:
             #detect peaks
-            local_index = detect_peaks_in_chunk(self.fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign)
-            #~ print('abs_head_index', abs_head_index, 'shift', shift)
-            #~ print('local_index', local_index,  self.fifo_residuals.shape)
-            #~ exit()
-            spikes  = classify_and_align(local_index, self.fifo_residuals, self.catalogue)
+            local_peaks = detect_peaks_in_chunk(self.fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign)
             
-            good_spikes = spikes.compress(spikes['label']>=0)
-            prediction = make_prediction_signals(good_spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue)
-            self.fifo_residuals -= prediction
+            n_ok = 0
+            for i in range(local_peaks.size):
+                spikes  = classify_and_align(local_peaks[i:i+1], self.fifo_residuals, self.catalogue)
+                if spikes['label'][0]>=0:
+                    prediction = make_prediction_signals(spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue, safe=False)
+                    self.fifo_residuals -= prediction
+                    spikes['index'] += shift
+                    all_spikes.append(spikes)
+                    n_ok += 1
+            
+            if n_ok==0:
+                bad_spikes = np.zeros(local_peaks.shape[0], dtype=_dtype_spike)
+                bad_spikes['index'] = local_peaks + shift
+                bad_spikes['label'] = LABEL_UNCLASSIFIED
+                break
+            
+            #~ good_spikes = spikes.compress(spikes['label']>=0)
+            #~ if good_spikes.size==0:
+                #can loop for ever here 
+                #~ break
+            
+            #~ overlap_index = np.diff(local_peaks)<self.catalogue['peak_width']
+            #~ if np.any(overlap_index):
+                #~ overlap_index = np.nonzero(overlap_index)[0] + 1
+                #~ local_peaks[overlap_index] = -1
+                #~ local_peaks = local_peaks[local_peaks!=-1]
+            #~ spikes  = classify_and_align(local_peaks, self.fifo_residuals, self.catalogue)
+            #~ good_spikes = spikes.compress(spikes['label']>=0)
+            #~ if good_spikes.size==0:
+                #~ #can loop for ever here 
+                #~ break
+            
+            #~ prediction = make_prediction_signals(good_spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue, safe=False)
+            #~ self.fifo_residuals -= prediction
             
             # for output
-            good_spikes['index'] += shift
-            all_spikes.append(good_spikes)
+            #~ good_spikes['index'] += shift
+            #~ all_spikes.append(good_spikes)
         
         # append bad spike
         #~ bad_spikes = spikes[spikes['label']==LABEL_UNCLASSIFIED]
-        bad_spikes = spikes.compress(spikes['label']==LABEL_UNCLASSIFIED)
-        bad_spikes['index'] += shift
+        #~ bad_spikes = spikes.compress(spikes['label']==LABEL_UNCLASSIFIED)
+        #~ bad_spikes['index'] += shift
         all_spikes.append(bad_spikes)
         
         
@@ -233,17 +259,17 @@ def classify_and_align(local_indexes, residual, catalogue, maximum_jitter_shift=
     n_left = catalogue['n_left']
     spikes = np.zeros(local_indexes.shape[0], dtype=_dtype_spike)
     spikes['index'] = local_indexes
-
+    
+    #ind is the windows border!!!!!
     for i, ind in enumerate(local_indexes+n_left):
         #~ print('classify_and_align', i, ind)
         #~ waveform = waveforms[i,:,:]
-        if ind+width>=residual.shape[0]:
+        if ind+width+maximum_jitter_shift+1>=residual.shape[0]:
             # too near right limits no label
             #~ print('     LABEL_RIGHT_LIMIT', ind, width, ind+width, residual.shape[0])
             spikes['label'][i] = LABEL_RIGHT_LIMIT
             continue
-        elif ind<0:
-            #TODO fix this
+        elif ind<=maximum_jitter_shift:
             # too near left limits no label
             #~ print('     LABEL_LEFT_LIMIT', ind)
             spikes['label'][i] = LABEL_LEFT_LIMIT
@@ -290,13 +316,18 @@ def classify_and_align(local_indexes, residual, catalogue, maximum_jitter_shift=
                     label, jitter = new_label, new_jitter
                     spikes['index'][i] += shift
                 else:
-                    #~ print('no keep shift worst jitter')
+                    print('no keep shift worst jitter')
                     pass
         
         spikes['jitter'][i] = jitter
         spikes['label'][i] = label
     
-    #~ print(spikes)
+    
+    #security if with jitter the index is out
+    local_pos = spikes['index'] - np.round(spikes['jitter']).astype('int64') + n_left
+    spikes['label'][(local_pos<0)] = LABEL_LEFT_LIMIT
+    spikes['label'][(local_pos+width)>=residual.shape[0]] = LABEL_RIGHT_LIMIT
+    
     return spikes
 
 
@@ -381,7 +412,7 @@ def estimate_one_jitter(waveform, catalogue):
         return LABEL_UNCLASSIFIED, 0.
 
 
-def make_prediction_signals(spikes, dtype, shape, catalogue):
+def make_prediction_signals(spikes, dtype, shape, catalogue, safe=True):
     #~ n_left, peak_width, 
     
     prediction = np.zeros(shape, dtype=dtype)
@@ -411,6 +442,9 @@ def make_prediction_signals(spikes, dtype, shape, catalogue):
         shift = -int(np.round(jitter))
         pos = pos + shift
         
+        #~ if np.abs(jitter)>=0.5:
+            #~ print('strange jitter', jitter)
+        
         #TODO debug that sign
         #~ if shift >=1:
             #~ print('jitter', jitter, 'jitter+shift', jitter+shift, 'shift', shift)
@@ -430,8 +464,26 @@ def make_prediction_signals(spikes, dtype, shape, catalogue):
         
         
         #~ print(prediction[pos:pos+catalogue['peak_width'], :].shape)
-        if pos>0 and  pos+catalogue['peak_width']<shape[0]:
+        
+        
+        if pos>=0 and  pos+catalogue['peak_width']<shape[0]:
             prediction[pos:pos+catalogue['peak_width'], :] += pred
+        else:
+            if not safe:
+                print(spikes)
+                n_left = catalogue['n_left']
+                width = catalogue['peak_width']
+                local_pos = spikes['index'] - np.round(spikes['jitter']).astype('int64') + n_left
+                print(local_pos)
+                #~ spikes['LABEL_LEFT_LIMIT'][(local_pos<0)] = LABEL_LEFT_LIMIT
+                print('LEFT', (local_pos<0))
+                #~ spikes['label'][(local_pos+width)>=shape[0]] = LABEL_RIGHT_LIMIT
+                print('LABEL_RIGHT_LIMIT', (local_pos+width)>=shape[0])
+                
+                print('i', i)
+                print(dtype, shape, catalogue['n_left'], catalogue['peak_width'], pred.shape)
+                raise(ValueError('Border error {} {} {} {} {}'.format(pos, catalogue['peak_width'], shape, jitter, spikes[i])))
+                
         
     return prediction
 

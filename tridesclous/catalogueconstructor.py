@@ -287,15 +287,12 @@ class CatalogueConstructor:
         for pos, sigs_chunk in iterator:
             #~ print(seg_num, pos, sigs_chunk.shape)
             self.signalprocessor_one_chunk(pos, sigs_chunk, seg_num, detect_peak=detect_peak)
+            
+            #maybe flush at each loop to avoid memory up but make it slower
+            #~ self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=self.chan_grp)
     
     
     def finalize_signalprocessor_loop(self):
-        self.dataio.flush_processed_signals(seg_num=0, chan_grp=self.chan_grp)
-        
-        #~ self.arrays.finalize_array('peak_pos')
-        #~ self.arrays.finalize_array('peak_label')
-        #~ self.arrays.finalize_array('peak_segment')
-        
         self.arrays.finalize_array('all_peaks')
         self._reset_waveform_and_features()
         self.on_new_cluster()
@@ -303,6 +300,8 @@ class CatalogueConstructor:
     def run_signalprocessor(self, duration=60., detect_peak=True):
         for seg_num in range(self.dataio.nb_segment):
             self.run_signalprocessor_loop_one_segment(seg_num=seg_num, duration=duration, detect_peak=detect_peak)
+            self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=self.chan_grp)
+            
         self.finalize_signalprocessor_loop()
     
     def re_detect_peak(self, peakdetector_engine='numpy', peak_sign='-', relative_threshold=7, peak_span=0.0002):
@@ -550,7 +549,7 @@ class CatalogueConstructor:
         n_by_seg = nb_snippet//self.dataio.nb_segment
         for seg_num in range(self.dataio.nb_segment):
             #~ length = self.dataio.get_segment_length(seg_num) #This is wrong
-            length = self.info['processed_length']
+            length = min(self.info['processed_length'], self.dataio.get_segment_length(seg_num))
             
             possibles = np.ones(length, dtype='bool')
             possibles[:peak_width] = False
@@ -580,6 +579,7 @@ class CatalogueConstructor:
             i_start = ind['index']+n_left
             i_stop = i_start+peak_width
             snippet = self.dataio.get_signals_chunk(seg_num=ind['segment'], chan_grp=self.chan_grp, i_start=i_start, i_stop=i_stop, signal_type='processed')
+            print(i_start, i_stop, self.some_noise_snippet.shape, self.dataio.get_segment_length(ind['segment']))
             self.some_noise_snippet[n, :, :] = snippet
                 #~ n +=1
 
@@ -627,9 +627,9 @@ class CatalogueConstructor:
         
         self.on_new_cluster()
         
-        
-        
-        
+        if selection is None:
+            #maybe remove this
+            self.order_clusters(by='waveforms_rms')
         
         #~ if order_clusters:
             #~ self.order_clusters()

@@ -75,7 +75,7 @@ This window contain docks than can be arranged as you want. Some of them are org
 with drag and drop. You can event close or move some view on another screen.
 Righ click on the left toolbar to make them appear again.
 
-.. image:: img/snapshot_cataloguewindow.png
+.. image:: img/snapshot_cataloguewindow_striatum.png
 
 On the right toolbar you can manually re-run some sub steps of the previous chain: detect peak, extract waveforms,
 extract noise snippets, extract features, cluster.
@@ -140,7 +140,7 @@ Step 5 - PeelerWindow
 -------------------------
 Click on "open PeelerWindow"
 
-.. image:: img/snapshot_peelerwindow.png
+.. image:: img/snapshot_peelerwindow_striatum.png
 
 This windows is to check whether peeler has corectly done its job, in other words if the catalogue were OK.
 
