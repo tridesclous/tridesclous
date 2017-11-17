@@ -98,26 +98,54 @@ class Peeler:
         shift = abs_head_index - self.fifo_residuals.shape[0]
         
         all_spikes = []
-        for level in range(self.n_peel_level):
+        #~ for level in range(self.n_peel_level):
+        while True:
             #detect peaks
-            local_index = detect_peaks_in_chunk(self.fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign)
-            #~ print('abs_head_index', abs_head_index, 'shift', shift)
-            #~ print('local_index', local_index,  self.fifo_residuals.shape)
-            #~ exit()
-            spikes  = classify_and_align(local_index, self.fifo_residuals, self.catalogue)
+            local_peaks = detect_peaks_in_chunk(self.fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign)
             
-            good_spikes = spikes.compress(spikes['label']>=0)
-            prediction = make_prediction_signals(good_spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue, safe=False)
-            self.fifo_residuals -= prediction
+            n_ok = 0
+            for i in range(local_peaks.size):
+                spikes  = classify_and_align(local_peaks[i:i+1], self.fifo_residuals, self.catalogue)
+                if spikes['label'][0]>=0:
+                    prediction = make_prediction_signals(spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue, safe=False)
+                    self.fifo_residuals -= prediction
+                    spikes['index'] += shift
+                    all_spikes.append(spikes)
+                    n_ok += 1
+            
+            if n_ok==0:
+                bad_spikes = np.zeros(local_peaks.shape[0], dtype=_dtype_spike)
+                bad_spikes['index'] = local_peaks + shift
+                bad_spikes['label'] = LABEL_UNCLASSIFIED
+                break
+            
+            #~ good_spikes = spikes.compress(spikes['label']>=0)
+            #~ if good_spikes.size==0:
+                #can loop for ever here 
+                #~ break
+            
+            #~ overlap_index = np.diff(local_peaks)<self.catalogue['peak_width']
+            #~ if np.any(overlap_index):
+                #~ overlap_index = np.nonzero(overlap_index)[0] + 1
+                #~ local_peaks[overlap_index] = -1
+                #~ local_peaks = local_peaks[local_peaks!=-1]
+            #~ spikes  = classify_and_align(local_peaks, self.fifo_residuals, self.catalogue)
+            #~ good_spikes = spikes.compress(spikes['label']>=0)
+            #~ if good_spikes.size==0:
+                #~ #can loop for ever here 
+                #~ break
+            
+            #~ prediction = make_prediction_signals(good_spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue, safe=False)
+            #~ self.fifo_residuals -= prediction
             
             # for output
-            good_spikes['index'] += shift
-            all_spikes.append(good_spikes)
+            #~ good_spikes['index'] += shift
+            #~ all_spikes.append(good_spikes)
         
         # append bad spike
         #~ bad_spikes = spikes[spikes['label']==LABEL_UNCLASSIFIED]
-        bad_spikes = spikes.compress(spikes['label']==LABEL_UNCLASSIFIED)
-        bad_spikes['index'] += shift
+        #~ bad_spikes = spikes.compress(spikes['label']==LABEL_UNCLASSIFIED)
+        #~ bad_spikes['index'] += shift
         all_spikes.append(bad_spikes)
         
         
