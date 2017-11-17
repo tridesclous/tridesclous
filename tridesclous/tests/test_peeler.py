@@ -99,7 +99,7 @@ def test_peeler():
 
     peeler = Peeler(dataio)
     
-    peeler.change_params(catalogue=initial_catalogue, n_peel_level=2, chunksize=1024)
+    peeler.change_params(catalogue=initial_catalogue,chunksize=1024)
     
     t1 = time.perf_counter()
     peeler.run()
@@ -139,7 +139,7 @@ def test_compare_peeler():
         
         peeler = peeler_class(dataio)
         
-        peeler.change_params(catalogue=initial_catalogue, n_peel_level=2, chunksize=1024)
+        peeler.change_params(catalogue=initial_catalogue,  chunksize=1024)
         
         t1 = time.perf_counter()
         peeler.run()

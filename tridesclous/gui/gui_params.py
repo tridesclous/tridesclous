@@ -81,5 +81,4 @@ metrics_params = [
 peeler_params = [
     {'name':'limit_duration', 'type': 'bool', 'value':True},
     {'name':'duration', 'type': 'float', 'value':60., 'suffix': 's', 'siPrefix': True},
-    {'name': 'n_peel_level', 'type': 'int', 'value':2},
 ]

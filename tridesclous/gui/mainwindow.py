@@ -39,7 +39,7 @@ class MainWindow(QT.QMainWindow):
         self.dataio = None
         self.catalogueconstructor = None
         
-        self.resize(800, 700)
+        self.resize(800, 800)
 
         appname = 'tridesclous'
         settings_name = 'settings'
@@ -111,20 +111,20 @@ class MainWindow(QT.QMainWindow):
         self.toolbar.addWidget(self.combo_chan_grp)
         self.combo_chan_grp.currentIndexChanged .connect(self.on_chan_grp_change)
 
-        do_init_cataloguewin = QT.QAction('1- Initialize Catalogue', self, icon=QT.QIcon(":autocorrection.svg"))
+        do_init_cataloguewin = QT.QAction('Initialize Catalogue', self, icon=QT.QIcon(":autocorrection.svg"))
         do_init_cataloguewin.triggered.connect(self.initialize_catalogue)
         self.toolbar.addAction(do_init_cataloguewin)
         
-        do_open_cataloguewin = QT.QAction('2- open CatalogueWindow', self,  icon=QT.QIcon(":catalogwinodw.png"))
+        do_open_cataloguewin = QT.QAction('Open CatalogueWindow', self,  icon=QT.QIcon(":catalogwinodw.png"))
         do_open_cataloguewin.triggered.connect(self.open_cataloguewin)
         self.toolbar.addAction(do_open_cataloguewin)
 
 
-        do_run_peeler = QT.QAction('4- run Peeler', self,  icon=QT.QIcon(":configure-shortcuts.svg"))
+        do_run_peeler = QT.QAction('Run Peeler', self,  icon=QT.QIcon(":configure-shortcuts.svg"))
         do_run_peeler.triggered.connect(self.run_peeler)
         self.toolbar.addAction(do_run_peeler)
         
-        do_open_peelerwin = QT.QAction('5- open PeelerWindow', self,  icon=QT.QIcon(":peelerwindow.png"))
+        do_open_peelerwin = QT.QAction('Open PeelerWindow', self,  icon=QT.QIcon(":peelerwindow.png"))
         do_open_peelerwin.triggered.connect(self.open_peelerwin)
         self.toolbar.addAction(do_open_peelerwin)
         
@@ -354,10 +354,11 @@ class MainWindow(QT.QMainWindow):
             d = dia.get()
             print(d)
             
-            try:
+            #~ try:
+            if True:
                 initial_catalogue = self.dataio.load_catalogue(chan_grp=self.chan_grp)
                 peeler = Peeler(self.dataio)
-                peeler.change_params(catalogue=initial_catalogue, n_peel_level=d['n_peel_level'])
+                peeler.change_params(catalogue=initial_catalogue)
                 
                 duration = d['duration'] if d['limit_duration'] else None
                 
@@ -366,8 +367,8 @@ class MainWindow(QT.QMainWindow):
                 t2 = time.perf_counter()
                 print('peeler.run_loop', t2-t1)
                 
-            except Exception as e:
-                print(e)
+            #~ except Exception as e:
+                #~ print(e)
     
     def open_peelerwin(self):
         if self.dataio is None: return

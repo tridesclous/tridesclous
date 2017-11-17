@@ -134,7 +134,7 @@ def run_peeler():
     initial_catalogue = dataio.load_catalogue(chan_grp=0)
 
     peeler = Peeler(dataio)
-    peeler.change_params(catalogue=initial_catalogue, n_peel_level=2)
+    peeler.change_params(catalogue=initial_catalogue)
     
     t1 = time.perf_counter()
     peeler.run()

@@ -56,13 +56,12 @@ class Peeler:
         
         return t
 
-    def change_params(self, catalogue=None, n_peel_level=2,chunksize=1024, 
+    def change_params(self, catalogue=None, chunksize=1024, 
                                         internal_dtype='float32', 
                                         #~ signalpreprocessor_engine='numpy',
                                         ):
         assert catalogue is not None
         self.catalogue = catalogue
-        self.n_peel_level = n_peel_level
         self.chunksize = chunksize
         self.internal_dtype= internal_dtype
         
@@ -98,7 +97,6 @@ class Peeler:
         shift = abs_head_index - self.fifo_residuals.shape[0]
         
         all_spikes = []
-        #~ for level in range(self.n_peel_level):
         while True:
             #detect peaks
             local_peaks = detect_peaks_in_chunk(self.fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign)
