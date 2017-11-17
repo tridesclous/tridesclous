@@ -17,9 +17,9 @@ import seaborn as sns
 
 try:
     from tqdm import tqdm
-    #~ HAVE_TQDM = True
+    HAVE_TQDM = True
     #TODO: put this when finish
-    HAVE_TQDM = False
+    #~ HAVE_TQDM = False
 except ImportError:
     HAVE_TQDM = False
 
@@ -107,7 +107,7 @@ class Peeler:
             spikes  = classify_and_align(local_index, self.fifo_residuals, self.catalogue)
             
             good_spikes = spikes.compress(spikes['label']>=0)
-            prediction = make_prediction_signals(good_spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue)
+            prediction = make_prediction_signals(good_spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue, safe=False)
             self.fifo_residuals -= prediction
             
             # for output
@@ -233,17 +233,17 @@ def classify_and_align(local_indexes, residual, catalogue, maximum_jitter_shift=
     n_left = catalogue['n_left']
     spikes = np.zeros(local_indexes.shape[0], dtype=_dtype_spike)
     spikes['index'] = local_indexes
-
+    
+    #ind is the windows border!!!!!
     for i, ind in enumerate(local_indexes+n_left):
         #~ print('classify_and_align', i, ind)
         #~ waveform = waveforms[i,:,:]
-        if ind+width>=residual.shape[0]:
+        if ind+width+maximum_jitter_shift+1>=residual.shape[0]:
             # too near right limits no label
             #~ print('     LABEL_RIGHT_LIMIT', ind, width, ind+width, residual.shape[0])
             spikes['label'][i] = LABEL_RIGHT_LIMIT
             continue
-        elif ind<0:
-            #TODO fix this
+        elif ind<=maximum_jitter_shift:
             # too near left limits no label
             #~ print('     LABEL_LEFT_LIMIT', ind)
             spikes['label'][i] = LABEL_LEFT_LIMIT
@@ -290,13 +290,18 @@ def classify_and_align(local_indexes, residual, catalogue, maximum_jitter_shift=
                     label, jitter = new_label, new_jitter
                     spikes['index'][i] += shift
                 else:
-                    #~ print('no keep shift worst jitter')
+                    print('no keep shift worst jitter')
                     pass
         
         spikes['jitter'][i] = jitter
         spikes['label'][i] = label
     
-    #~ print(spikes)
+    
+    #security if with jitter the index is out
+    local_pos = spikes['index'] - np.round(spikes['jitter']).astype('int64') + n_left
+    spikes['label'][(local_pos<0)] = LABEL_LEFT_LIMIT
+    spikes['label'][(local_pos+width)>=residual.shape[0]] = LABEL_RIGHT_LIMIT
+    
     return spikes
 
 
@@ -381,7 +386,7 @@ def estimate_one_jitter(waveform, catalogue):
         return LABEL_UNCLASSIFIED, 0.
 
 
-def make_prediction_signals(spikes, dtype, shape, catalogue):
+def make_prediction_signals(spikes, dtype, shape, catalogue, safe=True):
     #~ n_left, peak_width, 
     
     prediction = np.zeros(shape, dtype=dtype)
@@ -411,6 +416,9 @@ def make_prediction_signals(spikes, dtype, shape, catalogue):
         shift = -int(np.round(jitter))
         pos = pos + shift
         
+        #~ if np.abs(jitter)>=0.5:
+            #~ print('strange jitter', jitter)
+        
         #TODO debug that sign
         #~ if shift >=1:
             #~ print('jitter', jitter, 'jitter+shift', jitter+shift, 'shift', shift)
@@ -430,8 +438,26 @@ def make_prediction_signals(spikes, dtype, shape, catalogue):
         
         
         #~ print(prediction[pos:pos+catalogue['peak_width'], :].shape)
-        if pos>0 and  pos+catalogue['peak_width']<shape[0]:
+        
+        
+        if pos>=0 and  pos+catalogue['peak_width']<shape[0]:
             prediction[pos:pos+catalogue['peak_width'], :] += pred
+        else:
+            if not safe:
+                print(spikes)
+                n_left = catalogue['n_left']
+                width = catalogue['peak_width']
+                local_pos = spikes['index'] - np.round(spikes['jitter']).astype('int64') + n_left
+                print(local_pos)
+                #~ spikes['LABEL_LEFT_LIMIT'][(local_pos<0)] = LABEL_LEFT_LIMIT
+                print('LEFT', (local_pos<0))
+                #~ spikes['label'][(local_pos+width)>=shape[0]] = LABEL_RIGHT_LIMIT
+                print('LABEL_RIGHT_LIMIT', (local_pos+width)>=shape[0])
+                
+                print('i', i)
+                print(dtype, shape, catalogue['n_left'], catalogue['peak_width'], pred.shape)
+                raise(ValueError('Border error {} {} {} {} {}'.format(pos, catalogue['peak_width'], shape, jitter, spikes[i])))
+                
         
     return prediction
 

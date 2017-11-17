@@ -153,7 +153,7 @@ def test_CatalogueWindow():
 if __name__ == '__main__':
     #~ test_CatalogueController()
     
-    #~ test_CatalogueTraceViewer()
+    test_CatalogueTraceViewer()
     #~ test_PeakList()
     #~ test_ClusterPeakList()
     #~ test_NDScatter()
@@ -166,7 +166,7 @@ if __name__ == '__main__':
     #~ test_WaveformHistViewer()
     #~ test_FeatureTimeViewer()
     
-    test_CatalogueWindow()
+    #~ test_CatalogueWindow()
 
 
 

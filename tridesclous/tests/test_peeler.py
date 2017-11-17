@@ -67,7 +67,7 @@ def setup_catalogue():
 
     # PCA
     t1 = time.perf_counter()
-    catalogueconstructor.project(method='pca', n_components=12, batch_size=16384)
+    catalogueconstructor.project(method='global_pca', n_components=12, batch_size=16384)
     t2 = time.perf_counter()
     print('project', t2-t1)
     
@@ -158,11 +158,11 @@ def test_compare_peeler():
     
     
 if __name__ =='__main__':
-    #~ setup_catalogue()
+    setup_catalogue()
     
-    #~ open_catalogue_window()
+    open_catalogue_window()
     
-    #~ test_peeler()
+    test_peeler()
     
     #~ open_PeelerWindow()
     
