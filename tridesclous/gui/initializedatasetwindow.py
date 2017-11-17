@@ -9,7 +9,7 @@ import tempfile
 from ..dataio import DataIO
 from ..datasource import data_source_classes
 from .tools import get_dict_from_group_param
-from ..tools import download_probe
+from ..tools import download_probe, fix_prb_file_py2
 from ..probe_list import probe_list
 
 
@@ -335,12 +335,12 @@ class ChannelGroupWidget(QT.QWidget):
         fd.setViewMode(QT.QFileDialog.Detail)
         if fd.exec_():
             prb_filename = fd.selectedFiles()[0]
-            print(prb_filename)
+            
+            fix_prb_file_py2(prb_filename)
             
             d = {}
             exec(open(prb_filename).read(), None, d)
             
-            print()
             self.channel_groups = OrderedDict()
             self.channel_groups.update(d['channel_groups'])
             self.refresh_table()
