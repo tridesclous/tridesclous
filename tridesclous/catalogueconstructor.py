@@ -579,7 +579,7 @@ class CatalogueConstructor:
             i_start = ind['index']+n_left
             i_stop = i_start+peak_width
             snippet = self.dataio.get_signals_chunk(seg_num=ind['segment'], chan_grp=self.chan_grp, i_start=i_start, i_stop=i_stop, signal_type='processed')
-            print(i_start, i_stop, self.some_noise_snippet.shape, self.dataio.get_segment_length(ind['segment']))
+            #~ print(i_start, i_stop, self.some_noise_snippet.shape, self.dataio.get_segment_length(ind['segment']))
             self.some_noise_snippet[n, :, :] = snippet
                 #~ n +=1
 
