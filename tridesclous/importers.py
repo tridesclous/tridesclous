@@ -43,7 +43,7 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
         data_filename = 'patch1.raw'
         with open(data_filename, 'rb') as f:
             header = f.read(5000).decode('Windows-1252')
-        data_offset = re.search("EOH", header).start() + 3
+        data_offset = re.search("EOH\r\n", header).start() + 5
     else:
         data_offset = config.getint('data', 'data_offset')
     sample_rate = config.getfloat('data', 'sampling_rate')
