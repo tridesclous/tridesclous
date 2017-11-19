@@ -14,6 +14,8 @@ try:
 except:
     HAVE_H5PY = False
 
+_supported_formats = ('raw_binary', 'mcs_raw_binary')
+
 def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname):
     
     
@@ -31,17 +33,22 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
     config.read(params_filename)
     
     #Set DataIO and source
-    assert config['data']['file_format'] == 'RAWBINARY', 'only  RAWBINARY supported'
-    dataio = DataIO(dirname=tdc_dirname)
-    
+    file_fmormat = config['data']['file_format']
+    assert file_fmormat  in _supported_formats, 'only  {} are supported'.format(_supported_formats)
+
     dtype = config['data']['data_dtype']
     nb_channels = config.getint('data', 'nb_channels')
-    data_offset = config.get('data', 'data_offset')
-    if data_offset == 'MCS':
-        data_offset = 1867
+    if file_fmormat == 'mcs_raw_binary':
+        import re
+        data_filename = 'patch1.raw'
+        with open(data_filename, 'rb') as f:
+            header = f.read(5000).decode('Windows-1252')
+        data_offset = re.search("EOH\r\n", header).start() + 5
     else:
-        data_offset = int(data_offset)
+        data_offset = config.getint('data', 'data_offset')
     sample_rate = config.getfloat('data', 'sampling_rate')
+    
+    dataio = DataIO(dirname=tdc_dirname)
     filenames = [data_filename]
     dataio.set_data_source(type='RawData', filenames=filenames, dtype=dtype,
                                      total_channel=nb_channels, sample_rate=sample_rate, offset=data_offset)
