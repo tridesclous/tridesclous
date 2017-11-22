@@ -24,6 +24,9 @@ class MyViewBox(pg.ViewBox):
             z = 1.3 if ev.delta()>0 else 1/1.3
         self.gain_zoom.emit(z)
         ev.accept()
+    def raiseContextMenu(self, ev):
+        #for some reasons enableMenu=False is not taken (bug ????)
+        pass
         
 
 class WaveformHistViewer(WidgetBase):
