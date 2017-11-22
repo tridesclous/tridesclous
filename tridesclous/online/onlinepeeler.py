@@ -64,7 +64,7 @@ class OnlinePeeler(Node):
     def _configure(self, in_group_channels=None, catalogue=None, chunksize=None,
                                     #~ signalpreprocessor_engine='numpy',
                                     #~ peakdetector_engine='numpy',
-                                    internal_dtype='float32', n_peel_level=2):
+                                    internal_dtype='float32'):
         
         self.in_group_channels = in_group_channels
         self.catalogue = catalogue
@@ -72,7 +72,7 @@ class OnlinePeeler(Node):
         #~ self.signalpreprocessor_engine = signalpreprocessor_engine
         #~ self.peakdetector_engine = peakdetector_engine
         self.internal_dtype = internal_dtype
-        self.n_peel_level = n_peel_level
+        #~ self.n_peel_level = n_peel_level
         
         
 
@@ -90,7 +90,7 @@ class OnlinePeeler(Node):
     def _initialize(self):
         
         self.peeler = Peeler(dataio=None)
-        self.peeler.change_params(catalogue=self.catalogue, n_peel_level=self.n_peel_level,
+        self.peeler.change_params(catalogue=self.catalogue, 
                                         chunksize=self.chunksize, internal_dtype=self.internal_dtype,)
                                         #~ signalpreprocessor_engine=self.signalpreprocessor_engine,
                                         #~ peakdetector_engine=self.peakdetector_engine)

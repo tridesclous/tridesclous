@@ -54,18 +54,14 @@ def test_catalogue_constructor():
         t2 = time.perf_counter()
         print('estimate_signals_noise', t2-t1)
         
-        t1 = time.perf_counter()
-        for seg_num in range(dataio.nb_segment):
+        #~ t1 = time.perf_counter()
+        #~ for seg_num in range(dataio.nb_segment):
             #~ print('seg_num', seg_num)
-            catalogueconstructor.run_signalprocessor_loop_one_segment(seg_num=seg_num, duration=10.)
+            #~ catalogueconstructor.run_signalprocessor_loop_one_segment(seg_num=seg_num, duration=10.)
+        catalogueconstructor.run_signalprocessor(duration=10., detect_peak=True)
         t2 = time.perf_counter()
         print('run_signalprocessor_loop', t2-t1)
 
-        t1 = time.perf_counter()
-        catalogueconstructor.finalize_signalprocessor_loop()
-        t2 = time.perf_counter()
-        print('finalize_signalprocessor_loop', t2-t1)
-        
         for seg_num in range(dataio.nb_segment):
             mask = catalogueconstructor.all_peaks['segment']==seg_num
             print('seg_num', seg_num, 'nb peak',  np.sum(mask))
