@@ -21,6 +21,10 @@ class MyViewBox(pg.ViewBox):
     def mouseDoubleClickEvent(self, ev):
         self.doubleclicked.emit()
         ev.accept()
+    def raiseContextMenu(self, ev):
+        #for some reasons enableMenu=False is not taken (bug ????)
+        pass
+
 
 
 class Silhouette(WidgetBase):
@@ -77,6 +81,9 @@ class Silhouette(WidgetBase):
         self.plot.clear()
         silhouette_values = self.controller.spike_silhouette
         if silhouette_values is None:
+            return
+        
+        if silhouette_values.shape != self.controller.spike_label.shape:
             return
         
         silhouette_avg = np.mean(silhouette_values)

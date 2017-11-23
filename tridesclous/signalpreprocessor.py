@@ -47,18 +47,21 @@ class SignalPreprocessor_base:
         
         self.coefficients = np.zeros((0, 6))
         
+        nyquist = self.sample_rate/2.
         
         if self.highpass_freq is not None:
-            coeff_hp = scipy.signal.iirfilter(5, highpass_freq/self.sample_rate*2, analog=False,
-                                    btype = 'highpass', ftype = 'butter', output = 'sos')
-            self.coefficients = np.concatenate((self.coefficients, coeff_hp))
+            if self.highpass_freq>0 and self.highpass_freq<nyquist:
+                coeff_hp = scipy.signal.iirfilter(5, highpass_freq/self.sample_rate*2, analog=False,
+                                        btype = 'highpass', ftype = 'butter', output = 'sos')
+                self.coefficients = np.concatenate((self.coefficients, coeff_hp))
+        
         if self.lowpass_freq is not None:
-            if self.lowpass_freq>(self.sample_rate/2.):
-                self.lowpass_freq=(self.sample_rate/2.01)
-            
-            coeff_lp = scipy.signal.iirfilter(5, lowpass_freq/self.sample_rate*2, analog=False,
-                                    btype = 'lowpass', ftype = 'butter', output = 'sos')
-            self.coefficients = np.concatenate((self.coefficients, coeff_lp))
+            if self.lowpass_freq>0 and self.lowpass_freq<nyquist:
+            #~ if self.lowpass_freq>(self.sample_rate/2.):
+                #~ self.lowpass_freq=(self.sample_rate/2.01)
+                coeff_lp = scipy.signal.iirfilter(5, lowpass_freq/self.sample_rate*2, analog=False,
+                                        btype = 'lowpass', ftype = 'butter', output = 'sos')
+                self.coefficients = np.concatenate((self.coefficients, coeff_lp))
         
         if self.smooth_size>0:
             b0 = (1./3)**.5

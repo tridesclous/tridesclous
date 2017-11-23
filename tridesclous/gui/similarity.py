@@ -13,6 +13,9 @@ class MyViewBox(pg.ViewBox):
     def mouseDoubleClickEvent(self, ev):
         self.doubleclicked.emit()
         ev.accept()
+    def raiseContextMenu(self, ev):
+        #for some reasons enableMenu=False is not taken (bug ????)
+        pass
 
 
 

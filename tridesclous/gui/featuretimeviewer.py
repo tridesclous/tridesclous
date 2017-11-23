@@ -10,6 +10,7 @@ from .base import WidgetBase
 from .tools import ParamDialog
 from ..tools import median_mad
 
+#~ enableMenu
 class MyViewBox(pg.ViewBox):
     doubleclicked = QT.pyqtSignal()
     gain_zoom = QT.pyqtSignal(float)
@@ -23,13 +24,16 @@ class MyViewBox(pg.ViewBox):
             #~ z = 1.3 if ev.delta()>0 else 1/1.3
         #~ self.gain_zoom.emit(z)
         #~ ev.accept()
-        
+    def raiseContextMenu(self, ev):
+        #for some reasons enableMenu=False is not taken (bug ????)
+        pass
 
 
 class FeatureTimeViewer(WidgetBase):
 
     _params = [
                     {'name': 'metric', 'type': 'list', 'values' : ['max_peak_value', 'feat_0'] },
+                    {'name': 'alpha', 'type': 'float', 'value' : 0.5, 'limits':(0, 1.), 'step':0.05 },
         ]
     
     
@@ -65,6 +69,7 @@ class FeatureTimeViewer(WidgetBase):
     
     def initialize_plot(self):
         self.viewBox = MyViewBox()
+        print(self.viewBox.menuEnabled())
         self.viewBox.doubleclicked.connect(self.open_settings)
         #~ self.viewBox.gain_zoom.connect(self.gain_zoom)
         self.viewBox.disableAutoRange()
@@ -122,8 +127,9 @@ class FeatureTimeViewer(WidgetBase):
                 y = all_features[keep, 0]
             
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
-            
+            color.setAlpha(self.params['alpha']*255)
             curve = pg.ScatterPlotItem(x=x, y=y, pen=pg.mkPen(color, width=2), brush=color)
+            
             self.plot.addItem(curve)
             #~ self.curves.append(curve)
         

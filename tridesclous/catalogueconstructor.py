@@ -174,12 +174,7 @@ class CatalogueConstructor:
         self.chunksize = chunksize
         self.memory_mode = memory_mode
         
-        #~ for name, dtype in [('peak_pos', 'int64'),
-                                        #~ ('peak_segment', 'int64'),
-                                        #~ ('peak_label', 'int32')]:
-            #~ self.arrays.initialize_array(name, self.memory_mode,  dtype, (-1, ))
-        self.arrays.initialize_array('all_peaks', self.memory_mode,  _dtype_peak, (-1, ))
-        
+        #~ self.arrays.initialize_array('all_peaks', self.memory_mode,  _dtype_peak, (-1, ))
         
         self.params_signalpreprocessor = dict(highpass_freq=highpass_freq, lowpass_freq=lowpass_freq, 
                         smooth_size=smooth_size, common_ref_removal=common_ref_removal,
@@ -298,6 +293,11 @@ class CatalogueConstructor:
         self.on_new_cluster()
     
     def run_signalprocessor(self, duration=60., detect_peak=True):
+        self.arrays.initialize_array('all_peaks', self.memory_mode,  _dtype_peak, (-1, ))
+        #~ for i in range(self.dataio.nb_segment):
+            #~ self.dataio.reset_processed_signals(seg_num=i, chan_grp=self.chan_grp, dtype=internal_dtype)
+        
+        
         for seg_num in range(self.dataio.nb_segment):
             self.run_signalprocessor_loop_one_segment(seg_num=seg_num, duration=duration, detect_peak=detect_peak)
             self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=self.chan_grp)
