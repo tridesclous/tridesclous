@@ -83,6 +83,9 @@ class Silhouette(WidgetBase):
         if silhouette_values is None:
             return
         
+        if silhouette_values.shape != self.controller.spike_label.shape:
+            return
+        
         silhouette_avg = np.mean(silhouette_values)
         silhouette_by_labels = {}
         labels = self.controller.spike_label
