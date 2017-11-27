@@ -9,6 +9,7 @@ from .peelercontroller import PeelerController
 from .traceviewer import PeelerTraceViewer
 from .spikelists import SpikeList, ClusterSpikeList
 from .waveformviewer import PeelerWaveformViewer
+from .isiviewer import ISIViewer
 
 from . import icons
 
@@ -31,15 +32,22 @@ class PeelerWindow(QT.QMainWindow):
         self.spikelist = SpikeList(controller=self.controller)
         self.clusterlist = ClusterSpikeList(controller=self.controller)
         self.waveformviewer = PeelerWaveformViewer(controller=self.controller)
+        self.isiviewer = ISIViewer(controller=self.controller)
         
-        all = [self.traceviewer, self.spikelist, self.clusterlist]
+        
+        all = [self.traceviewer, self.spikelist, self.clusterlist, self.isiviewer]
         
         docks = {}
 
 
+        docks['isiviewer'] = QT.QDockWidget('isiviewer',self)
+        docks['isiviewer'].setWidget(self.isiviewer)
+        self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['isiviewer'])
+
         docks['waveformviewer'] = QT.QDockWidget('waveformviewer',self)
         docks['waveformviewer'].setWidget(self.waveformviewer)
-        self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['waveformviewer'])
+        #~ self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['waveformviewer'])
+        self.tabifyDockWidget(docks['isiviewer'], docks['waveformviewer'])
         
         docks['traceviewer'] = QT.QDockWidget('traceviewer',self)
         docks['traceviewer'].setWidget(self.traceviewer)

@@ -7,6 +7,7 @@ from .base import WidgetBase
 from .peelercontroller import spike_visible_modes
 from .tools import ParamDialog
 
+from .. import labelcodes
 
 class SpikeModel(QT.QAbstractItemModel):
     def __init__(self, parent =None, controller=None):
@@ -203,8 +204,22 @@ class ClusterSpikeList(WidgetBase):
         self.layout.addWidget(self.table)
         self.table.itemChanged.connect(self.on_item_changed)
         
+        self.make_menu()
+        
         self.refresh()
+    
+    def make_menu(self):
+        self.menu = QT.QMenu()
 
+        #~ act = self.menu.addAction('Reset colors')
+        #~ act.triggered.connect(self.reset_colors)
+        act = self.menu.addAction('Show all')
+        act.triggered.connect(self.show_all)
+        act = self.menu.addAction('Hide all')
+        act.triggered.connect(self.hide_all)
+    
+    
+    
     def refresh(self):
         #~ self.cc._check_plot_attributes()
         
@@ -228,8 +243,12 @@ class ClusterSpikeList(WidgetBase):
             pix = QT.QPixmap(10,10)
             pix.fill(color)
             icon = QT.QIcon(pix)
-            
-            name = '{}'.format(k)
+
+
+            if k<0:
+                name = '{} ({})'.format(k, labelcodes.to_name[k])
+            else:
+                name = '{}'.format(k)
             item = QT.QTableWidgetItem(name)
             item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
             self.table.setItem(i,0, item)
@@ -268,37 +287,11 @@ class ClusterSpikeList(WidgetBase):
         for k in self.selected_cluster():
             selection |= self.controller.spike_label == k
         return selection
-    
-    def open_context_menu(self):
-        n = len(self.selected_cluster())
-        menu = QT.QMenu()
 
-        if n>=0: 
-            act = menu.addAction('Reset colors')
-            act.triggered.connect(self.reset_colors)
-            act = menu.addAction('Show all')
-            act.triggered.connect(self.show_all)
-            act = menu.addAction('Hide all')
-            act.triggered.connect(self.hide_all)
-            #~ act = menu.addAction('Order cluster by power')
-            #~ act.triggered.connect(self.order_clusters)
-            
-        if n>=1:
-            #~ act = menu.addAction('Move selection to trash')
-            #~ act.triggered.connect(self.move_selection_to_trash)
-            #~ act = menu.addAction('Merge selection')
-            #~ act.triggered.connect(self.merge_selection)
-            act = menu.addAction('Select')
-            act.triggered.connect(self.select_peaks_of_clusters)
-        
-        self.menu = menu
-        menu.popup(self.cursor().pos())
-        #~ menu.exec_(self.cursor().pos())
-    
-    def reset_colors(self):
-        self.controller.refresh_colors(reset = True)
-        self.refresh()
-        self.colors_changed.emit()
+
+    def open_context_menu(self):
+        self.menu.popup(self.cursor().pos())
+
     
     def show_all(self):
         for k in self.controller.cluster_visible:
@@ -311,29 +304,4 @@ class ClusterSpikeList(WidgetBase):
             self.controller.cluster_visible[k] = False
         self.refresh()
         self.cluster_visibility_changed.emit()
-    
-
-    def move_selection_to_trash(self):
-        pass
-        #~ for k in self.selected_cluster():
-            #~ mask = self.controller.spike_label == k
-            #~ self.controller.change_spike_label(mask, -1)
-        #~ self.refresh()
-        #~ self.spike_label_changed.emit()
-    
-    def merge_selection(self):
-        pass
-        #~ label_to_merge = self.selected_cluster()
-        #~ self.controller.merge_cluster(label_to_merge)
-        #~ self.refresh()
-        #~ self.spike_label_changed.emit()
-    
-    def select_peaks_of_clusters(self):
-        pass
-        #TODO
-        #~ self.controller.spike_selection[:] = self._selected_spikes()
-        #~ self.refresh()
-        #~ self.spike_selection_changed.emit()
-
-
 
