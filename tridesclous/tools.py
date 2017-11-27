@@ -159,6 +159,9 @@ def construct_probe_list():
         f.write('}\n')
 
 def download_probe(local_dirname, probe_name, origin='kwikteam'):
+    """
+    Download prb file from either kwikteam or spyking-circus github.
+    """
     if origin == 'kwikteam':
         #Max Hunter made a list of neuronexus probes, many thanks
         baseurl = 'https://raw.githubusercontent.com/kwikteam/probes/master/'
@@ -183,7 +186,103 @@ def download_probe(local_dirname, probe_name, origin='kwikteam'):
     return probe_filename
     
 
+def compute_cross_correlograms(spike_indexes, spike_labels, spike_segments,
+                cluster_labels, sample_rate, window_size, bin_size):
+    """
+    Compute several cross-correlogram in one course
+    from sevral cluster.
+    
+    This very elegant implementation is copy from phy package
+    written by Cyril Rossant.
+    
+    
+    Some sligh modification have been made to fit tdc datamodel because
+    there are several segment handling in tdc.
+    
+    """
+    assert sample_rate > 0.
 
-if __name__=='__main__':
-    construct_probe_list()
+    # Find `binsize`.
+    bin_size = np.clip(bin_size, 1e-5, 1e5)  # in seconds
+    binsize = int(sample_rate * bin_size)  # in samples
+    assert binsize >= 1
+
+    # Find `winsize_bins`.
+    window_size = np.clip(window_size, 1e-5, 1e5)  # in seconds
+    winsize_bins = 2 * int(.5 * window_size / bin_size) + 1
+
+    assert winsize_bins >= 1
+    assert winsize_bins % 2 == 1
+
+    # Take the cluster oder into account.
+    cluster_labels = cluster_labels.copy()
+    cluster_labels.sort()
+    
+    # Like spike_labels, but with 0..n_clusters-1 indices.
+    spike_labels_i = np.searchsorted(cluster_labels, spike_labels)
+    
+    n_clusters = cluster_labels.size
+    correlograms = np.zeros((n_clusters, n_clusters, winsize_bins // 2 + 1), dtype='int32')
+    
+    nb_seg = np.max(spike_segments) + 1
+    for seg_num in range(nb_seg):
+    
+        # Shift between the two copies of the spike trains.
+        shift = 1
+
+        # At a given shift, the mask precises which spikes have matching spikes
+        # within the correlogram time window.
+        #~ mask = np.ones_like(spike_indexes, dtype=np.bool)
+        mask = spike_segments==seg_num
+
+        
+
+        # The loop continues as long as there is at least one spike with
+        # a matching spike.
+        while mask[:-shift].any():
+            # Number of time samples between spike i and spike i+shift.
+            #~ spike_diff = _diff_shifted(spike_indexes, shift)
+            spike_diff = spike_indexes[shift:] - spike_indexes[:len(spike_indexes) - shift]
+            
+            # Binarize the delays between spike i and spike i+shift.
+            spike_diff_b = spike_diff // binsize
+
+            # Spikes with no matching spikes are masked.
+            mask[:-shift][spike_diff_b > (winsize_bins // 2)] = False
+
+            # Cache the masked spike delays.
+            m = mask[:-shift].copy()
+            d = spike_diff_b[m]
+
+            # Find the indices in the raveled correlograms array that need
+            # to be incremented, taking into account the spike clusters.
+            indices = np.ravel_multi_index((spike_labels_i[:-shift][m],
+                                            spike_labels_i[+shift:][m],
+                                            d),
+                                           correlograms.shape)
+
+            # Increment the matching spikes in the correlograms array.
+            bbins = np.bincount(indices)
+            correlograms.ravel()[:len(bbins)] += bbins
+            
+            
+            shift += 1
+
+    # Remove ACG peaks.
+    correlograms[np.arange(n_clusters),
+                 np.arange(n_clusters),
+                 0] = 0
+    
+    return correlograms
+    #~ if symmetrize:
+        #~ return _symmetrize_correlograms(correlograms)
+    #~ else:
+        #~ return correlograms
+
+
+
+
+
+#~ if __name__=='__main__':
+    #~ construct_probe_list()
 
