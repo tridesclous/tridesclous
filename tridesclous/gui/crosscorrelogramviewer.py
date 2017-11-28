@@ -25,6 +25,7 @@ class CrossCorrelogramViewer(WidgetBase):
                       {'name': 'bin_size_ms', 'type': 'float', 'value' : 1.0 },
                       {'name': 'symmetrize', 'type': 'bool', 'value' : True },
                       {'name': 'display_axis', 'type': 'bool', 'value' : True },
+                      {'name': 'max_visible', 'type': 'int', 'value' : 8 },
         ]
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
@@ -73,6 +74,8 @@ class CrossCorrelogramViewer(WidgetBase):
         for k in self.controller.positive_cluster_labels:
             if self.controller.cluster_visible[k]:
                 visibles.append(k)
+        
+        visibles = visibles[:self.params['max_visible']]
         
         n = len(visibles)
         

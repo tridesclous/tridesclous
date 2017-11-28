@@ -46,7 +46,8 @@ _dtype_peak = [('index', 'int64'), ('label', 'int64'), ('segment', 'int64'),]
 
 _dtype_cluster = [('cluster_label', 'int64'), ('cell_label', 'int64'), 
             ('max_on_channel', 'int64'), ('max_peak_amplitude', 'float64'),
-            ('waveform_rms', 'float64'), ('nb_peak', 'int64'),]
+            ('waveform_rms', 'float64'), ('nb_peak', 'int64')]
+            #~ ('category', 'U32')]
 
 
 class CatalogueConstructor:
