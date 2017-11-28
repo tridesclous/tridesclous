@@ -186,8 +186,9 @@ def download_probe(local_dirname, probe_name, origin='kwikteam'):
     return probe_filename
     
 
-def compute_cross_correlograms(spike_indexes, spike_labels, spike_segments,
-                cluster_labels, sample_rate, window_size, bin_size):
+def compute_cross_correlograms(spike_indexes, spike_labels, 
+                spike_segments, cluster_labels, sample_rate,
+                window_size=0.1, bin_size=0.001, symmetrize=False):
     """
     Compute several cross-correlogram in one course
     from sevral cluster.
@@ -206,10 +207,12 @@ def compute_cross_correlograms(spike_indexes, spike_labels, spike_segments,
     bin_size = np.clip(bin_size, 1e-5, 1e5)  # in seconds
     binsize = int(sample_rate * bin_size)  # in samples
     assert binsize >= 1
+    real_bin_size = binsize/sample_rate
 
     # Find `winsize_bins`.
     window_size = np.clip(window_size, 1e-5, 1e5)  # in seconds
     winsize_bins = 2 * int(.5 * window_size / bin_size) + 1
+    #~ print('window_size', window_size, 'bin_size', bin_size, 'winsize_bins', winsize_bins)
 
     assert winsize_bins >= 1
     assert winsize_bins % 2 == 1
@@ -218,11 +221,21 @@ def compute_cross_correlograms(spike_indexes, spike_labels, spike_segments,
     cluster_labels = cluster_labels.copy()
     cluster_labels.sort()
     
+    #filter to keep only cluster_labels
+    
+    #~ print(np.unique(spike_labels))
+    #~ print('cluster_labels', cluster_labels)
+    
+    
     # Like spike_labels, but with 0..n_clusters-1 indices.
     spike_labels_i = np.searchsorted(cluster_labels, spike_labels)
     
+    #~ print('spike_labels_i', np.unique(spike_labels_i))
+    
+    cluster_labels = np.array(cluster_labels)
     n_clusters = cluster_labels.size
     correlograms = np.zeros((n_clusters, n_clusters, winsize_bins // 2 + 1), dtype='int32')
+    
     
     nb_seg = np.max(spike_segments) + 1
     for seg_num in range(nb_seg):
@@ -230,19 +243,23 @@ def compute_cross_correlograms(spike_indexes, spike_labels, spike_segments,
         # Shift between the two copies of the spike trains.
         shift = 1
 
+        
+        keep = (spike_segments==seg_num) & np.in1d(spike_labels, cluster_labels)
+        sp_indexes = spike_indexes[keep]
+        sp_labels = spike_labels[keep]
+        sp_segments = spike_segments[keep]
+        sp_labels_i = spike_labels_i[keep]
+
         # At a given shift, the mask precises which spikes have matching spikes
         # within the correlogram time window.
-        #~ mask = np.ones_like(spike_indexes, dtype=np.bool)
-        mask = spike_segments==seg_num
-
-        
+        mask = np.ones_like(sp_indexes, dtype=np.bool)
 
         # The loop continues as long as there is at least one spike with
         # a matching spike.
         while mask[:-shift].any():
             # Number of time samples between spike i and spike i+shift.
             #~ spike_diff = _diff_shifted(spike_indexes, shift)
-            spike_diff = spike_indexes[shift:] - spike_indexes[:len(spike_indexes) - shift]
+            spike_diff = sp_indexes[shift:] - sp_indexes[:len(sp_indexes) - shift]
             
             # Binarize the delays between spike i and spike i+shift.
             spike_diff_b = spike_diff // binsize
@@ -256,8 +273,8 @@ def compute_cross_correlograms(spike_indexes, spike_labels, spike_segments,
 
             # Find the indices in the raveled correlograms array that need
             # to be incremented, taking into account the spike clusters.
-            indices = np.ravel_multi_index((spike_labels_i[:-shift][m],
-                                            spike_labels_i[+shift:][m],
+            indices = np.ravel_multi_index((sp_labels_i[:-shift][m],
+                                            sp_labels_i[+shift:][m],
                                             d),
                                            correlograms.shape)
 
@@ -268,17 +285,28 @@ def compute_cross_correlograms(spike_indexes, spike_labels, spike_segments,
             
             shift += 1
 
-    # Remove ACG peaks.
-    correlograms[np.arange(n_clusters),
+        # Remove ACG peaks.
+        correlograms[np.arange(n_clusters),
                  np.arange(n_clusters),
                  0] = 0
-    
-    return correlograms
-    #~ if symmetrize:
-        #~ return _symmetrize_correlograms(correlograms)
-    #~ else:
-        #~ return correlograms
+        
+    if symmetrize:
+        # We symmetrize c[i, j, 0].
+        # This is necessary because the algorithm in correlograms()
+        # is sensitive to the order of identical spikes.
+        correlograms[..., 0] = np.maximum(correlograms[..., 0],
+                                          correlograms[..., 0].T)
+        sym = correlograms[..., 1:][..., ::-1]
+        sym = np.transpose(sym, (1, 0, 2))
+        correlograms = np.dstack((sym, correlograms))
+        
+        bins = np.arange(correlograms.shape[2]+1)*real_bin_size - real_bin_size*winsize_bins/2.
 
+    else:
+        bins = np.arange(correlograms.shape[2]+1)*real_bin_size - real_bin_size/2.
+    
+    return correlograms, bins
+    
 
 
 

@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from .base import WidgetBase
-
+from ..tools import compute_cross_correlograms
 
 
 class MyViewBox(pg.ViewBox):
@@ -18,11 +18,13 @@ class MyViewBox(pg.ViewBox):
         pass
 
 
-window_size, bin_size
+
 class CrossCorrelogramViewer(WidgetBase):
     _params = [
                       {'name': 'window_size_ms', 'type': 'float', 'value' : 100. },
                       {'name': 'bin_size_ms', 'type': 'float', 'value' : 1.0 },
+                      {'name': 'symmetrize', 'type': 'bool', 'value' : True },
+                      {'name': 'display_axis', 'type': 'bool', 'value' : True },
         ]
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
@@ -30,64 +32,77 @@ class CrossCorrelogramViewer(WidgetBase):
         self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
         
-        #~ h = QT.QHBoxLayout()
-        #~ self.layout.addLayout(h)
-        #~ h.addWidget(QT.QLabel('<b>Similarity</b>') )
+        h = QT.QHBoxLayout()
+        self.layout.addLayout(h)
 
-        #~ but = QT.QPushButton('settings')
-        #~ but.clicked.connect(self.open_settings)
-        #~ h.addWidget(but)
+        but = QT.QPushButton('settings')
+        but.clicked.connect(self.open_settings)
+        h.addWidget(but)
+
+        but = QT.QPushButton('compute')
+        but.clicked.connect(self.compute_ccg)
+        h.addWidget(but)
         
+        self.grid = pg.GraphicsLayoutWidget()
+        self.layout.addWidget(self.grid)
         
-        self.graphicsview = pg.GraphicsView()
-        self.layout.addWidget(self.graphicsview)
-        
-        self.initialize_plot()
-        
-        #~ self.on_params_changed()#this do refresh    
+        self.ccg = None
 
 
-    def initialize_plot(self):
-        self.viewBox = MyViewBox()
-        self.viewBox.doubleclicked.connect(self.open_settings)
-        #~ self.viewBox.disableAutoRange()
-        
-        self.plot = pg.PlotItem(viewBox=self.viewBox)
-        self.graphicsview.setCentralItem(self.plot)
-        self.plot.hideButtons()
-        
-        #ISI are computed on demand
-        self.all_isi = {}
+    def on_params_changed(self):
+        self.ccg = None
+        self.refresh()
     
-    def _compute_isi(self, k):
+    def compute_ccg(self):
+        cluster_labels = self.controller.positive_cluster_labels
         spikes = self.controller.spikes
-        
-        isi = []
-        for seg_num in range(self.controller.dataio.nb_segment):
-            sel = (spikes['segment'] == seg_num) & (spikes['label'] == k)
-            isi.append(np.diff(spikes[sel]['index'])/self.controller.dataio.sample_rate)
-        isi = np.concatenate(isi)
-        self.all_isi[k] = isi * 1000. #ms
+        self.ccg, self.bins = compute_cross_correlograms(spikes['index'], spikes['label'],
+                    spikes['segment'], cluster_labels, self.controller.dataio.sample_rate,
+                    window_size=self.params['window_size_ms']/1000.,
+                    bin_size = self.params['bin_size_ms']/1000.,
+                    symmetrize=self.params['symmetrize'])
+        self.refresh()
 
     def refresh(self):
-        self.plot.clear()
+        self.grid.clear()
         
-        n = 0
+        if self.ccg is None:
+            return
+        
+        visibles = [ ]
         for k in self.controller.positive_cluster_labels:
-            if not self.controller.cluster_visible[k]:
-                continue
-            
-            if k not in self.all_isi:
-                self._compute_isi(k)
-            
-            isi = self.all_isi[k]
-            if len(isi) ==0:
-                return
-            
-            bins = np.arange(self.params['bin_min'], self.params['bin_max'], self.params['bin_size'])
-            count, bins = np.histogram(isi, bins=bins)
-            
-            qcolor = self.controller.qcolors[k]
-            curve = pg.PlotCurveItem(bins[:-1], count, pen=pg.mkPen(qcolor, width=3))
-            self.plot.addItem(curve)
+            if self.controller.cluster_visible[k]:
+                visibles.append(k)
+        
+        n = len(visibles)
+        
+        bins = self.bins * 1000. #to ms
+        
+        labels = self.controller.positive_cluster_labels.tolist()
+        
+        for r in range(n):
+            for c in range(r, n):
+                
+                i = labels.index(visibles[r])
+                j = labels.index(visibles[c])
+                
+                count = self.ccg[i, j, :]
+                
+                plot = pg.PlotItem()
+                if not self.params['display_axis']:
+                    plot.hideAxis('bottom')
+                    plot.hideAxis('left')
+                
+                if r==c:
+                    k = visibles[r]
+                    color = self.controller.qcolors[k]
+                else:
+                    color = (120,120,120,120)
+                
+                curve = pg.PlotCurveItem(bins, count, stepMode=True, fillLevel=0, brush=color, pen=color)
+                plot.addItem(curve)
+                self.grid.addItem(plot, row=r, col=c)
+
+
+#~ plt1.plot(x, y, stepMode=True, fillLevel=0, brush=(0,0,255,150))
 

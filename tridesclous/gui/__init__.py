@@ -19,6 +19,7 @@ from .traceviewer import PeelerTraceViewer
 from .spikelists import SpikeList, ClusterSpikeList
 from .waveformviewer import PeelerWaveformViewer
 from .isiviewer import ISIViewer
+from .crosscorrelogramviewer import CrossCorrelogramViewer
 
 from .peelerwindow import PeelerWindow
 
