@@ -55,6 +55,36 @@ def test_PeelerWaveformViewer():
     app.exec_()
 
 
+def test_ISIViewer():
+    controller = get_controller()
+    for k in controller.cluster_labels:
+        controller.cluster_visible[k] = False
+    for k in controller.cluster_labels[3:6]:
+        controller.cluster_visible[k] = True
+    #~ print(controller.cluster_visible)
+    
+    app = pg.mkQApp()
+    isiviewer = ISIViewer(controller)
+    isiviewer.show()
+    isiviewer.refresh()
+    app.exec_()    
+
+def test_CrossCorrelogramViewer():
+    controller = get_controller()
+    for k in controller.cluster_labels:
+        controller.cluster_visible[k] = False
+    for k in controller.cluster_labels[3:6]:
+        controller.cluster_visible[k] = True
+    #~ print(controller.cluster_visible)
+    
+    app = pg.mkQApp()
+    ccgviewer = CrossCorrelogramViewer(controller)
+    ccgviewer.show()
+    ccgviewer.refresh()
+    app.exec_()    
+
+    
+
 
 def test_PeelerWindow():
     dataio = DataIO(dirname='test_peeler')
@@ -74,6 +104,8 @@ if __name__ == '__main__':
     #~ test_SpikeList()
     #~ test_ClusterSpikeList()
     #~ test_PeelerWaveformViewer()
+    #~ test_ISIViewer()
+    #~ test_CrossCorrelogramViewer()
     
     test_PeelerWindow()
 

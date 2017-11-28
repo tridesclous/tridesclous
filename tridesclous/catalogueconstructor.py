@@ -48,7 +48,8 @@ _dtype_peak = [('index', 'int64'), ('label', 'int64'), ('segment', 'int64'),]
 
 _dtype_cluster = [('cluster_label', 'int64'), ('cell_label', 'int64'), 
             ('max_on_channel', 'int64'), ('max_peak_amplitude', 'float64'),
-            ('waveform_rms', 'float64'), ('nb_peak', 'int64'),]
+            ('waveform_rms', 'float64'), ('nb_peak', 'int64')]
+            #~ ('category', 'U32')]
 
 
 class CatalogueConstructor:
@@ -705,14 +706,31 @@ class CatalogueConstructor:
         print('compute_centroid', t2-t1)
         
     
-    def refresh_colors(self, reset=True, palette = 'husl'):
+    def refresh_colors(self, reset=True, palette='husl', interleaved=True):
         if reset:
             self.colors = {}
         
-        labels_ok = self.cluster_labels[self.cluster_labels>=0]
-        n = labels_ok.size
-        color_table = sns.color_palette(palette, n)
-        for i, k in enumerate(labels_ok):
+        
+        labels = self.positive_cluster_labels
+        n = labels.size
+        
+        
+        
+        if interleaved:
+            if n%2 != 0:
+                #force odd number for interleaved
+                n += 1
+            
+            color_table_ = sns.color_palette(palette, n)
+            color_table = []
+            for i in range(n//2):
+                color_table.append(color_table_[i])
+                color_table.append(color_table_[i+n//2])
+            
+        else:
+            color_table = list(sns.color_palette(palette, n))
+        
+        for i, k in enumerate(labels):
             if k not in self.colors:
                 self.colors[k] = color_table[i]
         

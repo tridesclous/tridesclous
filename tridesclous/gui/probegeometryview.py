@@ -33,6 +33,8 @@ class ProbeGeometryView(QT.QWidget):
         
 
         self.viewBox = MyViewBox()
+        self.viewBox.disableAutoRange()
+        
         self.plot = pg.PlotItem(viewBox=self.viewBox)
         self.graphicsview.setCentralItem(self.plot)
         self.plot.hideButtons()

@@ -43,7 +43,36 @@ def test_construct_probe_list():
         print('*'*20)
         for e in v:
             print(e)
-        
+
+
+def test_compute_cross_correlograms():
+
+    n = 1000000
+
+    sample_rate=10000.
+    bin_size=0.001
+    window_size=0.2
+    #~ symmetrize=True
+    
+    spike_times = np.random.rand(n)*10000
+    spike_times.sort()
+    spike_indexes = (spike_times*sample_rate).astype('int64')
+    
+    spike_labels = np.random.randint(0,6, size=n)
+    
+    spike_segments = np.zeros(n, dtype='int64')
+    spike_segments[n//2] = 1
+    
+    cluster_labels = np.unique(spike_labels)
+    
+
+    t0 = time.perf_counter()
+    cgc = compute_cross_correlograms(spike_indexes, spike_labels, spike_segments,
+                cluster_labels, sample_rate, window_size, bin_size)
+    t1 = time.perf_counter()
+    
+    print(cgc.shape)
+    print('compute_cross_correlograms', t1-t0)
     
 
 if __name__ == '__main__':
@@ -51,4 +80,5 @@ if __name__ == '__main__':
     #~ test_FifoBuffer()
     #~ test_get_neighborhood()
     #~ test_fix_prb_file_py2()
-    test_construct_probe_list()
+    #~ test_construct_probe_list()
+    test_compute_cross_correlograms()
