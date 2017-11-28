@@ -273,13 +273,22 @@ def test_ratio_amplitude():
     pairs = catalogueconstructor.detect_similar_waveform_ratio(0.5)
     print(pairs)
 
+
+def test_create_copy_catalogue_constructor():
+    dataio = DataIO(dirname='test_catalogueconstructor')
+    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    catalogueconstructor.create_copy()
+
+
     
 if __name__ == '__main__':
-    test_catalogue_constructor()
+    #~ test_catalogue_constructor()
     
     #~ compare_nb_waveforms()
     
     #~ test_make_catalogue()
     #~ test_ratio_amplitude()
+    
+    test_create_copy_catalogue_constructor()
 
 

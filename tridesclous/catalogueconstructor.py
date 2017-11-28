@@ -4,6 +4,8 @@ from collections import OrderedDict
 import time
 import pickle
 import itertools
+import datetime
+import shutil
 
 import numpy as np
 import scipy.signal
@@ -1015,4 +1017,19 @@ class CatalogueConstructor:
         #~ print('!!!! CatalogueConstructor.load_catalogue WILL BE REMOVED!!!!!')
         #~ self.catalogue = self.dataio.load_catalogue(name='initial')
         #~ return 
+
+
+    def create_copy(self):
+        """this create a copy of the entire catalogue_constructor subdir
+        Usefull for the UI when the user wants to snapshot and try tricky merge/split.
+        """
+        
+        copy_path = self.catalogue_path + '_COPY_{:%Y-%m-%d_%Hh%Mm%S"}'.format(datetime.datetime.now())
+        print(copy_path)
+        
+        if not os.path.exists(copy_path):
+            shutil.copytree(self.catalogue_path, copy_path)
+        
+
+
 
