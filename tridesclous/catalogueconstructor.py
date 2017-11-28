@@ -703,14 +703,31 @@ class CatalogueConstructor:
         print('compute_centroid', t2-t1)
         
     
-    def refresh_colors(self, reset=True, palette = 'husl'):
+    def refresh_colors(self, reset=True, palette='husl', interleaved=True):
         if reset:
             self.colors = {}
         
-        labels_ok = self.cluster_labels[self.cluster_labels>=0]
-        n = labels_ok.size
-        color_table = sns.color_palette(palette, n)
-        for i, k in enumerate(labels_ok):
+        
+        labels = self.positive_cluster_labels
+        n = labels.size
+        
+        
+        
+        if interleaved:
+            if n%2 != 0:
+                #force odd number for interleaved
+                n += 1
+            
+            color_table_ = sns.color_palette(palette, n)
+            color_table = []
+            for i in range(n//2):
+                color_table.append(color_table_[i])
+                color_table.append(color_table_[i+n//2])
+            
+        else:
+            color_table = list(sns.color_palette(palette, n))
+        
+        for i, k in enumerate(labels):
             if k not in self.colors:
                 self.colors[k] = color_table[i]
         

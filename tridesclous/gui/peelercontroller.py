@@ -7,14 +7,15 @@ import seaborn as sns
 
 from .base import ControllerBase
 
+from .. import labelcodes
 
 spike_visible_modes = ['selected', 'all',  'overlap']
 
 class PeelerController(ControllerBase):
     def __init__(self, parent=None, dataio=None, catalogue=None):
         ControllerBase.__init__(self, parent=parent)
-        self.dataio=dataio
-        self.catalogue=catalogue
+        self.dataio = dataio
+        self.catalogue = catalogue
         
         self.chan_grp = catalogue['chan_grp']
         self.nb_channel = self.dataio.nb_channel(self.chan_grp)
@@ -40,13 +41,26 @@ class PeelerController(ControllerBase):
         self.spikes = np.concatenate(self.spikes)
         
         self.nb_spike = int(self.spikes.size)
-        self.cluster_labels = np.unique(self.spikes['label'])
+        
+        self.cluster_labels = np.unique(self.spikes['label'])#TODO take from catalogue
         
         self.cluster_count = { k:np.sum(self.spikes['label']==k) for k in self.cluster_labels}
         
         
         self.cluster_visible = {k:True for k  in self.cluster_labels}
-        self.refresh_colors(reset=True)
+        #~ self.refresh_colors(reset=True)
+
+        self.colors = {}
+        self.colors.update(self.catalogue['cluster_colors'])
+        self.colors[labelcodes.LABEL_TRASH] = (.4, .4, .4)
+        self.colors[labelcodes.LABEL_UNCLASSIFIED] = (.6, .6, .6)
+        self.colors[labelcodes.LABEL_NOISE] = (.8, .8, .8)
+        self.qcolors = {}
+        for k, color in self.colors.items():
+            r, g, b = color
+            self.qcolors[k] = QT.QColor(r*255, g*255, b*255)
+        
+        
         
         self.spike_visible_mode = spike_visible_modes[0]
     
@@ -59,7 +73,7 @@ class PeelerController(ControllerBase):
             if k not in self.cluster_labels:
                 self.cluster_visible.pop(k)
         
-        self.refresh_colors(reset=False)
+        #~ self.refresh_colors(reset=False)
     
     @property
     def spike_selection(self):
@@ -72,6 +86,11 @@ class PeelerController(ControllerBase):
     @property
     def spike_index(self):
         return self.spikes['index']
+
+    @property
+    def positive_cluster_labels(self):
+        return self.cluster_labels[self.cluster_labels>=0]
+
     
     def get_waveforms_shape(self):
         shape = self.catalogue['centers0'].shape[1:]
@@ -97,23 +116,6 @@ class PeelerController(ControllerBase):
 
     def get_waveform_left_right(self):
         return self.catalogue['n_left'], self.catalogue['n_right']
-        
-    def refresh_colors(self, reset=True, palette = 'husl'):
-        if reset:
-            self.colors = {}
-        
-        n = self.cluster_labels.size
-        color_table = sns.color_palette(palette, n)
-        for i, k in enumerate(self.cluster_labels):
-            if k not in self.colors:
-                self.colors[k] = color_table[i]
-        
-        self.colors[-1] = (.4, .4, .4)
-        
-        self.qcolors = {}
-        for k, color in self.colors.items():
-            r, g, b = color
-            self.qcolors[k] = QT.QColor(r*255, g*255, b*255)
     
     def get_threshold(self):
         threshold = self.catalogue['params_peakdetector']['relative_threshold']
