@@ -136,7 +136,7 @@ Important:
   
   
 Peak detection and threshold
---------------------------------
+----------------------------
 
 If one understands that the preprocessed signals units are MAD, the threshold become very intuitive.
 
@@ -256,7 +256,7 @@ However, one home made method is impleted here: **sawchaincut**, be curious and 
 
 The actual method list is:
   * **kmeans** super classic, super fast but we need to decide **n_cluster**
-  * **gmm** gaussian micture model another classic, we need to decide **n_cluster**
+  * **gmm** gaussian mixture model another classic, we need to decide **n_cluster**
   * **agglomerative** for trying, we need to decide **n_cluster**
   * **dbscan** density based algorithm n_cluster should be automatic. But **eps** parameters
     play a role in the results.

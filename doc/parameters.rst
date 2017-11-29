@@ -3,5 +3,5 @@
 Choose parameters
 =================
 
-Some details on parameters for each step.
+.. automodule:: tridesclous.gui.gui_params
 

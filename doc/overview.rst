@@ -3,9 +3,10 @@ Overview
 
 Pronouce it [tree day clue] in English.
 
-The primary goal of tridesclous is to provide some material to teach good practices in spike sorting techniques.
-This tools is now more mature and can be used for experimental data.
+The primary goal of tridesclous is to provide a toolkit to teach good practices in spike sorting techniques.
+This tools is now mature and can be used for experimental data.
 
+Authors: Christophe Pouzat and Samuel Garcia
 
 General workflow
 -------------------
@@ -21,7 +22,8 @@ In tridesclous we don't, the workflow is:
      change feature method, change clustering algorithm and of course merge and split clusters.
      This part is crucial and must be performed to clean clusters.
   3. "Peel spikes" this is the real spike sorting. It is a template matching approach that substracts spikes
-     for signals as long as some spike matches the catalogue.
+     for signals as long as some spike matches the catalogue. This part is can be run offline as fast as
+     possible or online (*soft* real time) if fast enought.
   4. Check the final result with a dedicated user interface. No manual action is required here.
 
 

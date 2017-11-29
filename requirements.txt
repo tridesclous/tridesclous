@@ -7,3 +7,4 @@ seaborn
 PyQt5
 pyqtgraph
 matplotlib
+#sphinxcontrib-napoleon

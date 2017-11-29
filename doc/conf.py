@@ -38,6 +38,7 @@ exec(open("../tridesclous/version.py").read())
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    #'sphinxcontrib.napoleon',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
