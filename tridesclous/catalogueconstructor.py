@@ -4,6 +4,8 @@ from collections import OrderedDict
 import time
 import pickle
 import itertools
+import datetime
+import shutil
 
 import numpy as np
 import scipy.signal
@@ -46,7 +48,8 @@ _dtype_peak = [('index', 'int64'), ('label', 'int64'), ('segment', 'int64'),]
 
 _dtype_cluster = [('cluster_label', 'int64'), ('cell_label', 'int64'), 
             ('max_on_channel', 'int64'), ('max_peak_amplitude', 'float64'),
-            ('waveform_rms', 'float64'), ('nb_peak', 'int64'),]
+            ('waveform_rms', 'float64'), ('nb_peak', 'int64')]
+            #~ ('category', 'U32')]
 
 
 class CatalogueConstructor:
@@ -1032,4 +1035,21 @@ class CatalogueConstructor:
         #~ print('!!!! CatalogueConstructor.load_catalogue WILL BE REMOVED!!!!!')
         #~ self.catalogue = self.dataio.load_catalogue(name='initial')
         #~ return 
+
+
+    def create_savepoint(self):
+        """this create a copy of the entire catalogue_constructor subdir
+        Usefull for the UI when the user wants to snapshot and try tricky merge/split.
+        """
+        
+        copy_path = self.catalogue_path + '_SAVEPOINT_{:%Y-%m-%d_%Hh%Mm%S}'.format(datetime.datetime.now())
+        
+        if not os.path.exists(copy_path):
+            shutil.copytree(self.catalogue_path, copy_path)
+            
+        return copy_path
+
+
+
+
 

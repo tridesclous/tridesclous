@@ -75,7 +75,7 @@ This window contain docks than can be arranged as you want. Some of them are org
 with drag and drop. You can event close or move some view on another screen.
 Righ click on the left toolbar to make them appear again.
 
-.. image:: img/snapshot_cataloguewindow_striatum.png
+.. image:: img/snapshot_catalogwinodow_striatum.png
 
 On the right toolbar you can manually re-run some sub steps of the previous chain: detect peak, extract waveforms,
 extract noise snippets, extract features, cluster.

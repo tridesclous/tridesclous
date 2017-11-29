@@ -12,14 +12,14 @@ All views can be customised by settings.
 
 Here some detail on each view.
 
-.. NOTES::
+.. NOTE::
   
     A lot of efforts have been put in making this UI as smooth as possible but for big datasets (>100 channels)
     the CatalogueWindow can be slow for some actions because it trigs a full refresh on other views
     and no computation can be done (re compute centroid for instance). So be patient and smart.
 
 
-.. NOTES::
+.. NOTE::
 
     For some manual actions on catalogue, CatalogueWindow can suddenly crash. While this is annoying,
     you should not lose any dataset. Just open again the same dataset and you should be in a previous

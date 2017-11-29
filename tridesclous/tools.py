@@ -212,7 +212,6 @@ def compute_cross_correlograms(spike_indexes, spike_labels,
     # Find `winsize_bins`.
     window_size = np.clip(window_size, 1e-5, 1e5)  # in seconds
     winsize_bins = 2 * int(.5 * window_size / bin_size) + 1
-    #~ print('window_size', window_size, 'bin_size', bin_size, 'winsize_bins', winsize_bins)
 
     assert winsize_bins >= 1
     assert winsize_bins % 2 == 1
@@ -221,21 +220,12 @@ def compute_cross_correlograms(spike_indexes, spike_labels,
     cluster_labels = cluster_labels.copy()
     cluster_labels.sort()
     
-    #filter to keep only cluster_labels
-    
-    #~ print(np.unique(spike_labels))
-    #~ print('cluster_labels', cluster_labels)
-    
-    
     # Like spike_labels, but with 0..n_clusters-1 indices.
     spike_labels_i = np.searchsorted(cluster_labels, spike_labels)
-    
-    #~ print('spike_labels_i', np.unique(spike_labels_i))
     
     cluster_labels = np.array(cluster_labels)
     n_clusters = cluster_labels.size
     correlograms = np.zeros((n_clusters, n_clusters, winsize_bins // 2 + 1), dtype='int32')
-    
     
     nb_seg = np.max(spike_segments) + 1
     for seg_num in range(nb_seg):
