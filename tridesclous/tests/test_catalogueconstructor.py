@@ -274,10 +274,11 @@ def test_ratio_amplitude():
     print(pairs)
 
 
-def test_create_copy_catalogue_constructor():
+def test_create_savepoint_catalogue_constructor():
     dataio = DataIO(dirname='test_catalogueconstructor')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    catalogueconstructor.create_copy()
+    copy_path = catalogueconstructor.create_savepoint()
+    print(copy_path)
 
 
     
@@ -289,6 +290,6 @@ if __name__ == '__main__':
     #~ test_make_catalogue()
     #~ test_ratio_amplitude()
     
-    test_create_copy_catalogue_constructor()
+    test_create_savepoint_catalogue_constructor()
 
 

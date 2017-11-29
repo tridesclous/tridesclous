@@ -1037,17 +1037,19 @@ class CatalogueConstructor:
         #~ return 
 
 
-    def create_copy(self):
+    def create_savepoint(self):
         """this create a copy of the entire catalogue_constructor subdir
         Usefull for the UI when the user wants to snapshot and try tricky merge/split.
         """
         
-        copy_path = self.catalogue_path + '_COPY_{:%Y-%m-%d_%Hh%Mm%S"}'.format(datetime.datetime.now())
-        print(copy_path)
+        copy_path = self.catalogue_path + '_SAVEPOINT_{:%Y-%m-%d_%Hh%Mm%S}'.format(datetime.datetime.now())
         
         if not os.path.exists(copy_path):
             shutil.copytree(self.catalogue_path, copy_path)
-        
+            
+        return copy_path
+
+
 
 
 

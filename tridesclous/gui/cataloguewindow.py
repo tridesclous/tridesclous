@@ -113,9 +113,12 @@ class CatalogueWindow(QT.QMainWindow):
         
         
     def create_actions(self):
-        #~ self.act_save = QT.QAction(u'Save catalogue', self,checkable = False, icon=QT.QIcon.fromTheme("document-save"))
-        self.act_save = QT.QAction(u'Make catalogue for peeler', self,checkable = False, icon=QT.QIcon(":/document-save.svg"))
-        self.act_save.triggered.connect(self.save_catalogue)
+
+        self.act_make_catalogue = QT.QAction(u'Make catalogue for peeler', self,checkable = False, icon=QT.QIcon(":/document-save.svg"))
+        self.act_make_catalogue.triggered.connect(self.save_catalogue)
+
+        self.act_savepoint = QT.QAction(u'Savepoint', self,checkable = False, icon=QT.QIcon(":/document-save.svg"))
+        self.act_savepoint.triggered.connect(self.create_savepoint)
         
         #~ self.act_refresh = QT.QAction(u'Refresh', self,checkable = False, icon=QT.QIcon.fromTheme("view-refresh"))
         self.act_refresh = QT.QAction(u'Refresh', self,checkable = False, icon=QT.QIcon(":/view-refresh.svg"))
@@ -138,6 +141,8 @@ class CatalogueWindow(QT.QMainWindow):
 
         self.act_compute_metrics = QT.QAction(u'Compute metrics', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
         self.act_compute_metrics.triggered.connect(self.compute_metrics)
+
+
         
         self.help_act = QT.QAction('Help', self,checkable = False, icon=QT.QIcon(":main_icon.png"))
         self.help_act.triggered.connect(self.open_webbrowser_help)
@@ -150,7 +155,7 @@ class CatalogueWindow(QT.QMainWindow):
         self.addToolBar(QT.Qt.RightToolBarArea, self.toolbar)
         self.toolbar.setIconSize(QT.QSize(60, 40))
         
-        self.toolbar.addAction(self.act_save)
+        self.toolbar.addAction(self.act_make_catalogue)
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.act_refresh)
         self.toolbar.addSeparator()
@@ -162,13 +167,32 @@ class CatalogueWindow(QT.QMainWindow):
         self.toolbar.addAction(self.act_compute_metrics)
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.help_act)
+        self.toolbar.addSeparator()
+        self.toolbar.addAction(self.act_savepoint)
+    
 
+    def warn(self, title, text):
+        mb = QT.QMessageBox.warning(self, title,text, QT.QMessageBox.Ok ,  QT.QMessageBox.NoButton)
+    
     def open_webbrowser_help(self):
         url = "http://tridesclous.readthedocs.io/en/latest/catalogue_window.html"
         webbrowser.open(url, new=2)
 
     def save_catalogue(self):
         self.catalogueconstructor.save_catalogue()
+    
+    def create_savepoint(self):
+        try:
+            copy_path = self.catalogueconstructor.create_savepoint()
+        except:
+            copy_path = None
+        
+        if copy_path is None:
+            txt = 'Savepoint FAIL!!!'
+        else:
+            txt = 'Savepoint done here {}'.format(copy_path)
+        self.warn('savepoint', txt)
+        
     
     def refresh_with_reload(self):
         self.controller.reload_data()
