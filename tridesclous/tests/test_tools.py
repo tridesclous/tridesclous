@@ -73,6 +73,15 @@ def test_compute_cross_correlograms():
     
     print(cgc.shape)
     print('compute_cross_correlograms', t1-t0)
+
+
+def test_int32_to_rgba():
+    r, g, b, a = int32_to_rgba(2654789321)
+    print(r, g, b, a)
+    
+def test_rgba_to_int32():
+    v = rgba_to_int32(158,60,222, 201)
+    print(v)
     
 
 if __name__ == '__main__':
@@ -81,4 +90,7 @@ if __name__ == '__main__':
     #~ test_get_neighborhood()
     #~ test_fix_prb_file_py2()
     #~ test_construct_probe_list()
-    test_compute_cross_correlograms()
+    #~ test_compute_cross_correlograms()
+    test_int32_to_rgba()
+    test_rgba_to_int32()
+    

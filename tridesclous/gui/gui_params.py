@@ -192,3 +192,10 @@ peeler_params = [
     {'name':'limit_duration', 'type': 'bool', 'value':True},
     {'name':'duration', 'type': 'float', 'value':60., 'suffix': 's', 'siPrefix': True},
 ]
+
+
+possible_tags = ['', 'so_bad', 'bad', 'not_so_bad','not_so_good','good', 'so_good', 'better_than_dreams']
+
+
+
+

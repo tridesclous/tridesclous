@@ -291,17 +291,23 @@ class ClusterPeakList(WidgetBase):
         act.triggered.connect(self.merge_selection)
         act = self.menu.addAction('Select on peak list')
         act.triggered.connect(self.select_peaks_of_clusters)
-        act = self.menu.addAction('Tag selection as same cell')
+        act = self.menu.addAction('Tag selected clusters as same cell')
         act.triggered.connect(self.selection_tag_same_cell)
         
         act = self.menu.addAction('Split selection')
-        act.triggered.connect(self.split_selection)        
+        act.triggered.connect(self.split_selection)
+
+        act = self.menu.addAction('Change color/annotation/tag')
+        act.triggered.connect(self.change_color_annotation_tag)
+        
+        
+        
 
     def refresh(self):
         self.table.itemChanged.disconnect(self.on_item_changed)
         
         self.table.clear()
-        labels = ['cluster_label', 'show/hide', 'nb_peaks', 'max_on_channel', 'cell_label',]
+        labels = ['cluster_label', 'show/hide', 'nb_peaks', 'max_on_channel', 'cell_label', 'tag', 'annotations']
         self.table.setColumnCount(len(labels))
         self.table.setHorizontalHeaderLabels(labels)
         #~ self.table.setMinimumWidth(100)
@@ -367,10 +373,15 @@ class ClusterPeakList(WidgetBase):
                 self.table.setItem(i,3, item)
             
             if k>=0:
-                cell_label = self.controller.cell_labels[self.controller.cluster_labels==k][0]
-                item = QT.QTableWidgetItem('{}'.format(cell_label))
-                item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
-                self.table.setItem(i,4, item)
+                clusters = self.controller.clusters
+                ind = np.searchsorted(clusters['cluster_label'], k)
+                
+                for c, attr in enumerate(['cell_label', 'tag', 'annotations']):
+                    value = clusters[attr][ind]
+                    item = QT.QTableWidgetItem('{}'.format(value))
+                    item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
+                    self.table.setItem(i,4+c, item)
+
             
         for i in range(5):
             self.table.resizeColumnToContents(i)
@@ -485,3 +496,31 @@ class ClusterPeakList(WidgetBase):
         self.controller.spike_selection[:] = self._selected_spikes()
         self.refresh()
         self.spike_selection_changed.emit()
+    
+    
+    def change_color_annotation_tag(self):
+        labels = self.selected_cluster()
+        n = len(labels)
+        if n!=1: return
+        k = labels[0]
+        clusters = self.controller.clusters
+        ind = np.searchsorted(clusters['cluster_label'], k)
+        
+        color = QT.QColor(self.controller.qcolors[k])
+        annotations = str(clusters[ind]['annotations'])
+        tag = str(clusters[ind]['tag'])
+        
+        params_ = [
+            {'name': 'color', 'type': 'color', 'value': color},
+            {'name': 'annotations', 'type': 'str', 'value': annotations},
+            {'name': 'tag', 'type': 'list', 'value': tag, 'values':gui_params.possible_tags},
+        ]        
+        
+        dia = ParamDialog(params_, title = 'Cluster {}'.format(k), parent=self)
+        if dia.exec_():
+            d = dia.get()
+            self.controller.set_cluster_attributes(k, **d)
+            
+            self.colors_changed.emit()
+            self.refresh()
+

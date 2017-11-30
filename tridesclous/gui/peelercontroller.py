@@ -8,6 +8,7 @@ import seaborn as sns
 from .base import ControllerBase
 
 from .. import labelcodes
+from ..tools import int32_to_rgba
 
 spike_visible_modes = ['selected', 'all',  'overlap']
 
@@ -48,19 +49,23 @@ class PeelerController(ControllerBase):
         
         
         self.cluster_visible = {k:True for k  in self.cluster_labels}
-        #~ self.refresh_colors(reset=True)
 
+        
+        #colors for clusters
         self.colors = {}
-        self.colors.update(self.catalogue['cluster_colors'])
+        for cluster in self.catalogue['clusters']:
+            k = cluster['cluster_label']
+            r, g, b, a = int32_to_rgba(cluster['color'], mode='float')
+            self.colors[k] =  (r, g, b)
         self.colors[labelcodes.LABEL_TRASH] = (.4, .4, .4)
         self.colors[labelcodes.LABEL_UNCLASSIFIED] = (.6, .6, .6)
         self.colors[labelcodes.LABEL_NOISE] = (.8, .8, .8)
+        
+        #qt colors
         self.qcolors = {}
         for k, color in self.colors.items():
             r, g, b = color
             self.qcolors[k] = QT.QColor(r*255, g*255, b*255)
-        
-        
         
         self.spike_visible_mode = spike_visible_modes[0]
     
