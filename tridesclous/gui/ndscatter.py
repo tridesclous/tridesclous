@@ -333,6 +333,8 @@ class NDScatter(WidgetBase):
     
     def refresh(self):
         if self.data is None:
+            if hasattr(self, 'plot'):
+                self.plot.clear()
             return
 
         if not hasattr(self, 'viewBox'):
@@ -395,6 +397,8 @@ class NDScatter(WidgetBase):
             self.timer_tour.stop()
     
     def new_tour_step(self):
+        if self.data is None:
+            return
         nb_step = self.params['nb_step']
         ndim = self.data.shape[1]
         
@@ -485,6 +489,9 @@ class NDScatter(WidgetBase):
         #~ self.refresh()
     
     def on_cluster_visibility_changed(self):
+        if self.data is None:
+            return
+        
         if self.params['auto_select_component']:
             self.auto_select_component()
         #~ self.refresh()
