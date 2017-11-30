@@ -41,7 +41,9 @@ def cosine_similarity_with_max(x):
 
 
 def compute_silhouette(data, labels, metric='euclidean'):
-
+    
+    if np.unique(labels).size<2:
+        return
     #~ self.silhouette_avg = silhouette_score(data, labels)
     silhouette_values = sklearn.metrics.silhouette_samples(data, labels)
         

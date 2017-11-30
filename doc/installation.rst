@@ -55,7 +55,15 @@ Optional if you're up for a fight and you really want fast computing with OpenCL
  
   
 
+.. WARNING::
 
+    Some user with windows report strong problems. Anaconda is hard to install and also in
+    the tridesclous GUI, when a file dialog should open python surddenly crash.
+    One possible reason is : on Dell computer an application **Dell Backup and Recovery**
+    is installed. This application also used Qt5. For some versions (1.8.xx and maybe others)
+    of **Dell Backup and Recovery** this Qt5 have bug and theses Qt5 ddl are mixed up with
+    anaconda Qt5, this lead to a total mess hard to debug. So if you have a Dell, you
+    should upgrade **Dell Backup and Recovery** or remove it.
 
 
 Case 2 : with pip (prefered on linux)
