@@ -5,7 +5,7 @@ import pyqtgraph as pg
 import numpy as np
 import seaborn as sns
 
-from ..tools import median_mad
+from ..tools import median_mad, rgba_to_int32
 from .. import labelcodes
 from ..catalogueconstructor import _persistent_metrics
 from .base import ControllerBase
@@ -43,7 +43,7 @@ class CatalogueController(ControllerBase):
         self.do_cluster_count()
         self.spike_selection = np.zeros(self.cc.nb_peak, dtype='bool')
         self.spike_visible = np.ones(self.cc.nb_peak, dtype='bool')
-        self.refresh_colors(reset=True)
+        self.refresh_colors(reset=False)
         self.check_plot_attributes()
         self.cc.compute_centroid()
         
@@ -235,6 +235,30 @@ class CatalogueController(ControllerBase):
             r, g, b = color
             self.qcolors[k] = QT.QColor(r*255, g*255, b*255)
 
+    def set_cluster_attributes(self, label, color=None, annotations=None, tag=None):
+        if label not in self.cc.clusters['cluster_label']:
+            return
+        
+        clusters = self.cc.clusters
+        ind = np.searchsorted(clusters['cluster_label'], label)
+        
+        if color is not None:
+            if type(color) == QT.QColor:
+                r, g, b, a = color.getRgb()
+                print(r, g, b, rgba_to_int32(r, g, b))
+                clusters['color'][ind] = rgba_to_int32(r, g, b)
+                self.refresh_colors(reset=False)
+        
+        if annotations is not None:
+            clusters['annotations'][ind] = annotations
+
+        if tag is not None:
+            clusters['tag'][ind] = tag
+        
+
+        #~ self.colors_changed.emit()
+        
+
     def merge_cluster(self, labels_to_merge):
         #TODO: maybe take the first cluster label instead of new one (except -1)
         new_label = min(labels_to_merge)
@@ -260,7 +284,7 @@ class CatalogueController(ControllerBase):
     def order_clusters(self):
         self.cc.order_clusters()
         self.on_new_cluster()
-        self.refresh_colors(reset = True)
+        self.refresh_colors(reset=True)
     
     def project(self, method='pca', selection=None, **kargs):
         self.cc.project(method=method, selection=selection, **kargs)
@@ -268,7 +292,7 @@ class CatalogueController(ControllerBase):
     def split_cluster(self, *args,  **kargs): #order_clusters=True,
         self.cc.split_cluster(*args,  **kargs) #order_clusters=order_clusters,
         self.on_new_cluster()
-        self.refresh_colors(reset = False)
+        self.refresh_colors(reset=False)
     
     @property
     def spike_waveforms_similarity(self):

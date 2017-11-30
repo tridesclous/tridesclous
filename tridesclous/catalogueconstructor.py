@@ -21,7 +21,7 @@ from . import decomposition
 from . import cluster 
 from . import metrics
 
-from .tools import median_mad, get_pairs_over_threshold
+from .tools import median_mad, get_pairs_over_threshold, int32_to_rgba, rgba_to_int32
 
 
 from .iotools import ArrayCollection
@@ -48,8 +48,13 @@ _dtype_peak = [('index', 'int64'), ('label', 'int64'), ('segment', 'int64'),]
 
 _dtype_cluster = [('cluster_label', 'int64'), ('cell_label', 'int64'), 
             ('max_on_channel', 'int64'), ('max_peak_amplitude', 'float64'),
-            ('waveform_rms', 'float64'), ('nb_peak', 'int64')]
-            #~ ('category', 'U32')]
+            ('waveform_rms', 'float64'), ('nb_peak', 'int64'), 
+            ('tag', 'U16'), ('annotations', 'U32'), ('color', 'int32')]
+
+_keep_cluster_attr_on_new = ['cell_label', 'tag','annotations', 'color']
+
+
+
 
 
 class CatalogueConstructor:
@@ -653,13 +658,16 @@ class CatalogueConstructor:
             clusters['nb_peak'][i] = np.sum(self.all_peaks['label']==k)
         
         if self.clusters is not None:
-            #get previous cell_label
+            #get previous _keep_cluster_attr_on_new
             for i, c in enumerate(clusters):
                 #~ print(i, c)
                 if c['cluster_label'] in self.clusters['cluster_label']:
                     j = np.nonzero(c['cluster_label']==self.clusters['cluster_label'])[0][0]
-                    self.clusters[j]['cell_label'] in cluster_labels
-                    clusters[i]['cell_label'] = self.clusters[j]['cell_label']
+                    for attr in _keep_cluster_attr_on_new:
+                        #~ self.clusters[j]['cell_label'] in cluster_labels
+                        #~ clusters[i]['cell_label'] = self.clusters[j]['cell_label']
+                        clusters[attr][i] = self.clusters[attr][j]
+                        
                     #~ print('j', j)
         
         if clusters.size>0:
@@ -707,33 +715,38 @@ class CatalogueConstructor:
         
     
     def refresh_colors(self, reset=True, palette='husl', interleaved=True):
-        if reset:
-            self.colors = {}
-        
         
         labels = self.positive_cluster_labels
-        n = labels.size
         
-        
-        
-        if interleaved:
-            if n%2 != 0:
-                #force odd number for interleaved
-                n += 1
-            
-            color_table_ = sns.color_palette(palette, n)
-            color_table = []
-            for i in range(n//2):
-                color_table.append(color_table_[i])
-                color_table.append(color_table_[i+n//2])
-            
+        if reset:
+            n = labels.size
+            if interleaved and n>1:
+                n1 = np.floor(np.sqrt(n))
+                n2 = np.ceil(n/n1)
+                n = int(n1*n2)
+                n1, n2 = int(n1), int(n2)
         else:
-            color_table = list(sns.color_palette(palette, n))
+            n = np.sum((self.clusters['cluster_label']>=0) & (self.clusters['color']==0))
+
+        if n>0:
+            colors_int32 = np.array([rgba_to_int32(r,g,b) for r,g,b in sns.color_palette(palette, n)])
+            
+            if reset and interleaved and n>1:
+                colors_int32 = colors_int32.reshape(n1, n2).T.flatten()
+                colors_int32 = colors_int32[:labels.size]
+            
+            if reset:
+                mask = self.clusters['cluster_label']>=0
+                self.clusters['color'][mask] = colors_int32
+            else:
+                mask = (self.clusters['cluster_label']>=0) & (self.clusters['color']==0)
+                self.clusters['color'][mask] = colors_int32
         
-        for i, k in enumerate(labels):
-            if k not in self.colors:
-                self.colors[k] = color_table[i]
-        
+        #This is keep for transition!!!
+        self.colors = {}
+        for cluster in self.clusters:
+            r, g, b, a = int32_to_rgba(cluster['color'], mode='float')
+            self.colors[cluster['cluster_label']] =  (r, g, b)
         self.colors[labelcodes.LABEL_TRASH] = (.4, .4, .4)
         self.colors[labelcodes.LABEL_UNCLASSIFIED] = (.6, .6, .6)
         self.colors[labelcodes.LABEL_NOISE] = (.8, .8, .8)
@@ -931,6 +944,9 @@ class CatalogueConstructor:
         self.catalogue['n_right'] = int(self.info['params_waveformextractor']['n_right'] -2)
         self.catalogue['peak_width'] = self.catalogue['n_right'] - self.catalogue['n_left']
         
+        #for colors
+        self.refresh_colors(reset=False)
+        
         keep = self.cluster_labels>=0
         cluster_labels = np.array(self.cluster_labels[keep], copy=True)
         # TODO this is redundant with clusters, this shoudl be removed but imply some change in peeler.
@@ -998,10 +1014,10 @@ class CatalogueConstructor:
             self.catalogue['max_on_channel'][i] = np.argmax(np.abs(center[-n_left,:]), axis=0)
         
         #colors
-        if not hasattr(self, 'colors'):
-            self.refresh_colors()
-        self.catalogue['cluster_colors'] = {}
-        self.catalogue['cluster_colors'].update(self.colors)
+        
+        
+        #~ self.catalogue['cluster_colors'] = {}
+        #~ self.catalogue['cluster_colors'].update(self.colors)
         
         #params
         self.catalogue['params_signalpreprocessor'] = dict(self.info['params_signalpreprocessor'])

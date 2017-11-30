@@ -300,6 +300,31 @@ def compute_cross_correlograms(spike_indexes, spike_labels,
 
 
 
+def int32_to_rgba(v, mode='int'):
+    r = (v>>24) & 0xFF
+    g = (v>>16) & 0xFF
+    b = (v>>8) & 0xFF
+    a = (v>>0) & 0xFF
+    if mode == 'int':
+        return r, g, b, a
+    elif mode=='float':
+        return r/255., g/255., b/255., a/255.
+
+
+def rgba_to_int32(r, g, b, a=None):
+    if type(r) == int:
+        if a is None:
+            a = 255
+        v = (r<<24) + (g<<16) + (b<<8) + a
+    else:
+        if a is None:
+            a = 1.
+        v = (int(r*255.)<<24) + (int(g*255.)<<16) + (int(b*255.)<<8) + int(a*255.)
+    return v
+        
+
+
+
 
 #~ if __name__=='__main__':
     #~ construct_probe_list()
