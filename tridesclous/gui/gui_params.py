@@ -50,6 +50,11 @@ Waveform extraction
      with few enhancement for centroids. Note that this is NOT the intersample true peak estimation done by the Peeler (which is
      very important)
 
+Waveform clean
+-------------------------
+
+  * alien_value_threshold (float): units=one mad. above this threshold the waveforms is tag as "Alien" and not use for features and clustering
+
 Noise snippet extraction
 --------------------------------------
 
@@ -137,6 +142,12 @@ waveforms_params = [
     #~ {'name': 'subsample_ratio', 'type': 'int', 'value':20},
 ]
 
+clean_waveforms_params =[
+    {'name': 'alien_value_threshold', 'type': 'float', 'value':100.},
+]
+
+
+
 noise_snippet_params = [
     {'name': 'nb_snippet', 'type': 'int', 'value':300},
 ]
@@ -178,6 +189,7 @@ fullchain_params = [
     {'name':'peak_detector', 'type':'group', 'children': peak_detector_params},
     {'name':'noise_snippet', 'type':'group', 'children': noise_snippet_params},
     {'name':'extract_waveforms', 'type':'group', 'children' : waveforms_params},
+    {'name':'clean_waveforms', 'type':'group', 'children' : clean_waveforms_params},
 ]
 
 metrics_params = [

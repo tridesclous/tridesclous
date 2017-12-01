@@ -297,6 +297,11 @@ class MainWindow(QT.QMainWindow):
             t2 = time.perf_counter()
             print('extract_some_waveforms', t2-t1)
 
+            t1 = time.perf_counter()
+            self.catalogueconstructor.clean_waveforms(**d['clean_waveforms'])
+            t2 = time.perf_counter()
+            print('clean_waveforms', t2-t1)
+            
             #~ t1 = time.perf_counter()
             #~ n_left, n_right = catalogueconstructor.find_good_limits(mad_threshold = 1.1,)
             #~ t2 = time.perf_counter()

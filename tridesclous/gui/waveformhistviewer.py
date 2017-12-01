@@ -144,8 +144,17 @@ class WaveformHistViewer(WidgetBase):
         self.params.blockSignals(True)
         #~ self.params['bin_min'] = np.min(self.controller.some_waveforms)
         #~ self.params['bin_max'] = np.max(self.controller.some_waveforms)
-        self.params['bin_min'] = np.percentile(self.controller.some_waveforms, .001)
-        self.params['bin_max'] = np.percentile(self.controller.some_waveforms, 99.999)
+        
+        
+        #~ print(self.controller.some_waveforms.shape)
+        #~ print(self.controller.some_peaks_index.shape)
+        #~ print(self.controller.some_peaks_index)
+        #~ print(self.controller.spike_label[self.controller.some_peaks_index].shape)
+        keep = self.controller.spike_label[self.controller.some_peaks_index]>=0
+        wfs = self.controller.some_waveforms[keep, :, :]
+        
+        self.params['bin_min'] = np.percentile(wfs, .001)
+        self.params['bin_max'] = np.percentile(wfs, 99.999)
         self.params.blockSignals(False)
                 
 
@@ -173,9 +182,9 @@ class WaveformHistViewer(WidgetBase):
             self._x_range = tuple(self.viewBox.state['viewRange'][0])
             self._y_range = tuple(self.viewBox.state['viewRange'][1])
         
-            
+        
         cluster_visible = self.controller.cluster_visible
-        visibles = [c for c, v in cluster_visible.items() if v ]
+        visibles = [k for k, v in cluster_visible.items() if v and k>=-1 ]
 
         #remove old curves
         for curve in self.curves:
@@ -188,9 +197,10 @@ class WaveformHistViewer(WidgetBase):
         
         #~ if  len(visibles)==1:
             #~ self.curve2.hide()
-
+        
         if self.params['data']=='waveforms':
             wf = self.controller.some_waveforms
+            #~ print('ici', wf)
             if wf is None:
                 self.plot.clear()
                 return
@@ -200,7 +210,6 @@ class WaveformHistViewer(WidgetBase):
             if data is None:
                 self.plot.clear()
                 return
-        
         
         labels = self.controller.spike_label[self.controller.some_peaks_index]
         keep = np.in1d(labels, visibles)

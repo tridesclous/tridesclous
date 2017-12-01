@@ -5,6 +5,8 @@ from urllib.request import urlretrieve
 import zipfile
 import os
 
+from . import labelcodes
+
 def median_mad(data, axis=0):
     """
     Compute along axis the median and the mad.
@@ -322,7 +324,17 @@ def rgba_to_int32(r, g, b, a=None):
         v = (int(r*255.)<<24) + (int(g*255.)<<16) + (int(b*255.)<<8) + int(a*255.)
     return v
         
-
+def make_color_dict(clusters):
+    colors = {}
+    for cluster in clusters:
+        r, g, b, a = int32_to_rgba(cluster['color'], mode='float')
+        colors[cluster['cluster_label']] =  (r, g, b)
+    colors[labelcodes.LABEL_TRASH] = (.4, .4, .4)
+    colors[labelcodes.LABEL_UNCLASSIFIED] = (.6, .6, .6)
+    colors[labelcodes.LABEL_NOISE] = (.8, .8, .8)
+    colors[labelcodes.LABEL_ALIEN] = (.4, .8, .1)
+    
+    return colors
 
 
 

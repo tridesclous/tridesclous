@@ -11,6 +11,8 @@ from . import signalpreprocessor
 from .peakdetector import  detect_peaks_in_chunk
 from . import waveformextractor
 
+from .tools import make_color_dict
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -25,7 +27,8 @@ except ImportError:
 
 _dtype_spike = [('index', 'int64'), ('label', 'int64'), ('jitter', 'float64'),]
 
-from .labelcodes import (LABEL_TRASH, LABEL_UNCLASSIFIED)
+from .labelcodes import (LABEL_TRASH, LABEL_UNCLASSIFIED, LABEL_ALIEN)
+
 LABEL_LEFT_LIMIT = -11
 LABEL_RIGHT_LIMIT = -12
 LABEL_MAXIMUM_SHIFT = -13
@@ -64,6 +67,8 @@ class Peeler:
         self.catalogue = catalogue
         self.chunksize = chunksize
         self.internal_dtype= internal_dtype
+        
+        self.colors = make_color_dict(self.catalogue['clusters'])
         
         # precompute some value for jitter estimation
         n = self.catalogue['cluster_labels'].size
