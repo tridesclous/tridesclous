@@ -94,6 +94,11 @@ def extract_waveforms_pca_cluster():
     #~ print('n_left', n_left, 'n_right', n_right)
     #~ print(catalogueconstructor.some_waveforms.shape)
     #~ print(catalogueconstructor)
+
+    t1 = time.perf_counter()
+    catalogueconstructor.clean_waveforms(alien_value_threshold=100.)
+    t2 = time.perf_counter()
+    print('clean_waveforms', t2-t1)
     
     
     t1 = time.perf_counter()

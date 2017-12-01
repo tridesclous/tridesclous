@@ -319,7 +319,9 @@ class ClusterPeakList(WidgetBase):
         
         #~ cluster_labels = self.controller.cluster_labels
         #~ cluster_labels = [labelcodes.LABEL_NOISE] + cluster_labels.tolist()
-        _special_label = [labelcodes.LABEL_UNCLASSIFIED, labelcodes.LABEL_NOISE, labelcodes.LABEL_TRASH]
+        #~ _special_label = [labelcodes.LABEL_UNCLASSIFIED, labelcodes.LABEL_NOISE, labelcodes.LABEL_TRASH]
+        _special_label = sorted(list(labelcodes.to_name.keys()))
+        
 
         sort_mode = str(self.combo_sort.currentText())
         

@@ -21,7 +21,7 @@ from . import decomposition
 from . import cluster 
 from . import metrics
 
-from .tools import median_mad, get_pairs_over_threshold, int32_to_rgba, rgba_to_int32
+from .tools import median_mad, get_pairs_over_threshold, int32_to_rgba, rgba_to_int32, make_color_dict
 
 
 from .iotools import ArrayCollection
@@ -39,6 +39,9 @@ _reset_after_peak_arrays = ('some_peaks_index', 'some_waveforms', 'some_features
                         'channel_to_features', 
                         'some_noise_index', 'some_noise_snippet', 'some_noise_features',
                         ) + _persistent_metrics
+
+_reset_after_waveforms_arrays = ('some_features', 'channel_to_features',
+                'some_noise_features') + _persistent_metrics
 
 _persitent_arrays = ('all_peaks', 'signals_medians','signals_mads', 'clusters') + _reset_after_peak_arrays
 
@@ -362,6 +365,13 @@ class CatalogueConstructor:
             self.arrays.detach_array(name)
             setattr(self, name, None)
     
+    def  _reset_features(self):
+        self.projector = None
+        for name in _reset_after_waveforms_arrays:
+            self.arrays.detach_array(name)
+            setattr(self, name, None)
+
+    
     def extract_some_waveforms(self, n_left=None, n_right=None, index=None, 
                                     mode='rand', nb_max=10000,
                                     align_waveform=False, subsample_ratio=20):
@@ -461,26 +471,24 @@ class CatalogueConstructor:
                     self.some_waveforms[n, :, :] = wf
                 n +=1
         
-        #Test smooth
-        #~ box_size = 3
-        #~ kernel = np.ones(box_size)/box_size
-        #~ kernel = kernel[:, None, None]
-        #~ self.some_waveforms[:] = scipy.signal.fftconvolve(self.some_waveforms, kernel,'same')
-        
         self.info['params_waveformextractor'] = dict(n_left=n_left, n_right=n_right, 
                                                                 nb_max=nb_max, align_waveform=align_waveform,
                                                                 subsample_ratio=subsample_ratio)
         self.flush_info()
         
-        #TODO recode this
-        if self.projector is not None:
-            try:
-                self.apply_projection()
-            except:
-                print('can not project new waveforms maybe shape hace change')
-                self.some_features = None
-        else:
-            self.some_features = None
+        self._reset_features()
+        self.all_peaks['label'][:] = labelcodes.LABEL_UNCLASSIFIED
+        self.all_peaks['label'][self.some_peaks_index] = 0
+    
+    def clean_waveforms(self, alien_value_threshold=100.):
+        
+        over = np.any(np.abs(self.some_waveforms)>alien_value_threshold, axis=(1,2))
+        
+        index_over = self.some_peaks_index[over]
+        index_ok = self.some_peaks_index[~over]
+        self.all_peaks['label'][index_over] = labelcodes.LABEL_ALIEN
+        self.all_peaks['label'][index_ok] = 0
+
     
     def find_good_limits(self, mad_threshold = 1.1, channel_percent=0.3, extract=True, min_left=-5, max_right=5):
         """
@@ -591,13 +599,17 @@ class CatalogueConstructor:
             self.some_noise_snippet[n, :, :] = snippet
                 #~ n +=1
 
-    def extract_some_features(self, method='pca', selection = None, **params): #n_components=5, 
+    def extract_some_features(self, method='pca', selection=None, **params): #n_components=5, 
         """
         params:
         n_components
         
         """
-        #TODO selection
+        
+        
+        if selection is None:
+            #by default selection is valid label >=0
+            selection = self.all_peaks['label'][self.some_peaks_index]>=0
         
         #~ wf = self.some_waveforms.reshape(self.some_waveforms.shape[0], -1)
         #~ params['n_components'] = n_components
@@ -630,6 +642,11 @@ class CatalogueConstructor:
     
     def find_clusters(self, method='kmeans', selection=None, **kargs):
         #done in a separate module cluster.py
+
+        if selection is None:
+            #by default selection is valid label >=0
+            selection = self.all_peaks['label']>=0
+        
         cluster.find_clusters(self, method=method, selection=selection, **kargs)
         
         
@@ -742,14 +759,9 @@ class CatalogueConstructor:
                 mask = (self.clusters['cluster_label']>=0) & (self.clusters['color']==0)
                 self.clusters['color'][mask] = colors_int32
         
-        #This is keep for transition!!!
-        self.colors = {}
-        for cluster in self.clusters:
-            r, g, b, a = int32_to_rgba(cluster['color'], mode='float')
-            self.colors[cluster['cluster_label']] =  (r, g, b)
-        self.colors[labelcodes.LABEL_TRASH] = (.4, .4, .4)
-        self.colors[labelcodes.LABEL_UNCLASSIFIED] = (.6, .6, .6)
-        self.colors[labelcodes.LABEL_NOISE] = (.8, .8, .8)
+        #Make colors accessible by key
+        self.colors = make_color_dict(self.clusters)
+        
     
     def split_cluster(self, label, method='kmeans',  **kargs): #order_clusters=True,
         mask = self.all_peaks['label']==label

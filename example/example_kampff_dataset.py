@@ -91,6 +91,11 @@ def extract_waveforms_pca_cluster():
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
 
+    t1 = time.perf_counter()
+    catalogueconstructor.clean_waveforms(alien_value_threshold=100.)
+    t2 = time.perf_counter()
+    print('clean_waveforms', t2-t1)
+
 
     #extract_some_noise
     t1 = time.perf_counter()
@@ -174,9 +179,9 @@ def open_PeelerWindow():
 
 if __name__ =='__main__':
     initialize_catalogueconstructor()
-    #~ preprocess_signals_and_peaks()
-    #~ extract_waveforms_pca_cluster()
-    #~ open_cataloguewindow()
+    preprocess_signals_and_peaks()
+    extract_waveforms_pca_cluster()
+    open_cataloguewindow()
     #~ clean_catalogue()
     #~ run_peeler()
     #~ open_PeelerWindow()

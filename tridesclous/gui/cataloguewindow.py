@@ -114,32 +114,35 @@ class CatalogueWindow(QT.QMainWindow):
         
     def create_actions(self):
 
-        self.act_make_catalogue = QT.QAction(u'Make catalogue for peeler', self,checkable = False, icon=QT.QIcon(":/document-save.svg"))
+        self.act_make_catalogue = QT.QAction('Make catalogue for peeler', self,checkable = False, icon=QT.QIcon(":/document-save.svg"))
         self.act_make_catalogue.triggered.connect(self.save_catalogue)
 
-        self.act_savepoint = QT.QAction(u'Savepoint', self,checkable = False, icon=QT.QIcon(":/document-save.svg"))
+        self.act_savepoint = QT.QAction('Savepoint', self,checkable = False, icon=QT.QIcon(":/document-save.svg"))
         self.act_savepoint.triggered.connect(self.create_savepoint)
         
-        #~ self.act_refresh = QT.QAction(u'Refresh', self,checkable = False, icon=QT.QIcon.fromTheme("view-refresh"))
-        self.act_refresh = QT.QAction(u'Refresh', self,checkable = False, icon=QT.QIcon(":/view-refresh.svg"))
+        #~ self.act_refresh = QT.QAction('Refresh', self,checkable = False, icon=QT.QIcon.fromTheme("view-refresh"))
+        self.act_refresh = QT.QAction('Refresh', self,checkable = False, icon=QT.QIcon(":/view-refresh.svg"))
         self.act_refresh.triggered.connect(self.refresh_with_reload)
         
-        self.act_redetect_peak = QT.QAction(u'New peaks', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        self.act_redetect_peak = QT.QAction('New peaks', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
         self.act_redetect_peak.triggered.connect(self.redetect_peak)
 
-        self.act_new_waveforms = QT.QAction(u'New waveforms', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        self.act_new_waveforms = QT.QAction('New waveforms', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
         self.act_new_waveforms.triggered.connect(self.new_waveforms)
 
-        self.act_new_noise_snippet = QT.QAction(u'New noise snippet', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        self.act_clean_waveforms = QT.QAction('Clean waveforms', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        self.act_clean_waveforms.triggered.connect(self.clean_waveforms)
+
+        self.act_new_noise_snippet = QT.QAction('New noise snippet', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
         self.act_new_noise_snippet.triggered.connect(self.new_noise_snippet)
 
-        self.act_new_features = QT.QAction(u'New features', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        self.act_new_features = QT.QAction('New features', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
         self.act_new_features.triggered.connect(self.new_features)
 
-        self.act_new_cluster = QT.QAction(u'New cluster', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        self.act_new_cluster = QT.QAction('New cluster', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
         self.act_new_cluster.triggered.connect(self.new_cluster)
 
-        self.act_compute_metrics = QT.QAction(u'Compute metrics', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        self.act_compute_metrics = QT.QAction('Compute metrics', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
         self.act_compute_metrics.triggered.connect(self.compute_metrics)
 
 
@@ -161,6 +164,7 @@ class CatalogueWindow(QT.QMainWindow):
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.act_redetect_peak)
         self.toolbar.addAction(self.act_new_waveforms)
+        self.toolbar.addAction(self.act_clean_waveforms)
         self.toolbar.addAction(self.act_new_noise_snippet)
         self.toolbar.addAction(self.act_new_features)
         self.toolbar.addAction(self.act_new_cluster)
@@ -221,6 +225,15 @@ class CatalogueWindow(QT.QMainWindow):
             d = dia.get()
             self.catalogueconstructor.extract_some_waveforms(**d)
         self.refresh()
+
+    def clean_waveforms(self):
+        dia = ParamDialog(gui_params.clean_waveforms_params)
+        dia.resize(450, 500)
+        if dia.exec_():
+            d = dia.get()
+            self.catalogueconstructor.clean_waveforms(**d)
+            self.controller.on_new_cluster()
+            self.refresh()
 
     def new_noise_snippet(self):
         dia = ParamDialog(gui_params.noise_snippet_params)

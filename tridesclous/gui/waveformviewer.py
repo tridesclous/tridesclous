@@ -409,16 +409,18 @@ class WaveformViewerBase(WidgetBase):
                 i_start=peak_ind+n_left, i_stop=peak_ind+n_right,
                 signal_type='processed', return_type='raw_numpy')
         
-        if self.mode=='flatten':
-            wf = wf.T.flatten()
-            xvect = np.arange(wf.size)
-            self.curve_one_waveform.setData(xvect, wf)
-        elif self.mode=='geometry':
-            ypos = self.arr_geometry[:,1]
-            wf = wf*self.factor_y*self.delta_y + ypos[None, :]
-            wf[0,:] = np.nan
-            wf = wf.T.reshape(-1)
-            self.curve_one_waveform.setData(self.xvect, wf)
+        if wf.shape[0]==(n_right-n_left):
+            #this avoid border bugs
+            if self.mode=='flatten':
+                wf = wf.T.flatten()
+                xvect = np.arange(wf.size)
+                self.curve_one_waveform.setData(xvect, wf)
+            elif self.mode=='geometry':
+                ypos = self.arr_geometry[:,1]
+                wf = wf*self.factor_y*self.delta_y + ypos[None, :]
+                wf[0,:] = np.nan
+                wf = wf.T.reshape(-1)
+                self.curve_one_waveform.setData(self.xvect, wf)
     
     def on_spike_selection_changed(self):
         #~ n_selected = np.sum(self.controller.spike_selection)

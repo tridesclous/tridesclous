@@ -95,18 +95,23 @@ def extract_waveforms_pca_cluster():
     #~ print('n_left', n_left, 'n_right', n_right)
     #~ print(catalogueconstructor.some_waveforms.shape)
     print(catalogueconstructor)
+
+
+    t1 = time.perf_counter()
+    catalogueconstructor.clean_waveforms(alien_value_threshold=100.)
+    t2 = time.perf_counter()
+    print('clean_waveforms', t2-t1)
     
     
     #extract_some_noise
     t1 = time.perf_counter()
-    catalogueconstructor.extract_some_noise(nb_snipet=400)
+    catalogueconstructor.extract_some_noise(nb_snippet=400)
     t2 = time.perf_counter()
     print('extract_some_noise', t2-t1)
 
     
     t1 = time.perf_counter()
-    catalogueconstructor.project(method='pca', n_components=7)
-    #~ catalogueconstructor.project(method='tsne', n_components=2, perplexity=40., init='pca')
+    catalogueconstructor.project(method='global_pca', n_components=7)
     t2 = time.perf_counter()
     print('project', t2-t1)
     print(catalogueconstructor)
@@ -183,10 +188,10 @@ def open_PeelerWindow():
 
 
 if __name__ =='__main__':
-    #~ initialize_catalogueconstructor()
-    #~ preprocess_signals_and_peaks()
-    #~ extract_waveforms_pca_cluster()
-    open_cataloguewindow()
+    initialize_catalogueconstructor()
+    preprocess_signals_and_peaks()
+    extract_waveforms_pca_cluster()
+    #~ open_cataloguewindow()
     #~ detect_similar_ratio()
     #~ run_peeler()
     #~ open_PeelerWindow()

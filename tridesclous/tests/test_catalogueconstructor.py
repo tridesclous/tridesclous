@@ -86,12 +86,21 @@ def test_catalogue_constructor():
         t2 = time.perf_counter()
         print('find_good_limits', t2-t1)
         print(catalogueconstructor.some_waveforms.shape)
+        
 
         t1 = time.perf_counter()
         catalogueconstructor.extract_some_waveforms(n_left=None, n_right=None, mode='rand', nb_max=20000)
         t2 = time.perf_counter()
         print('extract_some_waveforms rand', t2-t1)
         print(catalogueconstructor.some_waveforms.shape)
+
+        t1 = time.perf_counter()
+        catalogueconstructor.clean_waveforms(alien_value_threshold=60.)
+        t2 = time.perf_counter()
+        print('clean_waveforms', t2-t1)
+        
+        print(catalogueconstructor)
+        
 
         #extract_some_noise
         t1 = time.perf_counter()
@@ -125,6 +134,7 @@ def test_catalogue_constructor():
         t2 = time.perf_counter()
         print('find_clusters', t2-t1)
         
+        print(catalogueconstructor)
         
         # similarity
         #~ catalogueconstructor.compute_centroid()
@@ -283,13 +293,13 @@ def test_create_savepoint_catalogue_constructor():
 
     
 if __name__ == '__main__':
-    #~ test_catalogue_constructor()
+    test_catalogue_constructor()
     
     #~ compare_nb_waveforms()
     
     #~ test_make_catalogue()
     #~ test_ratio_amplitude()
     
-    test_create_savepoint_catalogue_constructor()
+    #~ test_create_savepoint_catalogue_constructor()
 
 

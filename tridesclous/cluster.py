@@ -64,7 +64,7 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         cc.all_peaks['label'][:] = labelcodes.LABEL_UNCLASSIFIED
         cc.all_peaks['label'][cc.some_peaks_index] = labels
     else:
-        labels += max(cc.cluster_labels) + 1
+        labels += max(max(cc.cluster_labels), -1) + 1
         cc.all_peaks['label'][cc.some_peaks_index[sel]] = labels
     
     
