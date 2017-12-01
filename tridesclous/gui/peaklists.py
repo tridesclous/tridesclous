@@ -5,6 +5,8 @@ import numpy as np
 
 from .. import labelcodes
 from .base import WidgetBase
+from .baselist import ClusterBaseList
+
 from .tools import ParamDialog, open_dialog_methods
 from . import gui_params
 
@@ -210,9 +212,7 @@ class PeakList(WidgetBase):
         self.spike_label_changed.emit()
     
     
-
-
-class ClusterPeakList(WidgetBase):
+class ClusterPeakList(ClusterBaseList):
     """
     **Cluster list** is the central widget for actions for clusters :
     make them visible, merge, trash, sort, split, change color, ...
@@ -243,31 +243,10 @@ class ClusterPeakList(WidgetBase):
       * -1 is thrash
       * -2 is noise snippet
       * -10 unclassified (because no waveform associated)
+      * -9 Alien
 
     """
-    
-    def __init__(self, controller=None, parent=None):
-        WidgetBase.__init__(self, parent=parent, controller=controller)
-        
-        self.layout = QT.QVBoxLayout()
-        self.setLayout(self.layout)
-        
-        h = QT.QHBoxLayout()
-        self.layout.addLayout(h)
-        h.addWidget(QT.QLabel('sort by'))
-        self.combo_sort = QT.QComboBox()
-        self.combo_sort.addItems(['label', 'max_on_channel', 'max_peak_amplitude', 'waveform_rms', 'nb_peak'])
-        self.combo_sort.currentIndexChanged.connect(self.refresh)
-        h.addWidget(self.combo_sort)
-        h.addStretch()
-        
-        self.table = QT.QTableWidget()
-        self.layout.addWidget(self.table)
-        self.table.itemChanged.connect(self.on_item_changed)
-        
-        self.make_menu()
-        
-        self.refresh()
+    _special_label = sorted(list(labelcodes.to_name.keys()))
 
     def make_menu(self):
         self.menu = QT.QMenu()
@@ -299,151 +278,23 @@ class ClusterPeakList(WidgetBase):
 
         act = self.menu.addAction('Change color/annotation/tag')
         act.triggered.connect(self.change_color_annotation_tag)
-        
-        
-        
 
-    def refresh(self):
-        self.table.itemChanged.disconnect(self.on_item_changed)
-        
-        self.table.clear()
-        labels = ['cluster_label', 'show/hide', 'nb_peaks', 'max_on_channel', 'cell_label', 'tag', 'annotations']
-        self.table.setColumnCount(len(labels))
-        self.table.setHorizontalHeaderLabels(labels)
-        #~ self.table.setMinimumWidth(100)
-        #~ self.table.setColumnWidth(0,60)
-        self.table.setContextMenuPolicy(QT.Qt.CustomContextMenu)
-        self.table.customContextMenuRequested.connect(self.open_context_menu)
-        self.table.setSelectionMode(QT.QAbstractItemView.ExtendedSelection)
-        self.table.setSelectionBehavior(QT.QAbstractItemView.SelectRows)
-        
-        #~ cluster_labels = self.controller.cluster_labels
-        #~ cluster_labels = [labelcodes.LABEL_NOISE] + cluster_labels.tolist()
-        #~ _special_label = [labelcodes.LABEL_UNCLASSIFIED, labelcodes.LABEL_NOISE, labelcodes.LABEL_TRASH]
-        _special_label = sorted(list(labelcodes.to_name.keys()))
-        
-
-        sort_mode = str(self.combo_sort.currentText())
-        
-        clusters = self.controller.clusters
-        clusters = clusters[clusters['cluster_label']>=0]
-        if sort_mode=='label':
-            order =np.arange(clusters.size)
-        elif sort_mode=='max_on_channel':
-            order = np.argsort(clusters['max_on_channel'])
-        elif sort_mode=='max_peak_amplitude':
-            order = np.argsort(np.abs(clusters['max_peak_amplitude']))[::-1]
-        elif sort_mode=='waveform_rms':
-            order = np.argsort(clusters['waveform_rms'])[::-1]
-        elif sort_mode=='nb_peak':
-            order = np.argsort(clusters['nb_peak'])[::-1]
-        
-        cluster_labels =_special_label + self.controller.positive_cluster_labels[order].tolist()
-        
-        self.table.setRowCount(len(cluster_labels))
-        
-        for i, k in enumerate(cluster_labels):
-            color = self.controller.qcolors.get(k, QT.QColor( 'white'))
-            pix = QT.QPixmap(16,16)
-            pix.fill(color)
-            icon = QT.QIcon(pix)
-            
-            if k<0:
-                name = '{} ({})'.format(k, labelcodes.to_name[k])
-            else:
-                name = '{}'.format(k)
-            item = QT.QTableWidgetItem(name)
-            item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
-            self.table.setItem(i,0, item)
-            item.setIcon(icon)
-            
-            item = QT.QTableWidgetItem('')
-            item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable|QT.Qt.ItemIsUserCheckable)
-            
-            item.setCheckState({ False: QT.Qt.Unchecked, True : QT.Qt.Checked}[self.controller.cluster_visible.get(k, False)])
-            self.table.setItem(i,1, item)
-            item.label = k
-
-            item = QT.QTableWidgetItem('{}'.format(self.controller.cluster_count.get(k, 0)))
-            item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
-            self.table.setItem(i,2, item)
-            
-            c = self.controller.get_max_on_channel(k)
-            if c is not None:
-                item = QT.QTableWidgetItem('{}: {}'.format(c, self.controller.channel_names[c]))
-                item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
-                self.table.setItem(i,3, item)
-            
-            if k>=0:
-                clusters = self.controller.clusters
-                ind = np.searchsorted(clusters['cluster_label'], k)
-                
-                for c, attr in enumerate(['cell_label', 'tag', 'annotations']):
-                    value = clusters[attr][ind]
-                    item = QT.QTableWidgetItem('{}'.format(value))
-                    item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
-                    self.table.setItem(i,4+c, item)
-
-            
-        for i in range(5):
-            self.table.resizeColumnToContents(i)
-        self.table.itemChanged.connect(self.on_item_changed)        
-
-    def on_item_changed(self, item):
-        if item.column() != 1: return
-        sel = {QT.Qt.Unchecked : False, QT.Qt.Checked : True}[item.checkState()]
-        #~ k = self.controller.cluster_labels[item.row()]
-        k = item.label
-        self.controller.cluster_visible[k] = bool(item.checkState())
-        self.cluster_visibility_changed.emit()
-    
-    def selected_cluster(self):
-        selected = []
-        #~ for index in self.table.selectedIndexes():
-        for item in self.table.selectedItems():
-            #~ if index.column() !=1: continue
-            if item.column() != 1: continue
-            #~ selected.append(self.controller.cluster_labels[index.row()])
-            selected.append(item.label)
-        return selected
-    
     def _selected_spikes(self):
         selection = np.zeros(self.controller.spike_label.shape[0], dtype = bool)
         for k in self.selected_cluster():
             selection |= self.controller.spike_label == k
         return selection
     
-    def open_context_menu(self):
-        #~ n = len(self.selected_cluster())
-
-        
-        self.menu.popup(self.cursor().pos())
-        #~ menu.exec_(self.cursor().pos())
-        
-    
     def reset_colors(self):
         self.controller.refresh_colors(reset = True)
         self.refresh()
         self.colors_changed.emit()
-    
-    def show_all(self):
-        for k in self.controller.cluster_visible:
-            self.controller.cluster_visible[k] = True
-        self.refresh()
-        self.cluster_visibility_changed.emit()
-    
-    def hide_all(self):
-        for k in self.controller.cluster_visible:
-            self.controller.cluster_visible[k] = False
-        self.refresh()
-        self.cluster_visibility_changed.emit()
     
     def order_clusters(self):
         self.controller.order_clusters()
         self.controller.on_new_cluster()
         self.refresh()
         self.spike_label_changed.emit()
-    
     def pc_project_all(self, selection=None):
         method, kargs = open_dialog_methods(gui_params.features_params_by_methods, self)
         
@@ -482,8 +333,6 @@ class ClusterPeakList(WidgetBase):
         
         if method is None: return
         
-        #~ n = kargs.pop('n_clusters')
-        
         self.controller.split_cluster(label_to_split, method=method,  **kargs) #order_clusters=True,
         self.refresh()
         self.spike_label_changed.emit()
@@ -493,12 +342,11 @@ class ClusterPeakList(WidgetBase):
         self.controller.tag_same_cell(labels_to_group)
         self.refresh()
         self.cluster_tag_changed.emit()
-    
+
     def select_peaks_of_clusters(self):
         self.controller.spike_selection[:] = self._selected_spikes()
         self.refresh()
         self.spike_selection_changed.emit()
-    
     
     def change_color_annotation_tag(self):
         labels = self.selected_cluster()
@@ -525,4 +373,275 @@ class ClusterPeakList(WidgetBase):
             
             self.colors_changed.emit()
             self.refresh()
+
+
+    
+    
+
+#~ class ClusterPeakList(WidgetBase):
+
+    
+    #~ def __init__(self, controller=None, parent=None):
+        #~ WidgetBase.__init__(self, parent=parent, controller=controller)
+        
+        #~ self.layout = QT.QVBoxLayout()
+        #~ self.setLayout(self.layout)
+        
+        #~ h = QT.QHBoxLayout()
+        #~ self.layout.addLayout(h)
+        #~ h.addWidget(QT.QLabel('sort by'))
+        #~ self.combo_sort = QT.QComboBox()
+        #~ self.combo_sort.addItems(['label', 'max_on_channel', 'max_peak_amplitude', 'waveform_rms', 'nb_peak'])
+        #~ self.combo_sort.currentIndexChanged.connect(self.refresh)
+        #~ h.addWidget(self.combo_sort)
+        #~ h.addStretch()
+        
+        #~ self.table = QT.QTableWidget()
+        #~ self.layout.addWidget(self.table)
+        #~ self.table.itemChanged.connect(self.on_item_changed)
+        
+        #~ self.make_menu()
+        
+        #~ self.refresh()
+
+    #~ def make_menu(self):
+        #~ self.menu = QT.QMenu()
+
+        #~ act = self.menu.addAction('Reset colors')
+        #~ act.triggered.connect(self.reset_colors)
+        #~ act = self.menu.addAction('Show all')
+        #~ act.triggered.connect(self.show_all)
+        #~ act = self.menu.addAction('Hide all')
+        #~ act.triggered.connect(self.hide_all)
+        #~ act = self.menu.addAction('Re-label cluster by rms')
+        #~ act.triggered.connect(self.order_clusters)
+        
+        #~ act = self.menu.addAction('Feature projection with all')
+        #~ act.triggered.connect(self.pc_project_all)
+        #~ act = self.menu.addAction('Feature projection with selection')
+        #~ act.triggered.connect(self.pc_project_selection)
+        #~ act = self.menu.addAction('Move selection to trash')
+        #~ act.triggered.connect(self.move_selection_to_trash)
+        #~ act = self.menu.addAction('Merge selection')
+        #~ act.triggered.connect(self.merge_selection)
+        #~ act = self.menu.addAction('Select on peak list')
+        #~ act.triggered.connect(self.select_peaks_of_clusters)
+        #~ act = self.menu.addAction('Tag selected clusters as same cell')
+        #~ act.triggered.connect(self.selection_tag_same_cell)
+        
+        #~ act = self.menu.addAction('Split selection')
+        #~ act.triggered.connect(self.split_selection)
+
+        #~ act = self.menu.addAction('Change color/annotation/tag')
+        #~ act.triggered.connect(self.change_color_annotation_tag)
+        
+        
+        
+
+    #~ def refresh(self):
+        #~ self.table.itemChanged.disconnect(self.on_item_changed)
+        
+        #~ self.table.clear()
+        #~ labels = ['cluster_label', 'show/hide', 'nb_peaks', 'max_on_channel', 'cell_label', 'tag', 'annotations']
+        #~ self.table.setColumnCount(len(labels))
+        #~ self.table.setHorizontalHeaderLabels(labels)
+        #~ self.table.setContextMenuPolicy(QT.Qt.CustomContextMenu)
+        #~ self.table.customContextMenuRequested.connect(self.open_context_menu)
+        #~ self.table.setSelectionMode(QT.QAbstractItemView.ExtendedSelection)
+        #~ self.table.setSelectionBehavior(QT.QAbstractItemView.SelectRows)
+        
+        #~ _special_label = sorted(list(labelcodes.to_name.keys()))
+        
+
+        #~ sort_mode = str(self.combo_sort.currentText())
+        
+        #~ clusters = self.controller.clusters
+        #~ clusters = clusters[clusters['cluster_label']>=0]
+        #~ if sort_mode=='label':
+            #~ order =np.arange(clusters.size)
+        #~ elif sort_mode=='max_on_channel':
+            #~ order = np.argsort(clusters['max_on_channel'])
+        #~ elif sort_mode=='max_peak_amplitude':
+            #~ order = np.argsort(np.abs(clusters['max_peak_amplitude']))[::-1]
+        #~ elif sort_mode=='waveform_rms':
+            #~ order = np.argsort(clusters['waveform_rms'])[::-1]
+        #~ elif sort_mode=='nb_peak':
+            #~ order = np.argsort(clusters['nb_peak'])[::-1]
+        
+        #~ cluster_labels =_special_label + self.controller.positive_cluster_labels[order].tolist()
+        
+        #~ self.table.setRowCount(len(cluster_labels))
+        
+        #~ for i, k in enumerate(cluster_labels):
+            #~ color = self.controller.qcolors.get(k, QT.QColor( 'white'))
+            #~ pix = QT.QPixmap(16,16)
+            #~ pix.fill(color)
+            #~ icon = QT.QIcon(pix)
+            
+            #~ if k<0:
+                #~ name = '{} ({})'.format(k, labelcodes.to_name[k])
+            #~ else:
+                #~ name = '{}'.format(k)
+            #~ item = QT.QTableWidgetItem(name)
+            #~ item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
+            #~ self.table.setItem(i,0, item)
+            #~ item.setIcon(icon)
+            
+            #~ item = QT.QTableWidgetItem('')
+            #~ item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable|QT.Qt.ItemIsUserCheckable)
+            
+            #~ item.setCheckState({ False: QT.Qt.Unchecked, True : QT.Qt.Checked}[self.controller.cluster_visible.get(k, False)])
+            #~ self.table.setItem(i,1, item)
+            #~ item.label = k
+
+            #~ item = QT.QTableWidgetItem('{}'.format(self.controller.cluster_count.get(k, 0)))
+            #~ item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
+            #~ self.table.setItem(i,2, item)
+            
+            #~ c = self.controller.get_max_on_channel(k)
+            #~ if c is not None:
+                #~ item = QT.QTableWidgetItem('{}: {}'.format(c, self.controller.channel_names[c]))
+                #~ item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
+                #~ self.table.setItem(i,3, item)
+            
+            #~ if k>=0:
+                #~ clusters = self.controller.clusters
+                #~ ind = np.searchsorted(clusters['cluster_label'], k)
+                
+                #~ for c, attr in enumerate(['cell_label', 'tag', 'annotations']):
+                    #~ value = clusters[attr][ind]
+                    #~ item = QT.QTableWidgetItem('{}'.format(value))
+                    #~ item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
+                    #~ self.table.setItem(i,4+c, item)
+
+            
+        #~ for i in range(5):
+            #~ self.table.resizeColumnToContents(i)
+        #~ self.table.itemChanged.connect(self.on_item_changed)        
+
+    #~ def on_item_changed(self, item):
+        #~ if item.column() != 1: return
+        #~ sel = {QT.Qt.Unchecked : False, QT.Qt.Checked : True}[item.checkState()]
+        #~ k = item.label
+        #~ self.controller.cluster_visible[k] = bool(item.checkState())
+        #~ self.cluster_visibility_changed.emit()
+    
+    #~ def selected_cluster(self):
+        #~ selected = []
+        #~ for item in self.table.selectedItems():
+            #~ if item.column() != 1: continue
+            #~ selected.append(item.label)
+        #~ return selected
+    
+    #~ def _selected_spikes(self):
+        #~ selection = np.zeros(self.controller.spike_label.shape[0], dtype = bool)
+        #~ for k in self.selected_cluster():
+            #~ selection |= self.controller.spike_label == k
+        #~ return selection
+    
+    #~ def open_context_menu(self):
+        #~ self.menu.popup(self.cursor().pos())
+    
+    #~ def reset_colors(self):
+        #~ self.controller.refresh_colors(reset = True)
+        #~ self.refresh()
+        #~ self.colors_changed.emit()
+    
+    #~ def show_all(self):
+        #~ for k in self.controller.cluster_visible:
+            #~ self.controller.cluster_visible[k] = True
+        #~ self.refresh()
+        #~ self.cluster_visibility_changed.emit()
+    
+    #~ def hide_all(self):
+        #~ for k in self.controller.cluster_visible:
+            #~ self.controller.cluster_visible[k] = False
+        #~ self.refresh()
+        #~ self.cluster_visibility_changed.emit()
+    
+    #~ def order_clusters(self):
+        #~ self.controller.order_clusters()
+        #~ self.controller.on_new_cluster()
+        #~ self.refresh()
+        #~ self.spike_label_changed.emit()
+    
+    #~ def pc_project_all(self, selection=None):
+        #~ method, kargs = open_dialog_methods(gui_params.features_params_by_methods, self)
+        
+        #~ if method is None: return
+        
+        #~ self.controller.project(method=method, selection=selection, **kargs)
+        #~ self.refresh()
+        #~ self.spike_label_changed.emit()
+    
+    #~ def pc_project_selection(self):
+        #~ self.pc_project_all(selection=self._selected_spikes())
+    
+    #~ def move_selection_to_trash(self):
+        #~ for k in self.selected_cluster():
+            #~ mask = self.controller.spike_label == k
+            #~ self.controller.change_spike_label(mask, -1, on_new_cluster=False)
+        #~ self.controller.on_new_cluster(label_changed=None)
+        #~ self.controller.refresh_colors(reset=False)
+        #~ self.refresh()
+        #~ self.spike_label_changed.emit()
+    
+    #~ def merge_selection(self):
+        #~ label_to_merge = self.selected_cluster()
+        #~ self.controller.merge_cluster(label_to_merge)
+        #~ self.refresh()
+        #~ self.spike_label_changed.emit()
+    
+    #~ def split_selection(self):
+        #~ #TODO bug when not n_clusters
+        
+        #~ n = len(self.selected_cluster())
+        #~ if n!=1: return
+        #~ label_to_split = self.selected_cluster()[0]
+        
+        #~ method, kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self)
+        
+        #~ if method is None: return
+        
+        #~ self.controller.split_cluster(label_to_split, method=method,  **kargs) #order_clusters=True,
+        #~ self.refresh()
+        #~ self.spike_label_changed.emit()
+
+    #~ def selection_tag_same_cell(self):
+        #~ labels_to_group = self.selected_cluster()
+        #~ self.controller.tag_same_cell(labels_to_group)
+        #~ self.refresh()
+        #~ self.cluster_tag_changed.emit()
+    
+    #~ def select_peaks_of_clusters(self):
+        #~ self.controller.spike_selection[:] = self._selected_spikes()
+        #~ self.refresh()
+        #~ self.spike_selection_changed.emit()
+    
+    
+    #~ def change_color_annotation_tag(self):
+        #~ labels = self.selected_cluster()
+        #~ n = len(labels)
+        #~ if n!=1: return
+        #~ k = labels[0]
+        #~ clusters = self.controller.clusters
+        #~ ind = np.searchsorted(clusters['cluster_label'], k)
+        
+        #~ color = QT.QColor(self.controller.qcolors[k])
+        #~ annotations = str(clusters[ind]['annotations'])
+        #~ tag = str(clusters[ind]['tag'])
+        
+        #~ params_ = [
+            #~ {'name': 'color', 'type': 'color', 'value': color},
+            #~ {'name': 'annotations', 'type': 'str', 'value': annotations},
+            #~ {'name': 'tag', 'type': 'list', 'value': tag, 'values':gui_params.possible_tags},
+        #~ ]        
+        
+        #~ dia = ParamDialog(params_, title = 'Cluster {}'.format(k), parent=self)
+        #~ if dia.exec_():
+            #~ d = dia.get()
+            #~ self.controller.set_cluster_attributes(k, **d)
+            
+            #~ self.colors_changed.emit()
+            #~ self.refresh()
 

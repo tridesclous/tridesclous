@@ -651,6 +651,7 @@ class CatalogueConstructor:
             #by default selection is valid label >=0
             selection = self.all_peaks['label']>=0
         
+        
         cluster.find_clusters(self, method=method, selection=selection, **kargs)
         
         

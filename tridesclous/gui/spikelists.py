@@ -4,6 +4,8 @@ import pyqtgraph as pg
 import numpy as np
 
 from .base import WidgetBase
+from .baselist import ClusterBaseList
+
 from .peelercontroller import spike_visible_modes
 from .tools import ParamDialog
 
@@ -192,116 +194,123 @@ class SpikeList(WidgetBase):
         #~ self.spike_label_changed.emit()
 
 
-class ClusterSpikeList(WidgetBase):
+class ClusterSpikeList(ClusterBaseList):
     
-    def __init__(self, controller=None, parent=None):
-        WidgetBase.__init__(self, parent=parent, controller=controller)
-        
-        self.layout = QT.QVBoxLayout()
-        self.setLayout(self.layout)
-
-        self.table = QT.QTableWidget()
-        self.layout.addWidget(self.table)
-        self.table.itemChanged.connect(self.on_item_changed)
-        
-        self.make_menu()
-        
-        self.refresh()
+    _special_label = [labelcodes.LABEL_UNCLASSIFIED]
     
     def make_menu(self):
         self.menu = QT.QMenu()
-
-        #~ act = self.menu.addAction('Reset colors')
-        #~ act.triggered.connect(self.reset_colors)
         act = self.menu.addAction('Show all')
         act.triggered.connect(self.show_all)
         act = self.menu.addAction('Hide all')
         act.triggered.connect(self.hide_all)
     
     
+
+
+#~ class ClusterSpikeList(WidgetBase):
     
-    def refresh(self):
-        #~ self.cc._check_plot_attributes()
+    #~ def __init__(self, controller=None, parent=None):
+        #~ WidgetBase.__init__(self, parent=parent, controller=controller)
         
-        self.table.itemChanged.disconnect(self.on_item_changed)
+        #~ self.layout = QT.QVBoxLayout()
+        #~ self.setLayout(self.layout)
+
+        #~ self.table = QT.QTableWidget()
+        #~ self.layout.addWidget(self.table)
+        #~ self.table.itemChanged.connect(self.on_item_changed)
         
-        self.table.clear()
-        labels = ['label', 'show/hide', 'nb_peaks']
-        self.table.setColumnCount(len(labels))
-        self.table.setHorizontalHeaderLabels(labels)
-        #~ self.table.setMinimumWidth(100)
-        #~ self.table.setColumnWidth(0,60)
-        self.table.setContextMenuPolicy(QT.Qt.CustomContextMenu)
-        self.table.customContextMenuRequested.connect(self.open_context_menu)
-        self.table.setSelectionMode(QT.QAbstractItemView.ExtendedSelection)
-        self.table.setSelectionBehavior(QT.QAbstractItemView.SelectRows)
+        #~ self.make_menu()
         
-        self.table.setRowCount(self.controller.cluster_labels.size)
+        #~ self.refresh()
+    
+    #~ def make_menu(self):
+        #~ self.menu = QT.QMenu()
+        #~ act = self.menu.addAction('Show all')
+        #~ act.triggered.connect(self.show_all)
+        #~ act = self.menu.addAction('Hide all')
+        #~ act.triggered.connect(self.hide_all)
+    
+    
+    
+    #~ def refresh(self):
+        #~ self.table.itemChanged.disconnect(self.on_item_changed)
         
-        for i, k in enumerate(self.controller.cluster_labels):
-            color = self.controller.qcolors.get(k, QT.QColor( 'white'))
-            pix = QT.QPixmap(10,10)
-            pix.fill(color)
-            icon = QT.QIcon(pix)
+        #~ self.table.clear()
+        #~ labels = ['label', 'show/hide', 'nb_peaks']
+        #~ self.table.setColumnCount(len(labels))
+        #~ self.table.setHorizontalHeaderLabels(labels)
+        #~ self.table.setContextMenuPolicy(QT.Qt.CustomContextMenu)
+        #~ self.table.customContextMenuRequested.connect(self.open_context_menu)
+        #~ self.table.setSelectionMode(QT.QAbstractItemView.ExtendedSelection)
+        #~ self.table.setSelectionBehavior(QT.QAbstractItemView.SelectRows)
+        
+        #~ self.table.setRowCount(self.controller.cluster_labels.size)
+        
+        #~ for i, k in enumerate(self.controller.cluster_labels):
+            #~ color = self.controller.qcolors.get(k, QT.QColor( 'white'))
+            #~ pix = QT.QPixmap(10,10)
+            #~ pix.fill(color)
+            #~ icon = QT.QIcon(pix)
 
 
-            if k<0:
-                name = '{} ({})'.format(k, labelcodes.to_name[k])
-            else:
-                name = '{}'.format(k)
-            item = QT.QTableWidgetItem(name)
-            item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
-            self.table.setItem(i,0, item)
-            item.setIcon(icon)
+            #~ if k<0:
+                #~ name = '{} ({})'.format(k, labelcodes.to_name[k])
+            #~ else:
+                #~ name = '{}'.format(k)
+            #~ item = QT.QTableWidgetItem(name)
+            #~ item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
+            #~ self.table.setItem(i,0, item)
+            #~ item.setIcon(icon)
             
-            item = QT.QTableWidgetItem('')
-            item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable|QT.Qt.ItemIsUserCheckable)
+            #~ item = QT.QTableWidgetItem('')
+            #~ item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable|QT.Qt.ItemIsUserCheckable)
             
-            item.setCheckState({ False: QT.Qt.Unchecked, True : QT.Qt.Checked}[self.controller.cluster_visible[k]])
-            self.table.setItem(i,1, item)
+            #~ item.setCheckState({ False: QT.Qt.Unchecked, True : QT.Qt.Checked}[self.controller.cluster_visible[k]])
+            #~ self.table.setItem(i,1, item)
 
-            item = QT.QTableWidgetItem('{}'.format(self.controller.cluster_count[k]))
-            item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
-            self.table.setItem(i,2, item)
+            #~ item = QT.QTableWidgetItem('{}'.format(self.controller.cluster_count[k]))
+            #~ item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
+            #~ self.table.setItem(i,2, item)
         
-        for i in range(3):
-            self.table.resizeColumnToContents(i)
-        self.table.itemChanged.connect(self.on_item_changed)        
+        #~ for i in range(3):
+            #~ self.table.resizeColumnToContents(i)
+        #~ self.table.itemChanged.connect(self.on_item_changed)        
 
-    def on_item_changed(self, item):
-        if item.column() != 1: return
-        sel = {QT.Qt.Unchecked : False, QT.Qt.Checked : True}[item.checkState()]
-        k = self.controller.cluster_labels[item.row()]
-        self.controller.cluster_visible[k] = bool(item.checkState())
-        self.cluster_visibility_changed.emit()
+    #~ def on_item_changed(self, item):
+        #~ if item.column() != 1: return
+        #~ sel = {QT.Qt.Unchecked : False, QT.Qt.Checked : True}[item.checkState()]
+        #~ k = self.controller.cluster_labels[item.row()]
+        #~ self.controller.cluster_visible[k] = bool(item.checkState())
+        #~ self.cluster_visibility_changed.emit()
     
-    def selected_cluster(self):
-        selected = []
-        for index in self.table.selectedIndexes():
-            if index.column() !=0: continue
-            selected.append(self.controller.cluster_labels[index.row()])
-        return selected
+    #~ def selected_cluster(self):
+        #~ selected = []
+        #~ for index in self.table.selectedIndexes():
+            #~ if index.column() !=0: continue
+            #~ selected.append(self.controller.cluster_labels[index.row()])
+        #~ return selected
     
-    def _selected_spikes(self):
-        selection = np.zeros(self.controller.spike_label.shape[0], dtype = bool)
-        for k in self.selected_cluster():
-            selection |= self.controller.spike_label == k
-        return selection
+    #~ def _selected_spikes(self):
+        #~ selection = np.zeros(self.controller.spike_label.shape[0], dtype = bool)
+        #~ for k in self.selected_cluster():
+            #~ selection |= self.controller.spike_label == k
+        #~ return selection
 
 
-    def open_context_menu(self):
-        self.menu.popup(self.cursor().pos())
+    #~ def open_context_menu(self):
+        #~ self.menu.popup(self.cursor().pos())
 
     
-    def show_all(self):
-        for k in self.controller.cluster_visible:
-            self.controller.cluster_visible[k] = True
-        self.refresh()
-        self.cluster_visibility_changed.emit()
+    #~ def show_all(self):
+        #~ for k in self.controller.cluster_visible:
+            #~ self.controller.cluster_visible[k] = True
+        #~ self.refresh()
+        #~ self.cluster_visibility_changed.emit()
     
-    def hide_all(self):
-        for k in self.controller.cluster_visible:
-            self.controller.cluster_visible[k] = False
-        self.refresh()
-        self.cluster_visibility_changed.emit()
+    #~ def hide_all(self):
+        #~ for k in self.controller.cluster_visible:
+            #~ self.controller.cluster_visible[k] = False
+        #~ self.refresh()
+        #~ self.cluster_visibility_changed.emit()
 

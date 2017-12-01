@@ -43,7 +43,9 @@ class PeelerController(ControllerBase):
         
         self.nb_spike = int(self.spikes.size)
         
-        self.cluster_labels = np.unique(self.spikes['label'])#TODO take from catalogue
+        self.cluster_labels = self.catalogue['clusters']['cluster_label']
+        #~ self.cluster_labels = np.unique(self.spikes['label'])#TODO take from catalogue
+        
         
         self.cluster_count = { k:np.sum(self.spikes['label']==k) for k in self.cluster_labels}
         
@@ -85,8 +87,12 @@ class PeelerController(ControllerBase):
 
     @property
     def positive_cluster_labels(self):
-        return self.cluster_labels[self.cluster_labels>=0]
+        cluster_labels = self.clusters['cluster_label']
+        return cluster_labels[cluster_labels>=0]
 
+    @property
+    def clusters(self):
+        return self.catalogue['clusters']
     
     def get_waveforms_shape(self):
         shape = self.catalogue['centers0'].shape[1:]

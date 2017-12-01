@@ -29,6 +29,10 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         features = cc.some_features[sel]
         waveforms = cc.some_waveforms[sel]
     
+    if waveforms.shape[0] == 0:
+        print('oupas waveforms vide')
+        return
+    
     if method == 'kmeans':
         km = sklearn.cluster.KMeans(n_clusters=kargs.pop('n_clusters'),**kargs)
         labels = km.fit_predict(features)
