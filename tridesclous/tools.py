@@ -317,6 +317,8 @@ def rgba_to_int32(r, g, b, a=None):
     if type(r) == int:
         if a is None:
             a = 255
+        #ensure max255
+        r, g, b = (r & 0xFF), (g & 0xFF), (b & 0xFF)
         v = (r<<24) + (g<<16) + (b<<8) + a
     else:
         if a is None:
