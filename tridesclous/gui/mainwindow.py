@@ -298,6 +298,8 @@ class MainWindow(QT.QMainWindow):
             print('extract_some_waveforms', t2-t1)
 
             t1 = time.perf_counter()
+            #~ duration = d['duration'] if d['limit_duration'] else None
+            d['clean_waveforms']
             self.catalogueconstructor.clean_waveforms(**d['clean_waveforms'])
             t2 = time.perf_counter()
             print('clean_waveforms', t2-t1)

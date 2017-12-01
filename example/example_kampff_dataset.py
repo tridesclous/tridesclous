@@ -161,7 +161,7 @@ def run_peeler():
     peeler.change_params(catalogue=initial_catalogue)
     
     t1 = time.perf_counter()
-    peeler.run(chan_grp=1, duration=None)
+    peeler.run(duration=None)
     t2 = time.perf_counter()
     print('peeler.run_loop', t2-t1)
 

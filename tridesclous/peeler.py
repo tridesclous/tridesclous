@@ -109,6 +109,7 @@ class Peeler:
             n_ok = 0
             for i in range(local_peaks.size):
                 spikes  = classify_and_align(local_peaks[i:i+1], self.fifo_residuals, self.catalogue)
+                
                 if spikes['label'][0]>=0:
                     prediction = make_prediction_signals(spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue, safe=False)
                     self.fifo_residuals -= prediction
@@ -189,6 +190,8 @@ class Peeler:
         self.n_span = max(1, self.n_span)
         self.n_side = self.catalogue['peak_width'] + maximum_jitter_shift + self.n_span + 1
         
+        self.alien_value_threshold = self.catalogue['params_clean_waveforms']['alien_value_threshold']
+        
         self.total_spike = 0
         
         self.fifo_residuals = np.zeros((self.n_side+self.chunksize, nb_channel), 
@@ -198,7 +201,9 @@ class Peeler:
     def initialize_online_loop(self, sample_rate=None, nb_channel=None, source_dtype=None):
         self._initialize_before_each_segment(sample_rate=sample_rate, nb_channel=nb_channel, source_dtype=source_dtype)
     
-    def run_offline_loop_one_segment(self, seg_num=0, chan_grp=0, duration=None):
+    def run_offline_loop_one_segment(self, seg_num=0, duration=None):
+        chan_grp = self.catalogue['chan_grp']
+        
         kargs = {}
         kargs['sample_rate'] = self.dataio.sample_rate
         kargs['nb_channel'] = self.dataio.nb_channel(chan_grp)
@@ -239,12 +244,14 @@ class Peeler:
         self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=chan_grp)
         self.dataio.flush_spikes(seg_num=seg_num, chan_grp=chan_grp)
 
-    def run_offline_all_segment(self, chan_grp=0, duration=None):
+    def run_offline_all_segment(self, duration=None):
         #TODO remove chan_grp here because it is redundant from catalogue['chan_grp']
+        assert hasattr(self, 'catalogue'), 'So peeler.change_params first'
+        
         
         #~ print('run_offline_all_segment', chan_grp)
         for seg_num in range(self.dataio.nb_segment):
-            self.run_offline_loop_one_segment(seg_num=seg_num, chan_grp=chan_grp, duration=duration)
+            self.run_offline_loop_one_segment(seg_num=seg_num, duration=duration)
     
     run = run_offline_all_segment
 
@@ -262,6 +269,9 @@ def classify_and_align(local_indexes, residual, catalogue, maximum_jitter_shift=
     """
     width = catalogue['peak_width']
     n_left = catalogue['n_left']
+    alien_value_threshold = catalogue['params_clean_waveforms']['alien_value_threshold']
+    
+    
     spikes = np.zeros(local_indexes.shape[0], dtype=_dtype_spike)
     spikes['index'] = local_indexes
     
@@ -281,6 +291,11 @@ def classify_and_align(local_indexes, residual, catalogue, maximum_jitter_shift=
             continue
         else:
             waveform = residual[ind:ind+width,:]
+        
+        if alien_value_threshold is not None:
+            if np.any(np.abs(waveform)>alien_value_threshold):
+                spikes['label'][i] = LABEL_ALIEN
+                continue
         
         label, jitter = estimate_one_jitter(waveform, catalogue)
         #~ jitter = -jitter

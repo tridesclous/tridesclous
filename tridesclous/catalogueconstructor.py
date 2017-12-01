@@ -482,12 +482,16 @@ class CatalogueConstructor:
     
     def clean_waveforms(self, alien_value_threshold=100.):
         
-        over = np.any(np.abs(self.some_waveforms)>alien_value_threshold, axis=(1,2))
-        
-        index_over = self.some_peaks_index[over]
-        index_ok = self.some_peaks_index[~over]
-        self.all_peaks['label'][index_over] = labelcodes.LABEL_ALIEN
-        self.all_peaks['label'][index_ok] = 0
+        if alien_value_threshold is not None:
+            over = np.any(np.abs(self.some_waveforms)>alien_value_threshold, axis=(1,2))
+            index_over = self.some_peaks_index[over]
+            index_ok = self.some_peaks_index[~over]
+            self.all_peaks['label'][index_over] = labelcodes.LABEL_ALIEN
+            self.all_peaks['label'][index_ok] = 0
+
+
+        self.info['params_clean_waveforms'] = dict(alien_value_threshold=alien_value_threshold)
+        self.flush_info()
 
     
     def find_good_limits(self, mad_threshold = 1.1, channel_percent=0.3, extract=True, min_left=-5, max_right=5):
@@ -1034,9 +1038,9 @@ class CatalogueConstructor:
         #params
         self.catalogue['params_signalpreprocessor'] = dict(self.info['params_signalpreprocessor'])
         self.catalogue['params_peakdetector'] = dict(self.info['params_peakdetector'])
+        self.catalogue['params_clean_waveforms'] = dict(self.info['params_clean_waveforms'])
         self.catalogue['signals_medians'] = np.array(self.signals_medians, copy=True)
         self.catalogue['signals_mads'] = np.array(self.signals_mads, copy=True)
-
         
         
         t2 = time.perf_counter()
