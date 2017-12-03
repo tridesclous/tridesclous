@@ -52,7 +52,7 @@ _dtype_peak = [('index', 'int64'), ('label', 'int64'), ('segment', 'int64'),]
 _dtype_cluster = [('cluster_label', 'int64'), ('cell_label', 'int64'), 
             ('max_on_channel', 'int64'), ('max_peak_amplitude', 'float64'),
             ('waveform_rms', 'float64'), ('nb_peak', 'int64'), 
-            ('tag', 'U16'), ('annotations', 'U32'), ('color', 'int32')]
+            ('tag', 'U16'), ('annotations', 'U32'), ('color', 'uint32')]
 
 _keep_cluster_attr_on_new = ['cell_label', 'tag','annotations', 'color']
 

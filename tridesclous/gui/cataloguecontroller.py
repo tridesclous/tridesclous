@@ -245,8 +245,7 @@ class CatalogueController(ControllerBase):
         if color is not None:
             if type(color) == QT.QColor:
                 r, g, b, a = color.getRgb()
-                print(r, g, b, rgba_to_int32(r, g, b))
-                clusters['color'][ind] = rgba_to_int32(r, g, b)
+                clusters['color'][ind] = np.uint32(rgba_to_int32(r, g, b))
                 self.refresh_colors(reset=False)
         
         if annotations is not None:
