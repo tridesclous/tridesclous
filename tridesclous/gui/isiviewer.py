@@ -65,7 +65,7 @@ class ISIViewer(WidgetBase):
         
         isi = []
         for seg_num in range(self.controller.dataio.nb_segment):
-            sel = (spikes['segment'] == seg_num) & (spikes['label'] == k)
+            sel = (spikes['segment'] == seg_num) & (spikes['cluster_label'] == k)
             isi.append(np.diff(spikes[sel]['index'])/self.controller.dataio.sample_rate)
         isi = np.concatenate(isi)
         self.all_isi[k] = isi * 1000. #ms

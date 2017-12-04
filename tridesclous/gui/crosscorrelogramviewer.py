@@ -57,7 +57,7 @@ class CrossCorrelogramViewer(WidgetBase):
     def compute_ccg(self):
         cluster_labels = self.controller.positive_cluster_labels
         spikes = self.controller.spikes
-        self.ccg, self.bins = compute_cross_correlograms(spikes['index'], spikes['label'],
+        self.ccg, self.bins = compute_cross_correlograms(spikes['index'], spikes['cluster_label'],
                     spikes['segment'], cluster_labels, self.controller.dataio.sample_rate,
                     window_size=self.params['window_size_ms']/1000.,
                     bin_size = self.params['bin_size_ms']/1000.,

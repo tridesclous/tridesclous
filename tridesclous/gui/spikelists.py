@@ -69,13 +69,13 @@ class SpikeModel(QT.QAbstractItemModel):
             elif col == 4:
                 return '{:.4f}'.format(spike_time)
             elif col == 5:
-                return '{}'.format(spike['label'])
+                return '{}'.format(spike['cluster_label'])
             else:
                 return None
         elif role == QT.Qt.DecorationRole :
             if col != 0: return None
-            if spike['label'] in self.icons:
-                return self.icons[spike['label']]
+            if spike['cluster_label'] in self.icons:
+                return self.icons[spike['cluster_label']]
             else:
                 return None
         else :
@@ -237,7 +237,7 @@ class ClusterSpikeList(ClusterBaseList):
         #~ self.table.itemChanged.disconnect(self.on_item_changed)
         
         #~ self.table.clear()
-        #~ labels = ['label', 'show/hide', 'nb_peaks']
+        #~ labels = ['cluster_label', 'show/hide', 'nb_peaks']
         #~ self.table.setColumnCount(len(labels))
         #~ self.table.setHorizontalHeaderLabels(labels)
         #~ self.table.setContextMenuPolicy(QT.Qt.CustomContextMenu)

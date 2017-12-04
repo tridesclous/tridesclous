@@ -203,7 +203,7 @@ class WaveformViewerBase(WidgetBase):
             cluster_visible = {k:False for k in self.controller.cluster_visible}
             ind, = np.nonzero(self.controller.spike_selection)
             ind = ind[0]
-            k = self.controller.spikes[ind]['label']
+            k = self.controller.spikes[ind]['cluster_label']
             cluster_visible[k] = True
         else:
             cluster_visible = self.controller.cluster_visible

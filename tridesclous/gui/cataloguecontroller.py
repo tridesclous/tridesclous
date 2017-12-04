@@ -39,7 +39,7 @@ class CatalogueController(ControllerBase):
     
     def init_plot_attributes(self):
         self.cluster_visible = {k:i<20 for i, k  in enumerate(self.cluster_labels)}
-        #~ self.cluster_count = { k:np.sum(self.cc.all_peaks['label']==k) for k in self.cluster_labels}
+        #~ self.cluster_count = { k:np.sum(self.cc.all_peaks['cluster_label']==k) for k in self.cluster_labels}
         self.do_cluster_count()
         self.spike_selection = np.zeros(self.cc.nb_peak, dtype='bool')
         self.spike_visible = np.ones(self.cc.nb_peak, dtype='bool')
@@ -108,7 +108,7 @@ class CatalogueController(ControllerBase):
     
     @property
     def spike_label(self):
-        return self.cc.all_peaks['label']
+        return self.cc.all_peaks['cluster_label']
 
     @property
     def spike_segment(self):
@@ -173,9 +173,9 @@ class CatalogueController(ControllerBase):
         return self.cc.channel_to_features
     
     def change_spike_label(self, mask, label, on_new_cluster=True):
-        label_changed = np.unique(self.cc.all_peaks['label'][mask]).tolist() + [label]
+        label_changed = np.unique(self.cc.all_peaks['cluster_label'][mask]).tolist() + [label]
         label_changed = np.unique(label_changed)
-        self.cc.all_peaks['label'][mask] = label
+        self.cc.all_peaks['cluster_label'][mask] = label
         
         if on_new_cluster:
             #self.on_new_cluster(label_changed=label_changed)#bug 

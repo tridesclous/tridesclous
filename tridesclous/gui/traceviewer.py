@@ -319,7 +319,7 @@ class BaseTraceViewer(WidgetBase):
             self.xsize = self.params['zoom_size']
             self.spinbox_xsize.sigValueChanged.connect(self.on_xsize_changed)
             
-            label = self.controller.spikes[ind]['label']
+            label = self.controller.spikes[ind]['cluster_label']
             c = self.controller.get_max_on_channel(label)
             
             if c  is None:
@@ -408,7 +408,7 @@ class BaseTraceViewer(WidgetBase):
             spikes_chunk = np.array(all_spikes[keep], copy=True)
             spikes_chunk['index'] -= ind1
             inwindow_ind = spikes_chunk['index']
-            inwindow_label = spikes_chunk['label']
+            inwindow_label = spikes_chunk['cluster_label']
             inwindow_selected = np.array(self.controller.spike_selection[keep])
 
             self.scatter.clear()

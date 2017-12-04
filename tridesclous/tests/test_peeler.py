@@ -63,6 +63,12 @@ def setup_catalogue():
     print('find_good_limits', t2-t1)
     print(n_left, n_right)
     print(catalogueconstructor.some_waveforms.shape)
+
+
+    t1 = time.perf_counter()
+    catalogueconstructor.clean_waveforms(alien_value_threshold=60.)
+    t2 = time.perf_counter()
+    print('clean_waveforms', t2-t1)
     
 
     # PCA
@@ -158,11 +164,11 @@ def test_compare_peeler():
     
     
 if __name__ =='__main__':
-    setup_catalogue()
+    #~ setup_catalogue()
     
-    open_catalogue_window()
+    #~ open_catalogue_window()
     
-    test_peeler()
+    #~ test_peeler()
     
     #~ open_PeelerWindow()
     
