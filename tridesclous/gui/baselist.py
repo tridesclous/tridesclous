@@ -32,6 +32,7 @@ class ClusterBaseList(WidgetBase):
         self.table = QT.QTableWidget()
         self.layout.addWidget(self.table)
         self.table.itemChanged.connect(self.on_item_changed)
+        self.table.cellDoubleClicked.connect(self.on_double_clicked)
         
         self.make_menu()
         
@@ -127,6 +128,18 @@ class ClusterBaseList(WidgetBase):
         k = item.label
         self.controller.cluster_visible[k] = bool(item.checkState())
         self.cluster_visibility_changed.emit()
+    
+    def on_double_clicked(self, row, col):
+        #~ print(row, col)
+        for k in self.controller.cluster_visible:
+            self.controller.cluster_visible[k] = False
+            
+        k = self.table.item(row, 1).label
+        print('k', k)
+        self.controller.cluster_visible[k] = True
+        self.refresh()
+        self.cluster_visibility_changed.emit()
+        
     
     def selected_cluster(self):
         selected = []
