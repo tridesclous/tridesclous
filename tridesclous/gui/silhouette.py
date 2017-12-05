@@ -104,6 +104,8 @@ class Silhouette(WidgetBase):
         visibles = [c for c, v in self.controller.cluster_visible.items() if v and c>=0]
         
         for k in visibles:
+            if k not in silhouette_by_labels:
+                continue
             v = silhouette_by_labels[k]
             
             color = self.controller.qcolors[k]

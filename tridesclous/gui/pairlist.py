@@ -20,7 +20,11 @@ class PairList(WidgetBase):
       * **all pairs** : all combinaison
       * **high similarity**: select only pairs that have similarity over a threshold (in settings)
       * **similarity amplitude ratio**! select only pairs that have "similarity ratio" over a threshold (in settings)
-      
+    
+    And they can be sorted by:
+      * label
+      * similarity
+      * ratio_similarity
     
     WIth a right click you can:
       * **merge** a pair
@@ -37,18 +41,30 @@ class PairList(WidgetBase):
         
         self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
-        
-        self.combo = QT.QComboBox()
-        self.layout.addWidget(self.combo)
-        self.combo.addItems(['all pairs', 'similar amplitude ratio', 'high similarity']) #
-        self.combo.currentTextChanged.connect(self.refresh)
-        
-        but = QT.QPushButton('settings')
-        self.layout.addWidget(but)
-        but.clicked.connect(self.open_settings)
-        
-        
 
+        #~ h = QT.QHBoxLayout()
+        #~ self.layout.addLayout(h)
+        self.combo_select = QT.QComboBox()
+        #~ h.addWidget(QT.QLabel('Select'))
+        #~ h.addWidget(self.combo_select)
+        self.combo_select.addItems(['all pairs', 'similar amplitude ratio', 'high similarity']) #
+        #~ self.combo_select.currentTextChanged.connect(self.refresh)
+        #~ h.addStretch()
+
+        h = QT.QHBoxLayout()
+        self.layout.addLayout(h)
+        h.addWidget(QT.QLabel('Sort by'))
+        self.combo_sort = QT.QComboBox()
+        self.combo_sort.addItems(['label', 'similarity', 'ratio_similarity'])
+        self.combo_sort.currentIndexChanged.connect(self.refresh)
+        h.addWidget(self.combo_sort)
+        h.addStretch()
+        
+        
+        #~ but = QT.QPushButton('settings')
+        #~ self.layout.addWidget(but)
+        #~ but.clicked.connect(self.open_settings)
+        
         self.table = QT.QTableWidget(selectionMode=QT.QAbstractItemView.SingleSelection,
                                                         selectionBehavior=QT.QAbstractItemView.SelectRows)
         self.table.setContextMenuPolicy(QT.Qt.CustomContextMenu)
@@ -107,8 +123,8 @@ class PairList(WidgetBase):
         self.table.setColumnWidth(0, 100)
         self.table.setColumnWidth(1, 100)
         
-        mode = self.combo.currentText()
-        
+        #select
+        mode = self.combo_select.currentText()
         if mode == 'all pairs':
             labels = self.controller.positive_cluster_labels
             #~ labels = labels[labels>=0]
@@ -117,6 +133,31 @@ class PairList(WidgetBase):
             self.pairs = self.controller.detect_similar_waveform_ratio(threshold=self.params['threshold_ratio_similarity'])
         elif mode == 'high similarity':
             self.pairs = self.controller.detect_high_similarity(threshold=self.params['threshold_similarity'])
+        
+        #sort
+        mode = self.combo_sort.currentText()
+        order = np.arange(len(self.pairs))
+        if mode == 'label':
+            pass
+        elif mode == 'similarity':
+            if self.controller.cluster_similarity is not None:
+                order = []
+                for r in range(len(self.pairs)):
+                    k1, k2 = self.pairs[r]
+                    ind1 = self.controller.positive_cluster_labels.tolist().index(k1)
+                    ind2 = self.controller.positive_cluster_labels.tolist().index(k2)
+                    order.append(self.controller.cluster_similarity[ind1, ind2])
+                order = np.argsort(order)[::-1]
+        elif mode == 'ratio_similarity':
+            if self.controller.cluster_ratio_similarity is not None:
+                order = []
+                for r in range(len(self.pairs)):
+                    k1, k2 = self.pairs[r]
+                    ind1 = self.controller.positive_cluster_labels.tolist().index(k1)
+                    ind2 = self.controller.positive_cluster_labels.tolist().index(k2)
+                    order.append(self.controller.cluster_ratio_similarity[ind1, ind2])
+                order = np.argsort(order)[::-1]
+        self.pairs = [self.pairs[i] for i in order ]
         
         self.table.setRowCount(len(self.pairs))
         

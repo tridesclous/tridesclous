@@ -152,9 +152,10 @@ class WaveformHistViewer(WidgetBase):
         #~ print(self.controller.spike_label[self.controller.some_peaks_index].shape)
         keep = self.controller.spike_label[self.controller.some_peaks_index]>=0
         wfs = self.controller.some_waveforms[keep, :, :]
-        
-        self.params['bin_min'] = np.percentile(wfs, .001)
-        self.params['bin_max'] = np.percentile(wfs, 99.999)
+        if wfs.shape[0]>0:
+            self.params['bin_min'] = np.percentile(wfs, .001)
+            self.params['bin_max'] = np.percentile(wfs, 99.999)
+            
         self.params.blockSignals(False)
                 
 

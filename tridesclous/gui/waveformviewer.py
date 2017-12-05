@@ -203,7 +203,7 @@ class WaveformViewerBase(WidgetBase):
             cluster_visible = {k:False for k in self.controller.cluster_visible}
             ind, = np.nonzero(self.controller.spike_selection)
             ind = ind[0]
-            k = self.controller.spikes[ind]['label']
+            k = self.controller.spikes[ind]['cluster_label']
             cluster_visible[k] = True
         else:
             cluster_visible = self.controller.cluster_visible
@@ -311,7 +311,8 @@ class WaveformViewerBase(WidgetBase):
 
         if self.params['show_channel_num']:
             for i, (chan, name) in enumerate(self.controller.channel_indexes_and_names):
-                itemtxt = pg.TextItem('{}: {}'.format(i, name), anchor=(.5,.5))
+                itemtxt = pg.TextItem('{}: {}'.format(i, name), anchor=(.5,.5), color='#FFFF00')
+                itemtxt.setFont(QT.QFont('', pointSize=12))
                 self.plot1.addItem(itemtxt)
                 itemtxt.setPos(width*i-n_left, 0)
 
@@ -379,7 +380,8 @@ class WaveformViewerBase(WidgetBase):
             channel_group = self.controller.dataio.channel_groups[chan_grp]            
             for i, (chan, name) in enumerate(self.controller.channel_indexes_and_names):
                 x, y = self.arr_geometry[i, : ]
-                itemtxt = pg.TextItem('{}: {}'.format(i, name), anchor=(.5,.5))
+                itemtxt = pg.TextItem('{}: {}'.format(i, name), anchor=(.5,.5), color='#FFFF00')
+                itemtxt.setFont(QT.QFont('', pointSize=12))
                 self.plot1.addItem(itemtxt)
                 itemtxt.setPos(x, y)
         

@@ -249,10 +249,13 @@ change the cluster number. So don't be credulous when some toolbox propose full 
 sorting, some (hiden) parameters can lead to over clusterised or over merged results.
 
 The approach in tridesclous is to let the user choose the method but validate manually the choice with
-the CatalogueWindow. The user eye and intuition is better a weappon than a pre parametrised algotihm.
+the CatalogueWindow. The user eye and intuition is better a weapon than a pre parametrised algotihm.
 
 As we are lazy, we did not implement any of theses methods but use them from `sklean <http://scikit-learn.org>`_ package.
-However, one home made method is impleted here: **sawchaincut**, be curious and test it.
+However, one home made method is implemented here: **sawchaincut**, be curious and test it. **sawchaincut** is
+more or less what all we want : a full automated clustering, this works rather well on dense multi-electrode
+array when there is a high spatial redundancy (a spike is seen by several channels) but need some manual curation
+(like every automated clustering algorithm).
 
 The actual method list is:
   * **kmeans** super classic, super fast but we need to decide **n_cluster**
@@ -260,9 +263,10 @@ The actual method list is:
   * **agglomerative** for trying, we need to decide **n_cluster**
   * **dbscan** density based algorithm n_cluster should be automatic. But **eps** parameters
     play a role in the results.
-  * **sawchaincut** this is a home made and dirty algorithm. It is very slow. It is density based.
-    It is automatic. Take this one if you want automatic and if you are patient.
- 
+  * **sawchaincut** this is a home made, full automatic, not so good, not so bad, dirty, secret algorithm.
+    It is density based. If you don't known which one to choose and you are in a hurry, take this one.
+    Most beautiful and well isolated clusters should be captured by this one.
+
 
 In between sample interpolation
 -------------------------------

@@ -8,7 +8,7 @@ import pickle
 
 from .datasource import data_source_classes
 from .iotools import ArrayCollection
-from .tools import download_probe
+from .tools import download_probe, create_prb_file_from_dict
 
 _signal_types = ['initial', 'processed']
 
@@ -195,14 +195,18 @@ class DataIO:
                 channel_group['geometry'] = geometry
         
         # write with hack on json to put key as inteteger (normally not possible in json)
-        with open(os.path.join(self.dirname,probe_filename) , 'w', encoding='utf8') as f:
-            txt = json.dumps(channel_groups,indent=4)
-            for chan_grp in channel_groups.keys():
-                txt = txt.replace('"{}":'.format(chan_grp), '{}:'.format(chan_grp))
-                for chan in channel_groups[chan_grp]['channels']:
-                    txt = txt.replace('"{}":'.format(chan), '{}:'.format(chan))
-            txt = 'channel_groups = ' +txt
-            f.write(txt)
+        #~ with open(os.path.join(self.dirname,probe_filename) , 'w', encoding='utf8') as f:
+            #~ txt = json.dumps(channel_groups,indent=4)
+            #~ for chan_grp in channel_groups.keys():
+                #~ txt = txt.replace('"{}":'.format(chan_grp), '{}:'.format(chan_grp))
+                #~ for chan in channel_groups[chan_grp]['channels']:
+                    #~ txt = txt.replace('"{}":'.format(chan), '{}:'.format(chan))
+            #~ txt = 'channel_groups = ' +txt
+            #~ f.write(txt)
+        
+        create_prb_file_from_dict(channel_groups, os.path.join(self.dirname,probe_filename))
+        
+        
         
         self.info['probe_filename'] = probe_filename
         self.flush_info()

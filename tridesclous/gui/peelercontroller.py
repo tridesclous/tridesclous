@@ -10,7 +10,15 @@ from .base import ControllerBase
 from .. import labelcodes
 from ..tools import make_color_dict
 
+from ..peeler import _dtype_spike
+
 spike_visible_modes = ['selected', 'all',  'overlap']
+
+#~ _dtype_spike = [('index', 'int64'), ('cluster_label', 'int64'), ('jitter', 'float64'),]
+
+_dtype_complement = [('cell_label', 'int64'), ('segment', 'int64'), ('visible', 'bool'),
+                ('selected', 'bool')]
+
 
 class PeelerController(ControllerBase):
     def __init__(self, parent=None, dataio=None, catalogue=None):
@@ -30,22 +38,36 @@ class PeelerController(ControllerBase):
         
         for i in range(self.dataio.nb_segment):
             local_spikes = self.dataio.get_spikes(seg_num=i, chan_grp=self.chan_grp)
-            _dtype_spike = [('index', 'int64'), ('label', 'int64'), ('jitter', 'float64'),]
-            _dtype_complement = [('segment', 'int64'), ('visible', 'bool'), ('selected', 'bool')]
             spikes = np.zeros(local_spikes.shape, dtype=_dtype_spike+_dtype_complement)
             for k, _ in _dtype_spike:
                 spikes[k] = local_spikes[k]
             spikes['segment'] = i
             spikes['visible'] = True
             spikes['selected'] = False
+            
+            
+            clusters = self.catalogue['clusters']
+            cluster_labels = clusters['cluster_label']
+            cell_labels = clusters['cell_label']
+            
+            #set cell_label <0 are the same >0 are converted for 'clusters' table in catalogue
+            mask = spikes['cluster_label']<0
+            spikes['cell_label'][mask] = spikes['cluster_label'][mask]
+            
+            mask = spikes['cluster_label']>=0
+            spike_cluster_index = np.searchsorted(cluster_labels, spikes['cluster_label'][mask])
+            spikes['cell_label'][mask] = cell_labels[spike_cluster_index]
+            
             self.spikes.append(spikes)
         self.spikes = np.concatenate(self.spikes)
         
         self.nb_spike = int(self.spikes.size)
         
-        self.cluster_labels = np.unique(self.spikes['label'])#TODO take from catalogue
+        self.cluster_labels = self.catalogue['clusters']['cluster_label']
+        #~ self.cluster_labels = np.unique(self.spikes['cluster_label'])#TODO take from catalogue
         
-        self.cluster_count = { k:np.sum(self.spikes['label']==k) for k in self.cluster_labels}
+        
+        self.cluster_count = { k:np.sum(self.spikes['cluster_label']==k) for k in self.cluster_labels}
         
         
         self.cluster_visible = {k:True for k  in self.cluster_labels}
@@ -85,8 +107,12 @@ class PeelerController(ControllerBase):
 
     @property
     def positive_cluster_labels(self):
-        return self.cluster_labels[self.cluster_labels>=0]
+        cluster_labels = self.clusters['cluster_label']
+        return cluster_labels[cluster_labels>=0]
 
+    @property
+    def clusters(self):
+        return self.catalogue['clusters']
     
     def get_waveforms_shape(self):
         shape = self.catalogue['centers0'].shape[1:]
@@ -135,14 +161,14 @@ class PeelerController(ControllerBase):
         #~ ['selected', 'all',  'overlap']
         if self.spike_visible_mode=='selected':
             visibles = np.array([k for k, v in self.cluster_visible.items() if v ])
-            self.spikes['visible'][:] = np.in1d(self.spikes['label'], visibles)
+            self.spikes['visible'][:] = np.in1d(self.spikes['cluster_label'], visibles)
         elif self.spike_visible_mode=='all':
             self.spikes['visible'][:] = True
         elif self.spike_visible_mode=='overlap':
             self.spikes['visible'][:] = False
             d = np.diff(self.spikes['index'])
-            labels0 = self.spikes['label'][:-1]
-            labels1 = self.spikes['label'][1:]
+            labels0 = self.spikes['cluster_label'][:-1]
+            labels1 = self.spikes['cluster_label'][1:]
             mask = (d>0) & (d< self.catalogue['peak_width'] ) & (labels0>0) & (labels1>0)
             ind, = np.nonzero(mask)
             self.spikes['visible'][ind] = True

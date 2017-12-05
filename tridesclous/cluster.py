@@ -29,6 +29,10 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         features = cc.some_features[sel]
         waveforms = cc.some_waveforms[sel]
     
+    if waveforms.shape[0] == 0:
+        print('oupas waveforms vide')
+        return
+    
     if method == 'kmeans':
         km = sklearn.cluster.KMeans(n_clusters=kargs.pop('n_clusters'),**kargs)
         labels = km.fit_predict(features)
@@ -61,11 +65,11 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         raise(ValueError, 'find_clusters method unknown')
     
     if selection is None:
-        cc.all_peaks['label'][:] = labelcodes.LABEL_UNCLASSIFIED
-        cc.all_peaks['label'][cc.some_peaks_index] = labels
+        cc.all_peaks['cluster_label'][:] = labelcodes.LABEL_UNCLASSIFIED
+        cc.all_peaks['cluster_label'][cc.some_peaks_index] = labels
     else:
         labels += max(max(cc.cluster_labels), -1) + 1
-        cc.all_peaks['label'][cc.some_peaks_index[sel]] = labels
+        cc.all_peaks['cluster_label'][cc.some_peaks_index[sel]] = labels
     
     
     return labels
