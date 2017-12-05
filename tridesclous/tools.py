@@ -4,6 +4,7 @@ import re
 from urllib.request import urlretrieve
 import zipfile
 import os
+import json
 
 from . import labelcodes
 
@@ -98,6 +99,18 @@ def get_neighborhood(geometry, radius_um):
     d = sklearn.metrics.pairwise.euclidean_distances(geometry)
     return d<=radius_um
     
+
+def create_prb_file_from_dict(channel_groups, filename):
+    # write with hack on json to put key as inteteger (normally not possible in json)
+    with open(filename, 'w', encoding='utf8') as f:
+        txt = json.dumps(channel_groups,indent=4)
+        for chan_grp in channel_groups.keys():
+            txt = txt.replace('"{}":'.format(chan_grp), '{}:'.format(chan_grp))
+            for chan in channel_groups[chan_grp]['channels']:
+                txt = txt.replace('"{}":'.format(chan), '{}:'.format(chan))
+        txt = 'channel_groups = ' +txt
+        f.write(txt)
+
 
 def fix_prb_file_py2(probe_filename):
     """
