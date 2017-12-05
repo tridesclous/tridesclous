@@ -130,12 +130,10 @@ class ClusterBaseList(WidgetBase):
         self.cluster_visibility_changed.emit()
     
     def on_double_clicked(self, row, col):
-        #~ print(row, col)
         for k in self.controller.cluster_visible:
             self.controller.cluster_visible[k] = False
             
         k = self.table.item(row, 1).label
-        print('k', k)
         self.controller.cluster_visible[k] = True
         self.refresh()
         self.cluster_visibility_changed.emit()

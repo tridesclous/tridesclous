@@ -370,7 +370,7 @@ class MainWindow(QT.QMainWindow):
                 duration = d['duration'] if d['limit_duration'] else None
                 
                 t1 = time.perf_counter()
-                peeler.run(chan_grp=self.chan_grp, duration=duration)
+                peeler.run(duration=duration)
                 t2 = time.perf_counter()
                 print('peeler.run_loop', t2-t1)
                 

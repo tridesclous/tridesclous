@@ -125,7 +125,7 @@ class SpikeList(WidgetBase):
                     contextMenuPolicy = QT.Qt.CustomContextMenu,)
         
         self.layout.addWidget(self.tree)
-        self.tree.customContextMenuRequested.connect(self.open_context_menu)
+        #~ self.tree.customContextMenuRequested.connect(self.open_context_menu)
         
         self.model = SpikeModel(controller=self.controller)
         self.tree.setModel(self.model)
@@ -177,7 +177,8 @@ class SpikeList(WidgetBase):
         self.cluster_visibility_changed.emit()
         self.model.refresh()
 
-
+    def open_context_menu(self):
+        pass
 
 
 class ClusterSpikeList(ClusterBaseList):
