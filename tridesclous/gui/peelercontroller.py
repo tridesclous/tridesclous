@@ -56,8 +56,6 @@ class PeelerController(ControllerBase):
             
             mask = spikes['cluster_label']>=0
             spike_cluster_index = np.searchsorted(cluster_labels, spikes['cluster_label'][mask])
-            print(spike_cluster_index)
-            print(np.sum(mask), spike_cluster_index.shape, spikes['cell_label'][mask].shape)#, cell_labels[spike_cluster_index].shape)
             spikes['cell_label'][mask] = cell_labels[spike_cluster_index]
             
             self.spikes.append(spikes)

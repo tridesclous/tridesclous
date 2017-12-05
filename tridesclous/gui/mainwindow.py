@@ -258,8 +258,8 @@ class MainWindow(QT.QMainWindow):
         n = self.dataio.nb_channel(chan_grp=self.chan_grp)
         if 1<=n<9:
             method0 = 'global_pca'
-        elif 9<=n<65:
-            method0 = 'neighborhood_pca'
+        #~ elif 9<=n<65:
+            #~ method0 = 'neighborhood_pca'
         else:
             method0 = 'peak_max'
         
@@ -269,8 +269,9 @@ class MainWindow(QT.QMainWindow):
         if feat_method is None:
             return
         
+        selected_method = 'sawchaincut'
         clust_method, clust_kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self,
-                        title='Which cluster method ?', selected_method=None)
+                        title='Which cluster method ?', selected_method=selected_method)
         if clust_method is None:
             return
         
