@@ -101,6 +101,8 @@ class ParamDialog(QT.QDialog):
         but = QT.QPushButton('OK')
         layout.addWidget(but)
         but.clicked.connect(self.accept)
+        
+        but.setFocus()
 
     def get(self):
         return get_dict_from_group_param(self.params, cascade=True)
@@ -144,6 +146,7 @@ class MethodDialog(QT.QDialog):
         but = QT.QPushButton('OK')
         layout.addWidget(but)
         but.clicked.connect(self.accept)
+        but.setFocus()
         
         if selected_method is None:
             selected_method = methods[0]

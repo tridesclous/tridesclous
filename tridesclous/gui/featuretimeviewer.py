@@ -127,7 +127,7 @@ class FeatureTimeViewer(WidgetBase):
                 y = all_features[keep, 0]
             
             color = QT.QColor(self.controller.qcolors.get(k, QT.QColor( 'white')))
-            color.setAlpha(self.params['alpha']*255)
+            color.setAlpha(int(self.params['alpha']*255))
             curve = pg.ScatterPlotItem(x=x, y=y, pen=pg.mkPen(color, width=2), brush=color)
             
             self.plot.addItem(curve)

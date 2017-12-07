@@ -42,6 +42,7 @@ class BaseTraceViewer(WidgetBase):
     _params = [{'name': 'auto_zoom_on_select', 'type': 'bool', 'value': True },
                        {'name': 'zoom_size', 'type': 'float', 'value':  0.08, 'step' : 0.001 },
                       {'name': 'plot_threshold', 'type': 'bool', 'value':  True },
+                      {'name': 'alpha', 'type': 'float', 'value' : 0.8, 'limits':(0, 1.), 'step':0.05 },
                       ]
     
     def __init__(self,controller=None, signal_type='initial', parent=None):
@@ -421,7 +422,8 @@ class BaseTraceViewer(WidgetBase):
                 mask = inwindow_label==k
                 if np.sum(mask)==0: continue
                 
-                color = self.controller.qcolors.get(k, self._default_color)
+                color = QT.QColor(self.controller.qcolors.get(k, self._default_color))
+                color.setAlpha(int(self.params['alpha']*255))
                 
                 x = times_chunk[inwindow_ind[mask]]
                 
