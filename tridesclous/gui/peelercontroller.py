@@ -12,7 +12,7 @@ from ..tools import make_color_dict
 
 from ..peeler import _dtype_spike
 
-spike_visible_modes = ['selected', 'all',  'overlap']
+spike_visible_modes = ['selected', 'all',  'collision']
 
 #~ _dtype_spike = [('index', 'int64'), ('cluster_label', 'int64'), ('jitter', 'float64'),]
 
@@ -158,13 +158,13 @@ class PeelerController(ControllerBase):
         
     def update_visible_spikes(self):
         #~ print('update_visible_spikes', self.spike_visible_mode)
-        #~ ['selected', 'all',  'overlap']
+        #~ ['selected', 'all',  'collision']
         if self.spike_visible_mode=='selected':
             visibles = np.array([k for k, v in self.cluster_visible.items() if v ])
             self.spikes['visible'][:] = np.in1d(self.spikes['cluster_label'], visibles)
         elif self.spike_visible_mode=='all':
             self.spikes['visible'][:] = True
-        elif self.spike_visible_mode=='overlap':
+        elif self.spike_visible_mode=='collision':
             self.spikes['visible'][:] = False
             d = np.diff(self.spikes['index'])
             labels0 = self.spikes['cluster_label'][:-1]
