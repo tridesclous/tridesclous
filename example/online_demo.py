@@ -58,7 +58,12 @@ def setup_catalogue():
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
     print(catalogueconstructor)
-        
+    
+    t1 = time.perf_counter()
+    catalogueconstructor.clean_waveforms(alien_value_threshold=100.)
+    t2 = time.perf_counter()
+    print('clean_waveforms', t2-t1)
+
 
     # PCA
     t1 = time.perf_counter()
@@ -89,7 +94,7 @@ def tridesclous_onlinepeeler():
     dataio = DataIO(dirname='tridesclous_onlinepeeler')
     catalogue = dataio.load_catalogue(chan_grp=0)
     
-    catalogue.pop('clusters')
+    #~ catalogue.pop('clusters')
     #~ def print_dict(d):
         #~ for k, v in d.items():
             #~ if type(v) is dict:
@@ -102,7 +107,9 @@ def tridesclous_onlinepeeler():
     
     #~ from pyacq.core.rpc.serializer import MsgpackSerializer
     #~ serializer = MsgpackSerializer()
-    #~ serializer.dumps(catalogue)
+    #~ b = serializer.dumps(catalogue)
+    #~ catalogue2 = serializer.loads(b)
+    #~ print(catalogue2['clusters'])
     #~ exit()
     
     sigs = dataio.datasource.array_sources[0]

@@ -9,6 +9,7 @@ from pyacq.viewers import QOscilloscope
 
 #~ _dtype_spike = [('index', 'int64'), ('label', 'int64'), ('jitter', 'float64'),]
 from ..peeler import _dtype_spike
+from ..tools import make_color_dict
 
 
 class OnlineTraceViewer(QOscilloscope):
@@ -41,12 +42,16 @@ class OnlineTraceViewer(QOscilloscope):
         
         self.spikes_array = self.inputs['spikes'].buffer.buffer
         
+        colors = make_color_dict(self.catalogue['clusters'])
+        self.qcolors = {}
+        for k, color in colors.items():
+            r, g, b = color
+            self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
+        
         self._default_color = QtGui.QColor('#FFFFFF')#TODO
         self.scatters = {}
         for k in self.catalogue['cluster_labels']:
-            color = self.catalogue['cluster_colors'].get(k, (1,1,1))
-            r, g, b = color
-            qcolor = QtGui.QColor(r*255, g*255, b*255)
+            qcolor = self.qcolors[k]
             qcolor.setAlpha(150)
             scatter = pg.ScatterPlotItem(x=[ ], y= [ ], pen=None, brush=qcolor, size=10, pxMode = True)
             self.scatters[k] = scatter
@@ -123,7 +128,7 @@ class OnlineTraceViewer(QOscilloscope):
             peak_times[ind2] += (self.t_vect_full[front] - self.t_vect_full[0])
         
         for i, k in enumerate(self.catalogue['cluster_labels']):
-            keep = k==spikes['label']
+            keep = k==spikes['cluster_label']
             if np.sum(keep)>0:
                 chan = self.catalogue['max_on_channel'][i]
                 if visibles[chan]:
