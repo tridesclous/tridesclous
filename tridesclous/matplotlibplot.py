@@ -149,7 +149,7 @@ def plot_waveforms(cataloguecconstructor, labels=None, nb_max=50):
             labels = [labels]
         for label in labels:
             peaks = cc.all_peaks[cc.some_peaks_index]
-            keep = peaks['label'] == label
+            keep = peaks['cluster_label'] == label
             wfs = all_wfs[keep][:nb_max]
             color = cc.colors.get(label, 'k')
             plot_waveforms_with_geometry(wfs, channels, geometry, ax=ax, ratioY=10, color=color)
@@ -174,7 +174,7 @@ def plot_features_scatter_2d(cataloguecconstructor, labels=None, nb_max=500):
             labels = [labels]
         for label in labels:
             peaks = cc.all_peaks[cc.some_peaks_index]
-            keep = peaks['label'] == label
+            keep = peaks['cluster_label'] == label
             feat = cc.some_features[keep][:nb_max]
             color = cc.colors.get(label, 'k')
             l.append((feat, color))
