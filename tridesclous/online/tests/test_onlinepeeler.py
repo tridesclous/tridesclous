@@ -24,9 +24,11 @@ def setup_catalogue():
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     filenames = filenames[:1] #only first file
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
-    channel_group = [5, 6, 7, 8, 9]
-    dataio.set_manual_channel_group(channel_group)
+    channel_group = {0:{'channels':[5, 6, 7, 8]}}
+    dataio.set_channel_groups(channel_group)
     
+    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
 
     catalogueconstructor.set_preprocessor_params(chunksize=1024,
@@ -34,7 +36,7 @@ def setup_catalogue():
             
             #signal preprocessor
             highpass_freq=300,
-            backward_chunksize=1280,
+            lostfront_chunksize=64,
             
             #peak detector
             peakdetector_engine='numpy',
@@ -53,15 +55,20 @@ def setup_catalogue():
 
     
     t1 = time.perf_counter()
-    catalogueconstructor.extract_some_waveforms(n_left=-12, n_right=15,  nb_max=10000)
+    catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=35,  nb_max=10000)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
     print(catalogueconstructor)
-        
+    
+    t1 = time.perf_counter()
+    catalogueconstructor.clean_waveforms(alien_value_threshold=100.)
+    t2 = time.perf_counter()
+    print('clean_waveforms', t2-t1)
+
 
     # PCA
     t1 = time.perf_counter()
-    catalogueconstructor.project(method='pca', n_components=12, batch_size=16384)
+    catalogueconstructor.project(method='neighborhood_pca', n_components_by_neighborhood=3)
     t2 = time.perf_counter()
     print('project', t2-t1)
     
@@ -86,10 +93,10 @@ def setup_catalogue():
 
 def test_OnlinePeeler():
     dataio = DataIO(dirname='test_onlinepeeler')
+
+    catalogue = dataio.load_catalogue(chan_grp=0)
     
-    catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    catalogue = catalogueconstructor.load_catalogue()
-    #~ print(catalogue)
+    
     
     sigs = dataio.datasource.array_sources[0]
     
@@ -145,10 +152,6 @@ def test_OnlinePeeler():
     tviewer.params['decimation_method'] = 'min_max'
     tviewer.params['mode'] = 'scan'
     #~ tviewer.params['mode'] = 'scroll'
-    
-    tviewer.auto_gain_and_offset(mode=1)
-    #~ tviewer.gain_zoom(.3)
-    tviewer.gain_zoom(.1)
     
     
     def terminate():

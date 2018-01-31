@@ -152,7 +152,9 @@ def tridesclous_onlinepeeler():
     oscope.show()
     oscope.start()
     oscope.params['decimation_method'] = 'min_max'
-    oscope.params['mode'] = 'scan'    
+    oscope.params['mode'] = 'scan'
+    oscope.params['scale_mode'] = 'by_channel'
+    
 
     # Node Peeler
     if ng1 is None:
@@ -189,13 +191,9 @@ def tridesclous_onlinepeeler():
     tviewer.params['xsize'] = 3.
     tviewer.params['decimation_method'] = 'min_max'
     tviewer.params['mode'] = 'scan'
+    tviewer.params['scale_mode'] = 'same_for_all'
     #~ tviewer.params['mode'] = 'scroll'
     
-    tviewer.auto_gain_and_offset(mode=1)
-    #~ tviewer.gain_zoom(.3)
-    tviewer.gain_zoom(.1)
-
-
 
 
     #~ tfr_viewer = QTimeFreq()
@@ -213,7 +211,9 @@ def tridesclous_onlinepeeler():
     
     
     def ajust_yrange():
-        oscope.auto_gain_and_offset(mode=1)
+        oscope.auto_scale()
+        tviewer.auto_scale()
+        tviewer.params_controller.apply_ygain_zoom(.3)
     
     timer = QtCore.QTimer(interval=1000, singleShot=True)
     timer.timeout.connect(ajust_yrange)
