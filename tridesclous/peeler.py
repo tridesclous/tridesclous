@@ -125,9 +125,9 @@ class Peeler:
             for i, local_peak in enumerate(local_peaks):
                 
                 #~ t1 = time.perf_counter()
-                spike = classify_and_align(local_peak, self.fifo_residuals, self.catalogue)
+                spike = self.classify_and_align_one_spike(local_peak, self.fifo_residuals, self.catalogue)
                 #~ t2 = time.perf_counter()
-                #~ print('  classify_and_align', t2-t1)
+                #~ print('  classify_and_align_one_spike', t2-t1)
                 #~ print()
                 
                 
@@ -147,7 +147,7 @@ class Peeler:
                 break
 
         #~ t2 = time.perf_counter()
-        #~ print('LOOP classify_and_align', t2-t1)
+        #~ print('LOOP classify_and_align_one_spike', t2-t1)
         
         # append bad spike
         all_spikes.append(bad_spikes)
@@ -254,107 +254,95 @@ class Peeler:
     
     run = run_offline_all_segment
 
-
-
-
-    
-def classify_and_align(local_index, residual, catalogue, maximum_jitter_shift=4):
-    """
-    local_index is index of peaks inside residual and not
-    the absolute peak_pos. So time scaling must be done outside.
-    """
-    width = catalogue['peak_width']
-    n_left = catalogue['n_left']
-    alien_value_threshold = catalogue['params_clean_waveforms']['alien_value_threshold']
-    
-    
-    #ind is the windows border!!!!!
-    ind = local_index + n_left
-
-    if ind+width+maximum_jitter_shift+1>=residual.shape[0]:
-        # too near right limits no label
-        label = LABEL_RIGHT_LIMIT
-        jitter = 0
-    elif ind<=maximum_jitter_shift:
-        # too near left limits no label
-        #~ print('     LABEL_LEFT_LIMIT', ind)
-        label = LABEL_LEFT_LIMIT
-        jitter = 0
-    else:
-        waveform = residual[ind:ind+width,:]
+    def classify_and_align_one_spike(self, local_index, residual, catalogue):
+        """
+        local_index is index of peaks inside residual and not
+        the absolute peak_pos. So time scaling must be done outside.
+        """
+        width = catalogue['peak_width']
+        n_left = catalogue['n_left']
+        alien_value_threshold = catalogue['params_clean_waveforms']['alien_value_threshold']
         
-        if alien_value_threshold is not None and \
-                np.any(np.abs(waveform)>alien_value_threshold) :
-            label  = LABEL_ALIEN
+        
+        #ind is the windows border!!!!!
+        ind = local_index + n_left
+
+        if ind+width+maximum_jitter_shift+1>=residual.shape[0]:
+            # too near right limits no label
+            label = LABEL_RIGHT_LIMIT
+            jitter = 0
+        elif ind<=maximum_jitter_shift:
+            # too near left limits no label
+            #~ print('     LABEL_LEFT_LIMIT', ind)
+            label = LABEL_LEFT_LIMIT
             jitter = 0
         else:
+            waveform = residual[ind:ind+width,:]
             
-            #~ t1 = time.perf_counter()
-            label, jitter = estimate_one_jitter(waveform, catalogue)
-            #~ t2 = time.perf_counter()
-            #~ print('  estimate_one_jitter', t2-t1)
+            if alien_value_threshold is not None and \
+                    np.any(np.abs(waveform)>alien_value_threshold) :
+                label  = LABEL_ALIEN
+                jitter = 0
+            else:
+                
+                #~ t1 = time.perf_counter()
+                label, jitter = self.estimate_one_jitter(waveform, catalogue)
+                #~ t2 = time.perf_counter()
+                #~ print('  estimate_one_jitter', t2-t1)
 
-            #~ jitter = -jitter
-            #TODO debug jitter sign is positive on right and negative to left
-            
-            #~ print('label, jitter', label, jitter)
-            
-            # if more than one sample of jitter
-            # then we try a peak shift
-            # take it if better
-            #TODO debug peak shift
-            if np.abs(jitter) > 0.5 and label >=0:
-                prev_ind, prev_label, prev_jitter =ind, label, jitter
+                #~ jitter = -jitter
+                #TODO debug jitter sign is positive on right and negative to left
                 
-                shift = -int(np.round(jitter))
-                #~ print('classify_and_align shift', shift)
+                #~ print('label, jitter', label, jitter)
                 
-                if np.abs(shift) >maximum_jitter_shift:
-                    #~ print('     LABEL_MAXIMUM_SHIFT avec shift')
-                    label = LABEL_MAXIMUM_SHIFT
-                else:
-                    ind = ind + shift
-                    if ind+width>=residual.shape[0]:
-                        #~ print('     LABEL_RIGHT_LIMIT avec shift')
-                        label = LABEL_RIGHT_LIMIT
-                    elif ind<0:
-                        #~ print('     LABEL_LEFT_LIMIT avec shift')
-                        label = LABEL_LEFT_LIMIT
-                        #TODO: force to label anyway the spike if spike is at the left of FIFO
+                # if more than one sample of jitter
+                # then we try a peak shift
+                # take it if better
+                #TODO debug peak shift
+                if np.abs(jitter) > 0.5 and label >=0:
+                    prev_ind, prev_label, prev_jitter =ind, label, jitter
+                    
+                    shift = -int(np.round(jitter))
+                    #~ print('classify and align shift', shift)
+                    
+                    if np.abs(shift) >maximum_jitter_shift:
+                        #~ print('     LABEL_MAXIMUM_SHIFT avec shift')
+                        label = LABEL_MAXIMUM_SHIFT
                     else:
-                        waveform = residual[ind:ind+width,:]
-                        new_label, new_jitter = estimate_one_jitter(waveform, catalogue)
-                        if np.abs(new_jitter)<np.abs(prev_jitter):
-                            #~ print('keep shift')
-                            label, jitter = new_label, new_jitter
-                            local_index += shift
+                        ind = ind + shift
+                        if ind+width>=residual.shape[0]:
+                            #~ print('     LABEL_RIGHT_LIMIT avec shift')
+                            label = LABEL_RIGHT_LIMIT
+                        elif ind<0:
+                            #~ print('     LABEL_LEFT_LIMIT avec shift')
+                            label = LABEL_LEFT_LIMIT
+                            #TODO: force to label anyway the spike if spike is at the left of FIFO
                         else:
-                            #~ print('no keep shift worst jitter')
-                            pass
+                            waveform = residual[ind:ind+width,:]
+                            new_label, new_jitter = self.estimate_one_jitter(waveform, catalogue)
+                            if np.abs(new_jitter)<np.abs(prev_jitter):
+                                #~ print('keep shift')
+                                label, jitter = new_label, new_jitter
+                                local_index += shift
+                            else:
+                                #~ print('no keep shift worst jitter')
+                                pass
 
-    #security if with jitter the index is out
-    if label>=0:
-        local_pos = local_index - np.round(jitter).astype('int64') + n_left
-        if local_pos<0:
-            label = LABEL_LEFT_LIMIT
-        elif (local_pos+width) >=residual.shape[0]:
-            label = LABEL_RIGHT_LIMIT
-    
-    return Spike(local_index, label, jitter)
-    
-    spikes['jitter'][i] = jitter
-    spikes['cluster_label'][i] = label
+        #security if with jitter the index is out
+        if label>=0:
+            local_pos = local_index - np.round(jitter).astype('int64') + n_left
+            if local_pos<0:
+                label = LABEL_LEFT_LIMIT
+            elif (local_pos+width) >=residual.shape[0]:
+                label = LABEL_RIGHT_LIMIT
+        
+        return Spike(local_index, label, jitter)
     
     
-    #security if with jitter the index is out
-    local_pos = spikes['index'] - np.round(spikes['jitter']).astype('int64') + n_left
-    spikes['cluster_label'][(local_pos<0)] = LABEL_LEFT_LIMIT
-    spikes['cluster_label'][(local_pos+width)>=residual.shape[0]] = LABEL_RIGHT_LIMIT
-    
-    return spikes
+    def estimate_one_jitter(self, waveform, catalogue):
+        return estimate_one_jitter_numpy(waveform, catalogue)
 
-
-def estimate_one_jitter(waveform, catalogue):
+def estimate_one_jitter_numpy(waveform, catalogue):
     """
     Estimate the jitter for one peak given its waveform
     
