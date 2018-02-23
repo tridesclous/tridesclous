@@ -145,8 +145,8 @@ def clean_catalogue():
     cc.order_clusters(by='waveforms_rms')
 
     #re label >20 to trash (-1)
-    mask = cc.all_peaks['label']>20
-    cc.all_peaks['label'][mask] = -1
+    mask = cc.all_peaks['cluster_label']>20
+    cc.all_peaks['cluster_label'][mask] = -1
     cc.on_new_cluster()
     
     #save catalogue before peeler
@@ -178,12 +178,12 @@ def open_PeelerWindow():
 
 
 if __name__ =='__main__':
-    initialize_catalogueconstructor()
-    preprocess_signals_and_peaks()
-    extract_waveforms_pca_cluster()
-    open_cataloguewindow()
-    #~ clean_catalogue()
-    #~ run_peeler()
-    #~ open_PeelerWindow()
+    #~ initialize_catalogueconstructor()
+    #~ preprocess_signals_and_peaks()
+    #~ extract_waveforms_pca_cluster()
+    #~ open_cataloguewindow()
+    clean_catalogue()
+    run_peeler()
+    open_PeelerWindow()
 
     

@@ -12,6 +12,7 @@ install_requires = [
                     'seaborn',
                     'quantities==0.12.1',
                     'neo>=0.5.1',
+                    'tqdm',
                     ]
 extras_require={ 'gui' : ['PyQt5', 'pyqtgraph==0.10.0', 'matplotlib'],
                             'online' : 'pyacq',
