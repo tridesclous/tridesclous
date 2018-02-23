@@ -156,12 +156,13 @@ def clean_catalogue():
 def run_peeler():
     dataio = DataIO(dirname=dirname)
     initial_catalogue = dataio.load_catalogue(chan_grp=1)
-
+    
+    print(dataio)
     peeler = Peeler(dataio)
     peeler.change_params(catalogue=initial_catalogue)
     
     t1 = time.perf_counter()
-    peeler.run(duration=None)
+    peeler.run(duration=1.)
     t2 = time.perf_counter()
     print('peeler.run_loop', t2-t1)
 
@@ -183,9 +184,9 @@ if __name__ =='__main__':
     #~ extract_waveforms_pca_cluster()
     #~ open_cataloguewindow()
 
-    clean_catalogue()
+    #~ clean_catalogue()
     run_peeler()
-    open_PeelerWindow()
+    #~ open_PeelerWindow()
 
     
 

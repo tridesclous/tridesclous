@@ -1,6 +1,6 @@
 import os
 import json
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 import time
 
 import numpy as np
@@ -26,6 +26,9 @@ except ImportError:
     HAVE_TQDM = False
 
 _dtype_spike = [('index', 'int64'), ('cluster_label', 'int64'), ('jitter', 'float64'),]
+
+Spike = namedtuple('Spike', ('index', 'cluster_label', 'jitter'))
+
 
 from .labelcodes import (LABEL_TRASH, LABEL_UNCLASSIFIED, LABEL_ALIEN)
 
@@ -86,7 +89,13 @@ class Peeler:
             self.catalogue['wf1_dot_wf2'][i] = wf1.dot(wf2)        
     
     def process_one_chunk(self,  pos, sigs_chunk):
+        #~ print()
+        #~ print(self.chunksize, '=', self.chunksize/self.dataio.sample_rate)
+        #~ t1 = time.perf_counter()
         abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
+        #~ t2 = time.perf_counter()
+        #~ print('process_data', t2-t1)
+        
         
         #note abs_head_index is smaller than pos because prepcorcessed chunk
         # is late because of local filfilt in signalpreprocessor
@@ -94,23 +103,37 @@ class Peeler:
             return
         
         #shift rsiruals buffer and put the new one on right side
+        #~ t1 = time.perf_counter()
         n = self.fifo_residuals.shape[0]-preprocessed_chunk.shape[0]
         self.fifo_residuals[:n,:] = self.fifo_residuals[-n:,:]
         self.fifo_residuals[n:,:] = preprocessed_chunk
+        #~ t2 = time.perf_counter()
+        #~ print('fifo move', t2-t1)
+
         
         # relation between inside chunk index and abs index
         shift = abs_head_index - self.fifo_residuals.shape[0]
         
+        #~ t1 = time.perf_counter()
         all_spikes = []
         while True:
             #detect peaks
             local_peaks = detect_peaks_in_chunk(self.fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign)
+            #~ print(pos, 'local_peaks', local_peaks, local_peaks.shape)
             
             n_ok = 0
-            for i in range(local_peaks.size):
-                spikes  = classify_and_align(local_peaks[i:i+1], self.fifo_residuals, self.catalogue)
+            for i, local_peak in enumerate(local_peaks):
                 
-                if spikes['cluster_label'][0]>=0:
+                #~ t1 = time.perf_counter()
+                spike = classify_and_align(local_peak, self.fifo_residuals, self.catalogue)
+                #~ t2 = time.perf_counter()
+                #~ print('  classify_and_align', t2-t1)
+                #~ print()
+                
+                
+                #~ if spikes['cluster_label'][0]>=0:
+                if spike.cluster_label>=0:
+                    spikes = np.array([spike], dtype=_dtype_spike)
                     prediction = make_prediction_signals(spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue, safe=False)
                     self.fifo_residuals -= prediction
                     spikes['index'] += shift
@@ -122,40 +145,16 @@ class Peeler:
                 bad_spikes['index'] = local_peaks + shift
                 bad_spikes['cluster_label'] = LABEL_UNCLASSIFIED
                 break
-            
-            #~ good_spikes = spikes.compress(spikes['cluster_label']>=0)
-            #~ if good_spikes.size==0:
-                #can loop for ever here 
-                #~ break
-            
-            #~ overlap_index = np.diff(local_peaks)<self.catalogue['peak_width']
-            #~ if np.any(overlap_index):
-                #~ overlap_index = np.nonzero(overlap_index)[0] + 1
-                #~ local_peaks[overlap_index] = -1
-                #~ local_peaks = local_peaks[local_peaks!=-1]
-            #~ spikes  = classify_and_align(local_peaks, self.fifo_residuals, self.catalogue)
-            #~ good_spikes = spikes.compress(spikes['cluster_label']>=0)
-            #~ if good_spikes.size==0:
-                #~ #can loop for ever here 
-                #~ break
-            
-            #~ prediction = make_prediction_signals(good_spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue, safe=False)
-            #~ self.fifo_residuals -= prediction
-            
-            # for output
-            #~ good_spikes['index'] += shift
-            #~ all_spikes.append(good_spikes)
+
+        #~ t2 = time.perf_counter()
+        #~ print('LOOP classify_and_align', t2-t1)
         
         # append bad spike
-        #~ bad_spikes = spikes[spikes['cluster_label']==LABEL_UNCLASSIFIED]
-        #~ bad_spikes = spikes.compress(spikes['cluster_label']==LABEL_UNCLASSIFIED)
-        #~ bad_spikes['index'] += shift
         all_spikes.append(bad_spikes)
-        
         
         #concatenate sort and count
         all_spikes = np.concatenate(all_spikes)
-        #~ all_spikes = all_spikes[np.argsort(all_spikes['index'])]
+        # all_spikes = all_spikes[np.argsort(all_spikes['index'])]
         all_spikes = all_spikes.take(np.argsort(all_spikes['index']))
         self.total_spike += all_spikes.size
         
@@ -201,7 +200,7 @@ class Peeler:
     def initialize_online_loop(self, sample_rate=None, nb_channel=None, source_dtype=None):
         self._initialize_before_each_segment(sample_rate=sample_rate, nb_channel=nb_channel, source_dtype=source_dtype)
     
-    def run_offline_loop_one_segment(self, seg_num=0, duration=None):
+    def run_offline_loop_one_segment(self, seg_num=0, duration=None, progressbar=True):
         chan_grp = self.catalogue['chan_grp']
         
         kargs = {}
@@ -222,7 +221,7 @@ class Peeler:
 
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=chan_grp, chunksize=self.chunksize, 
                                                     i_stop=length, signal_type='initial', return_type='raw_numpy')
-        if HAVE_TQDM:
+        if HAVE_TQDM and progressbar:
             iterator = tqdm(iterable=iterator, total=length//self.chunksize)
         for pos, sigs_chunk in iterator:
             #~ print(pos, length, pos/length)
@@ -244,14 +243,14 @@ class Peeler:
         self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=chan_grp)
         self.dataio.flush_spikes(seg_num=seg_num, chan_grp=chan_grp)
 
-    def run_offline_all_segment(self, duration=None):
+    def run_offline_all_segment(self, **kargs):
         #TODO remove chan_grp here because it is redundant from catalogue['chan_grp']
         assert hasattr(self, 'catalogue'), 'So peeler.change_params first'
         
         
         #~ print('run_offline_all_segment', chan_grp)
         for seg_num in range(self.dataio.nb_segment):
-            self.run_offline_loop_one_segment(seg_num=seg_num, duration=duration)
+            self.run_offline_loop_one_segment(seg_num=seg_num, **kargs)
     
     run = run_offline_all_segment
 
@@ -259,88 +258,92 @@ class Peeler:
 
 
     
-
-
-def classify_and_align(local_indexes, residual, catalogue, maximum_jitter_shift=4):
+def classify_and_align(local_index, residual, catalogue, maximum_jitter_shift=4):
     """
-    local_indexes is index of peaks inside residual and not
+    local_index is index of peaks inside residual and not
     the absolute peak_pos. So time scaling must be done outside.
-    
     """
     width = catalogue['peak_width']
     n_left = catalogue['n_left']
     alien_value_threshold = catalogue['params_clean_waveforms']['alien_value_threshold']
     
     
-    spikes = np.zeros(local_indexes.shape[0], dtype=_dtype_spike)
-    spikes['index'] = local_indexes
-    
     #ind is the windows border!!!!!
-    for i, ind in enumerate(local_indexes+n_left):
-        #~ print('classify_and_align', i, ind)
-        #~ waveform = waveforms[i,:,:]
-        if ind+width+maximum_jitter_shift+1>=residual.shape[0]:
-            # too near right limits no label
-            #~ print('     LABEL_RIGHT_LIMIT', ind, width, ind+width, residual.shape[0])
-            spikes['cluster_label'][i] = LABEL_RIGHT_LIMIT
-            continue
-        elif ind<=maximum_jitter_shift:
-            # too near left limits no label
-            #~ print('     LABEL_LEFT_LIMIT', ind)
-            spikes['cluster_label'][i] = LABEL_LEFT_LIMIT
-            continue
+    ind = local_index + n_left
+
+    if ind+width+maximum_jitter_shift+1>=residual.shape[0]:
+        # too near right limits no label
+        label = LABEL_RIGHT_LIMIT
+        jitter = 0
+    elif ind<=maximum_jitter_shift:
+        # too near left limits no label
+        #~ print('     LABEL_LEFT_LIMIT', ind)
+        label = LABEL_LEFT_LIMIT
+        jitter = 0
+    else:
+        waveform = residual[ind:ind+width,:]
+        
+        if alien_value_threshold is not None and \
+                np.any(np.abs(waveform)>alien_value_threshold) :
+            label  = LABEL_ALIEN
+            jitter = 0
         else:
-            waveform = residual[ind:ind+width,:]
-        
-        if alien_value_threshold is not None:
-            if np.any(np.abs(waveform)>alien_value_threshold):
-                spikes['cluster_label'][i] = LABEL_ALIEN
-                continue
-        
-        label, jitter = estimate_one_jitter(waveform, catalogue)
-        #~ jitter = -jitter
-        #TODO debug jitter sign is positive on right and negative to left
-        
-        #~ print('label, jitter', label, jitter)
-        
-        # if more than one sample of jitter
-        # then we try a peak shift
-        # take it if better
-        #TODO debug peak shift
-        if np.abs(jitter) > 0.5 and label >=0:
-            prev_ind, prev_label, prev_jitter = label, jitter, ind
             
-            shift = -int(np.round(jitter))
-            #~ print('classify_and_align shift', shift)
+            #~ t1 = time.perf_counter()
+            label, jitter = estimate_one_jitter(waveform, catalogue)
+            #~ t2 = time.perf_counter()
+            #~ print('  estimate_one_jitter', t2-t1)
+
+            #~ jitter = -jitter
+            #TODO debug jitter sign is positive on right and negative to left
             
-            if np.abs(shift) >maximum_jitter_shift:
-                #~ print('     LABEL_MAXIMUM_SHIFT avec shift')
-                spikes['cluster_label'][i] = LABEL_MAXIMUM_SHIFT
-                continue
+            #~ print('label, jitter', label, jitter)
             
-            
-            ind = ind + shift
-            if ind+width>=residual.shape[0]:
-                #~ print('     LABEL_RIGHT_LIMIT avec shift')
-                spikes['cluster_label'][i] = LABEL_RIGHT_LIMIT
-                continue
-            elif ind<0:
-                #~ print('     LABEL_LEFT_LIMIT avec shift')
-                spikes['cluster_label'][i] = LABEL_LEFT_LIMIT
-                continue
-            else:
-                waveform = residual[ind:ind+width,:]
-                new_label, new_jitter = estimate_one_jitter(waveform, catalogue)
-                if np.abs(new_jitter)<np.abs(prev_jitter):
-                    #~ print('keep shift')
-                    label, jitter = new_label, new_jitter
-                    spikes['index'][i] += shift
+            # if more than one sample of jitter
+            # then we try a peak shift
+            # take it if better
+            #TODO debug peak shift
+            if np.abs(jitter) > 0.5 and label >=0:
+                prev_ind, prev_label, prev_jitter =ind, label, jitter
+                
+                shift = -int(np.round(jitter))
+                #~ print('classify_and_align shift', shift)
+                
+                if np.abs(shift) >maximum_jitter_shift:
+                    #~ print('     LABEL_MAXIMUM_SHIFT avec shift')
+                    label = LABEL_MAXIMUM_SHIFT
                 else:
-                    print('no keep shift worst jitter')
-                    pass
-        
-        spikes['jitter'][i] = jitter
-        spikes['cluster_label'][i] = label
+                    ind = ind + shift
+                    if ind+width>=residual.shape[0]:
+                        #~ print('     LABEL_RIGHT_LIMIT avec shift')
+                        label = LABEL_RIGHT_LIMIT
+                    elif ind<0:
+                        #~ print('     LABEL_LEFT_LIMIT avec shift')
+                        label = LABEL_LEFT_LIMIT
+                        #TODO: force to label anyway the spike if spike is at the left of FIFO
+                    else:
+                        waveform = residual[ind:ind+width,:]
+                        new_label, new_jitter = estimate_one_jitter(waveform, catalogue)
+                        if np.abs(new_jitter)<np.abs(prev_jitter):
+                            #~ print('keep shift')
+                            label, jitter = new_label, new_jitter
+                            local_index += shift
+                        else:
+                            #~ print('no keep shift worst jitter')
+                            pass
+
+    #security if with jitter the index is out
+    if label>=0:
+        local_pos = local_index - np.round(jitter).astype('int64') + n_left
+        if local_pos<0:
+            label = LABEL_LEFT_LIMIT
+        elif (local_pos+width) >=residual.shape[0]:
+            label = LABEL_RIGHT_LIMIT
+    
+    return Spike(local_index, label, jitter)
+    
+    spikes['jitter'][i] = jitter
+    spikes['cluster_label'][i] = label
     
     
     #security if with jitter the index is out
@@ -359,7 +362,7 @@ def estimate_one_jitter(waveform, catalogue):
     https://hal.archives-ouvertes.fr/hal-01111654v1
     http://christophe-pouzat.github.io/LASCON2016/SpikeSortingTheElementaryWay.html
     
-    for best reading (at for me SG):
+    for best reading (at least for me SG):
       * wf = the wafeform of the peak
       * k = cluster label of the peak
       * wf0, wf1, wf2 : center of catalogue[k] + first + second derivative
@@ -370,10 +373,25 @@ def estimate_one_jitter(waveform, catalogue):
       * h2_norm2: error at order2
     """
     
-    cluster_idx = np.argmin(np.sum(np.sum((catalogue['centers0']-waveform)**2, axis = 1), axis = 1))
+    # This line is the slower part !!!!!!
+    # cluster_idx = np.argmin(np.sum(np.sum((catalogue['centers0']-waveform)**2, axis = 1), axis = 1))
+    
+    # replace by this (indentique but faster, a but)
+    #~ t1 = time.perf_counter()
+    d = catalogue['centers0']-waveform[None, :, :]
+    d *= d
+    # s = d.sum(axis=1).sum(axis=1)  # intuitive
+    # s = d.reshape(d.shape[0], -1).sum(axis=1) # a bit faster
+    s = np.einsum('ijk->i', d) # a bit faster
+    cluster_idx = np.argmin(s)
+    #~ t2 = time.perf_counter()
+    #~ print('    np.argmin V2', t2-t1, cluster_idx)
+    
+
     k = catalogue['cluster_labels'][cluster_idx]
     chan = catalogue['max_on_channel'][cluster_idx]
     #~ print('cluster_idx', cluster_idx, 'k', k, 'chan', chan)
+
     
     #~ return k, 0.
 
@@ -422,6 +440,7 @@ def estimate_one_jitter(waveform, catalogue):
     #~ print(np.sum(wf**2), np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2))
     #~ print(np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2))
     #~ return k, jitter1
+
     
     if np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2):
         #prediction should be smaller than original (which have noise)
