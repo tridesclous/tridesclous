@@ -6,6 +6,7 @@ WIP for porting peeler to opencl.
 """
 
 from .peeler import * 
+from .peeler import _dtype_spike
 
 try:
     import pyopencl
@@ -55,13 +56,13 @@ class Peeler_OpenCl(Peeler):
         
         self.fifo_residuals_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.fifo_residuals)
         
-        self.fifo_sum = np.zeros((self.chunksize,), dtype=self.internal_dtype)
+        self.fifo_sum = np.zeros((self.chunksize+self.n_side,), dtype=self.internal_dtype)
         self.fifo_sum_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.fifo_sum)
         
-        self.peak_bool = np.zeros((self.chunksize,), dtype='uint8')
+        self.peak_bool = np.zeros((self.chunksize+self.n_side,), dtype='uint8')
         self.peak_bool_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.peak_bool)
         
-        self.peak_index = np.zeros((self.chunksize,), dtype='int32')
+        self.peak_index = np.zeros((self.chunksize+self.n_side,), dtype='int32')
         self.peak_index_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.peak_index)
         
         self.nb_peak_index = np.zeros((1), dtype='int32')
@@ -117,7 +118,7 @@ class Peeler_OpenCl(Peeler):
         
         
         all_spikes = []
-        for level in range(self.n_peel_level):
+        while True:
             
             global_size = (self.chunksize+self.n_side, )
             local_size = None
@@ -125,8 +126,8 @@ class Peeler_OpenCl(Peeler):
                                     self.fifo_residuals_cl, self.fifo_sum_cl, self.peak_bool_cl)
             
             #~ pyopencl.enqueue_copy(self.queue,  self.peak_bool, self.peak_bool_cl)
-            #~ local_index,  = np.nonzero(self.peak_bool)
-            #~ print('local_index', local_index, self.fifo_residuals.shape)
+            #~ local_peaks,  = np.nonzero(self.peak_bool)
+            #~ print(pos, 'local_peaks', local_peaks, local_peaks.shape)
             #~ exit()
             
             global_size = (1, )
@@ -139,41 +140,50 @@ class Peeler_OpenCl(Peeler):
             
             pyopencl.enqueue_copy(self.queue,  self.peak_index, self.peak_index_cl)
             pyopencl.enqueue_copy(self.queue,  self.nb_peak_index, self.nb_peak_index_cl)
-            local_index = self.peak_index[:self.nb_peak_index[0]]
+            
+            local_peaks = self.peak_index[:self.nb_peak_index[0]]
+            
+            #~ print(pos, 'local_peaks', local_peaks, local_peaks.shape)
+            #~ fig, ax = plt.subplots()
+            #~ pyopencl.enqueue_copy(self.queue,  self.fifo_residuals, self.fifo_residuals_cl)
+            #~ ax.plot(self.fifo_residuals)
+            #~ ax.plot(local_peaks, self.fifo_residuals[local_peaks], ls='None', marker='o')
+            #~ plt.show()
             #CL OK here
             #~ print('local_index', local_index)
             #~ exit()
             
-            
-            #DEBUG
-            #TODO ICI CONTINUER OPENCL
             pyopencl.enqueue_copy(self.queue,  self.fifo_residuals, self.fifo_residuals_cl)
             
-            spikes  = classify_and_align(local_index, self.fifo_residuals, self.catalogue)
-            
-            good_spikes = spikes.compress(spikes['label']>=0)
-            prediction = make_prediction_signals(good_spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue)
-            self.fifo_residuals -= prediction
+            n_ok = 0
+            for i, local_peak in enumerate(local_peaks):
+                spike = classify_and_align(local_peak, self.fifo_residuals, self.catalogue)
+                if spike.cluster_label>=0:
+                    spikes = np.array([spike], dtype=_dtype_spike)
+                    prediction = make_prediction_signals(spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue, safe=False)
+                    self.fifo_residuals -= prediction
+                    
+                    spikes['index'] += shift
+                    all_spikes.append(spikes)
+                    n_ok += 1
             pyopencl.enqueue_copy(self.queue,  self.fifo_residuals_cl, self.fifo_residuals)
             
-            # for output
-            good_spikes['index'] += shift
-            all_spikes.append(good_spikes)
-        
+            if n_ok==0:
+                bad_spikes = np.zeros(local_peaks.shape[0], dtype=_dtype_spike)
+                bad_spikes['index'] = local_peaks + shift
+                bad_spikes['cluster_label'] = LABEL_UNCLASSIFIED
+                break
+
         # append bad spike
-        #~ bad_spikes = spikes[spikes['label']==LABEL_UNSLASSIFIED]
-        bad_spikes = spikes.compress(spikes['label']==LABEL_UNSLASSIFIED)
-        bad_spikes['index'] += shift
         all_spikes.append(bad_spikes)
-        
         
         #concatenate sort and count
         all_spikes = np.concatenate(all_spikes)
-        #~ all_spikes = all_spikes[np.argsort(all_spikes['index'])]
+        # all_spikes = all_spikes[np.argsort(all_spikes['index'])]
         all_spikes = all_spikes.take(np.argsort(all_spikes['index']))
         self.total_spike += all_spikes.size
         
-        return abs_head_index, preprocessed_chunk, self.total_spike, all_spikes
+        return abs_head_index, preprocessed_chunk, self.total_spike, all_spikes        
 
     kernel = """
     #define chunksize %(chunksize)d
@@ -238,7 +248,7 @@ class Peeler_OpenCl(Peeler):
         int pos2 = pos + n_span;
         
         uchar peak=0;
-        if ((pos2<n_span)||(pos2>=(chunksize+n_side-n_span))){
+        if ((pos<n_span)||(pos>=(chunksize+n_side-n_span))){
             peak_bools[pos] = 0;
         }
         else{
