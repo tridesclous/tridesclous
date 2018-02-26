@@ -312,7 +312,7 @@ class Peeler_OpenCl(Peeler):
     }
     
     
-    __kernel void waveform_distance(__global  float *one_waveform, __constant  float *catalogue_center, __global  float *waveform_distance){
+    __kernel void waveform_distance(__global  float *one_waveform, __global  float *catalogue_center, __global  float *waveform_distance){
         
         int cluster_idx = get_global_id(0);
         
@@ -346,12 +346,12 @@ class Peeler_OpenCl(Peeler):
         
         # 
         #~ t1 = time.perf_counter()
-        print(catalogue['centers0'].shape)
+        #~ print(catalogue['centers0'].shape)
         global_size = ( int(catalogue['centers0'].shape[0]), )
-        print(global_size)
+        #~ print(global_size)
         local_size = None
-        print(waveform.shape, waveform.dtype)
-        print(self.one_waveform.shape, self.one_waveform.dtype)
+        #~ print(waveform.shape, waveform.dtype)
+        #~ print(self.one_waveform.shape, self.one_waveform.dtype)
         pyopencl.enqueue_copy(self.queue,  self.one_waveform_cl, waveform)
         event = self.kern_waveform_distance(self.queue,  global_size, local_size,
                     self.one_waveform_cl, self.catalogue_center_cl, self.waveform_distance_cl)
