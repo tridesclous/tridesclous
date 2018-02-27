@@ -128,19 +128,16 @@ def open_PeelerWindow():
 
 
 def test_compare_peeler():
+
+    dataio = DataIO(dirname='test_peeler')
+    print(dataio)
     
     all_spikes = []
-    #~ for perler_class in (Peeler, PeelerOLD):
-    #~ for perler_class in [PeelerOLD]:
-    for peeler_class in [Peeler,]:
+    #~ for peeler_class in [Peeler,]:
     #~ for peeler_class in [Peeler_OpenCl,]:
-    #~ for peeler_class in [Peeler, Peeler_OpenCl]:
+    for peeler_class in [Peeler, Peeler_OpenCl]:
         print()
         print(peeler_class)
-        
-        dataio = DataIO(dirname='test_peeler')
-        print(dataio)
-        
         initial_catalogue = dataio.load_catalogue(chan_grp=0)
         
         peeler = peeler_class(dataio)
@@ -148,7 +145,8 @@ def test_compare_peeler():
         peeler.change_params(catalogue=initial_catalogue,  chunksize=1024)
         
         t1 = time.perf_counter()
-        peeler.run()
+        #~ peeler.run_offline_loop_one_segment(duration=None, progressbar=False)
+        peeler.run_offline_loop_one_segment(duration=4., progressbar=False)
         t2 = time.perf_counter()
         print('peeler.run_loop', t2-t1)
         
@@ -157,10 +155,19 @@ def test_compare_peeler():
         
         #~ print(dataio.get_spikes(chan_grp=0).size)
     
-    for spikes in all_spikes:
-        print(spikes)
-        print(spikes.size)
+    #~ all_spikes[0] = all_spikes[0][88+80:88+81+10]
+    #~ all_spikes[1] = all_spikes[1][88+80:88+81+10]
+
+    #~ all_spikes[0] = all_spikes[0][:88+81]
+    #~ all_spikes[1] = all_spikes[1][:88+81]
     
+    #~ for spikes in all_spikes:
+        #~ print(spikes)
+        #~ print(spikes.size)
+        #~ assert all_spikes[0].size == spikes.size
+        #~ assert np.all(all_spikes[0]['index'] == spikes['index'])
+        #~ assert np.all(all_spikes[0]['cluster_label'] == spikes['cluster_label'])
+        #~ assert np.all(np.abs(all_spikes[0]['jitter'] - spikes['jitter'])<0.0001)
     
     
 if __name__ =='__main__':
@@ -172,6 +179,6 @@ if __name__ =='__main__':
     
     #~ open_PeelerWindow()
     
-    #~ test_compare_peeler()
+    test_compare_peeler()
     
-    open_PeelerWindow()
+    #~ open_PeelerWindow()

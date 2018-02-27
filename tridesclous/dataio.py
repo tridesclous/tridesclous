@@ -8,7 +8,7 @@ import pickle
 
 from .datasource import data_source_classes
 from .iotools import ArrayCollection
-from .tools import download_probe, create_prb_file_from_dict
+from .tools import download_probe, create_prb_file_from_dict, fix_prb_file_py2
 
 _signal_types = ['initial', 'processed']
 
@@ -139,6 +139,7 @@ class DataIO:
         self._rm_old_probe_file()
         probe_filename = os.path.join(self.dirname, os.path.basename(src_probe_filename))
         shutil.copyfile(src_probe_filename, probe_filename)
+        fix_prb_file_py2(probe_filename)
         self.info['probe_filename'] = os.path.basename(probe_filename)
         self.flush_info()
         self._reload_channel_group()
@@ -166,7 +167,7 @@ class DataIO:
         #~ probe_filename = os.path.join(self.dirname,probe_name)
         #~ urlretrieve(baseurl+probe_name, probe_filename)
         #~ fix_prb_file_py2(probe_filename)#fix range to list(range
-        
+        fix_prb_file_py2(probe_filename)
         self.info['probe_filename'] = os.path.basename(probe_filename)
         self.flush_info()
         self._reload_channel_group()

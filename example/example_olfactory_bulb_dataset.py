@@ -161,12 +161,12 @@ def open_PeelerWindow():
 
 
 if __name__ =='__main__':
-    initialize_catalogueconstructor()
+    #~ initialize_catalogueconstructor()
     
-    preprocess_signals_and_peaks()
-    extract_waveforms_pca_cluster()
-    open_cataloguewindow()
+    #~ preprocess_signals_and_peaks()
+    #~ extract_waveforms_pca_cluster()
+    #~ open_cataloguewindow()
     
-    #~ run_peeler()
-    #~ open_PeelerWindow()
+    run_peeler()
+    open_PeelerWindow()
     

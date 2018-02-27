@@ -126,7 +126,7 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
         indexes = np.array(result['spiketimes'][k])
         peaks = np.zeros(indexes.shape, dtype=_dtype_peak)
         peaks['index'][:] = indexes
-        peaks['label'][:] = label
+        peaks['cluster_label'][:] = label
         peaks['segment'][:] = 0
         
         all_peaks.append(peaks)

@@ -20,10 +20,10 @@ from matplotlib import pyplot
 # !!!!!!!! change the working dir here
 working_dir = '/home/samuel/Documents/projet/DataSpikeSorting/kampff/'
 
-dirname= working_dir+'tdc_2015_09_03_Cell9.0'
+dirname= working_dir+'tdc_2015_09_09_Pair_6_0'
 
 
-
+ 
 def initialize_catalogueconstructor():
     #setup file source
     filenames = working_dir+'2015_09_09_Pair_6_0/'+'amplifier2015-09-09T17_46_43.bin'
@@ -52,8 +52,8 @@ def preprocess_signals_and_peaks():
             memory_mode='memmap',
             
             #signal preprocessor
-            signalpreprocessor_engine='numpy',
-            #signalpreprocessor_engine='opencl',
+            #~ signalpreprocessor_engine='numpy',
+            signalpreprocessor_engine='opencl',
             highpass_freq=300, 
             lowpass_freq=6000., 
             smooth_size=1,
@@ -62,8 +62,8 @@ def preprocess_signals_and_peaks():
             lostfront_chunksize=64,
             
             #peak detector
-            peakdetector_engine='numpy',
-            #peakdetector_engine='opencl',
+            #~ peakdetector_engine='numpy',
+            peakdetector_engine='opencl',
             peak_sign='-', 
             relative_threshold=6,
             peak_span=0.0002,
@@ -118,7 +118,7 @@ def extract_waveforms_pca_cluster():
     print(catalogueconstructor)
     
     
-
+    catalogueconstructor.order_clusters(by='waveforms_rms')
     
 
 
@@ -145,8 +145,8 @@ def clean_catalogue():
     cc.order_clusters(by='waveforms_rms')
 
     #re label >20 to trash (-1)
-    mask = cc.all_peaks['label']>20
-    cc.all_peaks['label'][mask] = -1
+    mask = cc.all_peaks['cluster_label']>20
+    cc.all_peaks['cluster_label'][mask] = -1
     cc.on_new_cluster()
     
     #save catalogue before peeler
@@ -156,12 +156,13 @@ def clean_catalogue():
 def run_peeler():
     dataio = DataIO(dirname=dirname)
     initial_catalogue = dataio.load_catalogue(chan_grp=1)
-
+    
+    print(dataio)
     peeler = Peeler(dataio)
     peeler.change_params(catalogue=initial_catalogue)
     
     t1 = time.perf_counter()
-    peeler.run(duration=None)
+    peeler.run(duration=1.)
     t2 = time.perf_counter()
     print('peeler.run_loop', t2-t1)
 
@@ -178,12 +179,15 @@ def open_PeelerWindow():
 
 
 if __name__ =='__main__':
-    initialize_catalogueconstructor()
-    preprocess_signals_and_peaks()
-    extract_waveforms_pca_cluster()
-    open_cataloguewindow()
+    #~ initialize_catalogueconstructor()
+    #~ preprocess_signals_and_peaks()
+    #~ extract_waveforms_pca_cluster()
+    #~ open_cataloguewindow()
+
     #~ clean_catalogue()
-    #~ run_peeler()
+    run_peeler()
     #~ open_PeelerWindow()
+
+    
 
     
