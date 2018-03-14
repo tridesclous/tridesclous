@@ -109,7 +109,7 @@ def plot_waveforms_with_geometry(waveforms, channels, geometry,
     
     wf *= ratioY
     for i, chan in enumerate(channels):
-        x, y = geometry[chan]
+        x, y = geometry[i]
         vect[i*width:(i+1)*width] = np.linspace(x-deltaX, x+deltaX, num=width)
         wf[:, :, i] += y
     
@@ -129,18 +129,19 @@ def plot_waveforms_with_geometry(waveforms, channels, geometry,
 
 
 
-def plot_waveforms(cataloguecconstructor, labels=None, nb_max=50):
+def plot_waveforms(cataloguecconstructor, labels=None, nb_max=50, **kargs):
     cc = cataloguecconstructor
     channels = cc.dataio.channel_groups[cc.chan_grp]['channels']
     geometry = cc.dataio.get_geometry(chan_grp=cc.chan_grp)
     all_wfs = cc.some_waveforms
     
     
-    
-    fig, ax = plt.subplots()
+    if 'ax' not in kargs:
+        fig, ax = plt.subplots()
+        kargs['ax'] = ax
     if labels is None:
         wfs = all_wfs[:nb_max,:, :]
-        plot_waveforms_with_geometry(wfs, channels, geometry, ax=ax, ratioY=10, color='k')
+        plot_waveforms_with_geometry(wfs, channels, geometry,  **kargs)
     else:
         if not hasattr(cc, 'colors'):
             cc.refresh_colors()
@@ -151,8 +152,8 @@ def plot_waveforms(cataloguecconstructor, labels=None, nb_max=50):
             peaks = cc.all_peaks[cc.some_peaks_index]
             keep = peaks['cluster_label'] == label
             wfs = all_wfs[keep][:nb_max]
-            color = cc.colors.get(label, 'k')
-            plot_waveforms_with_geometry(wfs, channels, geometry, ax=ax, ratioY=10, color=color)
+            kargs['color'] = cc.colors.get(label, 'k')
+            plot_waveforms_with_geometry(wfs, channels, geometry, **kargs)
 
 
 def plot_features_scatter_2d(cataloguecconstructor, labels=None, nb_max=500):

@@ -273,6 +273,8 @@ class WaveformViewerBase(WidgetBase):
             key1, key2 = 'mean', 'std'
         
         shape = self.controller.get_waveforms_shape()
+        if shape is None:
+            return
         xvect = np.arange(shape[0]*shape[1])
         
         #~ for i,k in enumerate(self.controller.centroids):
