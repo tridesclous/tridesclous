@@ -40,7 +40,7 @@ _reset_after_peak_arrays = ('some_peaks_index', 'some_waveforms', 'some_features
                         'some_noise_index', 'some_noise_snippet', 'some_noise_features',
                         ) + _persistent_metrics
 
-_reset_after_waveforms_arrays = ('some_features', 'channel_to_features',
+_reset_after_waveforms_arrays = ('some_features', 'channel_to_features', 'some_noise_snippet',
                 'some_noise_features') + _persistent_metrics
 
 _persitent_arrays = ('all_peaks', 'signals_medians','signals_mads', 'clusters') + _reset_after_peak_arrays
@@ -370,7 +370,6 @@ class CatalogueConstructor:
         for name in _reset_after_waveforms_arrays:
             self.arrays.detach_array(name)
             setattr(self, name, None)
-
     
     def extract_some_waveforms(self, n_left=None, n_right=None, index=None, 
                                     mode='rand', nb_max=10000,
@@ -479,6 +478,7 @@ class CatalogueConstructor:
         self._reset_features()
         self.all_peaks['cluster_label'][:] = labelcodes.LABEL_UNCLASSIFIED
         self.all_peaks['cluster_label'][self.some_peaks_index] = 0
+        
     
     def clean_waveforms(self, alien_value_threshold=100.):
         

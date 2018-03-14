@@ -128,7 +128,16 @@ class DataIO:
         d = {}
         probe_filename = os.path.join(self.dirname, self.info['probe_filename'])
         exec(open(probe_filename).read(), None, d)
-        self.channel_groups = d['channel_groups']
+        channel_groups = d['channel_groups']
+
+        for chan_grp, channel_group in channel_groups.items():
+            assert 'channels' in channel_group
+            channel_group['channels'] = list(channel_group['channels'])
+            if 'geometry' not in channel_group or channel_group['geometry'] is None:
+                channels = channel_group['channels']
+                geometry = self._make_fake_geometry(channels)
+                channel_group['geometry'] = geometry
+        self.channel_groups = channel_groups
     
     def _rm_old_probe_file(self):
         old_filename = self.info.get('probe_filename', None)

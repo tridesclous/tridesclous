@@ -224,6 +224,7 @@ class CatalogueWindow(QT.QMainWindow):
         if dia.exec_():
             d = dia.get()
             self.catalogueconstructor.extract_some_waveforms(**d)
+            self.controller.on_new_cluster()
         self.refresh()
 
     def clean_waveforms(self):

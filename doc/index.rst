@@ -4,10 +4,8 @@ Welcome to tridesclous's documentation!
 .. image:: img/main_icon.png
 
 
-The doc is under construction and very far from complete.
-
-At least, there is some help for installing...
-
+If this is your first time here, after admiring the logo, you should go
+in :ref:`overview` and :ref:`step_by_step`.
 
 Contents
 ========
