@@ -89,12 +89,13 @@ class Peeler:
             self.catalogue['wf1_dot_wf2'][i] = wf1.dot(wf2)        
     
     def process_one_chunk(self,  pos, sigs_chunk):
-        #~ print()
-        #~ print(self.chunksize, '=', self.chunksize/self.dataio.sample_rate)
-        #~ t1 = time.perf_counter()
+        print('*'*5)
+        print('chunksize', self.chunksize, '=', self.chunksize/self.dataio.sample_rate*1000, 'ms')
+        
+        t1 = time.perf_counter()
         abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
-        #~ t2 = time.perf_counter()
-        #~ print('process_data', t2-t1)
+        t2 = time.perf_counter()
+        print('process_data', (t2-t1)*1000)
         
         
         #note abs_head_index is smaller than pos because prepcorcessed chunk
@@ -103,42 +104,62 @@ class Peeler:
             return
         
         #shift rsiruals buffer and put the new one on right side
-        #~ t1 = time.perf_counter()
+        t1 = time.perf_counter()
         n = self.fifo_residuals.shape[0]-preprocessed_chunk.shape[0]
         self.fifo_residuals[:n,:] = self.fifo_residuals[-n:,:]
         self.fifo_residuals[n:,:] = preprocessed_chunk
-        #~ t2 = time.perf_counter()
-        #~ print('fifo move', t2-t1)
+        t2 = time.perf_counter()
+        print('fifo move', (t2-t1)*1000.)
 
         
         # relation between inside chunk index and abs index
         shift = abs_head_index - self.fifo_residuals.shape[0]
         
-        #~ t1 = time.perf_counter()
+        t1 = time.perf_counter()
         all_spikes = []
+        all_ready_tested = []
         while True:
+            print()
             #detect peaks
+            t3 = time.perf_counter()
             local_peaks = detect_peaks_in_chunk(self.fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign)
-            #~ print(pos, 'local_peaks', local_peaks, local_peaks.shape)
+            t4 = time.perf_counter()
+            print('  detect_peaks_in_chunk', (t4-t3)*1000.)
+            print('  local_peaks', local_peaks, local_peaks.shape)
+            if len(all_ready_tested)>0:
+                local_peaks = local_peaks[~np.in1d(local_peaks, all_ready_tested)]
+                print('  all_ready_tested', all_ready_tested)
+                print( '  cleaned local_peaks', local_peaks, local_peaks.shape)
             
             n_ok = 0
             for i, local_peak in enumerate(local_peaks):
-                
-                #~ t1 = time.perf_counter()
+                print('    local_peak', local_peak, 'i', i)
+                t3 = time.perf_counter()
                 spike = self.classify_and_align_one_spike(local_peak, self.fifo_residuals, self.catalogue)
-                #~ t2 = time.perf_counter()
-                #~ print('  classify_and_align_one_spike', t2-t1)
+                t4 = time.perf_counter()
+                print('    classify_and_align_one_spike', (t4-t3)*1000.)
                 #~ print()
                 
                 
                 #~ if spikes['cluster_label'][0]>=0:
                 if spike.cluster_label>=0:
+                    t3 = time.perf_counter()
+                    print('     >>spike.index', spike.index)
                     spikes = np.array([spike], dtype=_dtype_spike)
                     prediction = make_prediction_signals(spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue, safe=False)
                     self.fifo_residuals -= prediction
                     spikes['index'] += shift
                     all_spikes.append(spikes)
                     n_ok += 1
+                    t4 = time.perf_counter()
+                    print('    make_prediction_signals and sub', (t4-t3)*1000.)
+                    
+                    print('    all_ready_tested before', all_ready_tested)
+                    all_ready_tested = [ind for ind in all_ready_tested if np.abs(spike.index-ind)>self.peak_width]
+                    print('    all_ready_tested new deal', all_ready_tested)
+                else:
+                    all_ready_tested.append(local_peak)
+                    
             
             if n_ok==0:
                 bad_spikes = np.zeros(local_peaks.shape[0], dtype=_dtype_spike)
@@ -146,14 +167,15 @@ class Peeler:
                 bad_spikes['cluster_label'] = LABEL_UNCLASSIFIED
                 break
 
-        #~ t2 = time.perf_counter()
-        #~ print('LOOP classify_and_align_one_spike', t2-t1)
+        t2 = time.perf_counter()
+        print('LOOP classify_and_align_one_spike', (t2-t1)*1000)
         
         # append bad spike
         all_spikes.append(bad_spikes)
         
         #concatenate sort and count
         all_spikes = np.concatenate(all_spikes)
+        print('all_spikes.size', all_spikes.size)
         # all_spikes = all_spikes[np.argsort(all_spikes['index'])]
         all_spikes = all_spikes.take(np.argsort(all_spikes['index']))
         self.total_spike += all_spikes.size
@@ -187,6 +209,7 @@ class Peeler:
         peak_span = self.catalogue['params_peakdetector']['peak_span']
         self.n_span = int(sample_rate*peak_span)//2
         self.n_span = max(1, self.n_span)
+        self.peak_width = self.catalogue['peak_width']
         self.n_side = self.catalogue['peak_width'] + maximum_jitter_shift + self.n_span + 1
         
         self.alien_value_threshold = self.catalogue['params_clean_waveforms']['alien_value_threshold']
@@ -288,7 +311,7 @@ class Peeler:
                 #~ t1 = time.perf_counter()
                 label, jitter = self.estimate_one_jitter(waveform, catalogue)
                 #~ t2 = time.perf_counter()
-                #~ print('  estimate_one_jitter', t2-t1)
+                #~ print('  estimate_one_jitter', (t2-t1)*1000.)
 
                 #~ jitter = -jitter
                 #TODO debug jitter sign is positive on right and negative to left
@@ -368,12 +391,12 @@ def estimate_one_jitter_numpy(waveform, catalogue):
     #~ t1 = time.perf_counter()
     d = catalogue['centers0']-waveform[None, :, :]
     d *= d
-    # s = d.sum(axis=1).sum(axis=1)  # intuitive
-    # s = d.reshape(d.shape[0], -1).sum(axis=1) # a bit faster
+    #s = d.sum(axis=1).sum(axis=1)  # intuitive
+    #s = d.reshape(d.shape[0], -1).sum(axis=1) # a bit faster
     s = np.einsum('ijk->i', d) # a bit faster
     cluster_idx = np.argmin(s)
     #~ t2 = time.perf_counter()
-    #~ print('    np.argmin V2', t2-t1, cluster_idx)
+    #~ print('    np.argmin V2', (t2-t1)*1000., cluster_idx)
     
 
     k = catalogue['cluster_labels'][cluster_idx]
