@@ -779,6 +779,11 @@ class CatalogueConstructor:
                 self.all_peaks['cluster_label'][mask] = -1
         self.on_new_cluster()
 
+    def _reset_metrics(self):
+        for name in _persistent_metrics:
+            self.arrays.detach_array(name)
+            setattr(self, name, None)
+
     def compute_spike_waveforms_similarity(self, method='cosine_similarity', size_max = 1e7):
         """This compute the similarity spike by spike.
         """
@@ -831,7 +836,23 @@ class CatalogueConstructor:
             self.compute_cluster_similarity()
         pairs = get_pairs_over_threshold(self.cluster_similarity, self.positive_cluster_labels, threshold)
         return pairs
-    
+
+    def auto_merge_high_similarity(self, threshold=0.95):
+        """Rcursively merge all pairs with similarity hihger that a given threshold
+        """
+        pairs = self.detect_high_similarity(threshold=threshold)
+        already_merge = {}
+        for k1, k2 in pairs:
+            # merge if k2 still exists
+            if k1 in already_merge:
+                k1 = already_merge[k1]
+            print('auto_merge', k1, 'with', k2)
+            #~ mask = self.all_peaks['cluster_label'] == k2
+            #~ self.all_peaks['cluster_label'][mask] = k1
+            already_merge[k2] = k1
+            
+        self.on_new_cluster()
+        
     def compute_cluster_ratio_similarity(self, method='cosine_similarity_with_max'):
         #~ print('compute_cluster_ratio_similarity')
         if not hasattr(self, 'centroids'):
@@ -902,9 +923,8 @@ class CatalogueConstructor:
     def tag_same_cell(self, labels_to_group):
         inds, = np.nonzero(np.in1d(self.clusters['cluster_label'], labels_to_group))
         self.clusters['cell_label'][inds] = min(labels_to_group)
-        
-        
     
+
     def order_clusters(self, by='waveforms_rms'):
         """
         This reorder labels from highest rms to lower rms.
@@ -913,14 +933,22 @@ class CatalogueConstructor:
         """
         
         if not hasattr(self, 'centroids'):
+            # MUST compute centroids
+            #~ print('DO NOT have centroids')
             self.compute_centroid()
-        
+
+        if np.any(np.isnan(self.clusters[self.clusters['cluster_label']>=0]['waveform_rms'])):
+            # MUST compute centroids
+            #~ print('MUST compute centroids because nan')
+            self.compute_centroid()
+
         clusters = self.clusters.copy()
         neg_clusters = clusters[clusters['cluster_label']<0]
         pos_clusters = clusters[clusters['cluster_label']>=0]
         
-        print(by)
+        print('order_clusters', by)
         if by=='waveforms_rms':
+
             order = np.argsort(pos_clusters['waveform_rms'])[::-1]
         elif by=='max_peak_amplitude':
             order = np.argsort(np.abs(pos_clusters['max_peak_amplitude']))[::-1]
@@ -929,11 +957,18 @@ class CatalogueConstructor:
         
         sorted_labels = pos_clusters['cluster_label'][order]
         
+        
         #reassign labels for peaks and clusters
         N = int(max(sorted_labels)*10)
         self.all_peaks['cluster_label'][self.all_peaks['cluster_label']>=0] += N
         for new, old in enumerate(sorted_labels+N):
             self.all_peaks['cluster_label'][self.all_peaks['cluster_label']==old] = new
+        
+        # reasign centroids: Buggy
+        old_centroids = { (k+N):v for k, v in self.centroids.items()}
+        self.centroids =  {}
+        for new, old in enumerate(sorted_labels+N):
+            self.centroids[new] = old_centroids[old]
         
         pos_clusters = pos_clusters[order].copy()
         n = pos_clusters.size
@@ -948,7 +983,9 @@ class CatalogueConstructor:
                 pos_clusters['cell_label'][inds] = i
         new_cluster = np.concatenate((neg_clusters, pos_clusters))
         self.clusters[:] = new_cluster
-    
+        
+        self._reset_metrics()
+
     def make_catalogue(self):
         #TODO: offer possibility to resample some waveforms or choose the number
         
