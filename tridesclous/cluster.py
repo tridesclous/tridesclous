@@ -61,6 +61,7 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         #~ sawchaincut = SawChainCut_OLD(waveforms, n_left, n_right, peak_sign, relative_threshold)
         sawchaincut = SawChainCut(waveforms, n_left, n_right, peak_sign, relative_threshold)
         labels = sawchaincut.do_the_job()
+        #~ print('ici trash nb', np.sum(labels==-1))
     else:
         raise(ValueError, 'find_clusters method unknown')
     
@@ -68,7 +69,7 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         cc.all_peaks['cluster_label'][:] = labelcodes.LABEL_UNCLASSIFIED
         cc.all_peaks['cluster_label'][cc.some_peaks_index] = labels
     else:
-        labels += max(max(cc.cluster_labels), -1) + 1
+        labels[labels>=0] += max(max(cc.cluster_labels), -1) + 1
         cc.all_peaks['cluster_label'][cc.some_peaks_index[sel]] = labels
     
     
@@ -349,6 +350,7 @@ class SawChainCut:
                 chan_visited = []
                 continue
         
+        print('END loop', np.sum(cluster_labels==-1))
         return cluster_labels
 
 
@@ -578,13 +580,13 @@ class SawChainCut_OLD:
                     possible_dim, = np.nonzero(med<0)
                 else:
                     possible_dim, = np.nonzero(med<-3.5)
-                    print('ICI', len(possible_dim))
+                    #~ print('ICI', len(possible_dim))
             elif self.peak_sign == '+':
                 if nb_remain==nb_working:
                     possible_dim, = np.nonzero(med>0)
                 else:
                     possible_dim, = np.nonzero(med>3.5)
-                    print('ICI', len(possible_dim))
+                    #~ print('ICI', len(possible_dim))
             
             possible_dim = possible_dim[~np.in1d(possible_dim, dim_visited)]
             
