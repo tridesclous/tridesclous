@@ -25,6 +25,13 @@ try:
 except ImportError:
     HAVE_TQDM = False
 
+from . import pythran_tools
+if hasattr(pythran_tools, '__pythran__'):
+    HAVE_PYTHRAN = True
+else:
+    HAVE_PYTHRAN = False
+
+
 _dtype_spike = [('index', 'int64'), ('cluster_label', 'int64'), ('jitter', 'float64'),]
 
 Spike = namedtuple('Spike', ('index', 'cluster_label', 'jitter'))
@@ -64,12 +71,15 @@ class Peeler:
 
     def change_params(self, catalogue=None, chunksize=1024, 
                                         internal_dtype='float32', 
-                                        #~ signalpreprocessor_engine='numpy',
+                                        use_sparse_template=False,
+                                        sparse_threshold_mad=1.5,
                                         ):
         assert catalogue is not None
         self.catalogue = catalogue
         self.chunksize = chunksize
         self.internal_dtype= internal_dtype
+        self.use_sparse_template = use_sparse_template
+        self.sparse_threshold_mad = sparse_threshold_mad
         
         self.colors = make_color_dict(self.catalogue['clusters'])
         
@@ -86,7 +96,28 @@ class Peeler:
 
             self.catalogue['wf1_norm2'][i] = wf1.dot(wf1)
             self.catalogue['wf2_norm2'][i] = wf2.dot(wf2)
-            self.catalogue['wf1_dot_wf2'][i] = wf1.dot(wf2)        
+            self.catalogue['wf1_dot_wf2'][i] = wf1.dot(wf2)
+        
+        if self.use_sparse_template:
+            centers = wf0 = self.catalogue['centers0']
+            #~ print(centers.shape)
+            mask = np.any(np.abs(centers)>sparse_threshold_mad, axis=1)
+            #~ print(mask.shape)
+            #~ print(mask)
+            print('average sparseness for templates', np.sum(mask)/mask.size)
+            self.catalogue['sparse_mask'] = mask
+            
+            #~ for i in range(centers.shape[0]):
+                #~ fig, ax = plt.subplots()
+                #~ center = centers[i,:,:].copy()
+                #~ center_sparse = center.copy()
+                #~ center_sparse[:, ~mask[i, :]] = 0.
+                #~ ax.plot(center.T.flatten(), color='g')
+                #~ ax.plot(center_sparse.T.flatten(), color='r', ls='--')
+                #~ ax.axhline(sparse_threshold_mad)
+                #~ ax.axhline(-sparse_threshold_mad)
+                #~ plt.show()
+
     
     def process_one_chunk(self,  pos, sigs_chunk):
         #~ print('*'*5)
@@ -389,16 +420,21 @@ def estimate_one_jitter_numpy(waveform, catalogue):
     # This line is the slower part !!!!!!
     # cluster_idx = np.argmin(np.sum(np.sum((catalogue['centers0']-waveform)**2, axis = 1), axis = 1))
     
-    # replace by this (indentique but faster, a but)
-    #~ t1 = time.perf_counter()
-    d = catalogue['centers0']-waveform[None, :, :]
-    d *= d
-    #s = d.sum(axis=1).sum(axis=1)  # intuitive
-    #s = d.reshape(d.shape[0], -1).sum(axis=1) # a bit faster
-    s = np.einsum('ijk->i', d) # a bit faster
-    cluster_idx = np.argmin(s)
-    #~ t2 = time.perf_counter()
-    #~ print('    np.argmin V2', (t2-t1)*1000., cluster_idx)
+    if 'sparse_mask' in catalogue and HAVE_PYTHRAN:
+        s = pythran_tools.pythran_loop_sparse_dist(waveform, 
+                            catalogue['centers0'],  catalogue['sparse_mask'])
+        cluster_idx = np.argmin(s)
+    else:
+        # replace by this (indentique but faster, a but)
+        #~ t1 = time.perf_counter()
+        d = catalogue['centers0']-waveform[None, :, :]
+        d *= d
+        #s = d.sum(axis=1).sum(axis=1)  # intuitive
+        #s = d.reshape(d.shape[0], -1).sum(axis=1) # a bit faster
+        s = np.einsum('ijk->i', d) # a bit faster
+        cluster_idx = np.argmin(s)
+        #~ t2 = time.perf_counter()
+        #~ print('    np.argmin V2', (t2-t1)*1000., cluster_idx)
     
 
     k = catalogue['cluster_labels'][cluster_idx]
@@ -539,3 +575,10 @@ def make_prediction_signals(spikes, dtype, shape, catalogue, safe=True):
         
     return prediction
 
+
+    
+    
+    
+    
+    
+    
