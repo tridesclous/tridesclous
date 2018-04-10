@@ -89,7 +89,8 @@ def plot_signals(dataio_or_cataloguecconstructor, chan_grp=0, seg_num=0, time_sl
 
 
 def plot_waveforms_with_geometry(waveforms, channels, geometry,
-            ax=None, ratioY=1, deltaX= 50, margin=150, color='k'):
+            ax=None, ratioY=1, deltaX= 50, margin=150, color='k',
+            show_amplitude=True, ratio_mad=5):
     """
     
     
@@ -122,8 +123,19 @@ def plot_waveforms_with_geometry(waveforms, channels, geometry,
         x, y = geometry[c, :]
         ax.text(x, y, '{}: {}'.format(c, chan), color='r', size=20)
     
-    ax.set_xlim(np.min(geometry[:, 0])-margin, np.max(geometry[:, 0])+margin)
-    ax.set_ylim(np.min(geometry[:, 1])-margin, np.max(geometry[:, 1])+margin)
+    xlim0, xlim1 = np.min(geometry[:, 0])-margin, np.max(geometry[:, 0])+margin
+    ylim0, ylim1 = np.min(geometry[:, 1])-margin, np.max(geometry[:, 1])+margin
+    ax.set_xlim(xlim0, xlim1)
+    ax.set_ylim(ylim0, ylim1)
+    
+    ax.set_xticks([])
+    ax.set_yticks([])
+    
+    if show_amplitude:
+        x = xlim0 + margin/10
+        y = (ylim1+ylim0)/2
+        ax.plot([x, x], [y, y+ratioY*ratio_mad], color='k', lw=2)
+        ax.text(x,y, '{}*MAD'.format(ratio_mad))
     
     return ax
 
@@ -135,6 +147,7 @@ def plot_waveforms(cataloguecconstructor, labels=None, nb_max=50, **kargs):
     geometry = cc.dataio.get_geometry(chan_grp=cc.chan_grp)
     all_wfs = cc.some_waveforms
     
+    kargs['ratio_mad'] = cc.info['params_peakdetector']['relative_threshold']
     
     if 'ax' not in kargs:
         fig, ax = plt.subplots()
