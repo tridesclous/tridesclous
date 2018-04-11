@@ -1032,9 +1032,11 @@ class CatalogueConstructor:
             # and reshaape (nb_peak, nb_channel, nb_csample)
             #~ wf = self.some_waveforms[self.all_peaks['cluster_label']==k]
             wf0 = self.some_waveforms[self.all_peaks['cluster_label'][self.some_peaks_index]==k]
-            
+            #~ wf0 = wf0.copy()
+            #~ print(wf0.shape, wf0.size)
             
             #compute first and second derivative on dim=1 (time)
+            # TODO: this consume lot of memory find something else for convolution
             kernel = np.array([1,0,-1])/2.
             kernel = kernel[None, :, None]
             wf1 =  scipy.signal.fftconvolve(wf0,kernel,'same') # first derivative

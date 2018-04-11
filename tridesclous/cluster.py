@@ -233,14 +233,21 @@ class SawChainCut:
         cluster_labels = np.zeros(self.waveforms.shape[0], dtype='int64')
         k = 0
         chan_visited = []
-        for iloop in range(self.max_loop):
-                    
+        #~ for iloop in range(self.max_loop):
+        iloop = -1
+        while True:
+            iloop += 1
+            
             nb_remain = np.sum(cluster_labels>=k)
             sel = cluster_labels == k
             nb_working = np.sum(sel)
             print()
             print('iloop', iloop, 'k', k, 'nb_remain', nb_remain, 'nb_working', nb_working, {True:'full', False:'partial'}[nb_remain==nb_working])
             
+            if iloop>=self.max_loop:
+                cluster_labels[sel] = -1
+                print('BREAK iloop', iloop)
+                break
             
             if iloop!=0 and nb_remain<self.break_nb_remain:
                 cluster_labels[sel] = -1
