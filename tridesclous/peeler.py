@@ -9,7 +9,6 @@ import scipy.signal
 
 from . import signalpreprocessor
 from .peakdetector import  detect_peaks_in_chunk
-from . import waveformextractor
 
 from .tools import make_color_dict
 
