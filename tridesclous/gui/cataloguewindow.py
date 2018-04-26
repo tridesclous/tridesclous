@@ -207,7 +207,10 @@ class CatalogueWindow(QT.QMainWindow):
         for w in self.controller.views:
             #TODO refresh only visible but need catch on visibility changed
             #~ print(w)
+            t1 = time.perf_counter()
             w.refresh()
+            t2 = time.perf_counter()
+            print('refresh',w,  t2-t1)
     
     def redetect_peak(self):
         dia = ParamDialog(gui_params.peak_detector_params)
@@ -224,7 +227,7 @@ class CatalogueWindow(QT.QMainWindow):
         if dia.exec_():
             d = dia.get()
             self.catalogueconstructor.extract_some_waveforms(**d)
-            self.controller.on_new_cluster()
+            #~ self.controller.on_new_cluster()
         self.refresh()
 
     def clean_waveforms(self):
@@ -233,7 +236,7 @@ class CatalogueWindow(QT.QMainWindow):
         if dia.exec_():
             d = dia.get()
             self.catalogueconstructor.clean_waveforms(**d)
-            self.controller.on_new_cluster()
+            #~ self.controller.on_new_cluster()
             self.refresh()
 
     def new_noise_snippet(self):
@@ -256,7 +259,7 @@ class CatalogueWindow(QT.QMainWindow):
         method, kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self)
         if method is not None:
             self.catalogueconstructor.find_clusters(method=method, **kargs)
-            self.controller.on_new_cluster()
+            #~ self.controller.on_new_cluster()
             self.refresh()
     
     def compute_metrics(self):
@@ -264,7 +267,7 @@ class CatalogueWindow(QT.QMainWindow):
         dia.resize(450, 500)
         if dia.exec_():
             d = dia.get()
-            self.catalogueconstructor.compute_centroid()
+            #~ self.catalogueconstructor.compute_all_centroid()
             self.catalogueconstructor.compute_spike_waveforms_similarity(method=d['spike_waveforms_similarity'], size_max=d['size_max'])
             self.catalogueconstructor.compute_cluster_similarity(method=d['cluster_similarity'])
             self.catalogueconstructor.compute_cluster_ratio_similarity(method=d['cluster_ratio_similarity'])

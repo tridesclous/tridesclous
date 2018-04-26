@@ -294,7 +294,6 @@ class ClusterPeakList(ClusterBaseList):
     
     def order_clusters(self):
         self.controller.order_clusters()
-        self.controller.on_new_cluster() # TODO remove this
         self.refresh()
         self.spike_label_changed.emit()
     
@@ -311,15 +310,11 @@ class ClusterPeakList(ClusterBaseList):
         self.pc_project_all(selection=self._selected_spikes())
     
     def move_cluster_selection_to_trash(self):
-        
         mask = np.zeros(self.controller.spike_label.size, dtype='bool')
         for k in self.selected_cluster():
             #~ mask = self.controller.spike_label == k
             mask |= self.controller.spike_label == k
         self.controller.change_spike_label(mask, -1)
-        
-        self.controller.on_new_cluster(label_changed=None)
-        self.controller.refresh_colors(reset=False)
         self.refresh()
         self.spike_label_changed.emit()
     

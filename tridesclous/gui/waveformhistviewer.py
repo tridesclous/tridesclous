@@ -262,10 +262,12 @@ class WaveformHistViewer(WidgetBase):
         
         #~ for k, curve in zip(visibles, [self.curve1, self.curve2]):
         for k in visibles:
-            if k not in self.controller.centroids:
+            
+            median = self.controller.get_waveform_centroid(k, 'median')
+            if median is None:
                 continue
             if self.params['data']=='waveforms':
-                y = self.controller.centroids[k]['median'].T.flatten()
+                y = median.T.flatten()
             else:
                 y = np.median(data[labels==k], axis=0)
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
