@@ -43,8 +43,10 @@ _reset_after_peak_arrays = ('some_peaks_index', 'some_waveforms', 'some_features
 _reset_after_waveforms_arrays = ('some_features', 'channel_to_features', 'some_noise_snippet',
                 'some_noise_features') + _persistent_metrics
 
-_persitent_arrays = ('all_peaks', 'signals_medians','signals_mads', 'clusters') + _reset_after_peak_arrays
+_centroids_arrays = ('centroids_median', 'centroids_mad', 'centroids_mean', 'centroids_std',)
 
+_persitent_arrays = ('all_peaks', 'signals_medians','signals_mads', 'clusters') + \
+                _centroids_arrays + _reset_after_peak_arrays
 
 
 _dtype_peak = [('index', 'int64'), ('cluster_label', 'int64'), ('segment', 'int64'),]
@@ -695,46 +697,120 @@ class CatalogueConstructor:
         if clusters.size>0:
             self.arrays.add_array('clusters', clusters, self.memory_mode)
     
-    def compute_centroid(self, label_changed=None):
-        if label_changed is None:
-            # recompute all clusters
-            self.centroids = {}
-            label_changed = self.cluster_labels
-        print('compute_centroid')
+    def add_one_cluster(self, label):
+        assert label not in self.clusters['cluster_label']
         
-        if self.some_waveforms is None:
-            return 
-        n_left = int(self.info['params_waveformextractor']['n_left'])
-        t1 = time.perf_counter()
-        for k in label_changed:
-            if k <0: continue
-            if k not in self.cluster_labels:
-                self.centroids.pop(k)
-                continue
-            wf = self.some_waveforms[self.all_peaks['cluster_label'][self.some_peaks_index]==k]
-            median, mad = median_mad(wf, axis = 0)
-            mean, std = np.mean(wf, axis=0), np.std(wf, axis=0)
-            #~ max_on_channel = np.argmax(np.max(np.abs(mean), axis=0))
-            max_on_channel = np.argmax(np.abs(median[-n_left,:]), axis=0)
-            #~ print('k', k, max_on_channel)
-            #~ print(median.shape)
-            #~ fig, ax = plt.subplots()
-            #~ ax.plot(median.T.flatten())
-            #~ ax.axvspan(max_on_channel*median.shape[0], (max_on_channel+1)*median.shape[0], alpha=.2)
-            #~ plt.show()
-            self.centroids[k] = {'median':median, 'mad':mad, #'max_on_channel' : max_on_channel, 
-                        'mean': mean, 'std': std}
-            
-            ind = np.nonzero(self.clusters['cluster_label']==k)[0][0]
-            self.clusters['max_on_channel'][ind] = max_on_channel
-            self.clusters['max_peak_amplitude'][ind] = median[-n_left, max_on_channel]
-            self.clusters['waveform_rms'][ind] = np.sqrt(np.mean(median**2))
+        clusters = np.zeros(self.clusters.size+1, dtype=_dtype_cluster)
+        cluster[:-1] = self.clusters
+        cluster['cluster_label'][-1] = label
+        cluster['cell_label'][-1] = label
+        clusters['max_on_channel'][-1] = -1
+        clusters['max_peak_amplitude'][-1] = np.nan
+        clusters['waveform_rms'][-1] = np.nan
+        clusters['nb_peak'][-1] = np.sum(self.all_peaks['cluster_label']==label)
+        
+        self.arrays.add_array('clusters', clusters, self.memory_mode)
+        
+        for name in _centroids_arrays:
+            arr = getattr(self, name)
+            new_arr = np.zeros((arr.shape[0]+1, arr.shape[1], arr.shape[2]), dtype=arr.dtype)
+            new_arr[:-1, :, :] = arr
+            self.arrays.add_array(name, new_arr, self.memory_mode)
+        
+        #TODO set one color
+        self.refresh_colors(reset=False)
+        
+        self.compute_one_centroid(label)
+    
+    
+    def compute_one_centroid(self, k):
+        ind = np.nonzero(self.clusters['cluster_label']==k)[0][0]
+        
+        wf = self.some_waveforms[self.all_peaks['cluster_label'][self.some_peaks_index]==k]
+        median, mad = median_mad(wf, axis = 0)
+        mean, std = np.mean(wf, axis=0), np.std(wf, axis=0)
+        max_on_channel = np.argmax(np.abs(median[-n_left,:]), axis=0)
+        
+        # to persistant arrays
+        self.centroids_median[ind, :, :] = median
+        self.centroids_mad[ind, :, :] = mad
+        self.centroids_mean[ind, :, :] = mean
+        self.centroids_std[ind, :, :] = std
+        
+        self.clusters['max_on_channel'][ind] = max_on_channel
+        self.clusters['max_peak_amplitude'][ind] = median[-n_left, max_on_channel]
+        self.clusters['waveform_rms'][ind] = np.sqrt(np.mean(median**2))
 
-        self.arrays.flush_array('clusters')
+
+        for name in ('clusters',) + _centroids_arrays:
+            self.arrays.flush_array(name)
+        
+    
+    def compute_all_centroid(self):
+        
+        t1 = time.perf_counter()
+        if self.some_waveforms is None:
+            for name in _centroids_arrays:
+                self.arrays.detach_array(name)
+                setattr(self, name, None)
+            return
+        
+        
+        n_left = int(self.info['params_waveformextractor']['n_left'])
+        n_right = int(self.info['params_waveformextractor']['n_right'])
+        
+        for name in _centroids_arrays:
+            empty = np.zeros((self.cluster_labels.size, n_right - n_left, self.nb_channel), dtype=self.info['internal_dtype'])
+            self.arrays.add_array(name, empty, self.memory_mode)
+        
+        t1 = time.perf_counter()
+        for k in self.cluster_labels:
+            if k <0: continue
+            
+            self.compute_one_centroid(k)
+
+        for name in ('clusters',) + _centroids_arrays:
+            self.arrays.flush_array(name)
+        
+        #~ self.arrays.flush_array('clusters')
         
         t2 = time.perf_counter()
-        print('compute_centroid', t2-t1)
+        print('compute_all_centroid', t2-t1)
+
+    
+    #~ def compute_centroid_OLD(self, label_changed=None):
         
+        #~ if label_changed is None:
+            #~ # recompute all clusters
+            #~ self.centroids = {}
+            #~ label_changed = self.cluster_labels
+            
+        #~ self.arrays.flush_array('clusters')
+        #~ print('compute_centroid')
+        
+        #~ t1 = time.perf_counter()
+        #~ for k in label_changed:
+            #~ if k <0: continue
+            #~ if k not in self.cluster_labels:
+                #~ self.centroids.pop(k)
+                #~ continue
+            #~ wf = self.some_waveforms[self.all_peaks['cluster_label'][self.some_peaks_index]==k]
+            #~ median, mad = median_mad(wf, axis = 0)
+            #~ mean, std = np.mean(wf, axis=0), np.std(wf, axis=0)
+            #~ max_on_channel = np.argmax(np.abs(median[-n_left,:]), axis=0)
+            #~ self.centroids[k] = {'median':median, 'mad':mad, #'max_on_channel' : max_on_channel, 
+                        #~ 'mean': mean, 'std': std}
+            
+            #~ ind = np.nonzero(self.clusters['cluster_label']==k)[0][0]
+            #~ self.clusters['max_on_channel'][ind] = max_on_channel
+            #~ self.clusters['max_peak_amplitude'][ind] = median[-n_left, max_on_channel]
+            #~ self.clusters['waveform_rms'][ind] = np.sqrt(np.mean(median**2))
+
+        #~ self.arrays.flush_array('clusters')
+        
+        #~ t2 = time.perf_counter()
+        #~ print('compute_centroid', t2-t1)
+
     
     def refresh_colors(self, reset=True, palette='husl', interleaved=True):
         
@@ -767,16 +843,40 @@ class CatalogueConstructor:
         #Make colors accessible by key
         self.colors = make_color_dict(self.clusters)
         
+
+    def change_spike_label(self, mask, label):
+        if label not in self.clusters['cluster_label']:
+            new = True
+        
+        label_changed = np.unique(self.cc.all_peaks['cluster_label'][mask]).tolist()
+        self.all_peaks['cluster_label'][mask] = label
+        
+        if new:
+            self.add_one_cluster(label) # this also compute centroid
+        else:
+            label_changed = label_changed + [label]
+        
+        for k in label_changed:
+            ind = np.nonzero(self.clusters['cluster_label']==k)[0][0]
+            clusters['nb_peak'][ind] = np.sum(self.all_peaks['cluster_label']==label)
+            if k>=0:
+                self.compute_one_centroid(label)
+        
+        self.arrays.flush_array('all_peaks')
+        self.arrays.flush_array('clusters')
+        
     
     def split_cluster(self, label, method='kmeans',  **kargs): #order_clusters=True,
         mask = self.all_peaks['cluster_label']==label
         self.find_clusters(method=method, selection=mask, **kargs) # order_clusters=order_clusters,
+        # TODO add on_new_cluster this with only lavel splitted
     
     def trash_small_cluster(self, n=10):
         for k in self.cluster_labels:
             mask = self.all_peaks['cluster_label']==k
             if np.sum(mask)<=n:
                 self.all_peaks['cluster_label'][mask] = -1
+        # TODO add on_new_cluster this with only lavel splitted
         self.on_new_cluster()
 
     def _reset_metrics(self):
@@ -807,14 +907,17 @@ class CatalogueConstructor:
         return self.spike_waveforms_similarity
 
     def compute_cluster_similarity(self, method='cosine_similarity_with_max'):
-        if not hasattr(self, 'centroids'):
-            self.compute_centroid()            
-        #~ print('compute_cluster_similarity')
+        if self.centroids_median is None:
+            self.compute_all_centroid()
+        
         t1 = time.perf_counter()
         
-        labels = self.positive_cluster_labels
-        wfs = np.array([self.centroids[k]['median'] for k in labels])
+        labels = self.cluster_labels
+        mask = labels>=0
+        
+        wfs = self.centroids_median[mask, :,  :]
         wfs = wfs.reshape(wfs.shape[0], -1)
+        
         if wfs.size == 0:
             cluster_similarity = None
         else:
@@ -855,8 +958,11 @@ class CatalogueConstructor:
         
     def compute_cluster_ratio_similarity(self, method='cosine_similarity_with_max'):
         #~ print('compute_cluster_ratio_similarity')
-        if not hasattr(self, 'centroids'):
-            self.compute_centroid()            
+        if self.centroids_median is None:
+            self.compute_all_centroid()
+        
+        #~ if not hasattr(self, 'centroids'):
+            #~ self.compute_centroid()            
         
         t1 = time.perf_counter()
         labels = self.positive_cluster_labels
@@ -869,7 +975,8 @@ class CatalogueConstructor:
             if k<0: continue
             #~ chan = self.centroids[k]['max_on_channel']
             chan = self.clusters['max_on_channel'][ind]
-            median = self.centroids[k]['median']
+            #~ median = self.centroids[k]['median']
+            median = self.centroids_median[ind, :, :]
             n_left = int(self.info['params_waveformextractor']['n_left'])
             wf_normed.append(median/np.abs(median[-n_left, chan]))
         wf_normed = np.array(wf_normed)
@@ -931,16 +1038,24 @@ class CatalogueConstructor:
         The higher rms the smaller label.
         Negative labels are not reassigned.
         """
+        if self.centroids_median is None:
+            self.compute_all_centroid()
         
-        if not hasattr(self, 'centroids'):
+        #~ if not hasattr(self, 'centroids'):
             # MUST compute centroids
             #~ print('DO NOT have centroids')
-            self.compute_centroid()
+            #~ self.compute_centroid()
 
         if np.any(np.isnan(self.clusters[self.clusters['cluster_label']>=0]['waveform_rms'])):
             # MUST compute centroids
             #~ print('MUST compute centroids because nan')
-            self.compute_centroid()
+            #~ self.compute_centroid()
+            for ind, k in enumerate(self.clusters['cluster_label']):
+                if k<0:
+                    continue
+                if np.isnan(self.clusters[ind]['waveform_rms']:
+                    self.compute_one_centroid(k)
+        
 
         clusters = self.clusters.copy()
         neg_clusters = clusters[clusters['cluster_label']<0]

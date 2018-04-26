@@ -193,15 +193,15 @@ class PeakList(WidgetBase):
 
     def open_context_menu(self):
         menu = QT.QMenu()
-        act = menu.addAction('Move selection to trash')
-        act.triggered.connect(self.move_selection_to_trash)
+        act = menu.addAction('Move peak selection to trash')
+        act.triggered.connect(self.move_peak_selection_to_trash)
         act = menu.addAction('Make cluster with selection')
         act.triggered.connect(self.make_new_cluster)
 
         ##menu.popup(self.cursor().pos())
         menu.exec_(self.cursor().pos())
     
-    def move_selection_to_trash(self):
+    def move_peak_selection_to_trash(self):
         self.controller.change_spike_label(self.controller.spike_selection, -1)
         self.refresh()
         self.spike_label_changed.emit()
@@ -266,8 +266,8 @@ class ClusterPeakList(ClusterBaseList):
         act.triggered.connect(self.pc_project_all)
         act = self.menu.addAction('Feature projection with selection')
         act.triggered.connect(self.pc_project_selection)
-        act = self.menu.addAction('Move selection to trash')
-        act.triggered.connect(self.move_selection_to_trash)
+        act = self.menu.addAction('Move cluster selection to trash')
+        act.triggered.connect(self.move_cluster_selection_to_trash)
         act = self.menu.addAction('Merge selection')
         act.triggered.connect(self.merge_selection)
         act = self.menu.addAction('Select on peak list')
@@ -294,9 +294,10 @@ class ClusterPeakList(ClusterBaseList):
     
     def order_clusters(self):
         self.controller.order_clusters()
-        self.controller.on_new_cluster()
+        self.controller.on_new_cluster() # TODO remove this
         self.refresh()
         self.spike_label_changed.emit()
+    
     def pc_project_all(self, selection=None):
         method, kargs = open_dialog_methods(gui_params.features_params_by_methods, self)
         
@@ -309,10 +310,14 @@ class ClusterPeakList(ClusterBaseList):
     def pc_project_selection(self):
         self.pc_project_all(selection=self._selected_spikes())
     
-    def move_selection_to_trash(self):
+    def move_cluster_selection_to_trash(self):
+        
+        mask = np.zeros(self.controller.spike_label.size, dtype='bool')
         for k in self.selected_cluster():
-            mask = self.controller.spike_label == k
-            self.controller.change_spike_label(mask, -1, on_new_cluster=False)
+            #~ mask = self.controller.spike_label == k
+            mask |= self.controller.spike_label == k
+        self.controller.change_spike_label(mask, -1)
+        
         self.controller.on_new_cluster(label_changed=None)
         self.controller.refresh_colors(reset=False)
         self.refresh()

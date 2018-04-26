@@ -26,7 +26,7 @@ class CatalogueController(ControllerBase):
         self.dataio = catalogueconstructor.dataio
         self.nb_channel = self.dataio.nb_channel(self.chan_grp)
 
-        self.cc.on_new_cluster()
+        self.cc.on_new_cluster()  # TODO remove this
         self.init_plot_attributes()
     
     def get_catalogueconstructor_attr(self, name):
@@ -34,7 +34,7 @@ class CatalogueController(ControllerBase):
     
     def reload_data(self):
         self.cc.reload_data()
-        self.cc.on_new_cluster()
+        self.cc.on_new_cluster()  # TODO remove this
         self.init_plot_attributes()#this do compute_centroid
     
     def init_plot_attributes(self):
@@ -45,7 +45,9 @@ class CatalogueController(ControllerBase):
         self.spike_visible = np.ones(self.cc.nb_peak, dtype='bool')
         self.refresh_colors(reset=False)
         self.check_plot_attributes()
-        self.cc.compute_centroid()
+        #self.cc.compute_centroid()
+        if self.cc.centroids_median is None:
+            self.cc.compute_all_centroid()
         
 
     def check_plot_attributes(self):
@@ -172,15 +174,18 @@ class CatalogueController(ControllerBase):
     def channel_to_features(self):
         return self.cc.channel_to_features
     
-    def change_spike_label(self, mask, label, on_new_cluster=True):
-        label_changed = np.unique(self.cc.all_peaks['cluster_label'][mask]).tolist() + [label]
-        label_changed = np.unique(label_changed)
-        self.cc.all_peaks['cluster_label'][mask] = label
+    def change_spike_label(self, mask, label):
         
-        if on_new_cluster:
+        self.cc.change_spike_label(mask, label)
+        
+        #~ label_changed = np.unique(self.cc.all_peaks['cluster_label'][mask]).tolist() + [label]
+        #~ label_changed = np.unique(label_changed)
+        #~ self.cc.all_peaks['cluster_label'][mask] = label
+        
+        #~ if compute_new_cluster:
             #self.on_new_cluster(label_changed=label_changed)#bug 
-            self.on_new_cluster(label_changed=None)
-            self.refresh_colors(reset=False)
+            #~ self.on_new_cluster(label_changed=None)
+            #~ self.refresh_colors(reset=False)
         
     def get_threshold(self):
         threshold = self.cc.info['params_peakdetector']['relative_threshold']
@@ -211,6 +216,8 @@ class CatalogueController(ControllerBase):
         """
         label_changed can be remove/add/modify
         """
+        # TODO simplify this should not be called anymore...)
+        
         if len(self.cc.all_peaks['index']) == 0:
             return
         
@@ -264,10 +271,10 @@ class CatalogueController(ControllerBase):
         if new_label<0:
             new_label = max(max(self.cluster_labels)+1, 0)
         
+        mask = np.zeros(self.spike_label.size, dtype='bool')
         for k in labels_to_merge:
-            mask = self.spike_label == k
-            self.change_spike_label(mask, new_label, on_new_cluster=False)
-        self.on_new_cluster()
+            mask |= (self.spike_label == k)
+        self.change_spike_label(mask, new_label)
     
     def tag_same_cell(self, labels_to_group):
         self.cc.tag_same_cell(labels_to_group)
@@ -282,7 +289,7 @@ class CatalogueController(ControllerBase):
 
     def order_clusters(self):
         self.cc.order_clusters()
-        self.on_new_cluster()
+        self.on_new_cluster()  # TODO remove this
         self.refresh_colors(reset=True)
     
     def project(self, method='pca', selection=None, **kargs):
@@ -290,7 +297,7 @@ class CatalogueController(ControllerBase):
     
     def split_cluster(self, *args,  **kargs): #order_clusters=True,
         self.cc.split_cluster(*args,  **kargs) #order_clusters=order_clusters,
-        self.on_new_cluster()
+        self.on_new_cluster() # <<<< TODO rmove this and do this in CC
         self.refresh_colors(reset=False)
     
     @property
