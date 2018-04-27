@@ -66,11 +66,10 @@ class BaseTraceViewer(WidgetBase):
         self.graphicsview = pg.GraphicsView()
         g.addWidget(self.graphicsview, 0,1)
         self.initialize_plot()
-        self.layout.addLayout(g)
         self.scroll_time = QT.QScrollBar(orientation=QT.Qt.Horizontal)
         g.addWidget(self.scroll_time, 1,1)
         self.scroll_time.valueChanged.connect(self.on_scroll_time)
-
+        
         #handle time by segments
         self.time_by_seg = np.array([0.]*self.dataio.nb_segment, dtype='float64')
         

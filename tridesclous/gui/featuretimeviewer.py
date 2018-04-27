@@ -10,6 +10,8 @@ from .base import WidgetBase
 from .tools import ParamDialog
 from ..tools import median_mad
 
+import time
+
 #~ enableMenu
 class MyViewBox(pg.ViewBox):
     doubleclicked = QT.pyqtSignal()
@@ -69,7 +71,6 @@ class FeatureTimeViewer(WidgetBase):
     
     def initialize_plot(self):
         self.viewBox = MyViewBox()
-        print(self.viewBox.menuEnabled())
         self.viewBox.doubleclicked.connect(self.open_settings)
         #~ self.viewBox.gain_zoom.connect(self.gain_zoom)
         self.viewBox.disableAutoRange()
@@ -86,7 +87,6 @@ class FeatureTimeViewer(WidgetBase):
         cluster_visible = self.controller.cluster_visible
         visibles = [c for c, v in cluster_visible.items() if v ]
 
-        
         seg_index =  self.combo_seg.currentIndex()
         
         selected = self.controller.spike_segment[self.controller.some_peaks_index]==seg_index
@@ -95,19 +95,23 @@ class FeatureTimeViewer(WidgetBase):
         all_labels = self.controller.spike_label[self.controller.some_peaks_index][selected]
         
         #TODO if None
+        # this is a hack to speedup some_waveforms[selected]
+        # because boolean selection is slow here ???
+        ind_selected, = np.nonzero(selected)
+        selected_slice = slice(np.min(ind_selected), np.max(ind_selected)+1)
+        
         if self.params['metric'] == 'max_peak_value':
             if self.controller.some_waveforms is None:
                 return
             else:
-                all_waveforms = self.controller.some_waveforms[selected]
+                # all_waveforms = self.controller.some_waveforms[selected]  #<<<<slow
+                all_waveforms = self.controller.some_waveforms[selected_slice]
         if self.params['metric'] == 'feat_0':
             if self.controller.some_features is None:
                 return
             else:
-                all_features = self.controller.some_features[selected]
-        
-        #~ print(all_waveforms.shape)
-        
+                # all_features = self.controller.some_features[selected]   #<<<<slow
+                all_features = self.controller.some_features[selected_slice]
 
         d = self.controller.info['params_waveformextractor']
         n_left, n_right = d['n_left'], d['n_right']
@@ -134,10 +138,26 @@ class FeatureTimeViewer(WidgetBase):
             #~ self.curves.append(curve)
         
         
-        
         self.plot.setXRange(0, all_times[-1])
         if self.params['metric'] == 'max_peak_value':
             self.plot.setYRange(-30, 30)
         else:
             self.plot.setYRange(min(y), max(y))
+
+    def on_spike_selection_changed(self):
+        pass
+
+    def on_spike_label_changed(self):
+        self.refresh()
+        
+    def on_colors_changed(self):
+        self.refresh()
+    
+    def on_cluster_visibility_changed(self):
+        self.refresh()
+    
+    def on_cluster_tag_changed(self):
+        pass
+
+
 

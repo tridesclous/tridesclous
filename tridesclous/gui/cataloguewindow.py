@@ -49,8 +49,6 @@ class CatalogueWindow(QT.QMainWindow):
         self.featuretimeviewer = FeatureTimeViewer(controller=self.controller)
         
         
-        
-        
         docks = {}
 
         docks['waveformviewer'] = QT.QDockWidget('waveformviewer',self)
@@ -115,7 +113,7 @@ class CatalogueWindow(QT.QMainWindow):
     def create_actions(self):
 
         self.act_make_catalogue = QT.QAction('Make catalogue for peeler', self,checkable = False, icon=QT.QIcon(":/document-save.svg"))
-        self.act_make_catalogue.triggered.connect(self.save_catalogue)
+        self.act_make_catalogue.triggered.connect(self.make_catalogue_for_peeler)
 
         self.act_savepoint = QT.QAction('Savepoint', self,checkable = False, icon=QT.QIcon(":/document-save.svg"))
         self.act_savepoint.triggered.connect(self.create_savepoint)
@@ -182,8 +180,8 @@ class CatalogueWindow(QT.QMainWindow):
         url = "http://tridesclous.readthedocs.io/en/latest/catalogue_window.html"
         webbrowser.open(url, new=2)
 
-    def save_catalogue(self):
-        self.catalogueconstructor.save_catalogue()
+    def make_catalogue_for_peeler(self):
+        self.catalogueconstructor.make_catalogue_for_peeler()
     
     def create_savepoint(self):
         try:
@@ -203,14 +201,14 @@ class CatalogueWindow(QT.QMainWindow):
         self.refresh()
     
     def refresh(self):
-        #~ self.controller.reload_data()
+        self.controller.check_plot_attributes()
         for w in self.controller.views:
             #TODO refresh only visible but need catch on visibility changed
             #~ print(w)
-            t1 = time.perf_counter()
+            #~ t1 = time.perf_counter()
             w.refresh()
-            t2 = time.perf_counter()
-            print('refresh',w,  t2-t1)
+            #~ t2 = time.perf_counter()
+            #~ print('refresh',w,  t2-t1)
     
     def redetect_peak(self):
         dia = ParamDialog(gui_params.peak_detector_params)
@@ -227,8 +225,8 @@ class CatalogueWindow(QT.QMainWindow):
         if dia.exec_():
             d = dia.get()
             self.catalogueconstructor.extract_some_waveforms(**d)
-            #~ self.controller.on_new_cluster()
-        self.refresh()
+            
+            self.refresh()
 
     def clean_waveforms(self):
         dia = ParamDialog(gui_params.clean_waveforms_params)
@@ -236,7 +234,6 @@ class CatalogueWindow(QT.QMainWindow):
         if dia.exec_():
             d = dia.get()
             self.catalogueconstructor.clean_waveforms(**d)
-            #~ self.controller.on_new_cluster()
             self.refresh()
 
     def new_noise_snippet(self):
@@ -245,7 +242,6 @@ class CatalogueWindow(QT.QMainWindow):
         if dia.exec_():
             d = dia.get()
             self.catalogueconstructor.extract_some_noise(**d)
-            self.controller.check_plot_attributes()#this count noise
         self.refresh()
 
     def new_features(self):
@@ -259,7 +255,6 @@ class CatalogueWindow(QT.QMainWindow):
         method, kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self)
         if method is not None:
             self.catalogueconstructor.find_clusters(method=method, **kargs)
-            #~ self.controller.on_new_cluster()
             self.refresh()
     
     def compute_metrics(self):
@@ -267,7 +262,6 @@ class CatalogueWindow(QT.QMainWindow):
         dia.resize(450, 500)
         if dia.exec_():
             d = dia.get()
-            #~ self.catalogueconstructor.compute_all_centroid()
             self.catalogueconstructor.compute_spike_waveforms_similarity(method=d['spike_waveforms_similarity'], size_max=d['size_max'])
             self.catalogueconstructor.compute_cluster_similarity(method=d['cluster_similarity'])
             self.catalogueconstructor.compute_cluster_ratio_similarity(method=d['cluster_ratio_similarity'])

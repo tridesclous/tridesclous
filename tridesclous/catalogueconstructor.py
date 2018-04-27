@@ -35,18 +35,23 @@ from . import labelcodes
 _persistent_metrics = ('spike_waveforms_similarity', 'cluster_similarity',
                         'cluster_ratio_similarity', 'spike_silhouette')
 
-_reset_after_peak_arrays = ('some_peaks_index', 'some_waveforms', 'some_features',
-                        'channel_to_features', 
-                        'some_noise_index', 'some_noise_snippet', 'some_noise_features',
-                        ) + _persistent_metrics
-
-_reset_after_waveforms_arrays = ('some_features', 'channel_to_features', 'some_noise_snippet',
-                'some_noise_features') + _persistent_metrics
-
 _centroids_arrays = ('centroids_median', 'centroids_mad', 'centroids_mean', 'centroids_std',)
 
+
+_reset_after_waveforms_arrays = ('some_features', 'channel_to_features', 'some_noise_snippet',
+                'some_noise_index', 'some_noise_features',) + _persistent_metrics + _centroids_arrays
+
+#~ _reset_after_peak_arrays = ('some_peaks_index', 'some_waveforms', 'some_features',
+                        #~ 'channel_to_features', 
+                        #~ 'some_noise_index', 'some_noise_snippet', 'some_noise_features',
+                        #~ ) + _persistent_metrics + _centroids_arrays
+
+_reset_after_peak_arrays = ('some_peaks_index', 'some_waveforms',) + _reset_after_waveforms_arrays
+
+
+
 _persitent_arrays = ('all_peaks', 'signals_medians','signals_mads', 'clusters') + \
-                _centroids_arrays + _reset_after_peak_arrays
+                _reset_after_peak_arrays
 
 
 _dtype_peak = [('index', 'int64'), ('cluster_label', 'int64'), ('segment', 'int64'),]
@@ -481,6 +486,9 @@ class CatalogueConstructor:
         self.all_peaks['cluster_label'][:] = labelcodes.LABEL_UNCLASSIFIED
         self.all_peaks['cluster_label'][self.some_peaks_index] = 0
         
+        self.on_new_cluster()
+        self.compute_all_centroid()
+        
     
     def clean_waveforms(self, alien_value_threshold=100.):
         
@@ -494,6 +502,9 @@ class CatalogueConstructor:
 
         self.info['params_clean_waveforms'] = dict(alien_value_threshold=alien_value_threshold)
         self.flush_info()
+
+        self.on_new_cluster()
+        self.compute_all_centroid()
 
     
     def find_good_limits(self, mad_threshold = 1.1, channel_percent=0.3, extract=True, min_left=-5, max_right=5):
@@ -631,6 +642,8 @@ class CatalogueConstructor:
         if self.some_noise_snippet is not None:
             some_noise_features = self.projector.transform(self.some_noise_snippet)
             self.arrays.add_array('some_noise_features', some_noise_features.astype(self.info['internal_dtype']), self.memory_mode)
+        
+        print('extract_some_features', self.some_features.shape)
     
     #ALIAS TODO remove it
     project = extract_some_features
@@ -764,7 +777,7 @@ class CatalogueConstructor:
             self.arrays.add_array(name, new_arr, self.memory_mode)
     
     def compute_one_centroid(self, k, flush=True):
-        #~ t1 = time.perf_counter()
+        t1 = time.perf_counter()
         ind = self.index_of_label(k)
         
         n_left = int(self.info['params_waveformextractor']['n_left'])
@@ -788,8 +801,8 @@ class CatalogueConstructor:
             for name in ('clusters',) + _centroids_arrays:
                 self.arrays.flush_array(name)
         
-        #~ t2 = time.perf_counter()
-        #~ print('compute_one_centroid',k, t2-t1)
+        t2 = time.perf_counter()
+        print('compute_one_centroid',k, t2-t1)
 
     def compute_all_centroid(self):
         
@@ -1250,7 +1263,7 @@ class CatalogueConstructor:
         
         return self.catalogue
     
-    def save_catalogue(self):
+    def make_catalogue_for_peeler(self):
         self.make_catalogue()
         
         #~ filename = os.path.join(self.catalogue_path, 'initial_catalogue.pickle')

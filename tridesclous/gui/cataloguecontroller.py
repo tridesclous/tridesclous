@@ -266,7 +266,9 @@ class CatalogueController(ControllerBase):
         mask = np.zeros(self.spike_label.size, dtype='bool')
         for k in labels_to_merge:
             mask |= (self.spike_label == k)
+        print('ici')
         self.change_spike_label(mask, new_label)
+        print('la')
     
     def tag_same_cell(self, labels_to_group):
         self.cc.tag_same_cell(labels_to_group)
