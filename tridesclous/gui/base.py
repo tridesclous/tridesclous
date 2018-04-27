@@ -1,6 +1,8 @@
 from .myqt import QT
 import pyqtgraph as pg
 
+import time
+
 
 class ControllerBase(QT.QObject):
     spike_selection_changed = QT.pyqtSignal()
@@ -26,28 +28,43 @@ class ControllerBase(QT.QObject):
     def on_spike_selection_changed(self):
         for view in self.views:
             if view==self.sender(): continue
+            #~ t1 = time.perf_counter()
             view.on_spike_selection_changed()
+            #~ t2 = time.perf_counter()
+            #~ print('on_spike_selection_changed',view,  t2-t1)
 
     def on_spike_label_changed(self):
         for view in self.views:
             if view==self.sender(): continue
+            #~ t1 = time.perf_counter()
             view.on_spike_label_changed()
+            #~ t2 = time.perf_counter()
+            #~ print('on_spike_label_changed',view,  t2-t1)
     
     def on_colors_changed(self):
         for view in self.views:
             if view==self.sender(): continue
+            #~ t1 = time.perf_counter()
             view.on_colors_changed()
+            #~ t2 = time.perf_counter()
+            #~ print('on_colors_changed',view,  t2-t1)
     
     def on_cluster_visibility_changed(self):
         #~ print('on_cluster_visibility_changed', self.cluster_visible)
         for view in self.views:
             if view==self.sender(): continue
+            #~ t1 = time.perf_counter()
             view.on_cluster_visibility_changed()
+            #~ t2 = time.perf_counter()
+            #~ print('on_cluster_visibility_changed',view,  t2-t1)
 
     def on_cluster_tag_changed(self):
         for view in self.views:
             if view==self.sender(): continue
+            #~ t1 = time.perf_counter()
             view.on_cluster_tag_changed()
+            #~ t2 = time.perf_counter()
+            #~ print('on_cluster_tag_changed',view,  t2-t1)
 
     @property
     def channel_indexes(self):
@@ -119,5 +136,5 @@ class WidgetBase(QT.QWidget):
         self.refresh()
     
     def on_cluster_tag_changed(self):
-        self.refresh()
+        pass
 

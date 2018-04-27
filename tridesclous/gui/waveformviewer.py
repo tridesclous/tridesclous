@@ -346,6 +346,8 @@ class WaveformViewerBase(WidgetBase):
         shape = self.controller.get_waveforms_shape()
         if shape is None:
             return
+        
+        # if n_left/n_right have change need new xvect
         if self.xvect.shape[0] != shape[0] * shape[1]:
             self.initialize_plot()
         
@@ -360,15 +362,14 @@ class WaveformViewerBase(WidgetBase):
 
         ypos = self.arr_geometry[:,1]
         
-        #~ for i,k in enumerate(self.controller.centroids):
         for k in cluster_visible:
-            #~ if not self.controller.cluster_visible[k]:
             if not cluster_visible[k]:
                 continue
 
-            #~ wf = self.controller.centroids[k][key1]
             wf = self.controller.get_waveform_centroid(k, key1)
+            
             if wf is None: continue
+            
             wf = wf*self.factor_y*self.delta_y + ypos[None, :]
             wf[0,:] = np.nan
             wf = wf.T.reshape(-1)

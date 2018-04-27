@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.cm
 import matplotlib.colors
 
+import time
 
 from .base import WidgetBase
 from .tools import ParamDialog
@@ -199,22 +200,28 @@ class WaveformHistViewer(WidgetBase):
         #~ if  len(visibles)==1:
             #~ self.curve2.hide()
         
+        
+        if self.controller.some_peaks_index is None:
+            self.plot.clear()
+            return
+
+        labels = self.controller.spike_label[self.controller.some_peaks_index]
+        keep = np.in1d(labels, visibles)
+        
         if self.params['data']=='waveforms':
             wf = self.controller.some_waveforms
-            #~ print('ici', wf)
             if wf is None:
                 self.plot.clear()
                 return
-            data = wf.swapaxes(1,2).reshape(wf.shape[0], -1)
+            data_kept = wf[keep].copy()
+            data_kept = data_kept.swapaxes(1,2).reshape(data_kept.shape[0], -1)
+        
         elif self.params['data']=='features':
             data = self.controller.some_features
+            data_kept = data[keep]
             if data is None:
                 self.plot.clear()
                 return
-        
-        labels = self.controller.spike_label[self.controller.some_peaks_index]
-        keep = np.in1d(labels, visibles)
-        data_kept = data[keep]
         
         #TODO change for PCA
         if self.params['data']=='waveforms':
@@ -232,7 +239,7 @@ class WaveformHistViewer(WidgetBase):
             #~ n = self.params['nb_bin']
             #~ bin = (max-min)/(n-1)
         n = bins.size
-        
+
         hist2d = np.zeros((data_kept.shape[1], bins.size))
         indexes0 = np.arange(data_kept.shape[1])
         
@@ -253,7 +260,6 @@ class WaveformHistViewer(WidgetBase):
                     hist2d[indexes0, d] += 1
             #~ elif self.params['data']=='features':
             
-        
 
         self.image.setImage(hist2d, lut=self.lut)#, levels=[0, self._max])
         self.image.setRect(QT.QRectF(-0.5, bin_min, data_kept.shape[1], bin_max-bin_min))
@@ -262,10 +268,12 @@ class WaveformHistViewer(WidgetBase):
         
         #~ for k, curve in zip(visibles, [self.curve1, self.curve2]):
         for k in visibles:
-            if k not in self.controller.centroids:
+            
+            median = self.controller.get_waveform_centroid(k, 'median')
+            if median is None:
                 continue
             if self.params['data']=='waveforms':
-                y = self.controller.centroids[k]['median'].T.flatten()
+                y = median.T.flatten()
             else:
                 y = np.median(data[labels==k], axis=0)
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
@@ -286,13 +294,28 @@ class WaveformHistViewer(WidgetBase):
         if self._x_range is None:
             self._x_range = 0, indexes0[-1] #hist2d.shape[1]
             self._y_range = bin_min, bin_max
-            
         
 
         self.plot.setXRange(*self._x_range, padding = 0.0)
         self.plot.setYRange(*self._y_range, padding = 0.0)
-        
+    
+    def on_spike_selection_changed(self):
+        pass
 
+    def on_spike_label_changed(self):
+        self.refresh()
+        
+    def on_colors_changed(self):
+        self.refresh()
+    
     def on_cluster_visibility_changed(self):
         self.refresh()
+    
+    def on_cluster_tag_changed(self):
+        pass
+
+
+
+
+
 
