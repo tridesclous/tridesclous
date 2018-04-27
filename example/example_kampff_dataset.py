@@ -150,7 +150,7 @@ def clean_catalogue():
     cc.on_new_cluster()
     
     #save catalogue before peeler
-    cc.save_catalogue()
+    cc.make_catalogue_for_peeler()
     
 
 def run_peeler():

@@ -777,7 +777,7 @@ class CatalogueConstructor:
             self.arrays.add_array(name, new_arr, self.memory_mode)
     
     def compute_one_centroid(self, k, flush=True):
-        t1 = time.perf_counter()
+        #~ t1 = time.perf_counter()
         ind = self.index_of_label(k)
         
         n_left = int(self.info['params_waveformextractor']['n_left'])
@@ -801,8 +801,8 @@ class CatalogueConstructor:
             for name in ('clusters',) + _centroids_arrays:
                 self.arrays.flush_array(name)
         
-        t2 = time.perf_counter()
-        print('compute_one_centroid',k, t2-t1)
+        #~ t2 = time.perf_counter()
+        #~ print('compute_one_centroid',k, t2-t1)
 
     def compute_all_centroid(self):
         
@@ -834,41 +834,6 @@ class CatalogueConstructor:
         
         t2 = time.perf_counter()
         print('compute_all_centroid', t2-t1)
-
-    
-    #~ def compute_centroid_OLD(self, label_changed=None):
-        
-        #~ if label_changed is None:
-            #~ # recompute all clusters
-            #~ self.centroids = {}
-            #~ label_changed = self.cluster_labels
-            
-        #~ self.arrays.flush_array('clusters')
-        #~ print('compute_centroid')
-        
-        #~ t1 = time.perf_counter()
-        #~ for k in label_changed:
-            #~ if k <0: continue
-            #~ if k not in self.cluster_labels:
-                #~ self.centroids.pop(k)
-                #~ continue
-            #~ wf = self.some_waveforms[self.all_peaks['cluster_label'][self.some_peaks_index]==k]
-            #~ median, mad = median_mad(wf, axis = 0)
-            #~ mean, std = np.mean(wf, axis=0), np.std(wf, axis=0)
-            #~ max_on_channel = np.argmax(np.abs(median[-n_left,:]), axis=0)
-            #~ self.centroids[k] = {'median':median, 'mad':mad, #'max_on_channel' : max_on_channel, 
-                        #~ 'mean': mean, 'std': std}
-            
-            #~ ind = np.nonzero(self.clusters['cluster_label']==k)[0][0]
-            #~ self.clusters['max_on_channel'][ind] = max_on_channel
-            #~ self.clusters['max_peak_amplitude'][ind] = median[-n_left, max_on_channel]
-            #~ self.clusters['waveform_rms'][ind] = np.sqrt(np.mean(median**2))
-
-        #~ self.arrays.flush_array('clusters')
-        
-        #~ t2 = time.perf_counter()
-        #~ print('compute_centroid', t2-t1)
-
     
     def refresh_colors(self, reset=True, palette='husl', interleaved=True):
         
@@ -1210,12 +1175,18 @@ class CatalogueConstructor:
             #~ wf0 = wf0.copy()
             #~ print(wf0.shape, wf0.size)
             
-            #compute first and second derivative on dim=1 (time)
-            # TODO: this consume lot of memory find something else for convolution
-            kernel = np.array([1,0,-1])/2.
-            kernel = kernel[None, :, None]
-            wf1 =  scipy.signal.fftconvolve(wf0,kernel,'same') # first derivative
-            wf2 =  scipy.signal.fftconvolve(wf1,kernel,'same') # second derivative
+            # compute first and second derivative on dim=1 (time)
+            # Note this was the old implementation but too slow
+            #~ kernel = np.array([1,0,-1])/2.
+            #~ kernel = kernel[None, :, None]
+            #~ wf1 =  scipy.signal.fftconvolve(wf0,kernel,'same') # first derivative
+            #~ wf2 =  scipy.signal.fftconvolve(wf1,kernel,'same') # second derivative
+            # this is teh new one
+            wf1 = np.zeros_like(wf0)
+            wf1[:, 1:-1, :] = (wf0[:, 2:,: ] - wf0[:, :-2,: ])/2.
+            wf2 = np.zeros_like(wf1)
+            wf2[:, 1:-1, :] = (wf1[:, 2:,: ] - wf1[:, :-2,: ])/2.
+            
             
             #median and
             #eliminate margin because of border effect of derivative and reshape
@@ -1259,7 +1230,7 @@ class CatalogueConstructor:
         
         
         t2 = time.perf_counter()
-        print('construct_catalogue', t2-t1)
+        print('make_catalogue', t2-t1)
         
         return self.catalogue
     
