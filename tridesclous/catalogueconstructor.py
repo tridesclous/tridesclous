@@ -69,12 +69,48 @@ _keep_cluster_attr_on_new = ['cell_label', 'tag','annotations', 'color']
 
 class CatalogueConstructor:
     """
-    CatalogueConstructor scan a smal part of the dataset to construct the catalogue.
     
+    The goal of CatalogueConstructor is to construct a catalogue of template (centroides)
+    for the Peeler.
     
+    For so the CatalogueConstructor will:
+      * preprocess a duration of data
+      * detect peaks
+      * extract some waveform
+      * compute some feature from these waveforms
+      * find cluster
+      * compute some metrics ontheses clusters
+      * enable some manual trash/merge/split
     
+    At the end we can **make_catalogue_for_peeler**, this construct everything usefull for
+    the Peeler : centroids (median for each cluster: the centroids, first and secnd derivative,
+    median and mad of noise, ...
+    
+    You need to have one CatalogueConstructor for each channel_group.
+
+    Since all operation are more or less slow each internal arrays is by default persistent
+    on the disk (memory_mode='memmap'). With this when you instanciate a CatalogueConstructor
+    you load all existing arrays already computed. For that tridesclous mainly use the numpy
+    structured arrays (array of struct) with memmap. So, hacking internal arrays of the
+    CatalogueConstructor should be easy outside python and tridesclous.
+
+    You can explore/save/reload internal state by borwsing this directory:
+    *path_of_dataset/channel_group_XXX/catalogue_constructor*
+
     """
     def __init__(self, dataio, chan_grp=None, name='catalogue_constructor'):
+        """
+        Parameters
+        ----------
+        dataio: tirdesclous.DataIO
+            the dataio object for describe the dataset
+        chan_grp: int
+            The channel group key . See PRB file. None by default = take the first
+            channel group (often 0 but sometimes 1!!)
+        name: str a name
+            The name of the CatalogueConstructor. You can have several name for the
+            same dataset but several catalogue and try different options.
+        """
         self.dataio = dataio
         
         if chan_grp is None:
@@ -112,6 +148,8 @@ class CatalogueConstructor:
         self.projector = None
     
     def flush_info(self):
+        """ Flush info (mainly parameters) to json files.
+        """
         with open(self.info_filename, 'w', encoding='utf8') as f:
             json.dump(self.info, f, indent=4)
     
@@ -158,14 +196,24 @@ class CatalogueConstructor:
 
     
     def reload_data(self):
+        """Reload persitent arrays.
+        """
         if not hasattr(self, 'memory_mode') or not self.memory_mode=='memmap':
             return
         
         for name in _persitent_arrays:
             # this set attribute to class if exsits
             self.arrays.load_if_exists(name)
-    
+
+    def _reset_arrays(self, list_arrays):
+        
+        #TODO fix this need to delete really this arrays but size=0 is buggy
+        for name in list_arrays:
+            self.arrays.detach_array(name)
+            setattr(self, name, None)
+
     def set_preprocessor_params(self, chunksize=1024,
+    
             memory_mode='memmap',
             
             internal_dtype = 'float32',
@@ -185,9 +233,53 @@ class CatalogueConstructor:
             peak_sign='-', relative_threshold=7, peak_span=0.0002,
             
             ):
+        """
+        Set parameters for the preprocessor engine
+        Parameters
+        ----------
+        chunksize: int. default 1024
+            Length of each chunk for processing.
+            For real time, the latency is between chunksize and 2*chunksize.
+        memory_mode: 'memmap' or 'ram' default 'memmap'
+            By default all arrays are persistent with memmap but you can
+            also have everything in ram.
+        internal_dtype:  'float32' (or 'float64')
+            Internal dtype for signals/waveforms/features.
+            Support of intteger signal and waveform is planned for one day and should
+            boost the process!!
+        signalpreprocessor_engine='numpy' or 'opencl'
+            If you have pyopencl installed and correct ICD installed you can try
+            'opencl' for high channel count some critial part of the processing is done on
+            the GPU.
+        highpass_freq: float dfault 300
+            High pass cut frquency of the filter. Can be None if the raw 
+            dataset is already filtered.
+        lowpass_freq: float default is None
+            Low pass frequency of the filter. None by default.
+            For high samplign rate a low pass at 5~8kHz can be a good idea
+            for smoothing a bit waveform and avoid high noise.
+        smooth_size: int default 0
+            This a simple smooth convolution kernel. More or less act
+            like a low pass filter. Can be use instead lowpass_freq.
+        common_ref_removal: bool. False by dfault.
+            The remove the median of all channel sample by sample.
+        lostfront_chunksize: int. default 128
+            Number of sample for the lost front border. This is used to make local filtfilt
+            and to avoid border filtering effect.
+        peakdetector_engine: 'numpy' or 'opencl'
+            Engine for peak detection.
+        peak_sign: '-' or '+'
+            Signa of peak.
+        relative_threshold: int default 7
+            Threshold for peak detection. The preprocessed signal have units
+            expressed in MAD (robust STD). So 7 is MAD*7.
+        peak_span: float default 0.0002
+            Peak span to avoid double detection. In second.
+        """
+
         
-        #TODO remove stuff if already computed
-        
+        self._reset_arrays(_persitent_arrays)
+            
         
         self.chunksize = chunksize
         self.memory_mode = memory_mode
@@ -307,7 +399,8 @@ class CatalogueConstructor:
     
     def finalize_signalprocessor_loop(self):
         self.arrays.finalize_array('all_peaks')
-        self._reset_waveform_and_features()
+        #~ self._reset_waveform_and_features()
+        self._reset_arrays(_reset_after_peak_arrays)
         self.on_new_cluster()
     
     def run_signalprocessor(self, duration=60., detect_peak=True):
@@ -356,27 +449,15 @@ class CatalogueConstructor:
                     self.arrays.append_chunk('all_peaks',  peaks)
 
         self.arrays.finalize_array('all_peaks')
-        self._reset_waveform_and_features()
+        #~ self._reset_waveform_and_features()
+        self._reset_arrays(_reset_after_peak_arrays)
         self.on_new_cluster()
     
-    def _reset_waveform_and_features(self):
-        """Must be called after peak detection
-        """
-        #TODO fix this need to delete really this arrays but size=0 is buggy
-        
-        #~ self.arrays.create_array('some_peaks_index', 'int64', (0,), self.memory_mode)
-        #~ self.arrays.create_array('some_waveforms', self.info['internal_dtype'], (0,0,0), self.memory_mode)
-        #~ self.arrays.create_array('some_features', self.info['internal_dtype'], (0,0), self.memory_mode)
-        
-        for name in _reset_after_peak_arrays:
-            self.arrays.detach_array(name)
-            setattr(self, name, None)
     
-    def  _reset_features(self):
-        self.projector = None
-        for name in _reset_after_waveforms_arrays:
-            self.arrays.detach_array(name)
-            setattr(self, name, None)
+
+
+    
+
     
     def extract_some_waveforms(self, n_left=None, n_right=None, index=None, 
                                     mode='rand', nb_max=10000,
@@ -482,7 +563,9 @@ class CatalogueConstructor:
                                                                 subsample_ratio=subsample_ratio)
         self.flush_info()
         
-        self._reset_features()
+        self.projector = None
+        self._reset_arrays(_reset_after_waveforms_arrays)
+
         self.all_peaks['cluster_label'][:] = labelcodes.LABEL_UNCLASSIFIED
         self.all_peaks['cluster_label'][self.some_peaks_index] = 0
         
@@ -907,10 +990,7 @@ class CatalogueConstructor:
                 self.all_peaks['cluster_label'][mask] = -1
                 self.remove_one_cluster(k)
 
-    def _reset_metrics(self):
-        for name in _persistent_metrics:
-            self.arrays.detach_array(name)
-            setattr(self, name, None)
+
 
     def compute_spike_waveforms_similarity(self, method='cosine_similarity', size_max = 1e7):
         """This compute the similarity spike by spike.
@@ -1124,7 +1204,8 @@ class CatalogueConstructor:
         
         self.refresh_colors(reset=True)
         
-        self._reset_metrics()
+        #~ self._reset_metrics()
+        self._reset_arrays(_persistent_metrics)
 
     def make_catalogue(self):
         #TODO: offer possibility to resample some waveforms or choose the number

@@ -365,10 +365,13 @@ class DataIO:
     
     def load_catalogue(self,  name='initial', chan_grp=0):
         dir = os.path.join(self.dirname,'channel_group_{}'.format(chan_grp), 'catalogues', name)
-        
+        filename = os.path.join(dir, 'catalogue.pickle')
         #~ with open(os.path.join(dir, 'catalogue.json'), 'r', encoding='utf8') as f:
                 #~ catalogue = json.load(f)
-        with open(os.path.join(dir, 'catalogue.pickle'), 'rb') as f:
+        if not os.path.exists(filename):
+            return
+        
+        with open(filename, 'rb') as f:
             catalogue = pickle.load(f)
 
         
