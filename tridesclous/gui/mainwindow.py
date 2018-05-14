@@ -30,6 +30,13 @@ except:
     HAVE_EPHYVIEWER = False
 
 
+error_box_msg = """
+This is the raw Python error.
+Unfortunatly, this is sometimes not so usefull for user...
+Please send it to https://github.com/tridesclous/tridesclous/issues.
+
+{}
+"""
 class MainWindow(QT.QMainWindow):
     def __init__(self):
         QT.QMainWindow.__init__(self)
@@ -141,6 +148,14 @@ class MainWindow(QT.QMainWindow):
     def open_webbrowser_help(self):
         url = "http://tridesclous.readthedocs.io"
         webbrowser.open(url, new=2)
+    
+    def warn(self, text, title='Error in tridesclous'):
+        mb = QT.QMessageBox.warning(self, title,text, 
+                QT.QMessageBox.Ok ,
+                QT.QMessageBox.NoButton)
+    
+    def errorToMessageBox(self, e):
+        self.warn(error_box_msg.format(e))
 
     def refresh_info(self):
         txt1 = self.dataio.__repr__()
@@ -247,6 +262,9 @@ class MainWindow(QT.QMainWindow):
     
     def initialize_catalogue(self):
         
+        if  self.dataio is None:
+            return
+        
         #collect parals with UI
         dia = ParamDialog(gui_params.fullchain_params)
         dia.resize(450, 500)
@@ -275,8 +293,8 @@ class MainWindow(QT.QMainWindow):
         if clust_method is None:
             return
         
-        #~ try:
-        if True:
+        try:
+        #~ if True:
             #~ catalogueconstructor = CatalogueConstructor(dataio=self.dataio)
             p = {}
             p.update(d['preprocessor'])
@@ -330,24 +348,27 @@ class MainWindow(QT.QMainWindow):
             
             #~ print(self.catalogueconstructor)
         
-        #~ except Exception as e:
-            #~ print(e)
+        except Exception as e:
+            print(e)
+            self.errorToMessageBox(e)
                 
         self.refresh_info()
     
     
     def open_cataloguewin(self):
         if self.dataio is None: return
-        #~ try:
-        if True:
+        try:
+        #~ if True:
             win = CatalogueWindow(self.catalogueconstructor)
             win.show()
             self.open_windows.append(win)
             #~ win.
-        #~ except Exception as e:
-            #~ print(e)
+        except Exception as e:
+            print(e)
+            self.errorToMessageBox(e)
     
     def run_peeler(self):
+        if self.dataio is None: return
         
         #TODO find something better when several segment
         lengths = [ self.dataio.datasource.get_segment_shape(i)[0] for i in range(self.dataio.nb_segment)]
@@ -362,9 +383,18 @@ class MainWindow(QT.QMainWindow):
             d = dia.get()
             print(d)
             
-            #~ try:
-            if True:
+            try:
+            #~ if True:
                 initial_catalogue = self.dataio.load_catalogue(chan_grp=self.chan_grp)
+                if initial_catalogue is None:
+                    txt =  """Catalogue do not exists, please do:
+    1. Initialize Catalogue
+    2. Open CatalogueWindow
+    3. Make catalogue for peeler
+                    """
+                    self.warn(txt)
+                    return
+                
                 peeler = Peeler(self.dataio)
                 peeler.change_params(catalogue=initial_catalogue)
                 
@@ -375,8 +405,9 @@ class MainWindow(QT.QMainWindow):
                 t2 = time.perf_counter()
                 print('peeler.run_loop', t2-t1)
                 
-            #~ except Exception as e:
-                #~ print(e)
+            except Exception as e:
+                print(e)
+                self.errorToMessageBox(e)
     
     def open_peelerwin(self):
         if self.dataio is None: return
@@ -387,6 +418,7 @@ class MainWindow(QT.QMainWindow):
             self.open_windows.append(win)
         except Exception as e:
             print(e)
+            self.errorToMessageBox(e)
 
     def open_ephyviewer(self):
         if self.win_viewer is not None:
