@@ -201,7 +201,6 @@ def test_OnlinePeeler_no_catalogue():
     preprocessor_params = {}
     signals_medians, signals_mads = estimate_medians_mads_after_preprocesing(sigs[:, channel_indexes], sample_rate,
                         preprocessor_params=preprocessor_params)
-    #~ print(signals_medians, signals_mads)
     empty_catalogue = make_empty_catalogue(
                 channel_indexes=channel_indexes,
                 n_left=-20, n_right=40, internal_dtype='float32',                
