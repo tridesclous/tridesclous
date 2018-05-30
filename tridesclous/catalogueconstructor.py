@@ -288,7 +288,8 @@ class CatalogueConstructor:
         
         self.params_signalpreprocessor = dict(highpass_freq=highpass_freq, lowpass_freq=lowpass_freq, 
                         smooth_size=smooth_size, common_ref_removal=common_ref_removal,
-                        lostfront_chunksize=lostfront_chunksize, output_dtype=internal_dtype)
+                        lostfront_chunksize=lostfront_chunksize, output_dtype=internal_dtype,
+                        signalpreprocessor_engine=signalpreprocessor_engine)
         SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[signalpreprocessor_engine]
         self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.nb_channel, chunksize, self.dataio.source_dtype)
         
@@ -324,6 +325,7 @@ class CatalogueConstructor:
         filtered_sigs = self.arrays.create_array(name, self.info['internal_dtype'], shape, 'memmap')
         
         params2 = dict(self.params_signalpreprocessor)
+        params2.pop('signalpreprocessor_engine')
         params2['normalize'] = False
         self.signalpreprocessor.change_params(**params2)
         
@@ -380,6 +382,7 @@ class CatalogueConstructor:
         #initialize engines
         
         p = dict(self.params_signalpreprocessor)
+        p.pop('signalpreprocessor_engine')
         p['normalize'] = True
         p['signals_medians'] = self.signals_medians
         p['signals_mads'] = self.signals_mads

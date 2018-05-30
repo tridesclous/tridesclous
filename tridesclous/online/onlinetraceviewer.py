@@ -10,6 +10,7 @@ from pyacq.viewers import QOscilloscope
 #~ _dtype_spike = [('index', 'int64'), ('label', 'int64'), ('jitter', 'float64'),]
 from ..peeler import _dtype_spike
 from ..tools import make_color_dict
+from ..labelcodes import LABEL_UNCLASSIFIED
 
 
 class OnlineTraceViewer(QOscilloscope):
@@ -43,27 +44,23 @@ class OnlineTraceViewer(QOscilloscope):
         self.spikes_array = self.inputs['spikes'].buffer.buffer
         
         colors = make_color_dict(self.catalogue['clusters'])
+        
         self.qcolors = {}
         for k, color in colors.items():
             r, g, b = color
             self.qcolors[k] = QtGui.QColor(r*255, g*255, b*255)
         
-        self._default_color = QtGui.QColor('#FFFFFF')#TODO
+        self.all_plotted_labels = self.catalogue['cluster_labels'].tolist() + [LABEL_UNCLASSIFIED]
+        
+        #~ self._default_color = QtGui.QColor('#FFFFFF')#TODO
         self.scatters = {}
-        for k in self.catalogue['cluster_labels']:
+        #~ for k in self.catalogue['cluster_labels']:
+        for k in self.all_plotted_labels:
             qcolor = self.qcolors[k]
             qcolor.setAlpha(150)
             scatter = pg.ScatterPlotItem(x=[ ], y= [ ], pen=None, brush=qcolor, size=10, pxMode = True)
             self.scatters[k] = scatter
             self.plot.addItem(scatter)
-
-        #~ for i in range(self.nb_channel):
-            #~ color = self._default_color
-            #~ color.setAlpha(150)
-            #~ scatter = pg.ScatterPlotItem(x=[ ], y= [ ], pen=None, brush=color, size=10, pxMode = True)
-            #~ self.scatters.append(scatter)
-            #~ self.plot.addItem(scatter)
-        
 
     def _start(self, **kargs):
         QOscilloscope._start(self, **kargs)
@@ -109,10 +106,9 @@ class OnlineTraceViewer(QOscilloscope):
         keep = (self.spikes_array['index']>head - self.full_size) & (self.spikes_array['index']<head)
         spikes = self.spikes_array[keep]
         
-        #~ spikes = self.spikes_array['index'][keep]
-        
         spikes_ind = spikes['index'] - (head - self.full_size)
-        spikes_amplitude = full_arr[spikes_ind, :]
+        real_spikes_amplitude = full_arr[spikes_ind, :]
+        spikes_amplitude = real_spikes_amplitude.copy()
         spikes_amplitude[:, visibles] *= gains[visibles]
         spikes_amplitude[:, visibles] += offsets[visibles]
         
@@ -127,14 +123,24 @@ class OnlineTraceViewer(QOscilloscope):
             peak_times[ind1] += (self.t_vect_full[front] - self.t_vect_full[-1])
             peak_times[ind2] += (self.t_vect_full[front] - self.t_vect_full[0])
         
-        for i, k in enumerate(self.catalogue['cluster_labels']):
+        for i, k in enumerate(self.all_plotted_labels):
             keep = k==spikes['cluster_label']
             if np.sum(keep)>0:
-                chan = self.catalogue['max_on_channel'][i]
-                if visibles[chan]:
-                    self.scatters[k].setData(peak_times[keep], spikes_amplitude[keep, chan])
+                if k>=0:
+                    chan = self.catalogue['max_on_channel'][i]
+                    if visibles[chan]:
+                        times, amps = peak_times[keep], spikes_amplitude[keep, chan]
+                    else:
+                        times, amps = [], []
+                        
                 else:
-                    self.scatters[k].setData([], [])
+                    chan_max = np.argmax(np.abs(real_spikes_amplitude[keep, :]), axis=1)
+                    chan_max = chan_max[visibles[chan_max]]
+                    keep = keep & visibles[chan_max]
+                    times, amps = peak_times[keep], spikes_amplitude[keep, chan_max]
+                
+                self.scatters[k].setData(times, amps)
+                
             else:
                 self.scatters[k].setData([], [])
         

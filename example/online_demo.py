@@ -124,13 +124,13 @@ def tridesclous_onlinepeeler():
     
     
     # Device node
-    man = pyacq.create_manager(auto_close_at_exit=True)
-    ng0 = man.create_nodegroup()
-    #~ ng0 = None
-    ng1 = man.create_nodegroup()
-    #~ ng1 = None
-    ng2 = man.create_nodegroup()
-    #~ ng2 = None
+    #~ man = pyacq.create_manager(auto_close_at_exit=True)
+    #~ ng0 = man.create_nodegroup()
+    ng0 = None
+    #~ ng1 = man.create_nodegroup()
+    ng1 = None
+    #~ ng2 = man.create_nodegroup()
+    ng2 = None
     
     
     dev = make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup=ng0, chunksize=chunksize)

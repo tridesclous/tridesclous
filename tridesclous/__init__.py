@@ -13,6 +13,7 @@ for c in data_source_classes.values():
     globals()[c.__name__] = c
 
 from .dataio import DataIO
+from .signalpreprocessor import offline_signal_preprocessor, estimate_medians_mads_after_preprocesing
 from .catalogueconstructor import CatalogueConstructor
 from .peeler import Peeler
 from .peeler_cl import Peeler_OpenCl
