@@ -25,6 +25,8 @@ def setup_catalogue():
     
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     filenames = filenames[:1] #only first file
+    print(params)
+    exit()
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
     channel_group = {0:{'channels':[5, 6, 7, 8]}}
     dataio.set_channel_groups(channel_group)
@@ -297,9 +299,9 @@ def test_OnlinePeeler_no_catalogue():
     
     
 if __name__ =='__main__':
-    #~ setup_catalogue()
+    setup_catalogue()
     
     #~ test_OnlinePeeler()
     
-    test_OnlinePeeler_no_catalogue()
+    #~ test_OnlinePeeler_no_catalogue()
 
