@@ -39,6 +39,9 @@ def test_OnlineWindow():
     channel_indexes = [5,6,7,8]
     workdir = 'test_onlinewindow'
     
+    if os.path.exists(workdir):
+        shutil.rmtree(workdir)
+    
     app = pg.mkQApp()
     
     w = OnlineWindow()

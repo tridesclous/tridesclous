@@ -2,7 +2,7 @@ import numpy as np
 #~ from pyqtgraph.Qt import QtCore, QtGui
 from ..gui import QT
 import pyqtgraph as pg
-
+from pyqtgraph.util.mutex import Mutex
 
 import pyacq
 from pyacq import WidgetNode,ThreadPollInput, StreamConverter, InputStream
@@ -25,6 +25,7 @@ class OnlineTraceViewer(QOscilloscope):
     
     def __init__(self, **kargs):
         QOscilloscope.__init__(self, **kargs)
+        self.mutex = Mutex()
 
     def _configure(self, peak_buffer_size = 10000, catalogue=None, **kargs):
         QOscilloscope._configure(self, **kargs)
@@ -44,24 +45,9 @@ class OnlineTraceViewer(QOscilloscope):
         
         self.spikes_array = self.inputs['spikes'].buffer.buffer
         
-        colors = make_color_dict(self.catalogue['clusters'])
-        
-        self.qcolors = {}
-        for k, color in colors.items():
-            r, g, b = color
-            self.qcolors[k] = QT.QColor(r*255, g*255, b*255)
-        
-        self.all_plotted_labels = self.catalogue['cluster_labels'].tolist() + [LABEL_UNCLASSIFIED]
-        
-        #~ self._default_color = QtGui.QColor('#FFFFFF')#TODO
         self.scatters = {}
-        #~ for k in self.catalogue['cluster_labels']:
-        for k in self.all_plotted_labels:
-            qcolor = self.qcolors[k]
-            qcolor.setAlpha(150)
-            scatter = pg.ScatterPlotItem(x=[ ], y= [ ], pen=None, brush=qcolor, size=10, pxMode = True)
-            self.scatters[k] = scatter
-            self.plot.addItem(scatter)
+        self.change_catalogue(self.catalogue)
+        
 
     def _start(self, **kargs):
         QOscilloscope._start(self, **kargs)
@@ -89,59 +75,89 @@ class OnlineTraceViewer(QOscilloscope):
         self.all_mean = np.zeros(self.nb_channel,)
         self.all_sd = np.ones(self.nb_channel,)
         return self.all_mean, self.all_sd
+    
+    def change_catalogue(self, catalogue):
+        with self.mutex:
+            
+            for k, v in self.scatters.items():
+                self.plot.removeItem(v)
+            self.scatters = {}
+            
+            self.catalogue = catalogue
 
+            colors = make_color_dict(self.catalogue['clusters'])
+            
+            self.qcolors = {}
+            for k, color in colors.items():
+                r, g, b = color
+                self.qcolors[k] = QT.QColor(r*255, g*255, b*255)
+            
+            self.all_plotted_labels = self.catalogue['cluster_labels'].tolist() + [LABEL_UNCLASSIFIED]
+            
+            for k in self.all_plotted_labels:
+                qcolor = self.qcolors[k]
+                qcolor.setAlpha(150)
+                scatter = pg.ScatterPlotItem(x=[ ], y= [ ], pen=None, brush=qcolor, size=10, pxMode = True)
+                self.scatters[k] = scatter
+                self.plot.addItem(scatter)
+
+            
+            
+        
     
     def _refresh(self, **kargs):
-        QOscilloscope._refresh(self, **kargs)
-        
-        mode = self.params['mode']
-        gains = np.array([p['gain'] for p in self.by_channel_params.children()])
-        offsets = np.array([p['offset'] for p in self.by_channel_params.children()])
-        visibles = np.array([p['visible'] for p in self.by_channel_params.children()], dtype=bool)
-        
-        head = self._head
-        full_arr = self.inputs['signals'].get_data(head-self.full_size, head)
-        if self._last_peak==0:
-            return
+        with self.mutex:
+            QOscilloscope._refresh(self, **kargs)
+            
+            mode = self.params['mode']
+            gains = np.array([p['gain'] for p in self.by_channel_params.children()])
+            offsets = np.array([p['offset'] for p in self.by_channel_params.children()])
+            visibles = np.array([p['visible'] for p in self.by_channel_params.children()], dtype=bool)
+            
+            head = self._head
+            full_arr = self.inputs['signals'].get_data(head-self.full_size, head)
+            if self._last_peak==0:
+                return
 
-        keep = (self.spikes_array['index']>head - self.full_size) & (self.spikes_array['index']<head)
-        spikes = self.spikes_array[keep]
-        
-        spikes_ind = spikes['index'] - (head - self.full_size)
-        real_spikes_amplitude = full_arr[spikes_ind, :]
-        spikes_amplitude = real_spikes_amplitude.copy()
-        spikes_amplitude[:, visibles] *= gains[visibles]
-        spikes_amplitude[:, visibles] += offsets[visibles]
-        
-        if mode=='scroll':
-            peak_times = self.t_vect_full[spikes_ind]
-        elif mode =='scan':
-            #some trick to play with fake time
-            front = head % self.full_size
-            ind1 = (spikes['index']%self.full_size)<front
-            ind2 = (spikes['index']%self.full_size)>front
-            peak_times = self.t_vect_full[spikes_ind]
-            peak_times[ind1] += (self.t_vect_full[front] - self.t_vect_full[-1])
-            peak_times[ind2] += (self.t_vect_full[front] - self.t_vect_full[0])
-        
-        for i, k in enumerate(self.all_plotted_labels):
-            keep = k==spikes['cluster_label']
-            if np.sum(keep)>0:
-                if k>=0:
-                    chan = self.catalogue['max_on_channel'][i]
-                    if visibles[chan]:
-                        times, amps = peak_times[keep], spikes_amplitude[keep, chan]
+            keep = (self.spikes_array['index']>head - self.full_size) & (self.spikes_array['index']<head)
+            spikes = self.spikes_array[keep]
+            
+            spikes_ind = spikes['index'] - (head - self.full_size)
+            real_spikes_amplitude = full_arr[spikes_ind, :]
+            spikes_amplitude = real_spikes_amplitude.copy()
+            spikes_amplitude[:, visibles] *= gains[visibles]
+            spikes_amplitude[:, visibles] += offsets[visibles]
+            
+            if mode=='scroll':
+                peak_times = self.t_vect_full[spikes_ind]
+            elif mode =='scan':
+                #some trick to play with fake time
+                front = head % self.full_size
+                ind1 = (spikes['index']%self.full_size)<front
+                ind2 = (spikes['index']%self.full_size)>front
+                peak_times = self.t_vect_full[spikes_ind]
+                peak_times[ind1] += (self.t_vect_full[front] - self.t_vect_full[-1])
+                peak_times[ind2] += (self.t_vect_full[front] - self.t_vect_full[0])
+            
+            for i, k in enumerate(self.all_plotted_labels):
+                keep = k==spikes['cluster_label']
+                if np.sum(keep)>0:
+                    if k>=0:
+                        chan = self.catalogue['max_on_channel'][i]
+                        if visibles[chan]:
+                            times, amps = peak_times[keep], spikes_amplitude[keep, chan]
+                        else:
+                            times, amps = [], []
+                            
                     else:
-                        times, amps = [], []
-                        
+                        chan_max = np.argmax(np.abs(real_spikes_amplitude[keep, :]), axis=1)
+                        keep2 = visibles[chan_max]
+                        chan_max = chan_max[keep2]
+                        keep[keep] &= keep2
+                        times, amps = peak_times[keep], spikes_amplitude[keep, chan_max]
+                    
+                    self.scatters[k].setData(times, amps)
+                    
                 else:
-                    chan_max = np.argmax(np.abs(real_spikes_amplitude[keep, :]), axis=1)
-                    chan_max = chan_max[visibles[chan_max]]
-                    keep = keep & visibles[chan_max]
-                    times, amps = peak_times[keep], spikes_amplitude[keep, chan_max]
-                
-                self.scatters[k].setData(times, amps)
-                
-            else:
-                self.scatters[k].setData([], [])
+                    self.scatters[k].setData([], [])
         

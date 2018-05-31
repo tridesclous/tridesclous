@@ -437,15 +437,15 @@ def estimate_one_jitter_numpy(waveform, catalogue):
     else:
         # replace by this (indentique but faster, a but)
         
-        t1 = time.perf_counter()
+        #~ t1 = time.perf_counter()
         d = catalogue['centers0']-waveform[None, :, :]
         d *= d
         #s = d.sum(axis=1).sum(axis=1)  # intuitive
         #s = d.reshape(d.shape[0], -1).sum(axis=1) # a bit faster
         s = np.einsum('ijk->i', d) # a bit faster
         cluster_idx = np.argmin(s)
-        t2 = time.perf_counter()
-        print('    np.argmin V2', (t2-t1)*1000., cluster_idx)
+        #~ t2 = time.perf_counter()
+        #~ print('    np.argmin V2', (t2-t1)*1000., cluster_idx)
     
 
     k = catalogue['cluster_labels'][cluster_idx]

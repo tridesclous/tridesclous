@@ -1,4 +1,5 @@
 import os
+import time
 
 import numpy as np
 from ..gui import QT
@@ -9,7 +10,8 @@ from pyqtgraph.util.mutex import Mutex
 from pyacq.core import WidgetNode, InputStream, ThreadPollInput
 from pyacq.rec import RawRecorder
 
-
+from ..dataio import DataIO
+from ..catalogueconstructor import CatalogueConstructor
 from .onlinepeeler import OnlinePeeler
 from .onlinetraceviewer import OnlineTraceViewer
 from .onlinetools import make_empty_catalogue
@@ -41,6 +43,8 @@ class OnlineWindow(WidgetNode):
     
     """
     _input_specs = {'signals': dict(streamtype='signals')}
+    
+    request_compute = QT.pyqtSignal()
     
     def __init__(self, parent=None):
         WidgetNode.__init__(self, parent=parent)
@@ -79,7 +83,7 @@ class OnlineWindow(WidgetNode):
         
         #~ self.median_estimation_duration = 1
         self.median_estimation_duration = 3.
-        self.catalogue_constructor_duration = 5.
+        self.catalogue_constructor_duration = 10.
         
         
     
@@ -162,7 +166,7 @@ class OnlineWindow(WidgetNode):
         self.timer_med.timeout.connect(self.on_done_median_estimation_duration)
         # timer for catalogue
         self.timer_catalogue = QT.QTimer(singleShot=True, interval=int(self.catalogue_constructor_duration*1000)+500)
-        self.timer_catalogue.timeout.connect(self.on_done_median_estimation_duration)
+        self.timer_catalogue.timeout.connect(self.on_done_catalogue_constructor)
         
         # stuf for recording a chunk for catalogue constructor
         if not os.path.exists(self.workdir):
@@ -170,14 +174,17 @@ class OnlineWindow(WidgetNode):
         self.rec = None
         self.dataio = None
         self.catalogueconstructor = None
+        self.worker_thread = QT.QThread(parent=self)
+        self.worker = None
     
     def _start(self):
         self.rtpeeler.start()
         self.traceviewer.start()
         
         self.thread_poll_input.start()
-        
+        self.worker_thread.start()
         self.timer_scale.start()
+        
 
     def _stop(self):
         self.rtpeeler.stop()
@@ -185,6 +192,9 @@ class OnlineWindow(WidgetNode):
         
         self.thread_poll_input.stop()
         self.thread_poll_input.wait()
+        
+        self.worker_thread.quit()
+        self.worker_thread.wait()
         
     def _close(self):
         pass
@@ -221,15 +231,21 @@ class OnlineWindow(WidgetNode):
         print(self.signals_medians, self.signals_mads)
         
         params = self.get_catalogue_params() 
-        self.catalogue = make_empty_catalogue(
+        catalogue = make_empty_catalogue(
                     channel_indexes=self.channel_indexes,
                     **params)
         
+        self.change_catalogue(catalogue)
+    
+    def change_catalogue(self, catalogue):
+        self.catalogue = catalogue
         self.rtpeeler.change_catalogue(self.catalogue)
+        self.traceviewer.change_catalogue(self.catalogue)
+        
         xsize = self.traceviewer.params['xsize']
         self.timer_scale.setInterval(int(xsize*1000.))
         self.timer_scale.start()
-
+    
     def start_rec_for_catalogue(self):
         if self.timer_catalogue.isActive():
             return
@@ -264,73 +280,130 @@ class OnlineWindow(WidgetNode):
         #~ length = int((self.median_estimation_duration)*self.sample_rate)
         #~ sigs = self.input.get_data(head-length, head, copy=False, join=True)
         
-        self.rec.start()
         self.rec.stop()
+        self.rec.close()
         self.rec = None
         
         self.dataio = DataIO(dirname=os.path.join(self.workdir, 'chan_grp{}'.format(self.chan_grp), 'tdc_online'))
         
-        #~ self.catalogueconstructor
+        
 
         #~ localdir, filenames, params = download_dataset(name='olfactory_bulb')
         #~ filenames = filenames[:1] #only first file
         filenames = os.path.join(self.workdir, 'chan_grp{}'.format(self.chan_grp), 'raw_sigs', 'input0.raw')
         self.dataio.set_data_source(type='RawData', filenames=filenames, sample_rate=self.sample_rate, 
-                    dtype=self.input.dtype, total_channel=self.total_channel)
-        channel_group = {self.chan_grp:{'channels':self.channel_indexes}}
+                    dtype=self.input.params['dtype'], total_channel=self.total_channel)
+        channel_group = {self.chan_grp:{'channels':self.channel_indexes.tolist()}}
         self.dataio.set_channel_groups(channel_group)
+        
+        print(self.dataio)
+
+        self.catalogueconstructor = CatalogueConstructor(dataio=self.dataio, chan_grp=self.chan_grp)
+        print(self.catalogueconstructor)
+        
+        params = self.get_catalogue_params() 
+        
+        self.worker = Worker(self.catalogueconstructor,params, self.chunksize)
+        self.worker.moveToThread(self.worker_thread)
+        self.request_compute.connect(self.worker.compute)
+        self.worker.done.connect(self.on_compute_done)
+        self.request_compute.emit()
     
-        #~ catalogueconstructor = CatalogueConstructor(dataio=dataio)
-
-    #~ catalogueconstructor = CatalogueConstructor(dataio=dataio)
-
-    #~ catalogueconstructor.set_preprocessor_params(chunksize=1024,
-            #~ memory_mode='memmap',
-            
-            #~ #signal preprocessor
-            #~ highpass_freq=300,
-            #~ lostfront_chunksize=64,
-            
-            #~ #peak detector
-            #~ peakdetector_engine='numpy',
-            #~ peak_sign='-', relative_threshold=7, peak_span=0.0005,
-            #~ )
     
-        #~ t1 = time.perf_counter()
-        #~ catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
-        #~ t2 = time.perf_counter()
-        #~ print('estimate_signals_noise', t2-t1)
-        
-        #~ t1 = time.perf_counter()
-        #~ catalogueconstructor.run_signalprocessor()
-        #~ t2 = time.perf_counter()
-        #~ print('run_signalprocessor', t2-t1)
+    def on_compute_done(self):
+        print('on_compute_done')
+        catalogue = self.dataio.load_catalogue(chan_grp=self.chan_grp)
+        self.change_catalogue(catalogue)
 
+class Worker(QT.QObject):
+    #~ data_ready = QT.pyqtSignal(float, float, float, object, object, object, object, object)
+    done = QT.pyqtSignal()
+    def __init__(self, catalogueconstructor, params, chunksize, parent=None):
+        QT.QObject.__init__(self, parent=parent)
+        self.catalogueconstructor = catalogueconstructor
+        self.params = params
+        self.chunksize = chunksize
+    
+    def compute(self):
+        print('compute')
         
-        #~ t1 = time.perf_counter()
-        #~ catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=35,  nb_max=10000)
-        #~ t2 = time.perf_counter()
-        #~ print('extract_some_waveforms', t2-t1)
-        #~ print(catalogueconstructor)
+        catalogueconstructor = self.catalogueconstructor
         
-        #~ t1 = time.perf_counter()
-        #~ catalogueconstructor.clean_waveforms(alien_value_threshold=100.)
-        #~ t2 = time.perf_counter()
-        #~ print('clean_waveforms', t2-t1)
+        d = {}
+        d.update(self.params['preprocessor_params'])
+        d.update(self.params['peak_detector_params'])
+        catalogueconstructor.set_preprocessor_params(chunksize=self.chunksize, **d)
 
 
+        t1 = time.perf_counter()
+        catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.) #TODO
+        t2 = time.perf_counter()
+        print('estimate_signals_noise', t2-t1)
+        
+        t1 = time.perf_counter()
+        catalogueconstructor.run_signalprocessor(duration=10., detect_peak=True)
+        t2 = time.perf_counter()
+        print('run_signalprocessor_loop', t2-t1)
+
+        t1 = time.perf_counter()
+        catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40, mode='rand', nb_max=5000)
+        t2 = time.perf_counter()
+        print('extract_some_waveforms rand', t2-t1)
+        print(catalogueconstructor.some_waveforms.shape)
+
+        t1 = time.perf_counter()
+        catalogueconstructor.extract_some_waveforms(n_left=None, n_right=None, mode='rand', nb_max=20000)
+        t2 = time.perf_counter()
+        print('extract_some_waveforms rand', t2-t1)
+        print(catalogueconstructor.some_waveforms.shape)
+
+        t1 = time.perf_counter()
+        catalogueconstructor.clean_waveforms(alien_value_threshold=60.)
+        t2 = time.perf_counter()
+        print('clean_waveforms', t2-t1)
+        
+        print(catalogueconstructor)
+        
+
+        #extract_some_noise
+        t1 = time.perf_counter()
+        catalogueconstructor.extract_some_noise(nb_snippet=400)
+        t2 = time.perf_counter()
+        print('extract_some_noise', t2-t1)
+        
         #~ # PCA
+        t1 = time.perf_counter()
+        catalogueconstructor.project(method='global_pca', n_components=7, batch_size=16384)
+        t2 = time.perf_counter()
+        print('project pca', t2-t1)
+
+        # peak_max
         #~ t1 = time.perf_counter()
-        #~ catalogueconstructor.project(method='neighborhood_pca', n_components_by_neighborhood=3)
+        #~ catalogueconstructor.project(method='peak_max')
         #~ t2 = time.perf_counter()
-        #~ print('project', t2-t1)
-        
-        #~ # cluster
+        #~ print('project peak_max', t2-t1)
+        #~ print(catalogueconstructor.some_features.shape)
+
         #~ t1 = time.perf_counter()
-        #~ catalogueconstructor.find_clusters(method='kmeans', n_clusters=13)
+        #~ catalogueconstructor.extract_some_waveforms(index=np.arange(1000))
         #~ t2 = time.perf_counter()
-        #~ print('find_clusters', t2-t1)
+        #~ print('extract_some_waveforms others', t2-t1)
+        #~ print(catalogueconstructor.some_waveforms.shape)
+
         
+        # cluster
+        t1 = time.perf_counter()
+        catalogueconstructor.find_clusters(method='sawchaincut')
+        t2 = time.perf_counter()
+        print('find_clusters', t2-t1)
         
+        print(catalogueconstructor)
+        
+        self.catalogueconstructor.make_catalogue_for_peeler()
         
 
+
+        
+        time.sleep(1.)
+        self.done.emit()
+    

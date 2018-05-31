@@ -49,7 +49,7 @@ class PeelerThread(ThreadPollInput):
         
     
     def change_params(self, **kargs):
-        print('PeelerThread.change_params', kargs)
+        print('PeelerThread.change_params')
         with self.mutex:
             self.peeler.change_params(**kargs)
             
@@ -136,7 +136,7 @@ class OnlinePeeler(Node):
         pass
     
     def change_catalogue(self, catalogue):
-        print('change_catalogue', catalogue)
+        print('change_catalogue', catalogue['label_to_index'])
         self.catalogue = catalogue
         #~ self.thre.change_params(catalogue=self.catalogue, 
                                         #~ chunksize=self.chunksize, internal_dtype=self.internal_dtype,)
