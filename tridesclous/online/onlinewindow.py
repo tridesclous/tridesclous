@@ -162,10 +162,10 @@ class OnlineWindow(WidgetNode):
         self.timer_scale = QT.QTimer(singleShot=True, interval=500)
         self.timer_scale.timeout.connect(self.auto_scale_trace)
         # timer for median/mad
-        self.timer_med = QT.QTimer(singleShot=True, interval=int(self.median_estimation_duration*1000)+500)
+        self.timer_med = QT.QTimer(singleShot=True, interval=int(self.median_estimation_duration*1000)+1000)
         self.timer_med.timeout.connect(self.on_done_median_estimation_duration)
         # timer for catalogue
-        self.timer_catalogue = QT.QTimer(singleShot=True, interval=int(self.catalogue_constructor_duration*1000)+500)
+        self.timer_catalogue = QT.QTimer(singleShot=True, interval=int(self.catalogue_constructor_duration*1000)+1000)
         self.timer_catalogue.timeout.connect(self.on_done_catalogue_constructor)
         
         # stuf for recording a chunk for catalogue constructor
@@ -332,7 +332,9 @@ class Worker(QT.QObject):
         d = {}
         d.update(self.params['preprocessor_params'])
         d.update(self.params['peak_detector_params'])
+        
         catalogueconstructor.set_preprocessor_params(chunksize=self.chunksize, **d)
+        print('youpi')
 
 
         t1 = time.perf_counter()
