@@ -421,9 +421,11 @@ def apply_all_catalogue_steps(catalogueconstructor, fullchain_kargs,
     p.update(fullchain_kargs['preprocessor'])
     p.update(fullchain_kargs['peak_detector'])
     catalogueconstructor.set_preprocessor_params(**p)
+    dataio = catalogueconstructor.dataio
     
     #TODO offer noise esatimation duration somewhere
-    noise_duration = min(10., fullchain_kargs['duration'])
+    noise_duration = min(10., fullchain_kargs['duration'], dataio.get_segment_length(seg_num=0)/dataio.sample_rate*.99)
+    print('noise_duration', noise_duration)
     t1 = time.perf_counter()
     catalogueconstructor.estimate_signals_noise(seg_num=0, duration=noise_duration)
     t2 = time.perf_counter()

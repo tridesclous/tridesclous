@@ -101,6 +101,12 @@ class DataIO:
     def set_data_source(self, type='RawData', **kargs):
         assert type in data_source_classes, 'this source type do not exists yet!!'
         assert 'datasource_type' not in self.info, 'datasource is already set'
+        # force abs path name 
+        if 'filenames' in kargs:
+            kargs['filenames'] = [ os.path.abspath(f) for f in kargs['filenames']]
+        if 'dirnames' in kargs:
+            kargs['dirnames'] = [ os.path.abspath(f) for f in kargs['dirnames']]
+
         self.info['datasource_type'] = type
         self.info['datasource_kargs'] = kargs
         self._reload_data_source()

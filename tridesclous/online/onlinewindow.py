@@ -309,7 +309,7 @@ class OnlineWindow(WidgetNode):
         self.signals_medians, self.signals_mads = estimate_medians_mads_after_preprocesing(
                         sigs[:, self.channel_indexes], self.sample_rate,
                         preprocessor_params=self.get_catalogue_params()['preprocessor_params'])
-        #~ print(self.signals_medians, self.signals_mads)
+        print(self.signals_medians, self.signals_mads)
         
         params = self.get_catalogue_params() 
         catalogue = make_empty_catalogue(
@@ -464,6 +464,8 @@ class Worker(QT.QObject):
         print('compute')
         
         catalogueconstructor = self.catalogueconstructor
+        print(self.catalogueconstructor.dataio)
+        print('self.fullchain_kargs duration', self.fullchain_kargs['duration'])
         
         apply_all_catalogue_steps(self.catalogueconstructor, self.fullchain_kargs, 
                 self.feat_method, self.feat_kargs, self.clust_method, self.clust_kargs,
