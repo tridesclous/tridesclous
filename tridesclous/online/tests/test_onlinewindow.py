@@ -28,15 +28,19 @@ def test_OnlineWindow():
     chunksize = 1024
     
     # Device node
-    #~ man = create_manager(auto_close_at_exit=True)
+    man = pyacq.create_manager(auto_close_at_exit=True)
     #~ ng0 = man.create_nodegroup()
     ng0 = None
     dev = make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup=ng0, chunksize=chunksize)
     
     
     
-    chan_grp = 0
-    channel_indexes = [5,6,7,8]
+    channel_groups = {
+        0 : [5,6,7,8],
+        #~ 1 : [1,2,3,4],
+        #~ 2 : [9,10,11],
+    }
+    
     workdir = 'test_onlinewindow'
     
     if os.path.exists(workdir):
@@ -44,21 +48,36 @@ def test_OnlineWindow():
     
     app = pg.mkQApp()
     
-    w = OnlineWindow()
-    w.configure(chan_grp=chan_grp, channel_indexes=channel_indexes, chunksize=chunksize, workdir=workdir)
-    w.input.connect(dev.output)
-    w.initialize()
     
-    w.resize(800, 600)
-    w.show()
+    
+    windows = []
+    for chan_grp, channel_indexes in channel_groups.items():
+        
+        # nodegroup_firend
+        #~ nodegroup_friend = man.create_nodegroup() 
+        nodegroup_friend = None
+
+        w = OnlineWindow()
+        w.configure(chan_grp=chan_grp, channel_indexes=channel_indexes, chunksize=chunksize,
+                        workdir=workdir, nodegroup_friend=nodegroup_friend)
+        w.input.connect(dev.output)
+        w.initialize()
+        
+        w.resize(800, 600)
+        w.show()
+        w.start()
+        windows.append(w)
     
     dev.start()
-    w.start()
+    
     
     def terminate():
         dev.stop()
-        w.stop()
+        for w in windows:
+            w.stop()
         app.quit()
+        man.close()
+        
     
     
     app.exec_()

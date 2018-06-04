@@ -1178,7 +1178,10 @@ class CatalogueConstructor:
         
         
         #reassign labels for peaks and clusters
-        N = int(max(sorted_labels)*10)
+        if len(sorted_labels)>0:
+            N = int(max(sorted_labels)*10)
+        else:
+            N = 0
         self.all_peaks['cluster_label'][self.all_peaks['cluster_label']>=0] += N
         for new, old in enumerate(sorted_labels+N):
             self.all_peaks['cluster_label'][self.all_peaks['cluster_label']==old] = new

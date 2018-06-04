@@ -1,5 +1,6 @@
 import os
 import time
+import shutil
 
 import numpy as np
 from ..gui import QT
@@ -15,19 +16,20 @@ from ..catalogueconstructor import CatalogueConstructor
 from .onlinepeeler import OnlinePeeler
 from .onlinetraceviewer import OnlineTraceViewer
 from .onlinetools import make_empty_catalogue
-
+from ..gui import CatalogueWindow
+from ..gui.mainwindow import error_box_msg, apply_all_catalogue_steps
+from ..gui.gui_params import fullchain_params, features_params_by_methods, cluster_params_by_methods
+from ..gui.tools import ParamDialog, MethodDialog, get_dict_from_group_param
 from ..signalpreprocessor import estimate_medians_mads_after_preprocesing
 
 
 """
 TODO:
-  * nodegroup friend for peeler
-  * compute_median_mad
-  * compute catalogueconstructor
-  * catalogue persistent in workdir
+  * open persistent catalogue
   * params GUI for signal processor peak detection
   * share data for catalogue workdir with other isntance if on same machine
-
+  * try except dans compute
+  * channel names
 
 """
 
@@ -55,35 +57,105 @@ class OnlineWindow(WidgetNode):
         h = QT.QHBoxLayout()
         self.layout.addLayout(h)
         
-        but = QT.QPushButton('auto scale')
-        h.addWidget(but)
-        but.clicked.connect(self.auto_scale_trace)
-
-        but = QT.QPushButton('Estimate noise')
-        h.addWidget(but)
-        but.clicked.connect(self.compute_median_mad)
-
-        but = QT.QPushButton('Start record for catalogue')
-        h.addWidget(but)
-        but.clicked.connect(self.start_rec_for_catalogue)
-        
         self.traceviewer = OnlineTraceViewer()
-        self.layout.addWidget(self.traceviewer)
+        #~ self.layout.addWidget(self.traceviewer)
+        h.addWidget(self.traceviewer)
         self.traceviewer.show()
+
+
+        self.toolbar = QT.QToolBar(orientation=QT.Vertical)
+        self.toolbar.setToolButtonStyle(QT.Qt.ToolButtonTextUnderIcon)
+        #~ self.addToolBar(QT.LeftToolBarArea, self.toolbar)
+        self.toolbar.setIconSize(QT.QSize(60, 40))
+        h.addWidget(self.toolbar)
         
-        self.rtpeeler = OnlinePeeler()
+        self.create_actions_and_menu()
+        
+        self.dialog_fullchain_params = ParamDialog(fullchain_params)
+        self.dialog_fullchain_params.params['duration'] = 10. # for debug
+        self.dialog_fullchain_params.resize(450, 600)
+        
+        
+        #TODO
+        #~ if 1<= self.nb_channel <9: method0 = 'global_pca'
+        #~ else: method0 = 'peak_max'
+        
+        self.dialog_method_features = MethodDialog(features_params_by_methods, parent=self,
+                        title='Which feature method ?', selected_method='peak_max')
+        self.dialog_method_cluster = MethodDialog(cluster_params_by_methods, parent=self,
+                        title='Which cluster method ?', selected_method = 'sawchaincut')
+        
+        
         
         self.mutex = Mutex()
+
+    def create_actions_and_menu(self):
+        #~ return
+        
+        #~ self.main_menu = self.menuBar().addMenu(self.tr("Main"))
+        #~ self.main_menu = QT.QMenuBar()
+        #~ self.toolbar.addWidget(self.main_menu)
+
+        do_autoscale = QT.QAction('Auto scale', self, shortcut = "a" ) #, icon=QT.QIcon(":document-open.svg"))
+        do_autoscale.triggered.connect(self.auto_scale_trace)
+        #~ self.main_menu.addAction(do_autoscale)
+        self.toolbar.addAction(do_autoscale)
+
+        do_compute_median_mad = QT.QAction('Estimate noise', self) #, icon=QT.QIcon(":document-open.svg"))
+        do_compute_median_mad.triggered.connect(self.compute_median_mad)
+        #~ self.main_menu.addAction(do_autoscale)
+        self.toolbar.addAction(do_compute_median_mad)
+
+        do_start_rec = QT.QAction('Start new catalogue', self) #, icon=QT.QIcon(":document-open.svg"))
+        do_start_rec.triggered.connect(self.start_new_catalogue)
+        #~ self.main_menu.addAction(do_autoscale)
+        self.toolbar.addAction(do_start_rec)
+
+        do_open_cataloguewin = QT.QAction('Edit catalogue', self) #, icon=QT.QIcon(":document-open.svg"))
+        do_open_cataloguewin.triggered.connect(self.open_cataloguewindow)
+        #~ self.main_menu.addAction(do_autoscale)
+        self.toolbar.addAction(do_open_cataloguewin)
+
+        do_delete_catalogue = QT.QAction('Delete catalogue', self) #, icon=QT.QIcon(":document-open.svg"))
+        do_delete_catalogue.triggered.connect(self.delete_catalogue)
+        #~ self.main_menu.addAction(do_autoscale)
+        self.toolbar.addAction(do_delete_catalogue)
+
+
+    def warn(self, text, title='Error in tridesclous'):
+        mb = QT.QMessageBox.warning(self, title,text, 
+                QT.QMessageBox.Ok ,
+                QT.QMessageBox.NoButton)
     
-    def _configure(self, chan_grp=0, channel_indexes=[], chunksize=1024, workdir=''):
+    def errorToMessageBox(self, e):
+        self.warn(error_box_msg.format(e))
+    
+    def _configure(self, chan_grp=0, channel_indexes=[], chunksize=1024, workdir='',
+                            nodegroup_friend=None):
         self.chan_grp = chan_grp
         self.channel_indexes = np.array(channel_indexes, dtype='int64')
         self.chunksize = chunksize
         self.workdir = workdir
         
+        self.nodegroup_friend = nodegroup_friend
+
+        if self.nodegroup_friend is None:
+            self.rtpeeler = OnlinePeeler()
+        else:
+            self.nodegroup_friend.register_node_type_from_module('tridesclous.online', 'OnlinePeeler')
+            self.rtpeeler = self.nodegroup_friend.create_node('OnlinePeeler')
+        
         #~ self.median_estimation_duration = 1
         self.median_estimation_duration = 3.
-        self.catalogue_constructor_duration = 10.
+
+        # prepare workdir
+        #~ if not os.path.exists(self.workdir):
+             #~ os.makedirs(self.workdir)
+        dirname = os.path.join(self.workdir, 'chan_grp{}'.format(self.chan_grp))
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+        self.raw_sigs_dir = os.path.join(self.workdir, 'chan_grp{}'.format(self.chan_grp), 'raw_sigs')
+        self.dataio_dir = os.path.join(self.workdir, 'chan_grp{}'.format(self.chan_grp), 'tdc_online')
         
         
     
@@ -95,29 +167,7 @@ class OnlineWindow(WidgetNode):
         assert np.all(self.channel_indexes<=self.total_channel), 'channel_indexes not compatible with total_channel'
         self.nb_channel = len(self.channel_indexes)
         self.sample_rate = self.input.params['sample_rate']
-    
-    def get_catalogue_params(self):
-        # TODO do it with gui property and defutl
-        params = dict(
-            n_left=-20, n_right=40, internal_dtype='float32',
-            
-            #TODO
-            preprocessor_params={},
-            peak_detector_params={'relative_threshold' : 8.},
-            clean_waveforms_params={},
-            
-            signals_medians=self.signals_medians,
-            signals_mads=self.signals_mads,
-            
-        )
-        if params['signals_medians'] is not None:
-            params['signals_medians']  = params['signals_medians'] .copy()
-            params['signals_mads']  = params['signals_mads'] .copy()
-        
-        
-        return params
-        
-    
+
     def _initialize(self, **kargs):
         self.signals_medians = None
         self.signals_mads = None
@@ -136,9 +186,10 @@ class OnlineWindow(WidgetNode):
         self.thread_poll_input = ThreadPollInput(self.input)
         
 
-        self.rtpeeler.configure(catalogue=self.catalogue, in_group_channels=self.channel_indexes, chunksize=self.chunksize)
+        self.rtpeeler.configure(catalogue=self.catalogue, 
+                    in_group_channels=self.channel_indexes, chunksize=self.chunksize)
         self.rtpeeler.input.connect(self.input.params)
-        print(self.input.params)
+        #~ print(self.input.params)
         
         #TODO choose better stream params with sharedmem
         stream_params = dict(protocol='tcp', interface='127.0.0.1', transfermode='plaindata')
@@ -165,15 +216,15 @@ class OnlineWindow(WidgetNode):
         self.timer_med = QT.QTimer(singleShot=True, interval=int(self.median_estimation_duration*1000)+1000)
         self.timer_med.timeout.connect(self.on_done_median_estimation_duration)
         # timer for catalogue
-        self.timer_catalogue = QT.QTimer(singleShot=True, interval=int(self.catalogue_constructor_duration*1000)+1000)
-        self.timer_catalogue.timeout.connect(self.on_done_catalogue_constructor)
+        self.timer_catalogue = QT.QTimer(singleShot=True)
+        self.timer_catalogue.timeout.connect(self.on_raw_signals_recorded)
+        
         
         # stuf for recording a chunk for catalogue constructor
-        if not os.path.exists(self.workdir):
-             os.makedirs(self.workdir)
         self.rec = None
         self.dataio = None
         self.catalogueconstructor = None
+        self.cataloguewindow = None
         self.worker_thread = QT.QThread(parent=self)
         self.worker = None
     
@@ -198,6 +249,36 @@ class OnlineWindow(WidgetNode):
         
     def _close(self):
         pass
+
+    def get_catalogue_params(self):
+        # TODO do it with gui property and defutl
+        
+        p = self.dialog_fullchain_params.get()
+        p['preprocessor'].pop('chunksize')
+        
+        params = dict(
+            #~ n_left=-20,
+            n_left=p['extract_waveforms']['n_left'],
+            #~ n_right=40,
+            n_right=p['extract_waveforms']['n_right'],
+            
+            internal_dtype='float32',
+            
+            #TODO
+            preprocessor_params=p['preprocessor'],
+            peak_detector_params=p['peak_detector'], #{'relative_threshold' : 8.},
+            clean_waveforms_params=p['clean_waveforms'],
+            
+            signals_medians=self.signals_medians,
+            signals_mads=self.signals_mads,
+            
+        )
+        if params['signals_medians'] is not None:
+            params['signals_medians']  = params['signals_medians'] .copy()
+            params['signals_mads']  = params['signals_mads'] .copy()
+        
+        print(params)
+        return params    
     
     def auto_scale_trace(self):
         # add factor in pyacq.oscilloscope autoscale (def compute_rescale)
@@ -228,13 +309,12 @@ class OnlineWindow(WidgetNode):
         self.signals_medians, self.signals_mads = estimate_medians_mads_after_preprocesing(
                         sigs[:, self.channel_indexes], self.sample_rate,
                         preprocessor_params=self.get_catalogue_params()['preprocessor_params'])
-        print(self.signals_medians, self.signals_mads)
+        #~ print(self.signals_medians, self.signals_mads)
         
         params = self.get_catalogue_params() 
         catalogue = make_empty_catalogue(
                     channel_indexes=self.channel_indexes,
                     **params)
-        
         self.change_catalogue(catalogue)
     
     def change_catalogue(self, catalogue):
@@ -245,52 +325,61 @@ class OnlineWindow(WidgetNode):
         xsize = self.traceviewer.params['xsize']
         self.timer_scale.setInterval(int(xsize*1000.))
         self.timer_scale.start()
+
+    def on_new_catalogue(self):
+        print('on_new_catalogue')
+        catalogue = self.dataio.load_catalogue(chan_grp=self.chan_grp)
+        self.change_catalogue(catalogue)
+
     
-    def start_rec_for_catalogue(self):
+    def start_new_catalogue(self):
         if self.timer_catalogue.isActive():
             return
         if self.rec is not None:
             return
-        dirname = os.path.join(self.workdir, 'chan_grp{}'.format(self.chan_grp))
-        if not os.path.exists(dirname):
-            os.makedirs(dirname)
         
-        dirname = os.path.join(dirname, 'raw_sigs')
-        if os.path.exists(dirname):
-            print('already exists')
+        if os.path.exists(self.raw_sigs_dir):
+            self.warn('A catalogue already exists.\nDelete it and start rec again.')
             return
 
         
+        if not self.dialog_fullchain_params.exec_():
+            return
+        
+        if not self.dialog_method_features.exec_():
+            return
+
+        if not self.dialog_method_cluster.exec_():
+            return
+        
+        # get duration for raw sigs record
+        fullchain_kargs = self.dialog_fullchain_params.get()
+        self.timer_catalogue.setInterval(int((fullchain_kargs['duration']+1)*1000.))
+        
+
+        if self.cataloguewindow is not None:
+            self.cataloguewindow.close()
+            self.cataloguewindow = None
+        if self.catalogueconstructor is not None:
+            self.catalogueconstructor = None
+        self.dataio = None
         
         self.rec = RawRecorder()
-        
-        print(dirname)
-        self.rec.configure(streams=[self.input.params], autoconnect=True, dirname=dirname)
+        self.rec.configure(streams=[self.input.params], autoconnect=True, dirname=self.raw_sigs_dir)
         self.rec.initialize()
         self.rec.start()
         
         self.timer_catalogue.start()
 
         
-    def on_done_catalogue_constructor(self):
-        print('on_done_median_estimation_duration')
-        head = self.thread_poll_input.pos()
-        #~ print('self.tail', self.tail)
-        print('head', head)
-        #~ length = int((self.median_estimation_duration)*self.sample_rate)
-        #~ sigs = self.input.get_data(head-length, head, copy=False, join=True)
-        
+    def on_raw_signals_recorded(self):
+        print('on_raw_signals_recorded')
         self.rec.stop()
         self.rec.close()
         self.rec = None
         
-        self.dataio = DataIO(dirname=os.path.join(self.workdir, 'chan_grp{}'.format(self.chan_grp), 'tdc_online'))
-        
-        
-
-        #~ localdir, filenames, params = download_dataset(name='olfactory_bulb')
-        #~ filenames = filenames[:1] #only first file
-        filenames = os.path.join(self.workdir, 'chan_grp{}'.format(self.chan_grp), 'raw_sigs', 'input0.raw')
+        self.dataio = DataIO(dirname=self.dataio_dir)
+        filenames = [os.path.join(self.raw_sigs_dir, 'input0.raw')]
         self.dataio.set_data_source(type='RawData', filenames=filenames, sample_rate=self.sample_rate, 
                     dtype=self.input.params['dtype'], total_channel=self.total_channel)
         channel_group = {self.chan_grp:{'channels':self.channel_indexes.tolist()}}
@@ -301,111 +390,88 @@ class OnlineWindow(WidgetNode):
         self.catalogueconstructor = CatalogueConstructor(dataio=self.dataio, chan_grp=self.chan_grp)
         print(self.catalogueconstructor)
         
-        params = self.get_catalogue_params() 
+        #~ params = self.get_catalogue_params()
+        fullchain_kargs = self.dialog_fullchain_params.get()
+        fullchain_kargs['preprocessor']['chunksize'] = self.chunksize
         
-        self.worker = Worker(self.catalogueconstructor,params, self.chunksize)
+        feat_method = self.dialog_method_features.param_method['method']
+        feat_kargs = get_dict_from_group_param(self.dialog_method_features.all_params[feat_method], cascade=True)
+
+        clust_method = self.dialog_method_cluster.param_method['method']
+        clust_kargs = get_dict_from_group_param(self.dialog_method_cluster.all_params[clust_method], cascade=True)
+
+        print('feat_method', feat_method, 'clust_method', clust_method)
+        self.worker = Worker(self.catalogueconstructor, fullchain_kargs,
+                feat_method, feat_kargs,
+                clust_method, clust_kargs)
+        
+        
+        
         self.worker.moveToThread(self.worker_thread)
         self.request_compute.connect(self.worker.compute)
-        self.worker.done.connect(self.on_compute_done)
+        self.worker.done.connect(self.on_new_catalogue)
         self.request_compute.emit()
     
+    def open_cataloguewindow(self):
+        if self.catalogueconstructor is None:
+            return
+        
+        if self.cataloguewindow is  None:
+            self.cataloguewindow = CatalogueWindow(self.catalogueconstructor)
+            self.cataloguewindow.new_catalogue.connect(self.on_new_catalogue)
+        
+        self.cataloguewindow.show()
     
-    def on_compute_done(self):
-        print('on_compute_done')
-        catalogue = self.dataio.load_catalogue(chan_grp=self.chan_grp)
+    def delete_catalogue(self):
+        # this delete catalogue and raw sigs
+        if self.cataloguewindow is not None:
+            self.cataloguewindow.close()
+            self.cataloguewindow = None
+        if self.catalogueconstructor is not None:
+            self.catalogueconstructor = None
+        self.dataio = None
+        
+        if os.path.exists(self.dataio_dir):
+            shutil.rmtree(self.dataio_dir)
+        if os.path.exists(self.raw_sigs_dir):
+            shutil.rmtree(self.raw_sigs_dir)
+        
+        # make empty catalogue
+        params = self.get_catalogue_params() 
+        catalogue = make_empty_catalogue(
+                    channel_indexes=self.channel_indexes,
+                    **params)
         self.change_catalogue(catalogue)
+
+
 
 class Worker(QT.QObject):
     #~ data_ready = QT.pyqtSignal(float, float, float, object, object, object, object, object)
     done = QT.pyqtSignal()
-    def __init__(self, catalogueconstructor, params, chunksize, parent=None):
+    def __init__(self, catalogueconstructor, fullchain_kargs, 
+                feat_method, feat_kargs,
+                clust_method, clust_kargs, parent=None):
         QT.QObject.__init__(self, parent=parent)
+        
         self.catalogueconstructor = catalogueconstructor
-        self.params = params
-        self.chunksize = chunksize
+        self.fullchain_kargs = fullchain_kargs
+        self.feat_method = feat_method
+        self.feat_kargs = feat_kargs
+        self.clust_method = clust_method
+        self.clust_kargs = clust_kargs
     
     def compute(self):
         print('compute')
         
         catalogueconstructor = self.catalogueconstructor
         
-        d = {}
-        d.update(self.params['preprocessor_params'])
-        d.update(self.params['peak_detector_params'])
-        
-        catalogueconstructor.set_preprocessor_params(chunksize=self.chunksize, **d)
-        print('youpi')
-
-
-        t1 = time.perf_counter()
-        catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.) #TODO
-        t2 = time.perf_counter()
-        print('estimate_signals_noise', t2-t1)
-        
-        t1 = time.perf_counter()
-        catalogueconstructor.run_signalprocessor(duration=10., detect_peak=True)
-        t2 = time.perf_counter()
-        print('run_signalprocessor_loop', t2-t1)
-
-        t1 = time.perf_counter()
-        catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40, mode='rand', nb_max=5000)
-        t2 = time.perf_counter()
-        print('extract_some_waveforms rand', t2-t1)
-        print(catalogueconstructor.some_waveforms.shape)
-
-        t1 = time.perf_counter()
-        catalogueconstructor.extract_some_waveforms(n_left=None, n_right=None, mode='rand', nb_max=20000)
-        t2 = time.perf_counter()
-        print('extract_some_waveforms rand', t2-t1)
-        print(catalogueconstructor.some_waveforms.shape)
-
-        t1 = time.perf_counter()
-        catalogueconstructor.clean_waveforms(alien_value_threshold=60.)
-        t2 = time.perf_counter()
-        print('clean_waveforms', t2-t1)
-        
-        print(catalogueconstructor)
-        
-
-        #extract_some_noise
-        t1 = time.perf_counter()
-        catalogueconstructor.extract_some_noise(nb_snippet=400)
-        t2 = time.perf_counter()
-        print('extract_some_noise', t2-t1)
-        
-        #~ # PCA
-        t1 = time.perf_counter()
-        catalogueconstructor.project(method='global_pca', n_components=7, batch_size=16384)
-        t2 = time.perf_counter()
-        print('project pca', t2-t1)
-
-        # peak_max
-        #~ t1 = time.perf_counter()
-        #~ catalogueconstructor.project(method='peak_max')
-        #~ t2 = time.perf_counter()
-        #~ print('project peak_max', t2-t1)
-        #~ print(catalogueconstructor.some_features.shape)
-
-        #~ t1 = time.perf_counter()
-        #~ catalogueconstructor.extract_some_waveforms(index=np.arange(1000))
-        #~ t2 = time.perf_counter()
-        #~ print('extract_some_waveforms others', t2-t1)
-        #~ print(catalogueconstructor.some_waveforms.shape)
-
-        
-        # cluster
-        t1 = time.perf_counter()
-        catalogueconstructor.find_clusters(method='sawchaincut')
-        t2 = time.perf_counter()
-        print('find_clusters', t2-t1)
-        
-        print(catalogueconstructor)
+        apply_all_catalogue_steps(self.catalogueconstructor, self.fullchain_kargs, 
+                self.feat_method, self.feat_kargs, self.clust_method, self.clust_kargs,
+                #~ verbose=False,
+                verbose=True,
+                )
         
         self.catalogueconstructor.make_catalogue_for_peeler()
         
-
-
-        
-        time.sleep(1.)
+        #~ time.sleep(1.)
         self.done.emit()
-    
