@@ -98,7 +98,13 @@ def get_neighborhood(geometry, radius_um):
     """
     d = sklearn.metrics.pairwise.euclidean_distances(geometry)
     return d<=radius_um
-    
+
+def open_prb(probe_filename):
+    d = {}
+    exec(open(probe_filename).read(), None, d)
+    channel_groups = d['channel_groups']
+    return channel_groups
+
 
 def create_prb_file_from_dict(channel_groups, filename):
     # write with hack on json to put key as inteteger (normally not possible in json)
