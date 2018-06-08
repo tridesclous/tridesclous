@@ -27,6 +27,7 @@ import time
 import webbrowser
 
 class CatalogueWindow(QT.QMainWindow):
+    new_catalogue = QT.pyqtSignal()
     def __init__(self, catalogueconstructor):
         QT.QMainWindow.__init__(self)
         
@@ -182,6 +183,7 @@ class CatalogueWindow(QT.QMainWindow):
 
     def make_catalogue_for_peeler(self):
         self.catalogueconstructor.make_catalogue_for_peeler()
+        self.new_catalogue.emit()
     
     def create_savepoint(self):
         try:

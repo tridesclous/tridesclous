@@ -1,5 +1,5 @@
 from tridesclous import get_dataset
-from tridesclous.signalpreprocessor import signalpreprocessor_engines
+from tridesclous.signalpreprocessor import signalpreprocessor_engines, offline_signal_preprocessor
 
 import time
 
@@ -10,38 +10,7 @@ from matplotlib import pyplot
 
 
 
-def offline_signal_preprocessor(sigs, sample_rate, common_ref_removal=True,
-        highpass_freq=300., lowpass_freq=None, output_dtype='float32', normalize=True, **unused):
-    #cast
-    sigs = sigs.astype(output_dtype)
-    
-    #filter
-    if highpass_freq is not None:
-        b, a = scipy.signal.iirfilter(5, highpass_freq/sample_rate*2, analog=False,
-                                        btype = 'highpass', ftype = 'butter', output = 'ba')
-        filtered_sigs = scipy.signal.filtfilt(b, a, sigs, axis=0)
-    else:
-        filtered_sigs = sigs.copy()
-    
-    if lowpass_freq is not None:
-        b, a = scipy.signal.iirfilter(5, lowpass_freq/sample_rate*2, analog=False,
-                                        btype = 'lowpass', ftype = 'butter', output = 'ba')
-        filtered_sigs = scipy.signal.filtfilt(b, a, filtered_sigs, axis=0)
-        
 
-    # common reference removal
-    if common_ref_removal:
-        filtered_sigs = filtered_sigs - np.median(filtered_sigs, axis=1)[:, None]
-    
-    # normalize
-    if normalize:
-        med = np.median(filtered_sigs, axis=0)
-        mad = np.median(np.abs(filtered_sigs-med),axis=0)*1.4826
-        normed_sigs = (filtered_sigs - med)/mad
-    else:
-        normed_sigs = filtered_sigs
-    
-    return normed_sigs.astype(output_dtype)
     
 
 

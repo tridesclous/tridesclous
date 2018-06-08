@@ -65,7 +65,7 @@ def download_dataset(name='locust', localdir=None):
         filenames = filenames + [ info['prb_filename'] ]
     
     for filename in filenames:
-        print(filename)
+        #~ print(filename)
         localfile = os.path.join(localdir, filename)
         
         if not os.path.exists(localfile):

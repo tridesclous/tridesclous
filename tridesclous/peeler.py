@@ -120,7 +120,7 @@ class Peeler:
     
     def process_one_chunk(self,  pos, sigs_chunk):
         #~ print('*'*5)
-        #~ print('chunksize', self.chunksize, '=', self.chunksize/self.dataio.sample_rate*1000, 'ms')
+        #~ print('chunksize', self.chunksize, '=', self.chunksize/self.sample_rate*1000, 'ms')
         
         #~ t1 = time.perf_counter()
         abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
@@ -147,15 +147,16 @@ class Peeler:
         
         # TODO remove from peak the very begining of the signal because of border filtering effects
         
-        t1 = time.perf_counter()
+        #~ t1 = time.perf_counter()
         all_spikes = []
         all_ready_tested = []
         while True:
             #~ print()
             #detect peaks
-            #~ t3 = time.perf_counter()
+            t3 = time.perf_counter()
             local_peaks = detect_peaks_in_chunk(self.fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign)
-            #~ t4 = time.perf_counter()
+            t4 = time.perf_counter()
+            #~ print('self.fifo_residuals median', np.median(self.fifo_residuals, axis=0))
             #~ print('  detect_peaks_in_chunk', (t4-t3)*1000.)
             #~ print('  local_peaks', local_peaks, local_peaks.shape)
             if len(all_ready_tested)>0:
@@ -197,6 +198,7 @@ class Peeler:
                 bad_spikes = np.zeros(local_peaks.shape[0], dtype=_dtype_spike)
                 bad_spikes['index'] = local_peaks + shift
                 bad_spikes['cluster_label'] = LABEL_UNCLASSIFIED
+                #~ print('bad_spikes', bad_spikes.size)
                 break
 
         #~ t2 = time.perf_counter()
@@ -204,6 +206,8 @@ class Peeler:
         
         # append bad spike
         all_spikes.append(bad_spikes)
+        #~ print('bad_spikes.size', bad_spikes)
+        #~ print('all_spikes.size', all_spikes)
         
         #concatenate sort and count
         all_spikes = np.concatenate(all_spikes)
@@ -222,11 +226,14 @@ class Peeler:
         self.sample_rate = sample_rate
         self.source_dtype = source_dtype
         
-        #~ SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[self.signalpreprocessor_engine]
-        SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines['numpy']
+        self.signalpreprocessor_engine = self.catalogue['params_signalpreprocessor']['signalpreprocessor_engine']
+        #~ print('self.signalpreprocessor_engine', self.signalpreprocessor_engine)
+        SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[self.signalpreprocessor_engine]
+        #~ SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines['numpy']
         self.signalpreprocessor = SignalPreprocessor_class(sample_rate, nb_channel, self.chunksize, source_dtype)
         
         p = dict(self.catalogue['params_signalpreprocessor'])
+        p.pop('signalpreprocessor_engine')
         p['normalize'] = True
         p['signals_medians'] = self.catalogue['signals_medians']
         p['signals_mads'] = self.catalogue['signals_mads']
@@ -331,6 +338,10 @@ class Peeler:
             #~ print('     LABEL_LEFT_LIMIT', ind)
             label = LABEL_LEFT_LIMIT
             jitter = 0
+        elif catalogue['centers0'].shape[0]==0:
+            # empty catalogue
+            label  = LABEL_UNCLASSIFIED
+            jitter = 0
         else:
             waveform = residual[ind:ind+width,:]
             
@@ -425,6 +436,7 @@ def estimate_one_jitter_numpy(waveform, catalogue):
         cluster_idx = np.argmin(s)
     else:
         # replace by this (indentique but faster, a but)
+        
         #~ t1 = time.perf_counter()
         d = catalogue['centers0']-waveform[None, :, :]
         d *= d

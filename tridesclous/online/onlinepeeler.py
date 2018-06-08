@@ -1,10 +1,13 @@
 from ..peeler import Peeler
-import pyacq
+
+
+from pyqtgraph.util.mutex import Mutex
 
 import pyacq
 from pyacq import Node, register_node_type, ThreadPollInput
 
 from ..peeler import _dtype_spike
+
 
 
 
@@ -20,33 +23,55 @@ class PeelerThread(ThreadPollInput):
         self.sample_rate = input_stream.params['sample_rate']
         self.total_channel = self.input_stream().params['shape'][1]
         
-        #~ self.mutex = Mutex()
+        self.mutex = Mutex()
     
     def process_data(self, pos, sigs_chunk):
         #TODO maybe remove this
-        #~ print(sigs_chunk.shape[0], self.peeler.chunksize)
-        assert sigs_chunk.shape[0] == self.peeler.chunksize, 'PeelerThread chunksize is BAD!!'
+        #~ print('process_data', sigs_chunk.shape[0], self.peeler.chunksize)
+        assert sigs_chunk.shape[0] == self.peeler.chunksize, 'PeelerThread chunksize is BAD!! {} {}'.format(sigs_chunk.shape[0], self.peeler.chunksize)
         
-        
-        #take only channels concerned
-        sigs_chunk = sigs_chunk[:, self.in_group_channels]
-        #~ print('pos', pos)
-        
-        sig_index, preprocessed_chunk, total_spike, spikes  = self.peeler.process_one_chunk(pos, sigs_chunk)
-        #~ print('total_spike', total_spike, len(spikes))
-        #~ print('sig_index', sig_index, preprocessed_chunk.shape)
-        
-        self.output_streams['signals'].send(preprocessed_chunk, index=sig_index)
-        #~ if spikes is not None and spikes.size>0:
-        if spikes.size>0:
-            self.output_streams['spikes'].send(spikes, index=total_spike)
+        with self.mutex:
+            #take only channels concerned
+            sigs_chunk = sigs_chunk[:, self.in_group_channels]
+            #~ print('pos', pos)
+            #~ print(sigs_chunk.shape, sigs_chunk.dtype)
+            #~ print('signals_medians', self.peeler.signalpreprocessor.signals_medians)
+            sig_index, preprocessed_chunk, total_spike, spikes  = self.peeler.process_one_chunk(pos, sigs_chunk)
+            #~ print('sig_index', sig_index)
+            
+            #~ print('total_spike', total_spike, len(spikes))
+            #~ print('sig_index', sig_index, preprocessed_chunk.shape)
+            
+            self.output_streams['signals'].send(preprocessed_chunk, index=sig_index)
+            #~ if spikes is not None and spikes.size>0:
+            if spikes.size>0:
+                self.output_streams['spikes'].send(spikes, index=total_spike)
         
     
-    def change_params(self, kargs):
-        pass
-        #~ print('PeelerThread.change_params', kargs)
-        #~ with self.mutex:
-            #~ self.engine.change_params(**kargs)
+    def change_params(self, **kargs):
+        print('PeelerThread.change_params')
+        with self.mutex:
+            self.peeler.change_params(**kargs)
+            
+            buffer_spike_index = self.output_streams['spikes'].last_index
+            #~ print('buffer_spike_index', buffer_spike_index)
+            
+            # TODO check tha lostfront_chunksize have not changed bechause
+            # head index will be out
+            
+            
+            self.peeler.initialize_online_loop(sample_rate=self.sample_rate,
+                                                nb_channel=len(self.in_group_channels),
+                                                source_dtype=self.input_stream().params['dtype'])
+            
+            #~ print('self.peeler.total_spike', self.peeler.total_spike)
+            self.peeler.total_spike = buffer_spike_index
+            #~ print('self.peeler.total_spike', self.peeler.total_spike)
+            
+            
+            
+            # hack the head index of 'spikes' output
+            
 
 class OnlinePeeler(Node):
     """
@@ -84,23 +109,26 @@ class OnlinePeeler(Node):
         self.outputs['signals'].spec['dtype'] = self.internal_dtype
         self.outputs['signals'].spec['shape'] = (-1, len(self.in_group_channels))
         self.outputs['signals'].spec['sample_rate'] = self.input.params['sample_rate']
-        
-        
+    
+    def after_output_configure(self, inputname):
+        channel_info = self.input.params.get('channel_info', None)
+        if channel_info is not None:
+            channel_info = [channel_info[c] for c in self.in_group_channels]
+            self.outputs['signals'].params['channel_info'] = channel_info
     
     def _initialize(self):
         
         self.peeler = Peeler(dataio=None)
-        self.peeler.change_params(catalogue=self.catalogue, 
-                                        chunksize=self.chunksize, internal_dtype=self.internal_dtype,)
-                                        #~ signalpreprocessor_engine=self.signalpreprocessor_engine,
-                                        #~ peakdetector_engine=self.peakdetector_engine)
+        #~ self.peeler.change_params(catalogue=self.catalogue, 
+                                        #~ chunksize=self.chunksize, internal_dtype=self.internal_dtype,)
         
         self.thread = PeelerThread(self.input, self.outputs, self.peeler, self.in_group_channels)
+        self.change_catalogue(self.catalogue)
         
     def _start(self):
-        self.peeler.initialize_online_loop(sample_rate=self.input.params['sample_rate'],
-                                            nb_channel=len(self.in_group_channels),
-                                            source_dtype=self.input.params['dtype'])
+        #~ self.peeler.initialize_online_loop(sample_rate=self.input.params['sample_rate'],
+                                            #~ nb_channel=len(self.in_group_channels),
+                                            #~ source_dtype=self.input.params['dtype'])
         self.thread.start()
         
     def _stop(self):
@@ -110,5 +138,17 @@ class OnlinePeeler(Node):
         
     def _close(self):
         pass
-
+    
+    def change_catalogue(self, catalogue):
+        print('change_catalogue', catalogue['label_to_index'])
+        self.catalogue = catalogue
+        #~ self.thre.change_params(catalogue=self.catalogue, 
+                                        #~ chunksize=self.chunksize, internal_dtype=self.internal_dtype,)
+        self.thread.change_params(catalogue=catalogue, 
+                                        chunksize=self.chunksize, internal_dtype=self.internal_dtype,)
+                                        
+                                        
+        
+    
+    
 #~ register_node_type(OnlinePeeler)

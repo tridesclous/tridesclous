@@ -41,6 +41,17 @@ Why is it different from other tools:
     So viewer are closely linked to methods and everything is done to alleviate the patologies of these methods.
 
 
+Online spike sorting
+---------------
+
+If you have a `pyacq <https://github.com/pyacq/pyacq>`_ compatible device (Blackrock, Multi channel system, NiDaqMx, Measurement computing, ...)
+you can also test tridesclous online during the experiment. See `online_demo.py <https://github.com/tridesclous/tridesclous/blob/master/example/online_demo.py>`_
+
+In pyacq, you can build by yourself you own viewers in a custum "Node", so you should be able to monitor during the recording what you need (receptor field, ...)
+
+
+
+
 ..
     Comparison with other tools
     -------------------------------

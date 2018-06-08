@@ -10,7 +10,55 @@ except ImportError:
 
 
 #~ from pyacq.dsp.overlapfiltfilt import SosFiltfilt_Scipy
-from .tools import FifoBuffer
+from .tools import FifoBuffer, median_mad
+
+
+def offline_signal_preprocessor(sigs, sample_rate, common_ref_removal=True,
+        highpass_freq=300., lowpass_freq=None, output_dtype='float32', normalize=True, **unused):
+    #cast
+    sigs = sigs.astype(output_dtype)
+    
+    #filter
+    if highpass_freq is not None:
+        b, a = scipy.signal.iirfilter(5, highpass_freq/sample_rate*2, analog=False,
+                                        btype = 'highpass', ftype = 'butter', output = 'ba')
+        filtered_sigs = scipy.signal.filtfilt(b, a, sigs, axis=0)
+    else:
+        filtered_sigs = sigs.copy()
+    
+    if lowpass_freq is not None:
+        b, a = scipy.signal.iirfilter(5, lowpass_freq/sample_rate*2, analog=False,
+                                        btype = 'lowpass', ftype = 'butter', output = 'ba')
+        filtered_sigs = scipy.signal.filtfilt(b, a, filtered_sigs, axis=0)
+        
+
+    # common reference removal
+    if common_ref_removal:
+        filtered_sigs = filtered_sigs - np.median(filtered_sigs, axis=1)[:, None]
+    
+    # normalize
+    if normalize:
+        #~ med = np.median(filtered_sigs, axis=0)
+        #~ mad = np.median(np.abs(filtered_sigs-med),axis=0)*1.4826
+        med, mad = median_mad(filtered_sigs, axis=0)
+        
+        normed_sigs = (filtered_sigs - med)/mad
+    else:
+        normed_sigs = filtered_sigs
+    
+    return normed_sigs.astype(output_dtype)
+
+
+def estimate_medians_mads_after_preprocesing(sigs, sample_rate, **params):
+    params2 = dict(params)
+    params2['normalize'] = False
+    
+    filtered_sigs = offline_signal_preprocessor(sigs, sample_rate, **params2)
+    med, mad = median_mad(filtered_sigs, axis=0)
+    return med, mad
+    
+    
+    
 
 
 class SignalPreprocessor_base:
@@ -82,6 +130,11 @@ class SignalPreprocessor_base:
         self.nb_section =self. coefficients.shape[0]
         self.forward_buffer = FifoBuffer((self.backward_chunksize, self.nb_channel), self.output_dtype)
         self.zi = np.zeros((self.nb_section, 2, self.nb_channel), dtype= self.output_dtype)
+        
+        print('self.normalize', self.normalize)
+        if self.normalize:
+            assert self.signals_medians is not None
+            assert self.signals_mads is not None
             
 
 
@@ -131,7 +184,6 @@ class SignalPreprocessor_Numpy(SignalPreprocessor_base):
         pos2 = pos-self.lostfront_chunksize
         #~ print('pos', pos, 'pos2', pos2, data2.shape)
         
-        
         # removal ref
         if self.common_ref_removal:
             data2 -= np.median(data2, axis=1)[:, None]
@@ -140,6 +192,7 @@ class SignalPreprocessor_Numpy(SignalPreprocessor_base):
         if self.normalize:
             data2 -= self.signals_medians
             data2 /= self.signals_mads
+        
         return pos2, data2
     
 

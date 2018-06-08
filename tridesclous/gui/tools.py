@@ -164,28 +164,6 @@ class MethodDialog(QT.QDialog):
         #~ print(method)
         self.all_tree_params[method].show()
         
-        
-        
-    
-    
-#~ def open_dialog_methods(params_by_method, parent, title='Which method ?', selected_method=None):
-        #~ _params = [{'name' : 'method', 'type' : 'list', 'values' : params_by_method.keys()}]
-        #~ dialog1 = ParamDialog(_params, title=title, parent=parent)
-        #~ if not dialog1.exec_():
-            #~ return None, None
-
-        #~ method = dialog1.params['method']
-        
-        #~ _params =  params_by_method[method]
-        #~ if len(_params)>0:
-            #~ dialog2 = ParamDialog(_params, title='{} parameters'.format(method), parent=parent)
-            #~ if not dialog2.exec_():
-                #~ return None, None
-            #~ kargs = dialog2.get()
-        #~ else:
-            #~ kargs = {}
-        
-        #~ return method, kargs
 
 def open_dialog_methods(params_by_method, parent, title='Which method ?', selected_method=None):
         
