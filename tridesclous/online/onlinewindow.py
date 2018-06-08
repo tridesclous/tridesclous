@@ -18,18 +18,14 @@ from .onlinetraceviewer import OnlineTraceViewer
 from .onlinetools import make_empty_catalogue
 from ..gui import CatalogueWindow
 from ..gui.mainwindow import error_box_msg, apply_all_catalogue_steps
-from ..gui.gui_params import fullchain_params, features_params_by_methods, cluster_params_by_methods
+from ..gui.gui_params import fullchain_params, features_params_by_methods, cluster_params_by_methods, peak_detector_params
 from ..gui.tools import ParamDialog, MethodDialog, get_dict_from_group_param
 from ..signalpreprocessor import estimate_medians_mads_after_preprocesing
 
 
 """
 TODO:
-  * open persistent catalogue
-  * params GUI for signal processor peak detection
   * share data for catalogue workdir with other isntance if on same machine
-  * try except dans compute
-  * channel names
 
 """
 
@@ -71,14 +67,10 @@ class OnlineWindow(WidgetNode):
         
         self.create_actions_and_menu()
         
-        self.dialog_fullchain_params = ParamDialog(fullchain_params)
+        self.dialog_fullchain_params = ParamDialog(fullchain_params, parent=self)
         self.dialog_fullchain_params.params['duration'] = 10. # for debug
         self.dialog_fullchain_params.resize(450, 600)
         
-        
-        #TODO
-        #~ if 1<= self.nb_channel <9: method0 = 'global_pca'
-        #~ else: method0 = 'peak_max'
         
         self.dialog_method_features = MethodDialog(features_params_by_methods, parent=self,
                         title='Which feature method ?', selected_method='peak_max')
@@ -101,15 +93,15 @@ class OnlineWindow(WidgetNode):
         #~ self.main_menu.addAction(do_autoscale)
         self.toolbar.addAction(do_autoscale)
 
-        do_compute_median_mad = QT.QAction('Estimate noise', self) #, icon=QT.QIcon(":document-open.svg"))
-        do_compute_median_mad.triggered.connect(self.compute_median_mad)
+        self.do_compute_median_mad = QT.QAction('Detec peak only', self) #, icon=QT.QIcon(":document-open.svg"))
+        self.do_compute_median_mad.triggered.connect(self.compute_median_mad)
         #~ self.main_menu.addAction(do_autoscale)
-        self.toolbar.addAction(do_compute_median_mad)
+        self.toolbar.addAction(self.do_compute_median_mad)
 
-        do_start_rec = QT.QAction('Start new catalogue', self) #, icon=QT.QIcon(":document-open.svg"))
-        do_start_rec.triggered.connect(self.start_new_catalogue)
+        self.do_start_rec = QT.QAction('Start new catalogue', self) #, icon=QT.QIcon(":document-open.svg"))
+        self.do_start_rec.triggered.connect(self.start_new_catalogue)
         #~ self.main_menu.addAction(do_autoscale)
-        self.toolbar.addAction(do_start_rec)
+        self.toolbar.addAction(self.do_start_rec)
 
         do_open_cataloguewin = QT.QAction('Edit catalogue', self) #, icon=QT.QIcon(":document-open.svg"))
         do_open_cataloguewin.triggered.connect(self.open_cataloguewindow)
@@ -167,17 +159,41 @@ class OnlineWindow(WidgetNode):
         assert np.all(self.channel_indexes<=self.total_channel), 'channel_indexes not compatible with total_channel'
         self.nb_channel = len(self.channel_indexes)
         self.sample_rate = self.input.params['sample_rate']
+        
+        channel_info = self.input.params.get('channel_info', None)
+        if channel_info is None:
+            self.channel_names = ['ch{}'.format(c) for c in range(self.nb_channel)]
+        else:
+            self.channel_names = [ch_info['name'] for ch_info in channel_info]
+
+        #TODO
+        if 1<= self.nb_channel <9:
+            feat_method = 'global_pca'
+        else: 
+            feat_method = 'peak_max'
+        
+        self.dialog_method_features.param_method['method'] = feat_method
+
 
     def _initialize(self, **kargs):
         self.signals_medians = None
         self.signals_mads = None
         
-        #TODO restore a persitent catalogue
-        params = self.get_catalogue_params()
-        params['peak_detector_params']['relative_threshold'] = np.inf
-        self.catalogue = make_empty_catalogue(
-                    channel_indexes=self.channel_indexes,
-                    **params)
+        try:
+            #try to load persitent catalogue
+            self.dataio = DataIO(dirname=self.dataio_dir)
+            self.catalogueconstructor = CatalogueConstructor(dataio=self.dataio, chan_grp=self.chan_grp)
+            print(self.catalogueconstructor)
+            self.catalogue = self.dataio.load_catalogue(chan_grp=self.chan_grp)
+        except:
+            # work with empty catalogue
+            self.dataio = None
+            self.catalogueconstructor = None
+            params = self.get_catalogue_params()
+            params['peak_detector_params']['relative_threshold'] = np.inf
+            self.catalogue = make_empty_catalogue(
+                        channel_indexes=self.channel_indexes,
+                        **params)
         
         # set a buffer on raw input for median/mad estimation
         buffer_size_margin = 3.
@@ -291,12 +307,23 @@ class OnlineWindow(WidgetNode):
         if self.timer_med.isActive():
             return
         
+        if not self.dialog_fullchain_params.exec_():
+            return
+
         self.timer_med.start()
+        
+        but = self.toolbar.widgetForAction(self.do_compute_median_mad)
+        but.setStyleSheet("QToolButton:!hover { background-color: red }")
+
         
         #~ self.tail = self.thread_poll_input.pos()
         #~ print('self.tail', self.tail)
     
     def on_done_median_estimation_duration(self):
+        
+        but = self.toolbar.widgetForAction(self.do_compute_median_mad)
+        but.setStyleSheet("")
+        
         print('on_done_median_estimation_duration')
         head = self.thread_poll_input.pos()
         #~ print('self.tail', self.tail)
@@ -305,13 +332,12 @@ class OnlineWindow(WidgetNode):
         sigs = self.input.get_data(head-length, head, copy=False, join=True)
         #~ print(sigs.shape)
         
-        
         self.signals_medians, self.signals_mads = estimate_medians_mads_after_preprocesing(
                         sigs[:, self.channel_indexes], self.sample_rate,
                         preprocessor_params=self.get_catalogue_params()['preprocessor_params'])
         print(self.signals_medians, self.signals_mads)
         
-        params = self.get_catalogue_params() 
+        params = self.get_catalogue_params()
         catalogue = make_empty_catalogue(
                     channel_indexes=self.channel_indexes,
                     **params)
@@ -370,12 +396,19 @@ class OnlineWindow(WidgetNode):
         self.rec.start()
         
         self.timer_catalogue.start()
+        but = self.toolbar.widgetForAction(self.do_start_rec)
+        but.setStyleSheet("QToolButton:!hover { background-color: red }")
+
 
         
     def on_raw_signals_recorded(self):
         print('on_raw_signals_recorded')
         self.rec.stop()
         self.rec.close()
+        
+        but = self.toolbar.widgetForAction(self.do_start_rec)
+        but.setStyleSheet("")
+        
         self.rec = None
         
         self.dataio = DataIO(dirname=self.dataio_dir)
@@ -410,7 +443,11 @@ class OnlineWindow(WidgetNode):
         self.worker.moveToThread(self.worker_thread)
         self.request_compute.connect(self.worker.compute)
         self.worker.done.connect(self.on_new_catalogue)
+        self.worker.compute_catalogue_error.connect(self.on_compute_catalogue_error)
         self.request_compute.emit()
+    
+    def on_compute_catalogue_error(self, e):
+        self.errorToMessageBox(e)
     
     def open_cataloguewindow(self):
         if self.catalogueconstructor is None:
@@ -448,6 +485,7 @@ class OnlineWindow(WidgetNode):
 class Worker(QT.QObject):
     #~ data_ready = QT.pyqtSignal(float, float, float, object, object, object, object, object)
     done = QT.pyqtSignal()
+    compute_catalogue_error = QT.pyqtSignal(object)
     def __init__(self, catalogueconstructor, fullchain_kargs, 
                 feat_method, feat_kargs,
                 clust_method, clust_kargs, parent=None):
@@ -467,13 +505,18 @@ class Worker(QT.QObject):
         print(self.catalogueconstructor.dataio)
         print('self.fullchain_kargs duration', self.fullchain_kargs['duration'])
         
-        apply_all_catalogue_steps(self.catalogueconstructor, self.fullchain_kargs, 
-                self.feat_method, self.feat_kargs, self.clust_method, self.clust_kargs,
-                #~ verbose=False,
-                verbose=True,
-                )
-        
-        self.catalogueconstructor.make_catalogue_for_peeler()
+        try:
+            apply_all_catalogue_steps(self.catalogueconstructor, self.fullchain_kargs, 
+                    self.feat_method, self.feat_kargs, self.clust_method, self.clust_kargs,
+                    #~ verbose=False,
+                    verbose=True,
+                    )
+            
+            self.catalogueconstructor.make_catalogue_for_peeler()
+        except Exception as e:
+            self.compute_catalogue_error.emit(e)
+            return
+            
         
         #~ time.sleep(1.)
         self.done.emit()

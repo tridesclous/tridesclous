@@ -27,12 +27,13 @@ def make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup = None, chunksize
     length -= length%chunksize
     sigs = sigs[:length, :]
     dtype = sigs.dtype
+    channel_names = ['channel{}'.format(c) for c in range(sigs.shape[1])]
     
     if nodegroup is None:
         dev = NumpyDeviceBuffer()
     else:
         dev = nodegroup.create_node('NumpyDeviceBuffer')
-    dev.configure(nb_channel=nb_channel, sample_interval=1./sample_rate, chunksize=chunksize, buffer=sigs)
+    dev.configure(nb_channel=nb_channel, sample_interval=1./sample_rate, chunksize=chunksize, buffer=sigs, channel_names=channel_names)
     dev.output.configure(protocol='tcp', interface='127.0.0.1', transfermode='plaindata')
     dev.initialize()
     

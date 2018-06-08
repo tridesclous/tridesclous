@@ -109,8 +109,12 @@ class OnlinePeeler(Node):
         self.outputs['signals'].spec['dtype'] = self.internal_dtype
         self.outputs['signals'].spec['shape'] = (-1, len(self.in_group_channels))
         self.outputs['signals'].spec['sample_rate'] = self.input.params['sample_rate']
-        
-        
+    
+    def after_output_configure(self, inputname):
+        channel_info = self.input.params.get('channel_info', None)
+        if channel_info is not None:
+            channel_info = [channel_info[c] for c in self.in_group_channels]
+            self.outputs['signals'].params['channel_info'] = channel_info
     
     def _initialize(self):
         
