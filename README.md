@@ -23,7 +23,7 @@ tridesclous:
   * should make it easy to keep a trace of your spike sorting process in
     a jupyter notebook.
   * offer a UI written in Qt for interactive exploration.
-  * can be used for online spikesorting with [pyacq](http://pyacq.readthedocs.io).
+  * can be used for online spikesorting with [pyacq](http://pyacq.readthedocs.io). See [online_demo.py](https://github.com/tridesclous/tridesclous/blob/master/example/online_demo.py)
 
 
 Bonus:
