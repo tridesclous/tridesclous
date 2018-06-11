@@ -47,7 +47,15 @@ class OnlineTraceViewer(QOscilloscope):
         
         self.scatters = {}
         self.change_catalogue(self.catalogue)
+
+        self.params['xsize'] = 1.
+        self.params['decimation_method'] = 'min_max'
+        self.params['mode'] = 'scan'
+        self.params['scale_mode'] = 'same_for_all'
         
+        self.timer_scale = QT.QTimer(singleShot=True, interval=500)
+        self.timer_scale.timeout.connect(self.auto_scale)
+        self.timer_scale.start()
 
     def _start(self, **kargs):
         QOscilloscope._start(self, **kargs)
@@ -161,3 +169,6 @@ class OnlineTraceViewer(QOscilloscope):
                 else:
                     self.scatters[k].setData([], [])
         
+    def auto_scale(self, spacing_factor=25.):
+        self.params_controller.compute_rescale(spacing_factor=spacing_factor)
+        self.refresh()

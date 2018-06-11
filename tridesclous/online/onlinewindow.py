@@ -184,11 +184,14 @@ class OnlineWindow(WidgetNode):
             self.dataio = DataIO(dirname=self.dataio_dir)
             self.catalogueconstructor = CatalogueConstructor(dataio=self.dataio, chan_grp=self.chan_grp)
             print(self.catalogueconstructor)
-            self.catalogue = self.dataio.load_catalogue(chan_grp=self.chan_grp)
+            self.catalogue = self.dataio.load_catalogue(chan_grp=self.chan_grp) # can be None
         except:
             # work with empty catalogue
             self.dataio = None
             self.catalogueconstructor = None
+            self.catalogue = None
+        
+        if self.catalogue is None:
             params = self.get_catalogue_params()
             params['peak_detector_params']['relative_threshold'] = np.inf
             self.catalogue = make_empty_catalogue(
@@ -219,10 +222,10 @@ class OnlineWindow(WidgetNode):
         self.traceviewer.inputs['spikes'].connect(self.rtpeeler.outputs['spikes'])
         self.traceviewer.initialize()
         
-        self.traceviewer.params['xsize'] = 1.
-        self.traceviewer.params['decimation_method'] = 'min_max'
-        self.traceviewer.params['mode'] = 'scan'
-        self.traceviewer.params['scale_mode'] = 'same_for_all'
+        #~ self.traceviewer.params['xsize'] = 1.
+        #~ self.traceviewer.params['decimation_method'] = 'min_max'
+        #~ self.traceviewer.params['mode'] = 'scan'
+        #~ self.traceviewer.params['scale_mode'] = 'same_for_all'
 
 
         # timer for autoscale
@@ -450,6 +453,8 @@ class OnlineWindow(WidgetNode):
         self.errorToMessageBox(e)
     
     def open_cataloguewindow(self):
+        print('open_cataloguewindow')
+        print(self.catalogueconstructor)
         if self.catalogueconstructor is None:
             return
         
