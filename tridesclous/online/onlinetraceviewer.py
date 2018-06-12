@@ -14,6 +14,9 @@ from ..tools import make_color_dict
 from ..labelcodes import LABEL_UNCLASSIFIED
 
 
+
+
+    
 class OnlineTraceViewer(QOscilloscope):
     
     _input_specs = {'signals': dict(streamtype='signals'),
