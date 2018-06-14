@@ -63,7 +63,7 @@ class FifoBuffer:
         
     def new_chunk(self, data, index):
         if self.last_index is not None:
-            assert self.last_index+data.shape[0]==index
+            assert self.last_index+data.shape[0]==index, 'FifoBuffer self.last_index+data.shape[0]==index {} {}'.format(self.last_index+data.shape[0], index)
         
         n = self.buffer.shape[0]-data.shape[0]
         #roll the end

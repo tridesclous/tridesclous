@@ -131,7 +131,7 @@ class SignalPreprocessor_base:
         self.forward_buffer = FifoBuffer((self.backward_chunksize, self.nb_channel), self.output_dtype)
         self.zi = np.zeros((self.nb_section, 2, self.nb_channel), dtype= self.output_dtype)
         
-        print('self.normalize', self.normalize)
+        #~ print('self.normalize', self.normalize)
         if self.normalize:
             assert self.signals_medians is not None
             assert self.signals_mads is not None

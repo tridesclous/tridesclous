@@ -111,4 +111,18 @@ def make_empty_catalogue(chan_grp=0,
     
     
     return catalogue
+
+
+def lighter_catalogue(catalogue):
+    """
+    The trace viewer need the catalogue for some fiew kargs.
+    Since with pyacq rpc system all kargs are serializer since function
+    make the catalogue lightened with only needed keys
+    """
+    lightened_catalogue = {}
+    keys = ['clusters', 'cluster_labels', 'max_on_channel']
+    for k in keys:
+        lightened_catalogue[k] = catalogue[k]
     
+    return lightened_catalogue
+
