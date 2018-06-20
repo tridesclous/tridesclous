@@ -244,6 +244,18 @@ class MainWindow(QT.QMainWindow):
         self.combo_chan_grp.blockSignals(False)
         self.on_chan_grp_change()
     
+    def release_closed_windows(self):
+        for win in list(self.open_windows):
+            if not win.isVisible():
+                self.open_windows.remove(win)
+    
+    def close_window_chan_grp(self, chan_grp):
+        for win in list(self.open_windows):
+            if win.controller.chan_grp == self.chan_grp:
+                win.close()
+                self.open_windows.remove(win)
+        
+
     @property
     def chan_grp(self):
         return int(self.combo_chan_grp.currentText())
@@ -264,6 +276,9 @@ class MainWindow(QT.QMainWindow):
         
         if  self.dataio is None:
             return
+        
+        self.release_closed_windows()
+        self.close_window_chan_grp(self.chan_grp)
         
         #collect parals with UI
         dia = ParamDialog(gui_params.fullchain_params)
@@ -294,6 +309,7 @@ class MainWindow(QT.QMainWindow):
             return
         
         try:
+        #~ if 1:
 
             apply_all_catalogue_steps(self.catalogueconstructor, fullchain_kargs, 
                 feat_method, feat_kargs,clust_method, clust_kargs, verbose=True)            
