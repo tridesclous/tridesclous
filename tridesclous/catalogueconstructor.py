@@ -363,7 +363,7 @@ class CatalogueConstructor:
                 peaks = np.zeros(chunk_peaks.size, dtype=_dtype_peak)
                 peaks['index'] = chunk_peaks
                 peaks['segment'][:] = seg_num
-                peaks['cluster_label'][:] = labelcodes.LABEL_UNCLASSIFIED
+                peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
                 self.arrays.append_chunk('all_peaks',  peaks)
     
     
@@ -448,7 +448,7 @@ class CatalogueConstructor:
                     peaks = np.zeros(chunk_peaks.size, dtype=_dtype_peak)
                     peaks['index'] = chunk_peaks
                     peaks['segment'][:] = seg_num
-                    peaks['cluster_label'][:] = labelcodes.LABEL_UNCLASSIFIED
+                    peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
                     self.arrays.append_chunk('all_peaks',  peaks)
 
         self.arrays.finalize_array('all_peaks')
@@ -569,7 +569,7 @@ class CatalogueConstructor:
         self.projector = None
         self._reset_arrays(_reset_after_waveforms_arrays)
 
-        self.all_peaks['cluster_label'][:] = labelcodes.LABEL_UNCLASSIFIED
+        self.all_peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
         self.all_peaks['cluster_label'][self.some_peaks_index] = 0
         
         self.on_new_cluster()

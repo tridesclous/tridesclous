@@ -354,6 +354,8 @@ def make_color_dict(clusters):
     colors[labelcodes.LABEL_UNCLASSIFIED] = (.6, .6, .6)
     colors[labelcodes.LABEL_NOISE] = (.8, .8, .8)
     colors[labelcodes.LABEL_ALIEN] = (.4, .8, .1)
+    colors[labelcodes.LABEL_NO_WAVEFORM] = (.6, .6, .6)
+    
     
     return colors
 

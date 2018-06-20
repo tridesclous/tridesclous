@@ -89,11 +89,11 @@ def test_catalogue_constructor():
         
 
         t1 = time.perf_counter()
-        catalogueconstructor.extract_some_waveforms(n_left=None, n_right=None, mode='rand', nb_max=20000)
+        catalogueconstructor.extract_some_waveforms(n_left=None, n_right=None, mode='rand', nb_max=5000)
         t2 = time.perf_counter()
         print('extract_some_waveforms rand', t2-t1)
         print(catalogueconstructor.some_waveforms.shape)
-
+        
         t1 = time.perf_counter()
         catalogueconstructor.clean_waveforms(alien_value_threshold=60.)
         t2 = time.perf_counter()

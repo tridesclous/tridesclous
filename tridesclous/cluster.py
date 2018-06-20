@@ -66,7 +66,7 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         raise(ValueError, 'find_clusters method unknown')
     
     if selection is None:
-        cc.all_peaks['cluster_label'][:] = labelcodes.LABEL_UNCLASSIFIED
+        #~ cc.all_peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
         cc.all_peaks['cluster_label'][cc.some_peaks_index] = labels
     else:
         labels[labels>=0] += max(max(cc.cluster_labels), -1) + 1
