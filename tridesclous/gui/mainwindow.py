@@ -9,7 +9,7 @@ import webbrowser
 
 from ..dataio import DataIO
 from ..datasource import data_source_classes
-from .tools import get_dict_from_group_param, ParamDialog, open_dialog_methods
+from .tools import get_dict_from_group_param, ParamDialog, MethodDialog #, open_dialog_methods
 from  ..datasets import datasets_info, download_dataset
 
 from ..catalogueconstructor import CatalogueConstructor
@@ -68,6 +68,15 @@ class MainWindow(QT.QMainWindow):
         
         self.win_viewer = None
         self.probe_viewer = None
+        
+        self.dialog_fullchain_params = ParamDialog(gui_params.fullchain_params, parent=self)
+        self.dialog_method_features = MethodDialog(gui_params.features_params_by_methods, parent=self,
+                        title='Which feature method ?', selected_method='peak_max')
+        self.dialog_method_cluster = MethodDialog(gui_params.cluster_params_by_methods, parent=self,
+                        title='Which cluster method ?', selected_method = 'sawchaincut')
+        
+        
+        
     
 
     def create_actions_and_menu(self):
@@ -264,6 +273,13 @@ class MainWindow(QT.QMainWindow):
         self.catalogueconstructor = CatalogueConstructor(dataio=self.dataio, chan_grp=self.chan_grp)
         self.refresh_info()
         
+        # this set a the a by default method depending the number of channels
+        n = self.dataio.nb_channel(chan_grp=self.chan_grp)
+        if 1<=n<9:
+            feat_method = 'global_pca'
+        else:
+            feat_method = 'peak_max'
+        self.dialog_method_features.param_method['method'] = feat_method
     
     def initialize_dataset_dialog(self):
         init_dia = InitializeDatasetWindow(parent=self)
@@ -281,32 +297,53 @@ class MainWindow(QT.QMainWindow):
         self.close_window_chan_grp(self.chan_grp)
         
         #collect parals with UI
-        dia = ParamDialog(gui_params.fullchain_params)
-        dia.resize(450, 600)
-        if not dia.exec_():
+        #~ dia = ParamDialog(gui_params.fullchain_params)
+        #~ dia.resize(450, 600)
+        #~ if not dia.exec_():
+            #~ return
+        #~ fullchain_kargs = dia.get()
+        #~ print(fullchain_kargs)
+        
+        #~ n = self.dataio.nb_channel(chan_grp=self.chan_grp)
+        #~ if 1<=n<9:
+            #~ method0 = 'global_pca'
+        #~ else:
+            #~ method0 = 'peak_max'
+        
+        #~ feat_method, feat_kargs = open_dialog_methods(gui_params.features_params_by_methods, self,
+                        #~ title='Which feature method ?', selected_method=method0)
+        
+        #~ if feat_method is None:
+            #~ return
+        
+        #~ selected_method = 'sawchaincut'
+        #~ clust_method, clust_kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self,
+                        #~ title='Which cluster method ?', selected_method=selected_method)
+        #~ if clust_method is None:
+            #~ return
+        
+        
+        if not self.dialog_fullchain_params.exec_():
             return
-        fullchain_kargs = dia.get()
+        if not self.dialog_method_features.exec_():
+            return
+        if not self.dialog_method_cluster.exec_():
+            return
+        
+        fullchain_kargs = self.dialog_fullchain_params.get()
+        
+        feat_method = self.dialog_method_features.param_method['method']
+        feat_kargs = get_dict_from_group_param(self.dialog_method_features.all_params[feat_method], cascade=True)
+
+        clust_method = self.dialog_method_cluster.param_method['method']
+        clust_kargs = get_dict_from_group_param(self.dialog_method_cluster.all_params[clust_method], cascade=True)
+        
         print(fullchain_kargs)
+        print('feat_method', feat_method)
+        print('clust_method', clust_method)
+
         
-        n = self.dataio.nb_channel(chan_grp=self.chan_grp)
-        if 1<=n<9:
-            method0 = 'global_pca'
-        #~ elif 9<=n<65:
-            #~ method0 = 'neighborhood_pca'
-        else:
-            method0 = 'peak_max'
         
-        feat_method, feat_kargs = open_dialog_methods(gui_params.features_params_by_methods, self,
-                        title='Which feature method ?', selected_method=method0)
-        #~ print('feat_method', feat_method)
-        if feat_method is None:
-            return
-        
-        selected_method = 'sawchaincut'
-        clust_method, clust_kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self,
-                        title='Which cluster method ?', selected_method=selected_method)
-        if clust_method is None:
-            return
         
         try:
         #~ if 1:
