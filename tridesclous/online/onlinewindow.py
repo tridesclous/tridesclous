@@ -15,7 +15,7 @@ from ..dataio import DataIO
 from ..catalogueconstructor import CatalogueConstructor
 from .onlinepeeler import OnlinePeeler
 from .onlinetraceviewer import OnlineTraceViewer
-from .onlinetools import make_empty_catalogue
+from .onlinetools import make_empty_catalogue, lighter_catalogue
 from ..gui import CatalogueWindow
 from ..gui.mainwindow import error_box_msg, apply_all_catalogue_steps
 from ..gui.gui_params import fullchain_params, features_params_by_methods, cluster_params_by_methods, peak_detector_params
@@ -123,12 +123,14 @@ class OnlineWindow(WidgetNode):
         self.warn(error_box_msg.format(e))
     
     def _configure(self, chan_grp=0, channel_indexes=[], chunksize=1024, workdir='',
-                            nodegroup_friend=None):
+                            outputstream_params={'protocol': 'tcp', 'interface':'127.0.0.1', 'transfermode':'plaindata'},
+                            nodegroup_friend=None, 
+                            ):
         self.chan_grp = chan_grp
         self.channel_indexes = np.array(channel_indexes, dtype='int64')
         self.chunksize = chunksize
         self.workdir = workdir
-        
+        self.outputstream_params = outputstream_params
         self.nodegroup_friend = nodegroup_friend
 
         if self.nodegroup_friend is None:
@@ -179,16 +181,22 @@ class OnlineWindow(WidgetNode):
         self.signals_medians = None
         self.signals_mads = None
         
+        #~ if 1:
         try:
             #try to load persitent catalogue
             self.dataio = DataIO(dirname=self.dataio_dir)
             self.catalogueconstructor = CatalogueConstructor(dataio=self.dataio, chan_grp=self.chan_grp)
             print(self.catalogueconstructor)
-            self.catalogue = self.dataio.load_catalogue(chan_grp=self.chan_grp)
+            self.catalogue = self.dataio.load_catalogue(chan_grp=self.chan_grp) # can be None
+        #~ exit()
         except:
             # work with empty catalogue
             self.dataio = None
             self.catalogueconstructor = None
+            self.catalogue = None
+        print(self.catalogueconstructor)
+        
+        if self.catalogue is None:
             params = self.get_catalogue_params()
             params['peak_detector_params']['relative_threshold'] = np.inf
             self.catalogue = make_empty_catalogue(
@@ -208,9 +216,10 @@ class OnlineWindow(WidgetNode):
         #~ print(self.input.params)
         
         #TODO choose better stream params with sharedmem
-        stream_params = dict(protocol='tcp', interface='127.0.0.1', transfermode='plaindata')
-        self.rtpeeler.outputs['signals'].configure(**stream_params)
-        self.rtpeeler.outputs['spikes'].configure(**stream_params)
+        #~ stream_params = dict(protocol='tcp', interface='127.0.0.1', transfermode='plaindata')
+        #~ stream_params = dict(protocol='tcp', interface='192.168.137.2', transfermode='plaindata')
+        self.rtpeeler.outputs['signals'].configure(**self.outputstream_params)
+        self.rtpeeler.outputs['spikes'].configure(**self.outputstream_params)
         self.rtpeeler.initialize()
         
         
@@ -219,10 +228,10 @@ class OnlineWindow(WidgetNode):
         self.traceviewer.inputs['spikes'].connect(self.rtpeeler.outputs['spikes'])
         self.traceviewer.initialize()
         
-        self.traceviewer.params['xsize'] = 1.
-        self.traceviewer.params['decimation_method'] = 'min_max'
-        self.traceviewer.params['mode'] = 'scan'
-        self.traceviewer.params['scale_mode'] = 'same_for_all'
+        #~ self.traceviewer.params['xsize'] = 1.
+        #~ self.traceviewer.params['decimation_method'] = 'min_max'
+        #~ self.traceviewer.params['mode'] = 'scan'
+        #~ self.traceviewer.params['scale_mode'] = 'same_for_all'
 
 
         # timer for autoscale
@@ -238,8 +247,6 @@ class OnlineWindow(WidgetNode):
         
         # stuf for recording a chunk for catalogue constructor
         self.rec = None
-        self.dataio = None
-        self.catalogueconstructor = None
         self.cataloguewindow = None
         self.worker_thread = QT.QThread(parent=self)
         self.worker = None
@@ -347,6 +354,7 @@ class OnlineWindow(WidgetNode):
         self.catalogue = catalogue
         self.rtpeeler.change_catalogue(self.catalogue)
         self.traceviewer.change_catalogue(self.catalogue)
+        #~ self.traceviewer.change_catalogue(lighter_catalogue(self.catalogue))
         
         xsize = self.traceviewer.params['xsize']
         self.timer_scale.setInterval(int(xsize*1000.))
@@ -450,6 +458,8 @@ class OnlineWindow(WidgetNode):
         self.errorToMessageBox(e)
     
     def open_cataloguewindow(self):
+        print('open_cataloguewindow')
+        print(self.catalogueconstructor)
         if self.catalogueconstructor is None:
             return
         

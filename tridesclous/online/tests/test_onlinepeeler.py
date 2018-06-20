@@ -25,14 +25,12 @@ def setup_catalogue():
     
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     filenames = filenames[:1] #only first file
-    print(params)
-    exit()
+    #~ print(params)
+    #~ exit()
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
     channel_group = {0:{'channels':[5, 6, 7, 8]}}
     dataio.set_channel_groups(channel_group)
     
-    catalogueconstructor = CatalogueConstructor(dataio=dataio)
-
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
 
     catalogueconstructor.set_preprocessor_params(chunksize=1024,
@@ -146,7 +144,8 @@ def test_OnlinePeeler():
     
     # Node traceviewer
     tviewer = OnlineTraceViewer()
-    tviewer.configure(peak_buffer_size = 1000, catalogue=catalogue)
+    tviewer.configure(peak_buffer_size = 1000, catalogue=lighter_catalogue(catalogue))
+    #~ tviewer.configure(peak_buffer_size = 1000, catalogue=catalogue)
     tviewer.inputs['signals'].connect(peeler.outputs['signals'])
     tviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
     tviewer.initialize()
@@ -299,9 +298,9 @@ def test_OnlinePeeler_no_catalogue():
     
     
 if __name__ =='__main__':
-    setup_catalogue()
+    #~ setup_catalogue()
     
-    #~ test_OnlinePeeler()
+    test_OnlinePeeler()
     
     #~ test_OnlinePeeler_no_catalogue()
 

@@ -43,8 +43,8 @@ def test_OnlineWindow():
     
     workdir = 'test_onlinewindow'
     
-    if os.path.exists(workdir):
-        shutil.rmtree(workdir)
+    #~ if os.path.exists(workdir):
+        #~ shutil.rmtree(workdir)
     
     app = pg.mkQApp()
     

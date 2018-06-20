@@ -124,30 +124,6 @@ def extract_waveforms_pca_cluster():
     print(catalogueconstructor)
 
 
-
-def detect_similar_ratio():
-    dataio = DataIO(dirname=dirname)
-    catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    catalogueconstructor.on_new_cluster()
-    catalogueconstructor.compute_centroid()
-    
-    labels, ratio_similarity, wf_normed_flat = catalogueconstructor.compute_similarity_ratio()
-    
-    pairs = catalogueconstructor.detect_similar_waveform_ratio(threshold=.9)
-    print(pairs)
-    
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots()
-    im  = ax.matshow(ratio_similarity, cmap='viridis')
-    fig.colorbar(im)
-    #~ ax.plot(ind1, ind0, marker='o', color='r', ls='None')
-    
-    
-    fig, ax = plt.subplots()
-    ax.plot(wf_normed_flat.T)
-    
-
-    plt.show()
     
 
 
@@ -188,11 +164,10 @@ def open_PeelerWindow():
 
 
 if __name__ =='__main__':
-    initialize_catalogueconstructor()
-    preprocess_signals_and_peaks()
-    extract_waveforms_pca_cluster()
-    #~ open_cataloguewindow()
-    #~ detect_similar_ratio()
-    #~ run_peeler()
-    #~ open_PeelerWindow()
+    #~ initialize_catalogueconstructor()
+    #~ preprocess_signals_and_peaks()
+    #~ extract_waveforms_pca_cluster()
+    open_cataloguewindow()
+    run_peeler()
+    open_PeelerWindow()
     

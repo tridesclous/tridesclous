@@ -987,13 +987,11 @@ class CatalogueConstructor:
         self.find_clusters(method=method, selection=mask, **kargs)
     
     def trash_small_cluster(self, n=10):
-        for k in self.cluster_labels:
+        for k in list(self.cluster_labels):
             mask = self.all_peaks['cluster_label']==k
             if np.sum(mask)<=n:
                 self.all_peaks['cluster_label'][mask] = -1
                 self.remove_one_cluster(k)
-
-
 
     def compute_spike_waveforms_similarity(self, method='cosine_similarity', size_max = 1e7):
         """This compute the similarity spike by spike.
