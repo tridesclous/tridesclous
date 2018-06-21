@@ -30,6 +30,11 @@ def test_ArrayCollection_several_open():
     data7 = ac.get('data')
     print(type(data7), data7)
     
+    empty_arr = np.empty((0,0,0), dtype='float32')
+    ac.add_array('data', empty_arr, 'memmap')
+    empty_arr = ac.get('data')
+    print(empty_arr)
+    
     
     
     
