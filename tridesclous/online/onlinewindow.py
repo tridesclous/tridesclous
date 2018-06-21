@@ -25,7 +25,12 @@ from ..signalpreprocessor import estimate_medians_mads_after_preprocesing
 
 
 """
+TODO:
+  * don't send full catalogue with serializer but with path to catalogue
+  * label counter recording
+  * widget overview
 
+  
 """
 
 
@@ -78,14 +83,6 @@ class TdcOnlineWindow(MainWindowNode):
         self.docks['main'].setWidget(self.main_w)
         self.addDockWidget(QT.TopDockWidgetArea, self.docks['main'])
         
-        
-        
-        #~ self.setCentralWidget(self.main_w)
-        #~ mainlayout  = QT.QVBoxLayout()
-        #~ self.main_w.setLayout(mainlayout)
-        
-        
-
         self.create_actions_and_menu()
         
         self.dialog_fullchain_params = ParamDialog(fullchain_params, parent=self)
@@ -151,8 +148,6 @@ class TdcOnlineWindow(MainWindowNode):
                             ):
         
         self.channel_groups = channel_groups
-        #~ for chan_grp, channel_group in self.channel_groups.items():
-            #~ channel_group['channels'] = np.array(channel_group['channels'])
         
         self.chunksize = chunksize
         self.workdir = workdir
@@ -466,13 +461,6 @@ class TdcOnlineWindow(MainWindowNode):
         self.cataloguewindows = {}
         self.catalogueconstructors = {}
         
-        #~ if self.cataloguewindow is not None:
-            #~ self.cataloguewindow.close()
-            #~ self.cataloguewindow = None
-        #~ if self.catalogueconstructor is not None:
-            #~ self.catalogueconstructor = None
-        #~ self.dataio = None
-        
         self.rec = RawRecorder()
         self.rec.configure(streams=[self.input.params], autoconnect=True, dirname=self.raw_sigs_dir)
         self.rec.initialize()
@@ -560,33 +548,30 @@ class TdcOnlineWindow(MainWindowNode):
         self.cataloguewindows[chan_grp].show()
     
     def delete_catalogue(self):
-        return
-        #TODO
-        #~ # this delete catalogue and raw sigs
-        #~ if self.cataloguewindow is not None:
-            #~ self.cataloguewindow.close()
-            #~ self.cataloguewindow = None
-        #~ if self.catalogueconstructor is not None:
-            #~ self.catalogueconstructor = None
-        #~ self.dataio = None
+        # this delete catalogue and raw sigs
+        for chan_grp, w in self.cataloguewindows.items():
+            w.close()
+        self.cataloguewindows = {}
         
-        #~ if os.path.exists(self.dataio_dir):
-            #~ shutil.rmtree(self.dataio_dir)
-        #~ if os.path.exists(self.raw_sigs_dir):
-            #~ shutil.rmtree(self.raw_sigs_dir)
+        self.catalogueconstructors = {}
         
-        #~ # make empty catalogue
-        #~ params = self.get_catalogue_params()
-        #~ catalogue = make_empty_catalogue(
-                    #~ chan_grp=chan_grp,
-                    #~ channel_indexes=self.channel_indexes,
-                    #~ **params)
-        #~ self.change_one_catalogue(catalogue)
-
+        if os.path.exists(self.dataio_dir):
+            shutil.rmtree(self.dataio_dir)
+        if os.path.exists(self.raw_sigs_dir):
+            shutil.rmtree(self.raw_sigs_dir)
+        
+        self.dataio = DataIO(dirname=self.dataio_dir)
+        
+        # make empty catalogues
+        for chan_grp, channel_group in self.channel_groups.items():
+            channel_indexes = np.array(channel_group['channels'])
+            params = self.get_catalogue_params()
+            params['peak_detector_params']['relative_threshold'] = np.inf
+            catalogue = make_empty_catalogue(chan_grp=chan_grp,channel_indexes=channel_indexes,**params)
+            self.change_one_catalogue(catalogue)
 
 
 class Worker(QT.QObject):
-    #~ data_ready = QT.pyqtSignal(float, float, float, object, object, object, object, object)
     done = QT.pyqtSignal(int)
     compute_catalogue_error = QT.pyqtSignal(object)
     def __init__(self, catalogueconstructors, fullchain_kargs, 

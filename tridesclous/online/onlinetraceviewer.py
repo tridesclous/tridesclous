@@ -55,6 +55,8 @@ class OnlineTraceViewer(QOscilloscope):
         self.params['decimation_method'] = 'min_max'
         self.params['mode'] = 'scan'
         self.params['scale_mode'] = 'same_for_all'
+        self.params['display_labels'] = True
+        
         
         self.timer_scale = QT.QTimer(singleShot=True, interval=500)
         self.timer_scale.timeout.connect(self.auto_scale)
@@ -117,6 +119,10 @@ class OnlineTraceViewer(QOscilloscope):
         
     
     def _refresh(self, **kargs):
+        if self.visibleRegion().isEmpty():
+            # when several tabs not need to refresh
+            return
+        
         with self.mutex:
             QOscilloscope._refresh(self, **kargs)
             

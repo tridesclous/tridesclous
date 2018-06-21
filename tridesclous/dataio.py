@@ -59,6 +59,8 @@ class DataIO:
                 self._reload_channel_group()
                 self._reload_data_source()
                 self._open_processed_data()
+            else:
+                self.datasource = None
                 
             #~ except:
                 #~ self.info = {}
