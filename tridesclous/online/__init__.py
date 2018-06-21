@@ -7,4 +7,4 @@ assert distutils.version.LooseVersion(pyacq.__version__)>='0.2.0-dev'
 from .onlinepeeler import OnlinePeeler
 from .onlinetools import make_pyacq_device_from_buffer, make_empty_catalogue, lighter_catalogue
 from .onlinetraceviewer import OnlineTraceViewer
-from .onlinewindow import OnlineWindow
+from .onlinewindow import TdcOnlineWindow
