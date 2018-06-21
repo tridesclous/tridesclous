@@ -134,6 +134,7 @@ class OnlineTraceViewer(QOscilloscope):
             spikes = self.spikes_array[keep]
             
             spikes_ind = spikes['index'] - (head - self.full_size)
+            spikes_ind = spikes_ind[spikes_ind<full_arr.shape[0]] # to avoid bug if last peak is great than head
             real_spikes_amplitude = full_arr[spikes_ind, :]
             spikes_amplitude = real_spikes_amplitude.copy()
             spikes_amplitude[:, visibles] *= gains[visibles]
