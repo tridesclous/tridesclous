@@ -87,6 +87,7 @@ class TdcOnlineWindow(MainWindowNode):
         
         self.dialog_fullchain_params = ParamDialog(fullchain_params, parent=self)
         self.dialog_fullchain_params.params['duration'] = 10. # for debug
+        self.dialog_fullchain_params.params['peak_detector', 'relative_threshold'] = 8
         self.dialog_fullchain_params.resize(450, 600)
         
         
