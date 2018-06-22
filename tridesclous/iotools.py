@@ -163,7 +163,8 @@ class ArrayCollection:
         if memory_mode=='ram':
             pass
         elif memory_mode=='memmap':
-            self._array[name].flush()
+            if self._array[name].size>0:
+                self._array[name].flush()
     
     
     def load_if_exists(self, name):

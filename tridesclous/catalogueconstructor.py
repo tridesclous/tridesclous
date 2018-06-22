@@ -802,8 +802,8 @@ class CatalogueConstructor:
                         
                     #~ print('j', j)
         
-        if clusters.size>0:
-            self.arrays.add_array('clusters', clusters, self.memory_mode)
+        #~ if clusters.size>0:
+        self.arrays.add_array('clusters', clusters, self.memory_mode)
     
     def add_one_cluster(self, label):
         assert label not in self.clusters['cluster_label']

@@ -29,6 +29,7 @@ TODO:
   * don't send full catalogue with serializer but with path to catalogue
   * widget overview
   * change catalogue start/stop peeler to ensure
+  * debug when no peak at all during period
 
   
 """
@@ -700,5 +701,4 @@ class Worker(QT.QObject):
                 
             except Exception as e:
                 self.compute_catalogue_error.emit(e)
-                return
             

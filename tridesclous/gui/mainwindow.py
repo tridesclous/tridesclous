@@ -464,6 +464,7 @@ class MainWindow(QT.QMainWindow):
 
 
 # TODO put this somewhere else
+#TODO debug this when no peak at all
 def apply_all_catalogue_steps(catalogueconstructor, fullchain_kargs, 
                 feat_method, feat_kargs,clust_method, clust_kargs, verbose=True):
     """
