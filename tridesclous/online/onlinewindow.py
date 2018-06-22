@@ -27,8 +27,8 @@ from ..signalpreprocessor import estimate_medians_mads_after_preprocesing
 """
 TODO:
   * don't send full catalogue with serializer but with path to catalogue
-  * label counter recording
   * widget overview
+  * change catalogue start/stop peeler to ensure
 
   
 """
@@ -78,10 +78,10 @@ class TdcOnlineWindow(MainWindowNode):
         
         
         self.docks = {}
-        self.docks['main'] = QT.QDockWidget('overview')
-        self.main_w = QT.QWidget()
-        self.docks['main'].setWidget(self.main_w)
-        self.addDockWidget(QT.TopDockWidgetArea, self.docks['main'])
+        self.docks['overview'] = QT.QDockWidget('overview')
+        self.overview = WidgetOverview(self)
+        self.docks['overview'].setWidget(self.overview)
+        self.addDockWidget(QT.TopDockWidgetArea, self.docks['overview'])
         
         self.create_actions_and_menu()
         
@@ -111,27 +111,23 @@ class TdcOnlineWindow(MainWindowNode):
 
         do_autoscale = QT.QAction('Auto scale', self, shortcut = "a" ) #, icon=QT.QIcon(":document-open.svg"))
         do_autoscale.triggered.connect(self.auto_scale_trace)
-        #~ self.main_menu.addAction(do_autoscale)
         self.toolbar.addAction(do_autoscale)
+        
+        # NOT USEFULL
+        #~ self.do_compute_median_mad = QT.QAction('Detec peak only', self) #, icon=QT.QIcon(":document-open.svg"))
+        #~ self.do_compute_median_mad.triggered.connect(self.compute_median_mad)
+        #~ self.toolbar.addAction(self.do_compute_median_mad)
 
-        self.do_compute_median_mad = QT.QAction('Detec peak only', self) #, icon=QT.QIcon(":document-open.svg"))
-        self.do_compute_median_mad.triggered.connect(self.compute_median_mad)
-        #~ self.main_menu.addAction(do_autoscale)
-        self.toolbar.addAction(self.do_compute_median_mad)
-
-        self.do_start_rec = QT.QAction('Start new catalogue', self) #, icon=QT.QIcon(":document-open.svg"))
+        self.do_start_rec = QT.QAction('Rec for catalogue', self) #, icon=QT.QIcon(":document-open.svg"))
         self.do_start_rec.triggered.connect(self.start_new_recording)
-        #~ self.main_menu.addAction(do_autoscale)
         self.toolbar.addAction(self.do_start_rec)
 
         do_open_cataloguewin = QT.QAction('Edit catalogue', self) #, icon=QT.QIcon(":document-open.svg"))
         do_open_cataloguewin.triggered.connect(self.open_cataloguewindow)
-        #~ self.main_menu.addAction(do_autoscale)
         self.toolbar.addAction(do_open_cataloguewin)
 
         do_delete_catalogue = QT.QAction('Delete catalogue', self) #, icon=QT.QIcon(":document-open.svg"))
         do_delete_catalogue.triggered.connect(self.delete_catalogue)
-        #~ self.main_menu.addAction(do_autoscale)
         self.toolbar.addAction(do_delete_catalogue)
 
 
@@ -215,9 +211,11 @@ class TdcOnlineWindow(MainWindowNode):
             name = 'chan_grp{}'.format(chan_grp) # TODO better name when few channels
             self.docks[chan_grp] = QT.QDockWidget(name,self)
             self.docks[chan_grp].setWidget(traceviewer)
-            self.tabifyDockWidget(self.docks['main'], self.docks[chan_grp])
+            self.tabifyDockWidget(self.docks['overview'], self.docks[chan_grp])
         
         self.cataloguewindows = {}
+        
+        
 
         
         
@@ -304,12 +302,16 @@ class TdcOnlineWindow(MainWindowNode):
         # timer for catalogue
         self.timer_recording = QT.QTimer(singleShot=True)
         self.timer_recording.timeout.connect(self.on_recording_done)
+        self.timer_recording_refresh = QT.QTimer(singleShot=False, interval=1000)
+        self.timer_recording_refresh.timeout.connect(self.resfresh_rec_label)
         
         
         # stuf for recording a chunk for catalogue constructor
         self.rec = None
         self.worker_thread = QT.QThread(parent=self)
         self.worker = None
+        
+        self.overview.refresh()
     
     def _start(self):
         for chan_grp in self.channel_groups:
@@ -359,7 +361,6 @@ class TdcOnlineWindow(MainWindowNode):
         return params    
     
     def auto_scale_trace(self):
-        # add factor in pyacq.oscilloscope autoscale (def compute_rescale)
         for chan_grp in self.channel_groups:
             self.traceviewers[chan_grp].auto_scale(spacing_factor=25.)
     
@@ -378,37 +379,25 @@ class TdcOnlineWindow(MainWindowNode):
         but = self.toolbar.widgetForAction(self.do_compute_median_mad)
         but.setStyleSheet("QToolButton:!hover { background-color: red }")
 
-        
-        #~ self.tail = self.thread_poll_input.pos()
-        #~ print('self.tail', self.tail)
-    
+
     def on_done_median_estimation_duration(self):
         
         but = self.toolbar.widgetForAction(self.do_compute_median_mad)
         but.setStyleSheet("")
         
-        print('on_done_median_estimation_duration')
         head = self.thread_poll_input.pos()
-        #~ print('self.tail', self.tail)
-        #~ print('head', head)
         length = int((self.median_estimation_duration)*self.sample_rate)
         sigs = self.input.get_data(head-length, head, copy=False, join=True)
-        #~ print(sigs.shape)
         
         for chan_grp, channel_group in self.channel_groups.items():
-        
             self.signals_medians[chan_grp], self.signals_mads[chan_grp] = estimate_medians_mads_after_preprocesing(
                             sigs[:, channel_group['channels']], self.sample_rate,
                             preprocessor_params=self.get_catalogue_params()['preprocessor_params'])
-            print(chan_grp, self.signals_medians[chan_grp], self.signals_mads[chan_grp])
-        
             channel_indexes = np.array(channel_group['channels'])
             params = self.get_catalogue_params()
             params['signals_medians'] = self.signals_medians[chan_grp]
             params['signals_mads'] = self.signals_mads[chan_grp]
             catalogue = make_empty_catalogue(chan_grp=chan_grp,channel_indexes=channel_indexes,**params)
-            #~ self.catalogues[chan_grp] = catalogue
-            
             self.change_one_catalogue(catalogue)
     
     def change_one_catalogue(self, catalogue):
@@ -424,13 +413,17 @@ class TdcOnlineWindow(MainWindowNode):
         xsize = self.traceviewers[chan_grp].params['xsize']
         self.timer_scale.setInterval(int(xsize*1000.))
         self.timer_scale.start()
+        
+        self.overview.refresh()
 
     def on_new_catalogue(self, chan_grp=None):
-        print('on_new_catalogue', chan_grp)
+        #~ print('on_new_catalogue', chan_grp)
         if chan_grp is None:
             return
         catalogue = self.dataio.load_catalogue(chan_grp=chan_grp)
         self.change_one_catalogue(catalogue)
+
+        self.overview.refresh()
 
     def start_new_recording(self):
         if self.timer_recording.isActive():
@@ -470,15 +463,29 @@ class TdcOnlineWindow(MainWindowNode):
         self.timer_recording.start()
         but = self.toolbar.widgetForAction(self.do_start_rec)
         but.setStyleSheet("QToolButton:!hover { background-color: red }")
-
-
+        
+        
+        self.time_start_rec = time.perf_counter()
+        self.timer_recording_refresh.start()
+        
+        self.overview.refresh()
+        
+        
+    def resfresh_rec_label(self):
+        dur = self.dialog_fullchain_params.get()['duration']
+        now = time.perf_counter()
+        remain = int(dur - (now - self.time_start_rec))
+        self.do_start_rec.setText('Rec for catalogue {}s'.format(remain))
+        
         
     def on_recording_done(self):
-        print('on_recording_done')
+        #~ print('on_recording_done')
         self.rec.stop()
         self.rec.close()
         self.rec = None
         
+        self.timer_recording_refresh.stop()
+        self.do_start_rec.setText('Rec for catalogue')
         but = self.toolbar.widgetForAction(self.do_start_rec)
         but.setStyleSheet("")
         
@@ -488,18 +495,12 @@ class TdcOnlineWindow(MainWindowNode):
         self.dataio.set_data_source(type='RawData', filenames=filenames, sample_rate=self.sample_rate, 
                     dtype=self.input.params['dtype'], total_channel=self.total_channel)
         self.dataio.set_channel_groups(self.channel_groups)
-        print(self.dataio)
 
         # create new self.catalogueconstructors
         for chan_grp in self.channel_groups:
             cc = CatalogueConstructor(dataio=self.dataio, chan_grp=chan_grp)
             self.catalogueconstructors[chan_grp] = cc
-            #~ if cc.signals_medians is not None:
-                #~ self.signals_medians[chan_grp] = cc.signals_medians
-                #~ self.signals_mads[chan_grp] = cc.signals_mads
-            print(cc)
 
-        #~ params = self.get_catalogue_params()
         fullchain_kargs = self.dialog_fullchain_params.get()
         fullchain_kargs['preprocessor']['chunksize'] = self.chunksize
         
@@ -509,7 +510,7 @@ class TdcOnlineWindow(MainWindowNode):
         clust_method = self.dialog_method_cluster.param_method['method']
         clust_kargs = get_dict_from_group_param(self.dialog_method_cluster.all_params[clust_method], cascade=True)
 
-        print('feat_method', feat_method, 'clust_method', clust_method)
+        #~ print('feat_method', feat_method, 'clust_method', clust_method)
         self.worker = Worker(self.catalogueconstructors, fullchain_kargs,
                 feat_method, feat_kargs,
                 clust_method, clust_kargs)
@@ -519,6 +520,8 @@ class TdcOnlineWindow(MainWindowNode):
         self.worker.done.connect(self.on_new_catalogue)
         self.worker.compute_catalogue_error.connect(self.on_compute_catalogue_error)
         self.request_compute.emit()
+        
+        self.overview.refresh()
     
     def on_compute_catalogue_error(self, e):
         self.errorToMessageBox(e)
@@ -528,12 +531,14 @@ class TdcOnlineWindow(MainWindowNode):
             if not traceviewer.visibleRegion().isEmpty():
                 return chan_grp
     
-    def open_cataloguewindow(self):
-        chan_grp = self.get_visible_tab()
+    def open_cataloguewindow(self, chan_grp=None):
         print('open_cataloguewindow', chan_grp)
-
         if chan_grp is None:
-            return
+            chan_grp = self.get_visible_tab()
+            
+            if chan_grp is None:
+                return
+        
         
         if chan_grp not in self.catalogueconstructors:
             return
@@ -570,6 +575,92 @@ class TdcOnlineWindow(MainWindowNode):
             params['peak_detector_params']['relative_threshold'] = np.inf
             catalogue = make_empty_catalogue(chan_grp=chan_grp,channel_indexes=channel_indexes,**params)
             self.change_one_catalogue(catalogue)
+        
+        self.overview.refresh()
+
+
+
+class WidgetOverview(QT.QWidget):
+    def __init__(self, mainwindow, parent=None):
+        QT.QWidget.__init__(self, parent)
+        self.mainwindow = mainwindow
+
+        self.layout = QT.QVBoxLayout()
+        self.setLayout(self.layout)
+        
+        self.main_label = QT.QLabel('')
+        self.layout.addWidget(self.main_label)
+        
+        self.grid = QT.QGridLayout()
+        self.layout.addLayout(self.grid)
+        # the len of channel_groups is not knwon at __init__
+        # but when tdcOnlienWIndow get configured and intialized
+        # so it is postponed at first refresh
+        self.grid_done = False
+        
+        self.layout.addStretch()
+    
+    @property
+    def dataio(self):
+        return self.mainwindow.dataio
+    
+    @property
+    def channel_groups(self):
+        return self.mainwindow.channel_groups
+
+    @property
+    def catalogues(self):
+        return self.mainwindow.catalogues
+    
+    def make_grid(self):
+        
+        #~ n = len(self.channel_groups)
+        self.chan_grp_labels = {}
+        for r, chan_grp in enumerate(self.channel_groups):
+            self.grid.addWidget(QT.QLabel('<b>chan_grp {}</b>'.format(chan_grp)), r, 0)
+            self.chan_grp_labels[chan_grp] = label = QT.QLabel('')
+            self.grid.addWidget(label, r, 1)
+            but = QT.QPushButton('Edit')
+            but.chan_grp = chan_grp
+            but.clicked.connect(self.edit_catalogue)
+            but.setMaximumWidth(30)
+            self.grid.addWidget(but, r, 2)
+            
+            
+        self.grid_done = True
+    
+    def refresh(self):
+        if not self.grid_done:
+            self.make_grid()
+        
+        txt = ''
+        
+        if self.dataio is None or self.dataio.datasource is None:
+            txt += 'No signal recorded yet\n'
+        else:
+            #~ dur = self.dataio.get_segment_length(0)/self.dataio.sample_rate
+            #~ txt += 'Signal duration for catalogue: {}s\n'.format(dur)
+            txt += self.dataio.__repr__()
+        self.main_label.setText(txt)
+        
+        for chan_grp in self.channel_groups:
+            label = self.chan_grp_labels[chan_grp]
+            txt = ''
+            
+            ch_names = self.mainwindow.channel_names[chan_grp]
+            txt += ' '.join(ch_names) + '\n'
+            
+            cat = self.catalogues[chan_grp]
+            if 'empty_catalogue' in cat:
+                txt += 'No catalogue yet'
+            else:
+                txt += 'Nb cluster: {}\n'.format(cat['centers0'].shape[0])
+            
+            label.setText(txt)
+    
+    def edit_catalogue(self):
+        chan_grp = self.sender().chan_grp
+        self.mainwindow.open_cataloguewindow(chan_grp=chan_grp)
 
 
 class Worker(QT.QObject):

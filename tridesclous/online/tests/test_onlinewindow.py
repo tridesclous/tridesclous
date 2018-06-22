@@ -29,8 +29,8 @@ def test_TdcOnlineWindow():
     
     # Device node
     man = pyacq.create_manager(auto_close_at_exit=True)
-    ng0 = man.create_nodegroup()
-    #~ ng0 = None
+    #~ ng0 = man.create_nodegroup()
+    ng0 = None
     dev = make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup=ng0, chunksize=chunksize)
 
 
@@ -51,8 +51,8 @@ def test_TdcOnlineWindow():
     
         
     # nodegroup_firend
-    nodegroup_friends = [man.create_nodegroup() for chan_grp in channel_groups]
-    #~ nodegroup_friends = None
+    #~ nodegroup_friends = [man.create_nodegroup() for chan_grp in channel_groups]
+    nodegroup_friends = None
 
     w = TdcOnlineWindow()
     w.configure(channel_groups=channel_groups, chunksize=chunksize,

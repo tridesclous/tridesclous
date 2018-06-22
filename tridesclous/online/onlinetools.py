@@ -108,6 +108,7 @@ def make_empty_catalogue(chan_grp=0,
     catalogue['signals_medians'] = signals_medians
     catalogue['signals_mads'] = signals_mads
     
+    catalogue['empty_catalogue'] = True # a key to detect real/fake catalogue
     
     
     return catalogue
