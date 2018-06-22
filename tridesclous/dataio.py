@@ -386,7 +386,7 @@ class DataIO:
         arrays = ArrayCollection(parent=None, dirname=dir)
         arrays.load_all()
         for k in arrays.keys():
-            catalogue[k] = arrays.get(k)
+            catalogue[k] = np.array(arrays.get(k), copy=True)
         
         
         return catalogue

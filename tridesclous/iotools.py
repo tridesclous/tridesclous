@@ -95,8 +95,8 @@ class ArrayCollection:
     def add_array(self, name, data, memory_mode):
         self.create_array(name, data.dtype, data.shape, memory_mode)
         self._array[name][:] = data
+        self.flush_array(name)
 
-    
     def delete_array(self, name):
         if name not in self._array:
             return
