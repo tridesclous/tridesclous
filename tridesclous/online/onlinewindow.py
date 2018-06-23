@@ -127,8 +127,8 @@ class TdcOnlineWindow(MainWindowNode):
         do_open_cataloguewin.triggered.connect(self.open_cataloguewindow)
         self.toolbar.addAction(do_open_cataloguewin)
 
-        do_delete_catalogue = QT.QAction('Delete catalogue', self) #, icon=QT.QIcon(":document-open.svg"))
-        do_delete_catalogue.triggered.connect(self.delete_catalogue)
+        do_delete_catalogue = QT.QAction('Delete catalogues', self) #, icon=QT.QIcon(":document-open.svg"))
+        do_delete_catalogue.triggered.connect(self.delete_catalogues)
         self.toolbar.addAction(do_delete_catalogue)
 
 
@@ -554,7 +554,7 @@ class TdcOnlineWindow(MainWindowNode):
         
         self.cataloguewindows[chan_grp].show()
     
-    def delete_catalogue(self):
+    def delete_catalogues(self):
         # this delete catalogue and raw sigs
         for chan_grp, w in self.cataloguewindows.items():
             w.close()
@@ -701,4 +701,8 @@ class Worker(QT.QObject):
                 
             except Exception as e:
                 self.compute_catalogue_error.emit(e)
+        
+        # release cataloguecontrustors otherwise they cannot be deleted
+        self.catalogueconstructors = {}
+        
             
