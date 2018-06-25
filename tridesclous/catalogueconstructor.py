@@ -478,7 +478,7 @@ class CatalogueConstructor:
         peak_width = n_right - n_left
         
         if index is not None:
-            some_peaks_index = index
+            some_peaks_index = index.copy()
         else:
             if mode=='rand' and self.nb_peak>nb_max:
                 some_peaks_index = np.random.choice(self.nb_peak, size=nb_max).astype('int64')
@@ -644,7 +644,8 @@ class CatalogueConstructor:
                 
                 if extract:
                     self.projector = None
-                    self.extract_some_waveforms(n_left=n_left, n_right=n_right, index=self.some_peaks_index, 
+                    self.extract_some_waveforms(n_left=n_left, n_right=n_right,
+                                            index=self.some_peaks_index.copy(), # copy is to avoid reference loop
                                             align_waveform=self.info['params_waveformextractor']['align_waveform'])
                 
                 return n_left, n_right
@@ -827,7 +828,7 @@ class CatalogueConstructor:
         self.arrays.add_array('clusters', clusters, self.memory_mode)
         
         for name in _centroids_arrays:
-            arr = getattr(self, name)
+            arr = getattr(self, name).copy()
             new_arr = np.zeros((arr.shape[0]+1, arr.shape[1], arr.shape[2]), dtype=arr.dtype)
             if label>=0:
                 new_arr[:-1, :, :] = arr
@@ -858,8 +859,7 @@ class CatalogueConstructor:
         self.arrays.add_array('clusters', clusters, self.memory_mode)
         
         for name in _centroids_arrays:
-            arr = getattr(self, name)
-            new_arr = arr[keep, :, :].copy()
+            new_arr = getattr(self, name)[keep, :, :].copy()
             self.arrays.add_array(name, new_arr, self.memory_mode)
     
     def compute_one_centroid(self, k, flush=True):
@@ -987,11 +987,15 @@ class CatalogueConstructor:
         self.find_clusters(method=method, selection=mask, **kargs)
     
     def trash_small_cluster(self, n=10):
+        to_remove = []
         for k in list(self.cluster_labels):
             mask = self.all_peaks['cluster_label']==k
             if np.sum(mask)<=n:
                 self.all_peaks['cluster_label'][mask] = -1
-                self.remove_one_cluster(k)
+                to_remove.append(k)
+        
+        for k in to_remove:
+            self.remove_one_cluster(k)
 
     def compute_spike_waveforms_similarity(self, method='cosine_similarity', size_max = 1e7):
         """This compute the similarity spike by spike.

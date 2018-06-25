@@ -1,4 +1,4 @@
-import os
+import os, sys
 import time
 import shutil
 
@@ -163,6 +163,7 @@ class TdcOnlineWindow(MainWindowNode):
         self.raw_sigs_dir = os.path.join(self.workdir, 'raw_sigs')
         self.dataio_dir = os.path.join(self.workdir, 'tdc_online')
         
+        # TODO is this fail maybe delete or rename old workdir
         self.dataio = DataIO(dirname=self.dataio_dir)
         print(self.dataio)
         print(self.dataio.datasource)
@@ -186,8 +187,8 @@ class TdcOnlineWindow(MainWindowNode):
                 cc = CatalogueConstructor(dataio=self.dataio, chan_grp=chan_grp)
                 self.catalogueconstructors[chan_grp] = cc
                 if cc.signals_medians is not None:
-                    self.signals_medians[chan_grp] = cc.signals_medians
-                    self.signals_mads[chan_grp] = cc.signals_mads
+                    self.signals_medians[chan_grp] = np.array(cc.signals_medians, copy=True)
+                    self.signals_mads[chan_grp] = np.array(cc.signals_mads, copy=True)
                 #~ print(cc)
         
         
@@ -298,8 +299,8 @@ class TdcOnlineWindow(MainWindowNode):
         self.timer_scale = QT.QTimer(singleShot=True, interval=500)
         self.timer_scale.timeout.connect(self.auto_scale_trace)
         # timer for median/mad
-        self.timer_med = QT.QTimer(singleShot=True, interval=int(self.median_estimation_duration*1000)+1000)
-        self.timer_med.timeout.connect(self.on_done_median_estimation_duration)
+        #~ self.timer_med = QT.QTimer(singleShot=True, interval=int(self.median_estimation_duration*1000)+1000)
+        #~ self.timer_med.timeout.connect(self.on_done_median_estimation_duration)
         # timer for catalogue
         self.timer_recording = QT.QTimer(singleShot=True)
         self.timer_recording.timeout.connect(self.on_recording_done)
@@ -354,52 +355,48 @@ class TdcOnlineWindow(MainWindowNode):
             signals_mads=None,
             
         )
-        #~ if params['signals_medians'] is not None:
-            #~ params['signals_medians']  = params['signals_medians'] .copy()
-            #~ params['signals_mads']  = params['signals_mads'] .copy()
         
-        #~ print(params)
         return params    
     
     def auto_scale_trace(self):
         for chan_grp in self.channel_groups:
             self.traceviewers[chan_grp].auto_scale(spacing_factor=25.)
     
-    def compute_median_mad(self):
-        """
-        Wait for a while until input buffer is long anought to estimate the medians/mads
-        """
-        if self.timer_med.isActive():
-            return
+    #~ def compute_median_mad(self):
+        #~ """
+        #~ Wait for a while until input buffer is long anought to estimate the medians/mads
+        #~ """
+        #~ if self.timer_med.isActive():
+            #~ return
         
-        if not self.dialog_fullchain_params.exec_():
-            return
+        #~ if not self.dialog_fullchain_params.exec_():
+            #~ return
 
-        self.timer_med.start()
+        #~ self.timer_med.start()
         
-        but = self.toolbar.widgetForAction(self.do_compute_median_mad)
-        but.setStyleSheet("QToolButton:!hover { background-color: red }")
+        #~ but = self.toolbar.widgetForAction(self.do_compute_median_mad)
+        #~ but.setStyleSheet("QToolButton:!hover { background-color: red }")
 
 
-    def on_done_median_estimation_duration(self):
+    #~ def on_done_median_estimation_duration(self):
         
-        but = self.toolbar.widgetForAction(self.do_compute_median_mad)
-        but.setStyleSheet("")
+        #~ but = self.toolbar.widgetForAction(self.do_compute_median_mad)
+        #~ but.setStyleSheet("")
         
-        head = self.thread_poll_input.pos()
-        length = int((self.median_estimation_duration)*self.sample_rate)
-        sigs = self.input.get_data(head-length, head, copy=False, join=True)
+        #~ head = self.thread_poll_input.pos()
+        #~ length = int((self.median_estimation_duration)*self.sample_rate)
+        #~ sigs = self.input.get_data(head-length, head, copy=False, join=True)
         
-        for chan_grp, channel_group in self.channel_groups.items():
-            self.signals_medians[chan_grp], self.signals_mads[chan_grp] = estimate_medians_mads_after_preprocesing(
-                            sigs[:, channel_group['channels']], self.sample_rate,
-                            preprocessor_params=self.get_catalogue_params()['preprocessor_params'])
-            channel_indexes = np.array(channel_group['channels'])
-            params = self.get_catalogue_params()
-            params['signals_medians'] = self.signals_medians[chan_grp]
-            params['signals_mads'] = self.signals_mads[chan_grp]
-            catalogue = make_empty_catalogue(chan_grp=chan_grp,channel_indexes=channel_indexes,**params)
-            self.change_one_catalogue(catalogue)
+        #~ for chan_grp, channel_group in self.channel_groups.items():
+            #~ self.signals_medians[chan_grp], self.signals_mads[chan_grp] = estimate_medians_mads_after_preprocesing(
+                            #~ sigs[:, channel_group['channels']], self.sample_rate,
+                            #~ preprocessor_params=self.get_catalogue_params()['preprocessor_params'])
+            #~ channel_indexes = np.array(channel_group['channels'])
+            #~ params = self.get_catalogue_params()
+            #~ params['signals_medians'] = self.signals_medians[chan_grp]
+            #~ params['signals_mads'] = self.signals_mads[chan_grp]
+            #~ catalogue = make_empty_catalogue(chan_grp=chan_grp,channel_indexes=channel_indexes,**params)
+            #~ self.change_one_catalogue(catalogue)
     
     def change_one_catalogue(self, catalogue):
         chan_grp = catalogue['chan_grp']
@@ -421,6 +418,7 @@ class TdcOnlineWindow(MainWindowNode):
         #~ print('on_new_catalogue', chan_grp)
         if chan_grp is None:
             return
+        
         catalogue = self.dataio.load_catalogue(chan_grp=chan_grp)
         self.change_one_catalogue(catalogue)
 
@@ -555,12 +553,29 @@ class TdcOnlineWindow(MainWindowNode):
         self.cataloguewindows[chan_grp].show()
     
     def delete_catalogues(self):
+        print('delete_catalogues')
         # this delete catalogue and raw sigs
         for chan_grp, w in self.cataloguewindows.items():
             w.close()
         self.cataloguewindows = {}
         
+        if sys.platform.startswith('win'):
+            # this is an unsane hack to detach all np.memmap
+            # arrays attached to dataio and all catalogueconstructor
+            # because under window the GC do no doit properly
+            # otherwise rmtree will fail
+            from ..catalogueconstructor import _persitent_arrays
+            for chan_grp, cc in  self.catalogueconstructors.items():
+                for name in _persitent_arrays:
+                    cc.arrays.detach_array(name, mmap_close=True)
+                for name in ['processed_signals', 'spikes']:
+                    self.dataio.arrays[chan_grp][0].detach_array(name, mmap_close=True)
+            for a in self.dataio.datasource.array_sources :
+                a._mmap.close()
+        
+
         self.catalogueconstructors = {}
+        self.dataio = None
         
         if os.path.exists(self.dataio_dir):
             shutil.rmtree(self.dataio_dir)

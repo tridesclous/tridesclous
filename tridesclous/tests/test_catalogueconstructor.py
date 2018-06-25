@@ -254,7 +254,7 @@ if __name__ == '__main__':
     
     #~ compare_nb_waveforms()
     
-    test_make_catalogue()
+    #~ test_make_catalogue()
     #~ test_ratio_amplitude()
     
     #~ test_create_savepoint_catalogue_constructor()
