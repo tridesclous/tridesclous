@@ -2,7 +2,7 @@
 *.raw
 *.zip
 *.prb
-*test_*
+
 tridesclous/tests/locust/*
 tridesclous/tests/olfactory_bulb/*
 tridesclous/online/tests/locust/*
