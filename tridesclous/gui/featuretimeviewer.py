@@ -83,6 +83,8 @@ class FeatureTimeViewer(WidgetBase):
     def refresh(self):
         
         self.plot.clear()
+        if self.controller.some_peaks_index is None:
+            return
         
         cluster_visible = self.controller.cluster_visible
         visibles = [c for c, v in cluster_visible.items() if v ]

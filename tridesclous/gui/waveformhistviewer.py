@@ -214,6 +214,9 @@ class WaveformHistViewer(WidgetBase):
                 self.plot.clear()
                 return
             data_kept = wf[keep].copy()
+            if data_kept.size == 0:
+                self.plot.clear()
+                return
             data_kept = data_kept.swapaxes(1,2).reshape(data_kept.shape[0], -1)
         
         elif self.params['data']=='features':
