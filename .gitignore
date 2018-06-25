@@ -1,4 +1,8 @@
 #
+*.raw
+*.zip
+*.prb
+*test_*
 tridesclous/tests/locust/*
 tridesclous/tests/olfactory_bulb/*
 tridesclous/online/tests/locust/*
@@ -7,6 +11,7 @@ tridesclous/tests/test_DataIO/*
 tridesclous/tests/test_catalogueconstructor/*
 tridesclous/tests/test_peeler/*
 tridesclous/online/tests/test_onlinepeeler/*
+tridesclous/online/tests/test_tdconlinewindow/*
 example/test_onlinepeeler/*
 example/tridesclous_kampff_2014_11_25_Pair_3_0/*
 example/tridesclous_locust/*
