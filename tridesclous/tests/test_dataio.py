@@ -119,8 +119,8 @@ def test_dataio_catalogue():
     
 if __name__=='__main__':
     
-    #~ test_DataIO()
+    test_DataIO()
     test_DataIO_probes()
-    #~ test_dataio_catalogue()
+    test_dataio_catalogue()
     
     

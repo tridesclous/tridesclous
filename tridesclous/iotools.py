@@ -1,10 +1,11 @@
 import os
 import json
-import numpy as np
 import io
 import sys
 import shutil
 import gc
+
+import numpy as np
 
 class ArrayCollection:
     """
@@ -54,38 +55,66 @@ class ArrayCollection:
         
     
     def _fix_existing(self, name):
-        # deal with a bug on windows when creating a memmap in w+
-        # when the file already existing in r+ mode
-        #~ print(sys.platform)
-
-        if not sys.platform.startswith('win'):
-            return 'w+'
-        if name in self._array:
-            #~ print('create_array oups exists!!!', name)
-            #~ print(type(self._array[name]))
-            #~ print('new array', dtype, shape)
-            if isinstance(self._array[name], np.memmap):
+        """
+        Test if name is already in _array.
+        If state='a', then finalize and detach.
+        else detach.
+        
+        Then _check_nb_ref
+        
+        """
+        
+        if name in self._array and (self._array_attr[name]['memory_mode'] == 'memmap'):
+            if (self._array_attr[name]['state'] == 'a'):
+                # case appendable and memmap
+                self._array[name].close()
+                self._array.pop(name)
+                self._array_attr.pop(name)
+            else:
+                # case memmap standard
                 a = self._array.pop(name)
-                a._mmap.close()
-                if self.parent is not None:
-                    delattr(self.parent, name)
+                if a.size>0:
+                    # hack when size is 0
+                    a._mmap.close()
+                    if self.parent is not None:
+                        delattr(self.parent, name)
                 del(a)
-            elif isinstance(self._array[name], io.IOBase):
-                a = self._array.pop(name)
-                a.close()
-            
-            try:
-                if os.path.exists(self._fname(name)):
-                    os.remove(self._fname(name))
-                mode='w+'
-            except:
-                print('WARNING open r+')
-                mode='r+'
-
+                self._array_attr.pop(name)
+                
+        
+        if os.path.exists(self._fname(name)):
+            mode = 'r+'
         else:
-            mode='w+'
-        #~ print('mode', mode)
+            mode = 'w+'
+        
         return mode
+        
+        #~ # deal with a bug on windows when creating a memmap in w+
+        #~ # when the file already existing in r+ mode
+        #~ if not sys.platform.startswith('win'):
+            #~ return 'w+'
+        #~ if name in self._array:
+            #~ if isinstance(self._array[name], np.memmap):
+                #~ a = self._array.pop(name)
+                #~ a._mmap.close()
+                #~ if self.parent is not None:
+                    #~ delattr(self.parent, name)
+                #~ del(a)
+            #~ elif isinstance(self._array[name], io.IOBase):
+                #~ a = self._array.pop(name)
+                #~ a.close()
+            
+            #~ try:
+                #~ if os.path.exists(self._fname(name)):
+                    #~ os.remove(self._fname(name))
+                #~ mode='w+'
+            #~ except:
+                #~ print('WARNING open r+')
+                #~ mode='r+'
+
+        #~ else:
+            #~ mode='w+'
+        #~ return mode
     
     def create_array(self, name, dtype, shape, memory_mode):
         
@@ -95,10 +124,9 @@ class ArrayCollection:
             
             if name in self._array:
                 self._check_nb_ref(name)
-        
+            
             mode = self._fix_existing(name)
-            #~ arr = np.memmap(self._fname(name), dtype=dtype, mode='w+', shape=shape)
-            # detect when 0 size because np.memmap  bug with this
+            # detect when 0 size because np.memmap  bug with size=0
             if np.prod(shape)>0:
                 arr = np.memmap(self._fname(name), dtype=dtype, mode=mode, shape=shape)
             else:
@@ -106,7 +134,7 @@ class ArrayCollection:
                     f.write('')
                 arr = np.empty(shape, dtype=dtype)
                 #~ print('empty array memmap !!!!', name, shape)
-                
+        
         self._array[name] = arr
         self._array_attr[name] = {'state':'w', 'memory_mode':memory_mode}
         
