@@ -4,9 +4,10 @@ import numpy as np
 
 from tridesclous import download_dataset
 #~ from tridesclous import DataIO
-from tridesclous.datasource import InMemoryDataSource, NEO_VERSION
+from tridesclous.datasource import InMemoryDataSource, data_source_classes
 
-
+print(data_source_classes)
+exit()
 
 
 def test_InMemoryDataSource():
@@ -22,8 +23,6 @@ def test_InMemoryDataSource():
     
 
 def test_RawDataSource():
-    if NEO_VERSION>='0.6':
-        return
     from tridesclous.datasource import RawDataSource
     
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
@@ -59,7 +58,7 @@ def test_NeoRawIOAggregator():
 
 
 if __name__=='__main__':
-    #~ test_InMemoryDataSource()
-    #~ test_RawDataSource()
+    test_InMemoryDataSource()
+    test_RawDataSource()
     test_NeoRawIOAggregator()
     
