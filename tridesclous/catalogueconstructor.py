@@ -154,18 +154,18 @@ class CatalogueConstructor:
             json.dump(self.info, f, indent=4)
     
     def __repr__(self):
-        t = "CatalogueConstructor <id: {}> \n  workdir: {}\n".format(id(self), self.catalogue_path)
+        t = "CatalogueConstructor - chan_grp {}\n".format(self.chan_grp)
         if self.all_peaks is None:
             t += '  Signal pre-processing not done yet'
             return t
         
-        t += "  nb_peak: {}\n".format(self.nb_peak)
+        #~ t += "  nb_peak: {}\n".format(self.nb_peak)
         nb_peak_by_segment = [ np.sum(self.all_peaks['segment']==i)  for i in range(self.dataio.nb_segment)]
         t += '  nb_peak_by_segment: '+', '.join('{}'.format(n) for n in nb_peak_by_segment)+'\n'
 
         if self.some_waveforms is not None:
-            t += '  n_left {} n_right {}\n'.format(self.info['params_waveformextractor']['n_left'],
-                                                self.info['params_waveformextractor']['n_right'])
+            #~ t += '  n_left {} n_right {}\n'.format(self.info['params_waveformextractor']['n_left'],
+                                                #~ self.info['params_waveformextractor']['n_right'])
             t += '  some_waveforms.shape: {}\n'.format(self.some_waveforms.shape)
             
         if self.some_features is not None:
@@ -720,17 +720,20 @@ class CatalogueConstructor:
         features, channel_to_features, self.projector = decomposition.project_waveforms(self.some_waveforms, method=method, selection=None,
                     catalogueconstructor=self, **params)
         
-        #trick to make it persistant
-        #~ self.arrays.create_array('some_features', self.info['internal_dtype'], features.shape, self.memory_mode)
-        #~ self.some_features[:] = features
-        self.arrays.add_array('some_features', features.astype(self.info['internal_dtype']), self.memory_mode)
-        self.arrays.add_array('channel_to_features', channel_to_features, self.memory_mode)
-        
-        if self.some_noise_snippet is not None:
-            some_noise_features = self.projector.transform(self.some_noise_snippet)
+        if features is None:
+            for name in ['some_features', 'channel_to_features', 'some_noise_features']:
+                self.arrays.detach_array(name)
+                setattr(self, name, None)            
+        else:
+            # make it persistant
+            self.arrays.add_array('some_features', features.astype(self.info['internal_dtype']), self.memory_mode)
+            self.arrays.add_array('channel_to_features', channel_to_features, self.memory_mode)
+            
+            if self.some_noise_snippet is not None:
+                some_noise_features = self.projector.transform(self.some_noise_snippet)
             self.arrays.add_array('some_noise_features', some_noise_features.astype(self.info['internal_dtype']), self.memory_mode)
         
-        print('extract_some_features', self.some_features.shape)
+            print('extract_some_features', self.some_features.shape)
     
     #ALIAS TODO remove it
     project = extract_some_features

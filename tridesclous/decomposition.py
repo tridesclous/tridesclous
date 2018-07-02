@@ -19,6 +19,9 @@ def project_waveforms(waveforms, method='pca', selection=None,  catalogueconstru
     else:
         waveforms2 = waveforms[selection]
     
+    if waveforms2.shape[0] == 0:
+        return None, None, None
+    
     
     if method=='global_pca':
         projector = GlobalPCA(waveforms2, catalogueconstructor=catalogueconstructor, **params)

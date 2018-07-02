@@ -45,7 +45,7 @@ class MainWindow(QT.QMainWindow):
         self.setWindowIcon(QT.QIcon(':/main_icon.png'))
         
         self.dataio = None
-        self.catalogueconstructor = None
+        #~ self.catalogueconstructor = None
         
         self.resize(800, 800)
 
@@ -168,9 +168,15 @@ class MainWindow(QT.QMainWindow):
         self.warn(error_box_msg.format(e))
 
     def refresh_info(self):
-        txt1 = self.dataio.__repr__()
-        txt2 = self.catalogueconstructor.__repr__()
-        self.label_info.setText(txt1+'\n\n'+txt2)
+        txt = self.dataio.__repr__()
+        txt += '\n\n'
+        #~ print('refresh_info', self.chan_grps)
+        for chan_grp in self.chan_grps:
+            catalogueconstructor = CatalogueConstructor(dataio=self.dataio, chan_grp=chan_grp)
+            txt += catalogueconstructor.__repr__()
+            txt += '\n'
+        
+        self.label_info.setText(txt)
     
     def open_dialog(self):
         fd = QT.QFileDialog(fileMode=QT.QFileDialog.DirectoryOnly, acceptMode=QT.QFileDialog.AcceptOpen)
@@ -250,7 +256,7 @@ class MainWindow(QT.QMainWindow):
         
         self.combo_chan_grp.blockSignals(True)
         self.combo_chan_grp.clear()
-        self.combo_chan_grp.addItems([str(k) for k in self.dataio.channel_groups.keys()])
+        self.combo_chan_grp.addItems([str(k) for k in self.dataio.channel_groups.keys()] + ['ALL'])
         self.combo_chan_grp.blockSignals(False)
         self.on_chan_grp_change()
     
@@ -261,21 +267,37 @@ class MainWindow(QT.QMainWindow):
     
     def close_window_chan_grp(self, chan_grp):
         for win in list(self.open_windows):
-            if win.controller.chan_grp == self.chan_grp:
+            if win.controller.chan_grp == chan_grp:
                 win.close()
                 self.open_windows.remove(win)
         
 
+    #~ @property
+    #~ def chan_grp(self):
+        #~ txt = self.combo_chan_grp.currentText()
+        #~ if txt == 'ALL':
+            #~ # take the first
+            #~ chan_grp = list(self.dataio.channel_groups.keys())[0]
+        #~ else:
+            #~ chan_grp = int(txt)
+        #~ return chan_grp
+    
     @property
-    def chan_grp(self):
-        return int(self.combo_chan_grp.currentText())
-        
+    def chan_grps(self):
+        txt = self.combo_chan_grp.currentText()
+        if txt == 'ALL':
+            # take the first
+            chan_grps = list(self.dataio.channel_groups.keys())
+        else:
+            chan_grps = [int(txt)]
+        return chan_grps
+    
     def on_chan_grp_change(self, index=None):
-        self.catalogueconstructor = CatalogueConstructor(dataio=self.dataio, chan_grp=self.chan_grp)
+        #~ self.catalogueconstructor = CatalogueConstructor(dataio=self.dataio, chan_grp=self.chan_grp)
         self.refresh_info()
         
         # this set a the a by default method depending the number of channels
-        n = self.dataio.nb_channel(chan_grp=self.chan_grp)
+        n = self.dataio.nb_channel(chan_grp=self.chan_grps[0])
         if 1<=n<9:
             feat_method = 'global_pca'
         else:
@@ -295,34 +317,8 @@ class MainWindow(QT.QMainWindow):
             return
         
         self.release_closed_windows()
-        self.close_window_chan_grp(self.chan_grp)
-        
-        #collect parals with UI
-        #~ dia = ParamDialog(gui_params.fullchain_params)
-        #~ dia.resize(450, 600)
-        #~ if not dia.exec_():
-            #~ return
-        #~ fullchain_kargs = dia.get()
-        #~ print(fullchain_kargs)
-        
-        #~ n = self.dataio.nb_channel(chan_grp=self.chan_grp)
-        #~ if 1<=n<9:
-            #~ method0 = 'global_pca'
-        #~ else:
-            #~ method0 = 'peak_max'
-        
-        #~ feat_method, feat_kargs = open_dialog_methods(gui_params.features_params_by_methods, self,
-                        #~ title='Which feature method ?', selected_method=method0)
-        
-        #~ if feat_method is None:
-            #~ return
-        
-        #~ selected_method = 'sawchaincut'
-        #~ clust_method, clust_kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self,
-                        #~ title='Which cluster method ?', selected_method=selected_method)
-        #~ if clust_method is None:
-            #~ return
-        
+        for chan_grp in self.chan_grps:
+            self.close_window_chan_grp(chan_grp)
         
         if not self.dialog_fullchain_params.exec_():
             return
@@ -345,28 +341,32 @@ class MainWindow(QT.QMainWindow):
 
         
         
+        for chan_grp in self.chan_grps:
+            print('### chan_grp', chan_grp, ' ###')
         
-        try:
-        #~ if 1:
-
-            apply_all_catalogue_steps(self.catalogueconstructor, fullchain_kargs, 
-                feat_method, feat_kargs,clust_method, clust_kargs, verbose=True)            
-            
-        except Exception as e:
-            print(e)
-            self.errorToMessageBox(e)
+            try:
+            #~ if 1:
+                catalogueconstructor = CatalogueConstructor(dataio=self.dataio, chan_grp=chan_grp)
+                apply_all_catalogue_steps(catalogueconstructor, fullchain_kargs, 
+                    feat_method, feat_kargs,clust_method, clust_kargs, verbose=True)            
+                
+            except Exception as e:
+                print(e)
+                self.errorToMessageBox(e)
                 
         self.refresh_info()
     
     
     def open_cataloguewin(self):
         if self.dataio is None: return
+        if len(self.chan_grps) != 1: return
+            
         try:
         #~ if True:
-            win = CatalogueWindow(self.catalogueconstructor)
+            catalogueconstructor = CatalogueConstructor(dataio=self.dataio, chan_grp=self.chan_grps[0])
+            win = CatalogueWindow(catalogueconstructor)
             win.show()
             self.open_windows.append(win)
-            #~ win.
         except Exception as e:
             print(e)
             self.errorToMessageBox(e)
@@ -383,21 +383,26 @@ class MainWindow(QT.QMainWindow):
         
         dia = ParamDialog(gui_params.peeler_params)
         dia.resize(450, 500)
-        if dia.exec_():
-            d = dia.get()
-            print(d)
-            
+        if not dia.exec_():
+            return
+        d = dia.get()
+        #~ print(d)
+        
+        
+        errors = []
+        for chan_grp in self.chan_grps:
             try:
             #~ if True:
-                initial_catalogue = self.dataio.load_catalogue(chan_grp=self.chan_grp)
+                initial_catalogue = self.dataio.load_catalogue(chan_grp=chan_grp)
                 if initial_catalogue is None:
-                    txt =  """Catalogue do not exists, please do:
-    1. Initialize Catalogue
+                    txt =  """chran_grp{}
+Catalogue do not exists, please do:
+    1. Initialize Catalogue (if not done)
     2. Open CatalogueWindow
     3. Make catalogue for peeler
-                    """
-                    self.warn(txt)
-                    return
+                    """.format(chan_grp)
+                    errors.append(txt)
+                    continue
                 
                 peeler = Peeler(self.dataio)
                 peeler.change_params(catalogue=initial_catalogue)
@@ -411,12 +416,21 @@ class MainWindow(QT.QMainWindow):
                 
             except Exception as e:
                 print(e)
-                self.errorToMessageBox(e)
+                error = """chran_grp{}\n{}""".format(chan_grp, e)
+                errors.append(error)
+        
+        for error in errors:
+            self.errorToMessageBox(error)
+            
     
     def open_peelerwin(self):
         if self.dataio is None: return
+        
+        if len(self.chan_grps) != 1:
+            return
+        
         try:
-            initial_catalogue = self.dataio.load_catalogue(chan_grp=self.chan_grp)
+            initial_catalogue = self.dataio.load_catalogue(chan_grp=self.chan_grps[0])
             win = PeelerWindow(dataio=self.dataio, catalogue=initial_catalogue)
             win.show()
             self.open_windows.append(win)

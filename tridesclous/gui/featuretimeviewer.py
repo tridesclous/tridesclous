@@ -99,6 +99,7 @@ class FeatureTimeViewer(WidgetBase):
         #TODO if None
         # this is a hack to speedup some_waveforms[selected]
         # because boolean selection is slow here ???
+        if len(selected)==0: return
         ind_selected, = np.nonzero(selected)
         selected_slice = slice(np.min(ind_selected), np.max(ind_selected)+1)
         
