@@ -18,7 +18,8 @@ from .onlinepeeler import OnlinePeeler
 from .onlinetraceviewer import OnlineTraceViewer
 from .onlinetools import make_empty_catalogue, lighter_catalogue
 from ..gui import CatalogueWindow
-from ..gui.mainwindow import error_box_msg, apply_all_catalogue_steps
+from ..gui.mainwindow import error_box_msg
+from .. cataloguetools import apply_all_catalogue_steps
 from ..gui.gui_params import fullchain_params, features_params_by_methods, cluster_params_by_methods, peak_detector_params
 from ..gui.tools import ParamDialog, MethodDialog, get_dict_from_group_param
 from ..signalpreprocessor import estimate_medians_mads_after_preprocesing
