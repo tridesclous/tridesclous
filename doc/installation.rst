@@ -85,32 +85,58 @@ Open a terminal and do:
   
 
    
-Optional if you want fight and you really want fast computing with OpenCl and you are on linux:
+
+   
+   
+Big GPU, big dataset OpenCL, and CO.
+------------------------------------
+
+OpenCL is a language for coding parralel programs that can be run on GPU (graphical processor unit) and
+also on CPU multi core.
+
+Some heavy part of the processing chain is coded both in pure python (scipy/numpy) and OpenCL.
+So, TDC can be run in any situations.
+But if the dataset is too big, you can stop mining cryto-money for while and can try to run TDC on a big-fat-gleaming GPU.
+You should gain some speedup.
+
+
+Depending, the OS and the hardware it used to be difficult to settle correctly the OpenCL drivers (=opencl ICD).
+Now, it is more easy (except on OSX, it is becoming more difficult, grrrr.)
+
+
+Here the solution on linux ubuntu/debian :
    
    1. workon tdc
-   2. For intel GPU: sudo apt-egt install beignet
-      For nvidia GPU: sudo apt-egt install nvidia-opencl-340
+   2. For intel GPU: sudo apt-get install beignet
+      For nvidia GPU: sudo apt-get install nvidia-opencl-XXX
    3. sudo apt-get instll opencl-headers ocl-icd-opencl-dev libclc-dev ocl-icd-libopencl1
    4. pip install pyopencl
 
    
+If you don't have GPU but a multi core CPU you can use POCL on linux:
 
-.. IMPORTANT::
-    
-    The current official neo version is 0.5.2. If you install this version you will have
-    few reader (Raw+Blackrock+Neuralynx). Coming neo version will be 0.6.0, with 
-    this version many format will be available in tridesclous.
-    
-    If you need one of theses fromat you can install the future version of neo
-    with this::
-        
-        pip install https://github.com/NeuralEnsemble/python-neo/archive/master.zip
+   sudo apt-get install pocl
 
-.. IMPORTANT::
 
-    If you have neo 0.6 installed and want to view signals you can optionally install ephyviewer with::
+Here on windows a solution:
+
+    1. If you have nvidia or intel a a recent windows 10, then opencl driver are already installed
+    2. Download PyOpenCl here for windows : http://www.lfd.uci.edu/~gohlke/pythonlibs/
+    3. Take the pyopencl file that match your python
+    3. cd C:/users/...../Downloads
+    4. pip install pyopencl‑2018.1.1+cl12‑cp36‑cp36m‑win_amd64.whl (for instance)
+
+
+
+   
+Ephyviewer (optional)
+---------------------
+
+
+
+If you have neo 0.6 installed and want to view signals you can optionally install ephyviewer with::
     
-        pip install https://github.com/NeuralEnsemble/ephyviewer/archive/master.zip
+    pip install ephyviewer
 
 
 Update tridesclous
