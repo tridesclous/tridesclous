@@ -112,11 +112,8 @@ def test_dataio_catalogue():
     assert catalogue['params_signalpreprocessor']['highpass_freq'] == 300.
     
 
-    
-    
 
-    
-    
+
 if __name__=='__main__':
     
     test_DataIO()

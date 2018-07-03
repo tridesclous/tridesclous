@@ -19,6 +19,7 @@ from ..peeler import Peeler
 from .peelerwindow import PeelerWindow
 from .initializedatasetwindow import InitializeDatasetWindow
 from .probegeometryview import ProbeGeometryView
+from ..export import export_list
 
 from . import icons
 
@@ -144,6 +145,13 @@ class MainWindow(QT.QMainWindow):
         do_open_peelerwin = QT.QAction('Open PeelerWindow', self,  icon=QT.QIcon(":peelerwindow.png"))
         do_open_peelerwin.triggered.connect(self.open_peelerwin)
         self.toolbar.addAction(do_open_peelerwin)
+        
+        self.toolbar.addSeparator()
+        
+        do_export_spikes = QT.QAction('Export spikes', self,  icon=QT.QIcon(":document-export.svg"))
+        do_export_spikes.triggered.connect(self.export_spikes)
+        self.toolbar.addAction(do_export_spikes)
+        self.file_menu.addAction(do_export_spikes)
         
         self.toolbar.addSeparator()
 
@@ -475,6 +483,22 @@ Catalogue do not exists, please do:
         self.probe_viewer = ProbeGeometryView(channel_groups=self.dataio.channel_groups, parent=self)
         self.probe_viewer.setWindowFlags(QT.Qt.Window)
         self.probe_viewer.show()
+    
+    def export_spikes(self):
+        if self.dataio is None:
+            return
         
+        possible_formats = [e.ext for e in export_list]
+        params = [
+            {'name': 'format', 'type': 'list', 'values':possible_formats},
+            {'name': 'split_by_cluster', 'type': 'bool', 'value':False},
+            {'name': 'use_cell_label', 'type': 'bool', 'value':True},
+        ]
+        dialog = ParamDialog(params, parent=self)
+        if not dialog.exec_():
+            return
+        p = dialog.get()
+        self.dataio.export_spikes(export_path=None,
+                split_by_cluster=p['split_by_cluster'],  use_cell_label=p['use_cell_label'], formats=p['format'])
 
 

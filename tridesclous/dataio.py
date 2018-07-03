@@ -9,6 +9,7 @@ import pickle
 from .datasource import data_source_classes
 from .iotools import ArrayCollection
 from .tools import download_probe, create_prb_file_from_dict, fix_prb_file_py2
+from .export import export_list, export_dict
 
 _signal_types = ['initial', 'processed']
 
@@ -240,6 +241,11 @@ class DataIO:
         #rewrite with same name
         self.set_channel_groups(self.channel_groups, probe_filename=self.info['probe_filename'])
         
+    def get_geometry(self, chan_grp=0):
+        channel_group = self.channel_groups[chan_grp]
+        geometry = [ channel_group['geometry'][chan] for chan in channel_group['channels'] ]
+        geometry = np.array(geometry)
+        return geometry
 
     def nb_channel(self, chan_grp=0):
         #~ print('DataIO.nb_channel', self.channel_groups)
@@ -344,6 +350,8 @@ class DataIO:
     
     def get_spikes(self, seg_num=0, chan_grp=0, i_start=None, i_stop=None):
         spikes = self.arrays[chan_grp][seg_num].get('spikes')
+        if spikes is None:
+            return
         return spikes[i_start:i_stop]
     
     def save_catalogue(self, catalogue, name='initial'):
@@ -391,10 +399,33 @@ class DataIO:
         
         return catalogue
     
-    def get_geometry(self, chan_grp=0):
-        channel_group = self.channel_groups[chan_grp]
-        geometry = [ channel_group['geometry'][chan] for chan in channel_group['channels'] ]
-        geometry = np.array(geometry)
-        return geometry
+    def export_spikes(self, export_path=None,
+                split_by_cluster=False,  use_cell_label=True, formats=None):
         
+        if export_path is None:
+            export_path = os.path.join(self.dirname, 'export')
+        
+        if formats is None:
+            exporters = export_list
+        elif isinstance(formats, str):
+            assert formats in export_dict
+            exporters = [ export_dict[formats] ]
+        elif isinstance(format, list):
+            exporters = [ export_dict[format] for format in formats]
+        else:
+            return
+        
+        for chan_grp in self.channel_groups.keys():
+            
+            catalogue = self.load_catalogue(chan_grp=chan_grp)
+            
+            for seg_num in range(self.nb_segment):
+                spikes = self.get_spikes(seg_num=seg_num, chan_grp=chan_grp)
+                
+                if spikes is None: continue
+                
+                args = (spikes, catalogue, seg_num, chan_grp, export_path,)
+                kargs = dict(split_by_cluster=split_by_cluster, use_cell_label=use_cell_label)
+                for exporter in exporters:
+                    exporter(*args, **kargs)
 

@@ -127,6 +127,10 @@ def open_PeelerWindow():
     app.exec_()
 
 
+def test_export_spikes():
+    dataio = DataIO(dirname='test_peeler')
+    dataio.export_spikes()
+
 def test_compare_peeler():
 
     dataio = DataIO(dirname='test_peeler')
@@ -171,13 +175,16 @@ def test_compare_peeler():
     
     
 if __name__ =='__main__':
-    setup_catalogue()
+    #~ setup_catalogue()
     
-    open_catalogue_window()
+    #~ open_catalogue_window()
     
-    test_peeler()
+    #~ test_peeler()
     
     #~ open_PeelerWindow()
+    
+    test_export_spikes()
+    
     
     #~ test_compare_peeler()
     
