@@ -55,7 +55,7 @@ channel_groups = {
 
 
 # where catalogue will be saved
-workdir = 'test_onlinewindow'
+workdir = 'demo_onlinewindow'
 
 
 # Qt Application
