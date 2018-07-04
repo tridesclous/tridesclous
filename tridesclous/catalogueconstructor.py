@@ -731,7 +731,7 @@ class CatalogueConstructor:
             
             if self.some_noise_snippet is not None:
                 some_noise_features = self.projector.transform(self.some_noise_snippet)
-            self.arrays.add_array('some_noise_features', some_noise_features.astype(self.info['internal_dtype']), self.memory_mode)
+                self.arrays.add_array('some_noise_features', some_noise_features.astype(self.info['internal_dtype']), self.memory_mode)
         
             print('extract_some_features', self.some_features.shape)
     

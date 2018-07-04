@@ -16,13 +16,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-try:
-    from tqdm import tqdm
-    HAVE_TQDM = True
-    #TODO: put this when finish
-    #~ HAVE_TQDM = False
-except ImportError:
-    HAVE_TQDM = False
+from tqdm import tqdm
 
 from . import pythran_tools
 if hasattr(pythran_tools, '__pythran__'):
@@ -148,7 +142,7 @@ class Peeler:
         # TODO remove from peak the very begining of the signal because of border filtering effects
         
         #~ t1 = time.perf_counter()
-        all_spikes = []
+        good_spikes = []
         all_ready_tested = []
         while True:
             #~ print()
@@ -160,12 +154,14 @@ class Peeler:
             #~ print('  detect_peaks_in_chunk', (t4-t3)*1000.)
             #~ print('  local_peaks', local_peaks, local_peaks.shape)
             if len(all_ready_tested)>0:
-                local_peaks = local_peaks[~np.in1d(local_peaks, all_ready_tested)]
+                local_peaks_to_check = local_peaks[~np.in1d(local_peaks, all_ready_tested)]
                 #~ print('  all_ready_tested', all_ready_tested)
                 #~ print( '  cleaned local_peaks', local_peaks, local_peaks.shape)
+            else:
+                local_peaks_to_check = local_peaks
             
             n_ok = 0
-            for i, local_peak in enumerate(local_peaks):
+            for i, local_peak in enumerate(local_peaks_to_check):
                 #~ print('    local_peak', local_peak, 'i', i)
                 #~ t3 = time.perf_counter()
                 spike = self.classify_and_align_one_spike(local_peak, self.fifo_residuals, self.catalogue)
@@ -182,7 +178,7 @@ class Peeler:
                     prediction = make_prediction_signals(spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue, safe=False)
                     self.fifo_residuals -= prediction
                     spikes['index'] += shift
-                    all_spikes.append(spikes)
+                    good_spikes.append(spikes)
                     n_ok += 1
                     #~ t4 = time.perf_counter()
                     #~ print('    make_prediction_signals and sub', (t4-t3)*1000.)
@@ -195,6 +191,12 @@ class Peeler:
             #~ print('  n_ok', n_ok)
             
             if n_ok==0:
+                # no peak can be labeled
+                # remove bad spikes on the right limit (n_size) for next time
+                
+                
+                local_peaks = local_peaks[local_peaks<(self.chunksize+self.n_span)]
+                
                 bad_spikes = np.zeros(local_peaks.shape[0], dtype=_dtype_spike)
                 bad_spikes['index'] = local_peaks + shift
                 bad_spikes['cluster_label'] = LABEL_UNCLASSIFIED
@@ -204,14 +206,25 @@ class Peeler:
         #~ t2 = time.perf_counter()
         #~ print('LOOP classify_and_align_one_spike', (t2-t1)*1000)
         
-        # append bad spike
-        all_spikes.append(bad_spikes)
-        #~ print('bad_spikes.size', bad_spikes)
-        #~ print('all_spikes.size', all_spikes)
         
-        #concatenate sort and count
-        all_spikes = np.concatenate(all_spikes)
-        #~ print('all_spikes.size', all_spikes.size)
+        #concatenate, sort and count OLD code
+        #~ all_spikes = good_spikes + [bad_spikes]
+        #~ all_spikes = np.concatenate(all_spikes)
+        
+        #concatenate, sort and count
+        # here the trick is to keep spikes at the n_side right limit
+        # and keep then until the next loop this avoid unordered spike
+        if len(good_spikes)>0:
+            good_spikes = np.concatenate(good_spikes)
+            near_border = (good_spikes['index'] - shift)>(self.chunksize+self.n_span)
+            near_border_good_spikes = good_spikes[near_border].copy()
+            good_spikes = good_spikes[~near_border]
+            all_spikes = np.concatenate([good_spikes] + [bad_spikes] + self.near_border_good_spikes)
+            self.near_border_good_spikes = [near_border_good_spikes] # for next chunk
+        else:
+            all_spikes = np.concatenate([bad_spikes] + self.near_border_good_spikes)
+            self.near_border_good_spikes = []
+        
         # all_spikes = all_spikes[np.argsort(all_spikes['index'])]
         all_spikes = all_spikes.take(np.argsort(all_spikes['index']))
         self.total_spike += all_spikes.size
@@ -255,6 +268,8 @@ class Peeler:
         
         self.total_spike = 0
         
+        self.near_border_good_spikes = []
+        
         self.fifo_residuals = np.zeros((self.n_side+self.chunksize, nb_channel), 
                                                                 dtype=self.internal_dtype)
     
@@ -283,7 +298,7 @@ class Peeler:
 
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=chan_grp, chunksize=self.chunksize, 
                                                     i_stop=length, signal_type='initial', return_type='raw_numpy')
-        if HAVE_TQDM and progressbar:
+        if progressbar:
             iterator = tqdm(iterable=iterator, total=length//self.chunksize)
         for pos, sigs_chunk in iterator:
             #~ print(pos, length, pos/length)
