@@ -216,7 +216,8 @@ def download_probe(local_dirname, probe_name, origin='kwikteam'):
 
 def compute_cross_correlograms(spike_indexes, spike_labels, 
                 spike_segments, cluster_labels, sample_rate,
-                window_size=0.1, bin_size=0.001, symmetrize=False):
+                window_size=0.1, bin_size=0.001, symmetrize=False,
+                check_sorted=False):
     """
     Compute several cross-correlogram in one course
     from sevral cluster.
@@ -267,6 +268,14 @@ def compute_cross_correlograms(spike_indexes, spike_labels,
         sp_labels = spike_labels[keep]
         sp_segments = spike_segments[keep]
         sp_labels_i = spike_labels_i[keep]
+        if check_sorted:
+            # theprevent bugs if spike vector is not sorted
+            # could append in peeler if some case (too bad!!!)
+            order = np.argsort(sp_indexes)
+            sp_indexes = sp_indexes[order]
+            sp_labels = sp_labels[order]
+            sp_segments = sp_segments[order] 
+            sp_labels_i = sp_labels_i[order]
 
         # At a given shift, the mask precises which spikes have matching spikes
         # within the correlogram time window.
