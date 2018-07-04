@@ -101,23 +101,22 @@ def test_compare_offline_online_engines():
 
     # compare
     for engine in engines:
+        print(engine)
         online_sig = online_sigs[engine]
         residual = np.abs((online_sig.astype('float64')-offline_sig.astype('float64'))/np.mean(np.abs(offline_sig.astype('float64'))))
 
 
         # plot
-        #~ fig, axs = pyplot.subplots(nrows=nb_channel, sharex=True)
+        #~ # fig, axs = pyplot.subplots(nrows=nb_channel, sharex=True)
         #~ fig, axs = pyplot.subplots(nrows=4, sharex=True)
-        #~ for i in range(nb_channel):
+        #~ # for i in range(nb_channel):
         #~ for i in range(4):
             #~ ax = axs[i]
             #~ ax.plot(residual[:, i], color = 'k')
             #~ ax.plot(offline_sig[:, i], color = 'g')
             #~ ax.plot(online_sig[:, i], color = 'r', ls='--')
-            
             #~ for i in range(nloop):
                 #~ ax.axvline(i*chunksize, color='k', alpha=0.4)
-        
         #~ pyplot.show()
 
         print(np.max(residual))

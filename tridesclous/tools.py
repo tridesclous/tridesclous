@@ -65,7 +65,9 @@ class FifoBuffer:
         if self.last_index is not None:
             assert self.last_index+data.shape[0]==index, 'FifoBuffer self.last_index+data.shape[0]==index {} {}'.format(self.last_index+data.shape[0], index)
         
+        assert data.shape[0]<=self.buffer.shape[0]
         n = self.buffer.shape[0]-data.shape[0]
+        assert n>0
         #roll the end
         
         self.buffer[:n] = self.buffer[-n:]
