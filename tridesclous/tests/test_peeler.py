@@ -34,7 +34,7 @@ def setup_catalogue():
         'preprocessor' : {
             'highpass_freq' : 300.,
             'chunksize' : 1024,
-            'lostfront_chunksize' : 256,
+            'lostfront_chunksize' : 100,
         },
         'peak_detector' : {
             'peak_sign' : '-',
@@ -125,9 +125,10 @@ def test_peeler_several_chunksize():
         
     
     sig_length = dataio.get_segment_length(0)
-    #~ chunksizes = [ 70, 128, 512, 1024, 1023, 10000, 150000]
+    #~ chunksizes = [ 150000]
+    chunksizes = [ 174, 512, 1024, 1023, 10000, 150000]
     #~ chunksizes = [ 69, 128, 512, 1024, 1023]
-    chunksizes = [1024,]
+    #~ chunksizes = [1024,]
     for chunksize in chunksizes:
     #~ for chunksize in [ 64]:
         print('**',  chunksize, '**')
@@ -144,8 +145,8 @@ def test_peeler_several_chunksize():
         print('peeler.run_loop', t2-t1)
         
         spikes = dataio.get_spikes(seg_num=0, chan_grp=0)
-        #~ spikes = spikes[spikes['index']<(sig_length-2*max(chunksizes))]
-        #~ spikes = spikes[spikes['index']>(2*max(chunksizes))]
+        #~ spikes = spikes[spikes['index']<(sig_length-2*chunksize)]
+        #~ spikes = spikes[spikes['index']>(2*chunksize)]
         
         
         print('nb total spikes', spikes.size, 'ordered', np.all(np.diff(spikes['index'])>=0))
@@ -167,16 +168,19 @@ def test_peeler_several_chunksize():
         #~ print(begin_spike)
         
         #~ print(sig_length-catalogue['params_signalpreprocessor']['lostfront_chunksize'])
-        i_stop=sig_length-catalogue['params_signalpreprocessor']['lostfront_chunksize']-peeler.n_side+peeler.n_span
-        sigs = dataio.get_signals_chunk(signal_type='processed', i_stop=i_stop)
-        total_peaks  = detect_peaks_in_chunk(sigs, peeler.n_span, peeler.relative_threshold, peeler.peak_sign)
-        print('long terme total_peak', total_peaks.size)
+        #~ i_stop=sig_length-catalogue['params_signalpreprocessor']['lostfront_chunksize']-peeler.n_side+peeler.n_span
+        #~ sigs = dataio.get_signals_chunk(signal_type='processed', i_stop=i_stop)
+        #~ total_peaks  = detect_peaks_in_chunk(sigs, peeler.n_span, peeler.relative_threshold, peeler.peak_sign)
+        #~ total_peaks = total_peaks[total_peaks<(sig_length-2*chunksize)]
+        #~ total_peaks = total_peaks[total_peaks>(2*chunksize)]
         
-        if total_peaks.size==  spikes['index'].size:
-            print('ALL EQUAL', np.all(np.equal(total_peaks, spikes['index'])))
+        #~ print('long terme total_peak', total_peaks.size)
         
-        print(total_peaks[:5], total_peaks[-5:])
-        print(spikes['index'][:5], spikes['index'][-5:])
+        #~ if total_peaks.size==  spikes['index'].size:
+            #~ print('ALL EQUAL', np.all(np.equal(total_peaks, spikes['index'])))
+        
+        #~ print(total_peaks[:5], total_peaks[-5:])
+        #~ print(spikes['index'][:5], spikes['index'][-5:])
         
 
     
@@ -244,9 +248,9 @@ if __name__ =='__main__':
     
     #~ open_catalogue_window()
     
-    test_peeler()
+    #~ test_peeler()
     
-    #~ test_peeler_several_chunksize()
+    test_peeler_several_chunksize()
     
     #~ open_PeelerWindow()
     

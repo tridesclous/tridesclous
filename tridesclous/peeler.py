@@ -158,13 +158,7 @@ class Peeler:
             #detect peaks
             t3 = time.perf_counter()
             local_peaks = detect_peaks_in_chunk(self.fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign)
-
-            local_peaks = local_peaks[local_peaks<(self.chunksize+self.n_span)]
-            bad_spikes = np.zeros(local_peaks.shape[0], dtype=_dtype_spike)
-            bad_spikes['index'] = local_peaks + shift
-            bad_spikes['cluster_label'] = LABEL_UNCLASSIFIED
-            break
-
+            #~ print('local_peaks', local_peaks.size)
 
             t4 = time.perf_counter()
             #~ print('self.fifo_residuals median', np.median(self.fifo_residuals, axis=0))
@@ -215,7 +209,8 @@ class Peeler:
                 bad_spikes['cluster_label'] = LABEL_UNCLASSIFIED
                 #~ print('bad_spikes', bad_spikes.size)
                 break
-
+        
+        #~ print('bad_spikes', bad_spikes.size)
         #~ t2 = time.perf_counter()
         #~ print('LOOP classify_and_align_one_spike', (t2-t1)*1000)
         
@@ -243,7 +238,6 @@ class Peeler:
         # all_spikes = all_spikes[np.argsort(all_spikes['index'])]
         all_spikes = all_spikes.take(np.argsort(all_spikes['index']))
         self.total_spike += all_spikes.size
-        
         
         #~ if len(self.near_border_good_spikes)>0:
             #~ print(self.near_border_good_spikes)
@@ -287,7 +281,7 @@ class Peeler:
         p['signals_mads'] = self.catalogue['signals_mads']
         self.signalpreprocessor.change_params(**p)
         
-        
+        assert self.chunksize>self.signalpreprocessor.lostfront_chunksize
         
         self.internal_dtype = self.signalpreprocessor.output_dtype
 
@@ -351,6 +345,8 @@ class Peeler:
             #~ print(spikes)
             
             # TODO optional ???
+            #~ print(sig_index, spikes.size)
+            
             if sig_index<=0:
                 continue
             #~ assert sig_index-preprocessed_chunk.shape[0]>=0
@@ -364,6 +360,15 @@ class Peeler:
             if spikes is not None and spikes.size>0:
                 self.dataio.append_spikes(seg_num=seg_num, chan_grp=chan_grp, spikes=spikes)
         #~ print('sig_index', sig_index)
+        
+        if len(self.near_border_good_spikes)>0:
+            spikes = self.near_border_good_spikes[0]
+            #~ print('ici', spikes.size)
+            spikes = spikes.take(np.argsort(spikes['index']))
+            self.total_spike += spikes.size
+            if spikes is not None and spikes.size>0:
+                self.dataio.append_spikes(seg_num=seg_num, chan_grp=chan_grp, spikes=spikes)
+        
         self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=chan_grp)
         self.dataio.flush_spikes(seg_num=seg_num, chan_grp=chan_grp)
 
