@@ -362,12 +362,13 @@ class Peeler:
         #~ print('sig_index', sig_index)
         
         if len(self.near_border_good_spikes)>0:
-            spikes = self.near_border_good_spikes[0]
-            #~ print('ici', spikes.size)
-            spikes = spikes.take(np.argsort(spikes['index']))
-            self.total_spike += spikes.size
-            if spikes is not None and spikes.size>0:
-                self.dataio.append_spikes(seg_num=seg_num, chan_grp=chan_grp, spikes=spikes)
+            
+            extra_spikes = self.near_border_good_spikes[0]
+            print('extra_spikes', extra_spikes.size)
+            extra_spikes = extra_spikes.take(np.argsort(extra_spikes['index']))
+            self.total_spike += extra_spikes.size
+            if extra_spikes.size>0:
+                self.dataio.append_spikes(seg_num=seg_num, chan_grp=chan_grp, spikes=extra_spikes)
         
         self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=chan_grp)
         self.dataio.flush_spikes(seg_num=seg_num, chan_grp=chan_grp)

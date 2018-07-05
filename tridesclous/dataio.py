@@ -323,15 +323,12 @@ class DataIO:
             sigs_chunk = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, i_start=i_start, i_stop=i_stop, **kargs)
             yield  i_stop, sigs_chunk
         
-        # lat chunk
+        # lat chunk = very bad idea because it break chunksize in many place (OpenCL signal processor, Peeler, ...)
         #~ if i_stop<length:
-            #~ #TODO for last chunk append some zeros: maybe: ????
             #~ i_start = i_stop
             #~ i_stop = length
             #~ sigs_chunk = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, i_start=i_start, i_stop=i_stop, **kargs)
             #~ yield  i_stop, sigs_chunk
-        
-        #~ print('i_stop', i_stop)
     
     def reset_processed_signals(self, seg_num=0, chan_grp=0, dtype='float32'):
         self.arrays[chan_grp][seg_num].create_array('processed_signals', dtype, 
