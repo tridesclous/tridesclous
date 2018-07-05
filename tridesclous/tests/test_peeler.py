@@ -272,11 +272,11 @@ if __name__ =='__main__':
     
     #~ open_catalogue_window()
     
-    #~ test_peeler()
+    test_peeler()
     
     #~ test_peeler_empty_catalogue()
     
-    test_peeler_several_chunksize()
+    #~ test_peeler_several_chunksize()
     
     #~ open_PeelerWindow()
     
