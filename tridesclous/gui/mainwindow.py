@@ -40,8 +40,8 @@ Please send it to https://github.com/tridesclous/tridesclous/issues.
 {}
 """
 class MainWindow(QT.QMainWindow):
-    def __init__(self):
-        QT.QMainWindow.__init__(self)
+    def __init__(self, parent=None):
+        QT.QMainWindow.__init__(self, parent=parent)
         
         self.setWindowIcon(QT.QIcon(':/main_icon.png'))
         
