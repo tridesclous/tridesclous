@@ -373,6 +373,7 @@ class MainWindow(QT.QMainWindow):
         #~ if True:
             catalogueconstructor = CatalogueConstructor(dataio=self.dataio, chan_grp=self.chan_grps[0])
             win = CatalogueWindow(catalogueconstructor)
+            win.setWindowTitle(self.dataio.channel_group_label(chan_grp=self.chan_grps[0]))
             win.show()
             self.open_windows.append(win)
         except Exception as e:

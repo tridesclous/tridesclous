@@ -176,7 +176,6 @@ def open_dialog_methods(params_by_method, parent, title='Which method ?', select
         else:
             return None, None
         
-        
 
 
 if __name__=='__main__':

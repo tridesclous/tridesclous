@@ -154,7 +154,8 @@ class CatalogueConstructor:
             json.dump(self.info, f, indent=4)
     
     def __repr__(self):
-        t = "CatalogueConstructor - chan_grp {}\n".format(self.chan_grp)
+        t = "CatalogueConstructor\n"
+        t += '  ' + self.dataio.channel_group_label(chan_grp=self.chan_grp) + '\n'
         if self.all_peaks is None:
             t += '  Signal pre-processing not done yet'
             return t

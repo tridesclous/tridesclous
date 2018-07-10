@@ -251,6 +251,21 @@ class DataIO:
         #~ print('DataIO.nb_channel', self.channel_groups)
         return len(self.channel_groups[chan_grp]['channels'])
 
+
+    def channel_group_label(self, chan_grp=0):
+        label = 'chan_grp {} - '.format(chan_grp)
+        
+        channels = self.channel_groups[chan_grp]['channels']
+        ch_names = np.array(self.datasource.get_channel_names())[channels]
+        
+        if len(ch_names)<8:
+            label += ' '.join(ch_names)
+        else:
+            label += ' '.join(ch_names[:3]) + ' ... ' + ' '.join(ch_names[-2:])
+        
+        return label
+
+
     
     def _open_processed_data(self):
         self.channel_group_path = {}
