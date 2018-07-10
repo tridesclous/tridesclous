@@ -123,14 +123,14 @@ def test_OnlinePeeler():
     dev.start()
     
     # Node QOscilloscope
-    oscope = QOscilloscope()
-    oscope.configure(with_user_dialog=True)
-    oscope.input.connect(dev.output)
-    oscope.initialize()
-    oscope.show()
-    oscope.start()
-    oscope.params['decimation_method'] = 'min_max'
-    oscope.params['mode'] = 'scan'    
+    #~ oscope = QOscilloscope()
+    #~ oscope.configure(with_user_dialog=True)
+    #~ oscope.input.connect(dev.output)
+    #~ oscope.initialize()
+    #~ oscope.show()
+    #~ oscope.start()
+    #~ oscope.params['decimation_method'] = 'min_max'
+    #~ oscope.params['mode'] = 'scan'    
 
     # Node Peeler
     peeler = OnlinePeeler()
@@ -143,18 +143,26 @@ def test_OnlinePeeler():
     peeler.start()
     
     # Node traceviewer
-    tviewer = OnlineTraceViewer()
-    tviewer.configure(peak_buffer_size = 1000, catalogue=lighter_catalogue(catalogue))
-    #~ tviewer.configure(peak_buffer_size = 1000, catalogue=catalogue)
-    tviewer.inputs['signals'].connect(peeler.outputs['signals'])
-    tviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
-    tviewer.initialize()
-    tviewer.show()
-    tviewer.start()
-    tviewer.params['xsize'] = 3.
-    tviewer.params['decimation_method'] = 'min_max'
-    tviewer.params['mode'] = 'scan'
-    #~ tviewer.params['mode'] = 'scroll'
+    #~ tviewer = OnlineTraceViewer()
+    #~ tviewer.configure(peak_buffer_size = 1000, catalogue=lighter_catalogue(catalogue))
+    #~ tviewer.inputs['signals'].connect(peeler.outputs['signals'])
+    #~ tviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
+    #~ tviewer.initialize()
+    #~ tviewer.show()
+    #~ tviewer.start()
+    #~ tviewer.params['xsize'] = 3.
+    #~ tviewer.params['decimation_method'] = 'min_max'
+    #~ tviewer.params['mode'] = 'scan'
+
+    
+    # waveform histogram viewer
+    wviewer = OnlineWaveformHistViewer()
+    wviewer.configure(peak_buffer_size = 1000, catalogue=catalogue)
+    wviewer.inputs['signals'].connect(peeler.outputs['signals'])
+    wviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
+    wviewer.initialize()
+    wviewer.show()
+    wviewer.start()    
     
     
     def terminate():
@@ -275,6 +283,15 @@ def test_OnlinePeeler_no_catalogue():
     tviewer.params['scale_mode'] = 'same_for_all'
     tviewer.start()
     
+    # waveform histogram viewer
+    wviewer = OnlineWaveformHistViewer()
+    wviewer.configure(peak_buffer_size = 1000, catalogue=empty_catalogue)
+    wviewer.inputs['signals'].connect(peeler.outputs['signals'])
+    wviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
+    wviewer.initialize()
+    wviewer.show()
+    wviewer.start()        
+
     
     def auto_scale():
         oscope.auto_scale()

@@ -57,7 +57,6 @@ class OnlineTraceViewer(QOscilloscope):
         self.params['scale_mode'] = 'same_for_all'
         self.params['display_labels'] = True
         
-        
         self.timer_scale = QT.QTimer(singleShot=True, interval=500)
         self.timer_scale.timeout.connect(self.auto_scale)
         self.timer_scale.start()
