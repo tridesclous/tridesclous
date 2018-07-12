@@ -107,11 +107,8 @@ class OnlineWaveformHistViewer(WidgetNode):
         self.inputs['signals'].set_buffer(size=buffer_sigs_size, double=False)
 
         # poller
-        self.last_head_sigs = None
         self.poller_sigs = ThreadPollInput(input_stream=self.inputs['signals'], return_data=True)
-        self.last_head_spikes = None
         self.poller_spikes = ThreadPollInput(input_stream=self.inputs['spikes'], return_data=True)
-        #~ self.poller_peak.new_data.connect(self._on_new_peak)
 
         self.histogram_2d = {}
         self.last_waveform = {}
@@ -121,6 +118,8 @@ class OnlineWaveformHistViewer(WidgetNode):
         self.timer.timeout.connect(self.refresh)
     
     def _start(self, **kargs):
+        self.last_head_sigs = None
+        self.last_head_spikes = None
         self.timer.start()
         self.poller_sigs.start()
         self.poller_spikes.start()
@@ -231,8 +230,9 @@ class OnlineWaveformHistViewer(WidgetNode):
         self.image.setLevels([0, self._max], update=True)
     
     def refresh(self):
-        print('refresh')
-        t0 = time.perf_counter()
+        #~ print('refresh')
+        #~ t0 = time.perf_counter()
+        #~ print(self.inputs['spikes'].buffer.shape, self.inputs['spikes']._own_buffer)
         
         head_sigs = self.poller_sigs.pos()
         head_spikes = self.poller_spikes.pos()
@@ -251,6 +251,8 @@ class OnlineWaveformHistViewer(WidgetNode):
         n_right, n_left = self.catalogue['n_right'],self.catalogue['n_left']
         bin_min, bin_max, bin_size = self.params['bin_min'], self.params['bin_max'],self.params['bin_size']
         
+        
+        # TODO check peak_buffer_size here
         new_spikes = self.inputs['spikes'].get_data(self.last_head_spikes, head_spikes)
         
         right_indexes = new_spikes['index'] + n_right
@@ -261,7 +263,7 @@ class OnlineWaveformHistViewer(WidgetNode):
             head_spikes = head_spikes - (new_spikes.size - first_out)
             new_spikes = new_spikes[:first_out]
         
-        print('new_spikes', new_spikes.size)
+        #~ print('new_spikes', new_spikes.size)
         #~ print(new_spikes)
         
         #~ print('head_sigs', head_sigs)
@@ -317,14 +319,14 @@ Fatal Python error: Aborted
         self.image.show()
         
         self.curve_spike.setData(x=self.indexes0, y=self.last_waveform[k],
-                                            pen=pg.mkPen(self.qcolors[k], width=1))
+                                            pen=pg.mkPen(self.qcolors[k], width=1.5))
         
         
         txt = 'nbs_pike = {}'.format(self.nb_spikes[k])
         self.label.setText(txt)
         
-        t1 = time.perf_counter()
-        print('refresh time', t1-t0)
+        #~ t1 = time.perf_counter()
+        #~ print('refresh time', t1-t0)
         
         
     

@@ -136,6 +136,12 @@ class TdcOnlineWindow(MainWindowNode):
         do_delete_catalogue = QT.QAction('Delete catalogues', self) #, icon=QT.QIcon(":document-open.svg"))
         do_delete_catalogue.triggered.connect(self.delete_catalogues)
         self.toolbar.addAction(do_delete_catalogue)
+        
+        do_show_waveform = QT.QAction('Show waveforms', self)
+        do_show_waveform.triggered.connect(self.show_waveforms)
+        self.toolbar.addAction(do_show_waveform)
+        do_show_waveform.setCheckable(True)
+        do_show_waveform.setChecked(False)
 
 
     def warn(self, text, title='Error in tridesclous'):
@@ -181,7 +187,7 @@ class TdcOnlineWindow(MainWindowNode):
         self.signals_mads = {chan_grp:None for chan_grp in self.channel_groups}
         
         
-        print('self.dataio.datasource', self.dataio.datasource)
+        #~ print('self.dataio.datasource', self.dataio.datasource)
         # load exists catalogueconstructor
         self.catalogueconstructors = {}
         if self.dataio.datasource is None:
@@ -224,6 +230,7 @@ class TdcOnlineWindow(MainWindowNode):
             widget.setLayout(v)
             v.addWidget(traceviewer)
             v.addWidget(waveformviewer)
+            waveformviewer.hide()
             
             name = 'chan_grp{}'.format(chan_grp) # TODO better name when few channels
             self.docks[chan_grp] = QT.QDockWidget(name,self)
@@ -232,12 +239,8 @@ class TdcOnlineWindow(MainWindowNode):
             self.tabifyDockWidget(self.docks['overview'], self.docks[chan_grp])
         
         self.cataloguewindows = {}
-        
-        
 
-        
-        
-    
+
     def after_input_connect(self, inputname):
         if inputname !='signals':
             return
@@ -303,7 +306,12 @@ class TdcOnlineWindow(MainWindowNode):
             rtpeeler.outputs['signals'].configure(**self.outputstream_params)
             rtpeeler.outputs['spikes'].configure(**self.outputstream_params)
             rtpeeler.initialize()
-        
+            
+            # TODO if outputstream_params is plaindata (because distant)
+            # create a StreamConverter to convert to sharedmeme so that
+            #  input buffer will shared between traceviewer and waveformviewer
+            
+            #TODO cange peak buffersize
             traceviewer = self.traceviewers[chan_grp]
             traceviewer.configure(peak_buffer_size=1000, catalogue=self.catalogues[chan_grp])
             traceviewer.inputs['signals'].connect(rtpeeler.outputs['signals'])
@@ -341,7 +349,7 @@ class TdcOnlineWindow(MainWindowNode):
         for chan_grp in self.channel_groups:
             self.rtpeelers[chan_grp].start()
             self.traceviewers[chan_grp].start()
-            self.waveformviewers[chan_grp].start()
+            #~ self.waveformviewers[chan_grp].start()
         
         self.thread_poll_input.start()
         self.worker_thread.start()
@@ -350,7 +358,8 @@ class TdcOnlineWindow(MainWindowNode):
         for chan_grp in self.channel_groups:
             self.rtpeelers[chan_grp].stop()
             self.traceviewers[chan_grp].stop()
-            self.waveformviewers[chan_grp].stop()
+            if waveformviewers[chan_grp].running():
+                self.waveformviewers[chan_grp].stop()
         
         self.thread_poll_input.stop()
         self.thread_poll_input.wait()
@@ -385,7 +394,8 @@ class TdcOnlineWindow(MainWindowNode):
     def auto_scale_trace(self):
         for chan_grp in self.channel_groups:
             self.traceviewers[chan_grp].auto_scale(spacing_factor=25.)
-            self.waveformviewers[chan_grp].auto_scale()
+            if waveformviewers[chan_grp].running():
+                self.waveformviewers[chan_grp].auto_scale()
     
     #~ def compute_median_mad(self):
         #~ """
@@ -621,6 +631,19 @@ class TdcOnlineWindow(MainWindowNode):
         
         self.overview.refresh()
 
+    def show_waveforms(self, value):
+        print('show_waveforms', value)
+        if value:
+            for chan_grp in self.channel_groups:
+                self.waveformviewers[chan_grp].show()
+                self.waveformviewers[chan_grp].start()
+        else:
+            for chan_grp in self.channel_groups:
+                self.waveformviewers[chan_grp].hide()
+                self.waveformviewers[chan_grp].stop()
+            
+            
+        
 
 
 class WidgetOverview(QT.QWidget):
@@ -704,6 +727,8 @@ class WidgetOverview(QT.QWidget):
     def edit_catalogue(self):
         chan_grp = self.sender().chan_grp
         self.mainwindow.open_cataloguewindow(chan_grp=chan_grp)
+        
+
 
 
 class Worker(QT.QObject):
