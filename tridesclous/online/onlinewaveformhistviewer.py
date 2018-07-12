@@ -160,6 +160,9 @@ class OnlineWaveformHistViewer(WidgetNode):
         self.curve_spike = pg.PlotCurveItem()
         self.plot.addItem(self.curve_spike)
 
+        self.curve_limit = pg.PlotCurveItem()
+        self.plot.addItem(self.curve_limit)
+
     
         N = 512
         cmap_name = self.params['colormap']
@@ -184,7 +187,7 @@ class OnlineWaveformHistViewer(WidgetNode):
                 r, g, b = color
                 self.qcolors[k] = QT.QColor(r*255, g*255, b*255)
 
-            self.all_plotted_labels = self.catalogue['cluster_labels'].tolist()# + [LABEL_UNCLASSIFIED]
+            self.all_plotted_labels = self.catalogue['cluster_labels'].tolist() + [LABEL_UNCLASSIFIED]
             
             centers0 = self.catalogue['centers0']
             if centers0.shape[0]>0:
@@ -201,6 +204,10 @@ class OnlineWaveformHistViewer(WidgetNode):
         
         self.on_clear()
         self._max = 10
+        
+        
+        self.curve_limit.setData()
+        
 
     def on_clear(self):
         with self.mutex:
@@ -215,7 +222,9 @@ class OnlineWaveformHistViewer(WidgetNode):
                 self.histogram_2d[k] = np.zeros((shape[1]*shape[2], self.bins.size), dtype='int64')
                 self.last_waveform[k] = np.zeros((shape[1]*shape[2],), dtype=self.wf_dtype)
                 self.nb_spikes[k] = 0
-
+    
+    def auto_scale(self):
+        pass
 
     def gain_zoom(self, v):
         self._max *= v
@@ -298,6 +307,8 @@ Fatal Python error: Aborted
 
         """
         # update image
+        if self.combobox.currentIndex() == -1:
+            return
         k = self.all_plotted_labels[self.combobox.currentIndex()]
         hist2d = self.histogram_2d[k]
 

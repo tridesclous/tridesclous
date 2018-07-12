@@ -12,17 +12,22 @@ import pyacq
 from pyacq.core import WidgetNode, InputStream, ThreadPollInput
 from pyacq.rec import RawRecorder
 
+# internals import
 from ..dataio import DataIO
 from ..catalogueconstructor import CatalogueConstructor
+from .. cataloguetools import apply_all_catalogue_steps
+from ..signalpreprocessor import estimate_medians_mads_after_preprocesing
+
+from ..gui import CatalogueWindow
+from ..gui.mainwindow import error_box_msg
+from ..gui.gui_params import fullchain_params, features_params_by_methods, cluster_params_by_methods, peak_detector_params
+from ..gui.tools import ParamDialog, MethodDialog, get_dict_from_group_param
+
 from .onlinepeeler import OnlinePeeler
 from .onlinetraceviewer import OnlineTraceViewer
 from .onlinetools import make_empty_catalogue, lighter_catalogue
-from ..gui import CatalogueWindow
-from ..gui.mainwindow import error_box_msg
-from .. cataloguetools import apply_all_catalogue_steps
-from ..gui.gui_params import fullchain_params, features_params_by_methods, cluster_params_by_methods, peak_detector_params
-from ..gui.tools import ParamDialog, MethodDialog, get_dict_from_group_param
-from ..signalpreprocessor import estimate_medians_mads_after_preprocesing
+from .onlinewaveformhistviewer import OnlineWaveformHistViewer
+
 
 
 """
@@ -208,12 +213,22 @@ class TdcOnlineWindow(MainWindowNode):
 
         # make trace viewer in tabs
         self.traceviewers ={}
+        self.waveformviewers = {}
         for chan_grp in self.channel_groups:
             traceviewer = OnlineTraceViewer()
             self.traceviewers[chan_grp] = traceviewer
+            waveformviewer = OnlineWaveformHistViewer()
+            self.waveformviewers[chan_grp] = waveformviewer
+            widget = QT.QWidget()
+            v = QT.QVBoxLayout()
+            widget.setLayout(v)
+            v.addWidget(traceviewer)
+            v.addWidget(waveformviewer)
+            
             name = 'chan_grp{}'.format(chan_grp) # TODO better name when few channels
             self.docks[chan_grp] = QT.QDockWidget(name,self)
-            self.docks[chan_grp].setWidget(traceviewer)
+            #~ self.docks[chan_grp].setWidget(traceviewer)
+            self.docks[chan_grp].setWidget(widget)
             self.tabifyDockWidget(self.docks['overview'], self.docks[chan_grp])
         
         self.cataloguewindows = {}
@@ -294,6 +309,12 @@ class TdcOnlineWindow(MainWindowNode):
             traceviewer.inputs['signals'].connect(rtpeeler.outputs['signals'])
             traceviewer.inputs['spikes'].connect(rtpeeler.outputs['spikes'])
             traceviewer.initialize()
+
+            waveformviewer = self.waveformviewers[chan_grp]
+            waveformviewer.configure(peak_buffer_size=1000, catalogue=self.catalogues[chan_grp])
+            waveformviewer.inputs['signals'].connect(rtpeeler.outputs['signals'])
+            waveformviewer.inputs['spikes'].connect(rtpeeler.outputs['spikes'])
+            waveformviewer.initialize()
         
 
         # timer for autoscale (after new catalogue)
@@ -320,6 +341,7 @@ class TdcOnlineWindow(MainWindowNode):
         for chan_grp in self.channel_groups:
             self.rtpeelers[chan_grp].start()
             self.traceviewers[chan_grp].start()
+            self.waveformviewers[chan_grp].start()
         
         self.thread_poll_input.start()
         self.worker_thread.start()
@@ -328,6 +350,7 @@ class TdcOnlineWindow(MainWindowNode):
         for chan_grp in self.channel_groups:
             self.rtpeelers[chan_grp].stop()
             self.traceviewers[chan_grp].stop()
+            self.waveformviewers[chan_grp].stop()
         
         self.thread_poll_input.stop()
         self.thread_poll_input.wait()
@@ -362,6 +385,7 @@ class TdcOnlineWindow(MainWindowNode):
     def auto_scale_trace(self):
         for chan_grp in self.channel_groups:
             self.traceviewers[chan_grp].auto_scale(spacing_factor=25.)
+            self.waveformviewers[chan_grp].auto_scale()
     
     #~ def compute_median_mad(self):
         #~ """
@@ -404,6 +428,8 @@ class TdcOnlineWindow(MainWindowNode):
         self.catalogues[chan_grp] = catalogue
         self.rtpeelers[chan_grp].change_catalogue(catalogue)
         self.traceviewers[chan_grp].change_catalogue(catalogue)
+        self.waveformviewers[chan_grp].change_catalogue(catalogue)
+        
         #TODO function lighter_catalogue for traceviewers
         # TODO path for rtpeeler to avoid serilisation
         
