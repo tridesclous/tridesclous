@@ -11,6 +11,7 @@ from pyqtgraph.util.mutex import Mutex
 
 import pyacq
 from pyacq.core import WidgetNode, InputStream, ThreadPollInput
+#~ from pyacq.core.stream.arraytools import make_dtype
 from pyacq.rec import RawRecorder
 
 # internals import
@@ -316,7 +317,7 @@ class TdcOnlineWindow(MainWindowNode):
             
             
             peak_buffer_size = 100000
-            sig_buffer_size = int(10.*self.sample_rate)
+            sig_buffer_size = int(15.*self.sample_rate)
             
             if self.outputstream_params['transfermode'] != 'sharedmem':
                 #if outputstream_params is plaindata (because distant)
@@ -327,8 +328,9 @@ class TdcOnlineWindow(MainWindowNode):
                 sigs_shmem_converter.input.connect(rtpeeler.outputs['signals'])
                 stream_params = dict(transfermode='sharedmem', buffer_size=sig_buffer_size, double=True)
                 for k in ('dtype', 'shape', 'sample_rate', 'channel_info', ):
-                    if k in rtpeeler.outputs['signals'].params:
-                        stream_params[k] = rtpeeler.outputs['signals'].params[k]
+                    param = rtpeeler.outputs['signals'].params.get(k, None)
+                    if param is not None:
+                        stream_params[k] = param
                 sigs_shmem_converter.output.configure(**stream_params)
                 sigs_shmem_converter.initialize()
                 
@@ -337,8 +339,9 @@ class TdcOnlineWindow(MainWindowNode):
                 spikes_shmem_converter.input.connect(rtpeeler.outputs['spikes'])
                 stream_params = dict(transfermode='sharedmem', buffer_size=peak_buffer_size, double=False)
                 for k in ('dtype', 'shape',):
-                    if k in rtpeeler.outputs['spikes'].params:
-                        stream_params[k] = rtpeeler.outputs['spikes'].params[k]
+                    param = rtpeeler.outputs['spikes'].params.get(k, None)
+                    if param is not None:
+                        stream_params[k] = param
                 spikes_shmem_converter.output.configure(**stream_params)
                 spikes_shmem_converter.initialize()
                 
