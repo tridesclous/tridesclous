@@ -1,6 +1,7 @@
 import os, sys
 import time
 import shutil
+import datetime
 
 import numpy as np
 from ..gui import QT
@@ -30,15 +31,6 @@ from .onlinewaveformhistviewer import OnlineWaveformHistViewer
 
 
 
-"""
-TODO:
-  * don't send full catalogue with serializer but with path to catalogue
-  * widget overview
-  * change catalogue start/stop peeler to ensure
-  * debug when no peak at all during period
-
-  
-"""
 
 
 class MainWindowNode(QT.QMainWindow, pyacq.Node):
@@ -63,14 +55,21 @@ class MainWindowNode(QT.QMainWindow, pyacq.Node):
 
 class TdcOnlineWindow(MainWindowNode):
     """
-    Online spike sorting widget for several channel group:
-        1. It start with an empty catalogue with no nosie estimation (medians/mads)
-        2. Do an auto scale with timer
-        3. Estimate medians/mads with use control and start spike with no label (-10=unlabbeled)
-        4. Start a catalogue constructor on user demand
-        5. Change the catalogue of each peeler with new clusters.
-        6. Catalogue can be refined with the CatalogueWindow and on make_catalogue the new catalogue is applyed 
-            on Peeler.
+    
+    This windows glue for several channel group:
+       * peeler
+       * tarveviewer
+       * waveformhistorgram viewer
+    
+    
+    Each peeler can be run in a separate NodeGroup (and so machine) if nodegroup_friends
+    is provide. This is usefull to distribute the computation.
+    
+    Each catalogue can reset throuth this UI by clicking on "Rec for catalogue".
+    Then a background recording is launch and at the end of duration chossen by user
+    a new catalogue is recompute for each channel group. Each catalogue can cleaned with
+    the CatalogueWindow.
+    
     
     """
     _input_specs = {'signals': dict(streamtype='signals')}
@@ -175,13 +174,18 @@ class TdcOnlineWindow(MainWindowNode):
         self.raw_sigs_dir = os.path.join(self.workdir, 'raw_sigs')
         self.dataio_dir = os.path.join(self.workdir, 'tdc_online')
         
-        # TODO is this fail maybe delete or rename old workdir
-        self.dataio = DataIO(dirname=self.dataio_dir)
-        print(self.dataio)
-        print(self.dataio.datasource)
+        #if is this fail maybe the dir is old dir moved
+        try:
+            self.dataio = DataIO(dirname=self.dataio_dir)
+        except:
+            # the dataio_dir is corrupted
+            dtime = '{:%Y-%m-%d %Hh%Mm%S}'.format(datetime.datetime.now())
+            shutil.move(self.dataio_dir, self.dataio_dir+'_corruted_'+dtime)
+            self.dataio = DataIO(dirname=self.dataio_dir)
+            
+        #~ print(self.dataio)
+        #~ print(self.dataio.datasource)
         
-        
-
 
         self.signals_medians = {chan_grp:None for chan_grp in self.channel_groups}
         self.signals_mads = {chan_grp:None for chan_grp in self.channel_groups}
@@ -298,6 +302,9 @@ class TdcOnlineWindow(MainWindowNode):
                             double=True, axisorder=None, shmem=None, fill=None)
         self.thread_poll_input = ThreadPollInput(self.input)
         
+        self.sigs_shmem_converters = {}
+        self.spikes_shmem_converters = {}
+        
         for chan_grp, channel_group in self.channel_groups.items():
             rtpeeler = self.rtpeelers[chan_grp]
             rtpeeler.configure(catalogue=self.catalogues[chan_grp], 
@@ -307,21 +314,59 @@ class TdcOnlineWindow(MainWindowNode):
             rtpeeler.outputs['spikes'].configure(**self.outputstream_params)
             rtpeeler.initialize()
             
-            # TODO if outputstream_params is plaindata (because distant)
-            # create a StreamConverter to convert to sharedmeme so that
-            #  input buffer will shared between traceviewer and waveformviewer
             
-            #TODO cange peak buffersize
+            peak_buffer_size = 100000
+            sig_buffer_size = int(10.*self.sample_rate)
+            
+            if self.outputstream_params['transfermode'] != 'sharedmem':
+                #if outputstream_params is plaindata (because distant)
+                # create 2 StreamConverter to convert to sharedmeme so that
+                #  input buffer will shared between traceviewer and waveformviewer
+                sigs_shmem_converter = pyacq.StreamConverter()
+                sigs_shmem_converter.configure()
+                sigs_shmem_converter.input.connect(rtpeeler.outputs['signals'])
+                stream_params = dict(transfermode='sharedmem', buffer_size=sig_buffer_size, double=True)
+                for k in ('dtype', 'shape', 'sample_rate', 'channel_info', ):
+                    if k in rtpeeler.outputs['signals'].params:
+                        stream_params[k] = rtpeeler.outputs['signals'].params[k]
+                sigs_shmem_converter.output.configure(**stream_params)
+                sigs_shmem_converter.initialize()
+                
+                spikes_shmem_converter = pyacq.StreamConverter()
+                spikes_shmem_converter.configure()
+                spikes_shmem_converter.input.connect(rtpeeler.outputs['spikes'])
+                stream_params = dict(transfermode='sharedmem', buffer_size=peak_buffer_size, double=False)
+                for k in ('dtype', 'shape',):
+                    if k in rtpeeler.outputs['spikes'].params:
+                        stream_params[k] = rtpeeler.outputs['spikes'].params[k]
+                spikes_shmem_converter.output.configure(**stream_params)
+                spikes_shmem_converter.initialize()
+                
+            else:
+                sigs_shmem_converter = None
+                spikes_shmem_converter = None
+            
+            self.sigs_shmem_converters[chan_grp] = sigs_shmem_converter
+            self.spikes_shmem_converters[chan_grp] = spikes_shmem_converter
+            
             traceviewer = self.traceviewers[chan_grp]
-            traceviewer.configure(peak_buffer_size=1000, catalogue=self.catalogues[chan_grp])
-            traceviewer.inputs['signals'].connect(rtpeeler.outputs['signals'])
-            traceviewer.inputs['spikes'].connect(rtpeeler.outputs['spikes'])
+            traceviewer.configure(peak_buffer_size=peak_buffer_size, catalogue=self.catalogues[chan_grp])
+            if sigs_shmem_converter is None:
+                traceviewer.inputs['signals'].connect(rtpeeler.outputs['signals'])
+                traceviewer.inputs['spikes'].connect(rtpeeler.outputs['spikes'])
+            else:
+                traceviewer.inputs['signals'].connect(sigs_shmem_converter.output)
+                traceviewer.inputs['spikes'].connect(spikes_shmem_converter.output)
             traceviewer.initialize()
 
             waveformviewer = self.waveformviewers[chan_grp]
-            waveformviewer.configure(peak_buffer_size=1000, catalogue=self.catalogues[chan_grp])
-            waveformviewer.inputs['signals'].connect(rtpeeler.outputs['signals'])
-            waveformviewer.inputs['spikes'].connect(rtpeeler.outputs['spikes'])
+            waveformviewer.configure(peak_buffer_size=peak_buffer_size, catalogue=self.catalogues[chan_grp])
+            if spikes_shmem_converter is None:
+                waveformviewer.inputs['signals'].connect(rtpeeler.outputs['signals'])
+                waveformviewer.inputs['spikes'].connect(rtpeeler.outputs['spikes'])
+            else:
+                waveformviewer.inputs['signals'].connect(sigs_shmem_converter.output)
+                waveformviewer.inputs['spikes'].connect(spikes_shmem_converter.output)
             waveformviewer.initialize()
         
 
@@ -348,6 +393,10 @@ class TdcOnlineWindow(MainWindowNode):
     def _start(self):
         for chan_grp in self.channel_groups:
             self.rtpeelers[chan_grp].start()
+            if self.sigs_shmem_converters[chan_grp] is not None:
+                self.sigs_shmem_converters[chan_grp].start()
+            if self.spikes_shmem_converters[chan_grp] is not None:
+                self.spikes_shmem_converters[chan_grp].start()
             self.traceviewers[chan_grp].start()
             #~ self.waveformviewers[chan_grp].start()
         
@@ -358,7 +407,11 @@ class TdcOnlineWindow(MainWindowNode):
         for chan_grp in self.channel_groups:
             self.rtpeelers[chan_grp].stop()
             self.traceviewers[chan_grp].stop()
-            if waveformviewers[chan_grp].running():
+            if self.sigs_shmem_converters[chan_grp] is not None:
+                self.sigs_shmem_converters[chan_grp].stop()
+            if self.spikes_shmem_converters[chan_grp] is not None:
+                self.spikes_shmem_converters[chan_grp].stop()
+            if self.waveformviewers[chan_grp].running():
                 self.waveformviewers[chan_grp].stop()
         
         self.thread_poll_input.stop()
@@ -390,11 +443,22 @@ class TdcOnlineWindow(MainWindowNode):
         )
         
         return params    
-    
+
+    def channel_group_label(self, chan_grp=0):
+        label = 'chan_grp {} - '.format(chan_grp)
+        channel_indexes = self.channel_groups[chan_grp]['channels']
+        ch_names = np.array(self.channel_names[chan_grp])[channel_indexes]
+        if len(ch_names)<8:
+            label += ' '.join(ch_names)
+        else:
+            label += ' '.join(ch_names[:3]) + ' ... ' + ' '.join(ch_names[-2:])
+        return label
+
+
     def auto_scale_trace(self):
         for chan_grp in self.channel_groups:
             self.traceviewers[chan_grp].auto_scale(spacing_factor=25.)
-            if waveformviewers[chan_grp].running():
+            if self.waveformviewers[chan_grp].running():
                 self.waveformviewers[chan_grp].auto_scale()
     
     #~ def compute_median_mad(self):
@@ -632,7 +696,6 @@ class TdcOnlineWindow(MainWindowNode):
         self.overview.refresh()
 
     def show_waveforms(self, value):
-        print('show_waveforms', value)
         if value:
             for chan_grp in self.channel_groups:
                 self.waveformviewers[chan_grp].show()
@@ -641,9 +704,7 @@ class TdcOnlineWindow(MainWindowNode):
             for chan_grp in self.channel_groups:
                 self.waveformviewers[chan_grp].hide()
                 self.waveformviewers[chan_grp].stop()
-            
-            
-        
+
 
 
 class WidgetOverview(QT.QWidget):

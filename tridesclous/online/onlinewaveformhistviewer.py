@@ -92,7 +92,7 @@ class OnlineWaveformHistViewer(WidgetNode):
 
         
         
-    def _configure(self, peak_buffer_size = 100000, catalogue=None, **kargs):
+    def _configure(self, peak_buffer_size=100000, catalogue=None, **kargs):
         self.peak_buffer_size = peak_buffer_size
         self.catalogue = catalogue
     
@@ -236,6 +236,8 @@ class OnlineWaveformHistViewer(WidgetNode):
         
         head_sigs = self.poller_sigs.pos()
         head_spikes = self.poller_spikes.pos()
+        #~ print('head_sigs', head_sigs)
+        #~ print('head_spikes', head_spikes)
         
         if self.last_head_sigs is None:
             self.last_head_sigs = head_sigs
@@ -252,7 +254,9 @@ class OnlineWaveformHistViewer(WidgetNode):
         bin_min, bin_max, bin_size = self.params['bin_min'], self.params['bin_max'],self.params['bin_size']
         
         
-        # TODO check peak_buffer_size here
+        # check peak_buffer_size here
+        if (head_spikes-self.last_head_spikes)>=(0.9*self.peak_buffer_size):
+            self.last_head_spikes = head_spikes - int(0.9*self.peak_buffer_size)
         new_spikes = self.inputs['spikes'].get_data(self.last_head_spikes, head_spikes)
         
         right_indexes = new_spikes['index'] + n_right
