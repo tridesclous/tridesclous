@@ -808,7 +808,7 @@ class Worker(QT.QObject):
         self.clust_kargs = clust_kargs
     
     def compute(self):
-        print('compute')
+        #~ print('compute')
         
         for chan_grp, catalogueconstructor in self.catalogueconstructors.items():
         

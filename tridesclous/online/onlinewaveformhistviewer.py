@@ -46,12 +46,10 @@ class OnlineWaveformHistViewer(WidgetNode):
     
     _params = [
                       {'name': 'colormap', 'type': 'list', 'values' : ['hot', 'viridis', 'jet', 'gray',  ] },
-                      {'name': 'data', 'type': 'list', 'values' : ['waveforms', 'features', ] },
                       {'name': 'bin_min', 'type': 'float', 'value' : -20. },
                       {'name': 'bin_max', 'type': 'float', 'value' : 8. },
                       {'name': 'bin_size', 'type': 'float', 'value' : .1 },
-                      {'name': 'display_threshold', 'type': 'bool', 'value' : True },
-                      {'name': 'max_label', 'type': 'int', 'value' : 2 },
+                      {'name': 'refresh_interval', 'type': 'int', 'value': 100, 'limits':[5, 1000]},
                       ]
 
     
@@ -135,19 +133,22 @@ class OnlineWaveformHistViewer(WidgetNode):
         pass
 
     def open_settings(self):
-        pass
+        if not self.tree_params.isVisible():
+            self.tree_params.show()
+        else:
+            self.tree_params.hide()
     
     def on_params_changed(self, params, changes):
-        pass
-
-
+        self.change_lut()
+        self.change_catalogue(self.catalogue)
+        self.timer.setInterval(self.params['refresh_interval'])
 
     def initialize_plot(self):
         
         self.viewBox = MyViewBox()
         self.viewBox.doubleclicked.connect(self.open_settings)
         self.viewBox.gain_zoom.connect(self.gain_zoom)
-        
+        self.viewBox.disableAutoRange()
         
         self.plot = pg.PlotItem(viewBox=self.viewBox)
         self.graphicsview.setCentralItem(self.plot)
@@ -161,8 +162,11 @@ class OnlineWaveformHistViewer(WidgetNode):
 
         self.curve_limit = pg.PlotCurveItem()
         self.plot.addItem(self.curve_limit)
+        
+        self.change_lut()
 
-    
+
+    def change_lut(self):
         N = 512
         cmap_name = self.params['colormap']
         cmap = matplotlib.cm.get_cmap(cmap_name , N)
@@ -171,11 +175,9 @@ class OnlineWaveformHistViewer(WidgetNode):
             r,g,b,_ =  matplotlib.colors.ColorConverter().to_rgba(cmap(i))
             lut.append([r*255,g*255,b*255])
         self.lut = np.array(lut, dtype='uint8')
-        
-        
-
 
     def change_catalogue(self, catalogue):
+        self.params.blockSignals(True)
         with self.mutex:
             
             self.catalogue = catalogue
@@ -204,8 +206,15 @@ class OnlineWaveformHistViewer(WidgetNode):
         self.on_clear()
         self._max = 10
         
+        _, peak_width, nb_chan = self.catalogue['centers0'].shape
+        x, y = [], []
+        for c in range(1, nb_chan):
+            x.extend([c*peak_width, c*peak_width, np.nan])
+            y.extend([-1000, 1000, np.nan])
         
-        self.curve_limit.setData()
+        self.curve_limit.setData(x=x, y=y, connect='finite')
+        self.params.blockSignals(False)
+        
         
 
     def on_clear(self):
@@ -221,9 +230,13 @@ class OnlineWaveformHistViewer(WidgetNode):
                 self.histogram_2d[k] = np.zeros((shape[1]*shape[2], self.bins.size), dtype='int64')
                 self.last_waveform[k] = np.zeros((shape[1]*shape[2],), dtype=self.wf_dtype)
                 self.nb_spikes[k] = 0
+        
+        self.plot.setXRange(0, self.indexes0[-1]+1)
+        self.plot.setYRange(self.params['bin_min'], self.params['bin_max'])
     
     def auto_scale(self):
         pass
+        
 
     def gain_zoom(self, v):
         self._max *= v
@@ -232,12 +245,9 @@ class OnlineWaveformHistViewer(WidgetNode):
     def refresh(self):
         #~ print('refresh')
         #~ t0 = time.perf_counter()
-        #~ print(self.inputs['spikes'].buffer.shape, self.inputs['spikes']._own_buffer)
         
         head_sigs = self.poller_sigs.pos()
         head_spikes = self.poller_spikes.pos()
-        #~ print('head_sigs', head_sigs)
-        #~ print('head_spikes', head_spikes)
         
         if self.last_head_sigs is None:
             self.last_head_sigs = head_sigs
@@ -248,7 +258,6 @@ class OnlineWaveformHistViewer(WidgetNode):
         if self.last_head_spikes is None or self.last_head_sigs is None:
             return
         
-        #~ print()
         # update image
         n_right, n_left = self.catalogue['n_right'],self.catalogue['n_left']
         bin_min, bin_max, bin_size = self.params['bin_min'], self.params['bin_max'],self.params['bin_size']
@@ -267,30 +276,15 @@ class OnlineWaveformHistViewer(WidgetNode):
             head_spikes = head_spikes - (new_spikes.size - first_out)
             new_spikes = new_spikes[:first_out]
         
-        #~ print('new_spikes', new_spikes.size)
-        #~ print(new_spikes)
-        
-        #~ print('head_sigs', head_sigs)
-        #~ print('head_spikes', head_spikes)
-        
         for k in self.all_plotted_labels:
-            
-            #~ print('k', k)
             mask = new_spikes['cluster_label'] == k
             indexes = new_spikes[mask]['index']
             for ind in indexes:
-                #~ print('ind', ind)
-                #~ print(ind+n_left, ind+n_right)
                 wf = self.inputs['signals'].get_data(ind+n_left, ind+n_right)
-                #~ print(wf.shape)
                 wf = wf.T.reshape(-1)
-                
-                #~ print(wf.shape)
-            
                 wf_bined = np.floor((wf-bin_min)/bin_size).astype('int32')
                 wf_bined = wf_bined.clip(0, self.bins.size-1)
                 
-                #~ print(self.histogram_2d[k].shape)
                 with self.mutex:
                     self.histogram_2d[k][self.indexes0, wf_bined] += 1
                     self.last_waveform[k] = wf
@@ -299,22 +293,15 @@ class OnlineWaveformHistViewer(WidgetNode):
         self.last_head_sigs = head_sigs
         self.last_head_spikes = head_spikes
 
-        """
-        TODO bug in pyacq
-Traceback (most recent call last):
-  File "/home/samuel/Documents/projet/tridesclous/tridesclous/online/onlinewaveformhistviewer.py", line 245, in refresh
-    new_spikes = self.inputs['spikes'].get_data(self.last_head_spikes, head_spikes)
-  File "/home/samuel/Documents/projet/pyacq-0.2/pyacq/core/stream/stream.py", line 340, in get_data
-    return self.buffer.get_data(*args, **kargs)
-  File "/home/samuel/Documents/projet/pyacq-0.2/pyacq/core/stream/ringbuffer.py", line 257, in get_data
-    data[:break_index-start] = a
-ValueError: could not broadcast input array from shape (1000) into shape (0)
-Fatal Python error: Aborted        
-
-        """
-        # update image
+        
         if self.combobox.currentIndex() == -1:
             return
+
+        if self.visibleRegion().isEmpty():
+            # when several tabs not need to refresh
+            return
+        
+        # refresh plot , update image
         k = self.all_plotted_labels[self.combobox.currentIndex()]
         hist2d = self.histogram_2d[k]
 
