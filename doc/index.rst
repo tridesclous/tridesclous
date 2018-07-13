@@ -20,6 +20,7 @@ Contents
     catalogue_window
     important_details
     parameters
+    realtime
     release_notes.rst
 
 
