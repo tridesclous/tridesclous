@@ -103,7 +103,8 @@ def get_neighborhood(geometry, radius_um):
 
 def open_prb(probe_filename):
     d = {}
-    exec(open(probe_filename).read(), None, d)
+    with open(probe_filename) as f:
+        exec(f.read(), None, d)
     channel_groups = d['channel_groups']
     return channel_groups
 
