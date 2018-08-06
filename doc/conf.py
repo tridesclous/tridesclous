@@ -22,6 +22,8 @@
 # sys.path.insert(0, os.path.abspath('.'))
 
 # -- General configuration ------------------------------------------------
+import sys
+import os
 
 
 # This a hack to get the version inside the code
@@ -33,12 +35,41 @@ exec(open("../tridesclous/version.py").read())
 #
 # needs_sphinx = '1.0'
 
+
+
+# http://read-the-docs.readthedocs.org/en/latest/faq.html#i-get-import-errors-on-libraries-that-depend-on-c-modules
+#~ from unittest.mock import MagicMock
+
+#~ MOCK_MODULES = ['numpy', 'scipy', 'pandas','scikit-learn','matplotlib','seaborn',
+             #~ 'neo', 'neo.rawio',  'quantities',
+            #~ 'tqdm', 'PyQt5', 'pyqtgraph', 'pyqtgraph.Qt', 'pyqtgraph.util.mutex', ]
+#~ sys.modules.update((mod_name, MagicMock(name=mod_name)) for mod_name in MOCK_MODULES)
+
+#~ class QWidget(object):
+    #~ pass
+#~ class QObject(object):
+    #~ pass
+
+#~ sys.modules['PyQt5'].QtGui.QWidget = QWidget
+#~ sys.modules['pyqtgraph'].Qt.QtGui = sys.modules['PyQt5'].QtGui 
+#~ sys.modules['pyqtgraph.Qt'].QtGui = sys.modules['PyQt5'].QtGui 
+
+#~ sys.modules['PyQt5'].QtCore.QObject = QObject
+#~ sys.modules['pyqtgraph'].Qt.QtCore = sys.modules['PyQt5'].QtCore 
+#~ sys.modules['pyqtgraph.Qt'].QtCore = sys.modules['PyQt5'].QtCore
+
+
+
+
+
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.viewcode',
     #'sphinxcontrib.napoleon',
+    # 'numpydoc',
 ]
 
 # Add any paths that contain templates here, relative to this directory.

@@ -21,6 +21,7 @@ Contents
     important_details
     parameters
     realtime
+    api
     release_notes.rst
 
 

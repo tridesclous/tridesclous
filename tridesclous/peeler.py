@@ -1,3 +1,10 @@
+"""
+
+.. autoclass:: Peeler
+   :members:
+
+"""
+
 import os
 import json
 from collections import OrderedDict, namedtuple
@@ -44,14 +51,30 @@ maximum_jitter_shift = 4
 
 class Peeler:
     """
-    The peeler is core of online spike sorting.
+    The peeler is core of spike sorting itself.
+    It basically do a *template matching* on a signals.
     
-    Take as input preprocess data by chunk.
-    Detect peak on it.
-    For each peak classify and detect jitter.
-    With all peak/jitters create a prediction.
-    Substract the prediction until there is no peak or unknown cluster.
+    This class nedd a *catalogue* constructed by :class:`CatalogueConstructor`.
+    Then the compting is applied chunk chunk on the raw signal itself.
     
+    So this class is the same for both offline/online computing.
+    
+    At each chunk, the algo is basically this one:
+      1. apply the processing chain (filter, normamlize, ....)
+      2. Detect peaks
+      3. Try to classify peak and detect the *jitter*
+      4. With labeled peak create a prediction for the chunk
+      5. Substract the prediction from the processed signals.
+      6. Go back to **2** until there is no peak or only peaks that can't be labeled.
+      7. return labeld spikes from this or previous chunk and the processed signals (for display or recoding)
+    
+    The main difficulty in the implemtation is to deal with edge because spikes 
+    waveforms can spread out in between 2 chunk.
+    
+    Note that the global latency depend on this é paramters:
+      * lostfront_chunksize
+      * chunksize
+
     
     """
     def __init__(self, dataio):
@@ -68,6 +91,22 @@ class Peeler:
                                         use_sparse_template=False,
                                         sparse_threshold_mad=1.5,
                                         ):
+        """
+        Set parameters for the Peeler.
+        
+        
+        Parameters
+        ----------
+        catalogue: the catalogue (a dict)
+            The catalogue made by CatalogueConstructor.
+        chunksize: int (1024 by default)
+            the size of chunk for processing.
+        internal_dtype: 'float32' or 'float64'
+            dtype of internal processing. float32 is OK. float64 is totally useless.
+        use_sparse_template
+        
+        
+        """
         assert catalogue is not None
         self.catalogue = catalogue
         self.chunksize = chunksize

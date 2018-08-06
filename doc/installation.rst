@@ -121,10 +121,10 @@ If you don't have GPU but a multi core CPU you can use POCL on linux:
 Here on windows a solution:
 
     1. If you have nvidia or intel a a recent windows 10, then opencl driver are already installed
-    2. Download PyOpenCl here for windows : http://www.lfd.uci.edu/~gohlke/pythonlibs/
+    2. Download PyOpenCl here for windows : http://www.lfd.uci.edu/~gohlke/pythonlibs
     3. Take the pyopencl file that match your python
-    3. cd C:/users/...../Downloads
-    4. pip install pyopencl‑2018.1.1+cl12‑cp36‑cp36m‑win_amd64.whl (for instance)
+    4. cd C:/users/...../Downloads
+    5. pip install pyopencl‑2018.1.1+cl12‑cp36‑cp36m‑win_amd64.whl (for instance)
 
 
 
@@ -134,7 +134,7 @@ Ephyviewer (optional)
 
 
 
-If you have neo 0.6 installed and want to view signals you can optionally install ephyviewer with::
+If you have neo (>=0.6) installed and want to view signals you can optionally install ephyviewer with::
     
     pip install ephyviewer
 

@@ -1,3 +1,13 @@
+"""
+
+.. automodule:: tridesclous.catalogueconstructor
+
+.. automodule:: tridesclous.peeler
+
+
+
+
+"""
 from .version import version as __version__
 
 import PyQt5 # this force pyqtgraph to deal with Qt5

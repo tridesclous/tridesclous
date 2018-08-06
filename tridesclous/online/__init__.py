@@ -1,14 +1,14 @@
 """
 The Peeler have been design to do the processing chunk by chunk in mind.
-So Peeler have been adapted to OnlinePeeler to be used in real time.
+So the offline Peeler is also adapted to OnlinePeeler to be used in real time.
 OnlinePeeler is a pyacq Node.
 
 `pyacq <https://github.com/pyacq/pyacq>`_ is a system for distributed
 data acquisition and stream processing. It support some device use in
 electrophysiology (Blackrock, Multichannel system, Measurement computing,
 National Instrument, ...). Pyacq offer the possibility to dtsribute the
-computing a several machine. So it is particulary usefull in online 
-spike sorting contexte because for high channel count, the use will be able
+computing on several machines. So it is particulary usefull in online 
+spike sorting context when high channel count. The user will be able
 to distribute on several machines: the acquisition itself, the OnelinePeeler
 and some display.
 
