@@ -103,8 +103,16 @@ class Peeler:
             the size of chunk for processing.
         internal_dtype: 'float32' or 'float64'
             dtype of internal processing. float32 is OK. float64 is totally useless.
-        use_sparse_template
-        
+        use_sparse_template: bool (dafult False)
+            For very high channel count, centroids from catalogue can be sparcifyed.
+            The speedup a lot the process but the sparse_threshold_mad must be
+            set carrefully and compared with use_sparse_template=False.
+            For low channel count this is useless.
+        sparse_threshold_mad: float (1.5 by default)
+            The threshold level.
+            Under this value if all sample on one channel for one centroid
+            is considred as NaN
+            
         
         """
         assert catalogue is not None
