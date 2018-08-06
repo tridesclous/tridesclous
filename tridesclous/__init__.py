@@ -1,5 +1,7 @@
 """
 
+.. automodule:: tridesclous.dataio
+
 .. automodule:: tridesclous.catalogueconstructor
 
 .. automodule:: tridesclous.peeler
