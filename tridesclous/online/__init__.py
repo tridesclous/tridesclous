@@ -14,7 +14,7 @@ and some display.
 
 
 pyacq and Tridesclous do not offer a strict real real time engine but
-an online engine which latency can be controlled by the chunksize.
+an online engine which latency whihch can be controlled by the chunksize.
 
 
 

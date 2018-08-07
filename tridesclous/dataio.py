@@ -26,10 +26,10 @@ _signal_types = ['initial', 'processed']
 
 class DataIO:
     """
-    Class to acces to access to the dataset (raw data, processed, catalogue, 
+    Class to acces the dataset (raw data, processed, catalogue, 
     spikes) in read/write mode.
     
-    All operation on the dataset are done througth that class.
+    All operations on the dataset are done througth that class.
     
     The dataio :
       * work in a path. Almost everything is persistent.
@@ -64,15 +64,15 @@ class DataIO:
     of the processed signals.
     
     
-    Usage
-    ----------
-        
+    **Usage**::
+    
         # initialize a directory
-        dataio = DataIO(dirname='path/to/a/working/dir')
+        dataio = DataIO(dirname='/path/to/a/working/dir')
         
         # set a data source
         filenames = ['file1.raw', 'file2.raw']
-        dataio.dataio.set_data_source(type='RawData', filenames=filenames, sample_rate=10000, total_channel=16, dtype='int16')
+        dataio.dataio.set_data_source(type='RawData', filenames=filenames, 
+                                    sample_rate=10000, total_channel=16, dtype='int16')
         
         # set a PRB file
         dataio.set_probe_file('/path/to/a/file.prb')

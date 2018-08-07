@@ -11,8 +11,9 @@ But the *click and play* approach is prefered for beginners.
 Launch
 ------
 
-Ina console::
-
+In a console (terminal)::
+    
+    workon tdc (or activate tdc for windows)
     tdc
 
 
@@ -29,7 +30,7 @@ To do that, normally, you have to click on "Initialize dataset", but for testing
 This will locally download datasets from https://github.com/tridesclous/tridesclous_datasets and configure everything for you.
 
 After that step some information are displayed about the:
-  * DataIO: details about the dataset (nb channel, nb channel group, n segment, smaple rate, durations...)
+  * DataIO: details about the dataset (nb channel, nb channel group, n segment, sample rate, durations...)
   * CatalogueConstructor: empty for the moment
 
 Here we have a dataset given by David Robbe and Mostafa Safai recorded with a tetrode in sriatum of a rat.
@@ -113,6 +114,9 @@ Them click on **Compute metric**, this will enable some views: **spikesimilarity
 
 Go to **waveformviewer**, select "geometry" or "flatten".
 
+Go to **waveformhistviewer**, your best friend same as **waveformviewer** in flatten mode but with
+historgram density in 2D.
+
 
 **Cluster list** contains a context menu that proposes a lot of actions: merge, split, trash.
 Click on "re label cluster by rms".
@@ -122,7 +126,7 @@ Now you can see that cluster  0 and 1 are very well isolated but cluster 2 is ve
 To simplify we will send it to "trash". This means that the "peeler" (template matching) will not try to get it.
 
 
-Now do "save catalogue". We have 2 clusters in our catalogue.
+Now do "make catalogue for peeler". We have 2 clusters in our catalogue.
 
 Close the window.
 
@@ -146,7 +150,7 @@ This windows is to check whether peeler has corectly done its job, in other word
 
 You can click on the spike list and the trace auto zooms on the spike.
 
-On the trace view y ou can click on "residual".
+On the trace view you can click on "residual".
 
 The most important things to understand here is:
   * the green trace is the **preprocessed** signal (filter and normalized)

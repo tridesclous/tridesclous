@@ -238,7 +238,7 @@ class PeelerOLD:
         self.dataio.reset_spikes(seg_num=seg_num, chan_grp=chan_grp, dtype=_dtype_spike)
 
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=chan_grp, chunksize=self.chunksize, 
-                                                    i_stop=length, signal_type='initial', return_type='raw_numpy')
+                                                    i_stop=length, signal_type='initial')
         if HAVE_TQDM:
             iterator = tqdm(iterable=iterator, total=length//self.chunksize)
         for pos, sigs_chunk in iterator:

@@ -332,7 +332,7 @@ class Peeler:
         self.dataio.reset_spikes(seg_num=seg_num, chan_grp=chan_grp, dtype=_dtype_spike)
 
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=chan_grp, chunksize=self.chunksize, 
-                                                    i_stop=length, signal_type='initial', return_type='raw_numpy')
+                                                    i_stop=length, signal_type='initial')
         if progressbar:
             iterator = tqdm(iterable=iterator, total=length//self.chunksize)
         for pos, sigs_chunk in iterator:
@@ -373,10 +373,9 @@ class Peeler:
     run = run_offline_all_segment
 
     def classify_and_align_one_spike(self, local_index, residual, catalogue):
-        """
-        local_index is index of peaks inside residual and not
-        the absolute peak_pos. So time scaling must be done outside.
-        """
+        # local_index is index of peaks inside residual and not
+        # the absolute peak_pos. So time scaling must be done outside.
+        
         width = catalogue['peak_width']
         n_left = catalogue['n_left']
         alien_value_threshold = catalogue['params_clean_waveforms']['alien_value_threshold']

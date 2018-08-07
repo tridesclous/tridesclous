@@ -79,7 +79,7 @@ _keep_cluster_attr_on_new = ['cell_label', 'tag','annotations', 'color']
 class CatalogueConstructor:
     __doc__ = """
     
-    The goal of CatalogueConstructor is to construct a catalogue of template (centroides)
+    The goal of CatalogueConstructor is to construct a catalogue of template (centroids)
     for the Peeler.
     
     For so the CatalogueConstructor will:
@@ -425,7 +425,7 @@ class CatalogueConstructor:
         self.signalpreprocessor.change_params(**params2)
         
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp, chunksize=self.chunksize, i_stop=length,
-                                                    signal_type='initial',  return_type='raw_numpy')
+                                                    signal_type='initial')
         for pos, sigs_chunk in iterator:
             pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
             if preprocessed_chunk is not None:
@@ -486,7 +486,7 @@ class CatalogueConstructor:
         self.peakdetector.change_params(**self.params_peakdetector)
         
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp, chunksize=self.chunksize, i_stop=length,
-                                                    signal_type='initial', return_type='raw_numpy')
+                                                    signal_type='initial')
         for pos, sigs_chunk in iterator:
             #~ print(seg_num, pos, sigs_chunk.shape)
             self.signalprocessor_one_chunk(pos, sigs_chunk, seg_num, detect_peak=detect_peak)
@@ -571,7 +571,7 @@ class CatalogueConstructor:
             self.peakdetector.change_params(**self.params_peakdetector)#this reset the fifo index
             
             iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp,
-                            chunksize=self.info['chunksize'], i_stop=None, signal_type='processed', return_type='raw_numpy')
+                            chunksize=self.info['chunksize'], i_stop=None, signal_type='processed')
             for pos, preprocessed_chunk in iterator:
                 n_peaks, chunk_peaks = self.peakdetector.process_data(pos, preprocessed_chunk)
             

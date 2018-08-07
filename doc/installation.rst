@@ -7,14 +7,18 @@ If your are familiar with python simply install the depency list as usual.
 tridesclous works with python 3 only.
 
 
-
-If these are your first steps in the python world you have 2 options:
+If these are your first steps in the python world there 2 main options:
   * install python and dependencies with anaconda distribution (prefered on window or OSX)
   * use python from your system (in a virtual environement) and install dependencies with standard pip (prefered on Linux Ubuntu/Debian/Mint)
 
 Note that you are free to install Anaconda on Linux.
 
-
+Here 2 recipes to install tridesclous in an "environement".
+If you don't known what an "environement" is : remember that it is an isolated installation
+of python with a fixed version and many libraries (modules) with also fixed version  somwhere in a folder in your profile.
+This folder won't be affected by upgrading your system and so it should work always.
+This quite important because other spike projects don't use same libraries version (for instance PyQt4 vs PyQt5).
+If you want to compare them, you will nedd environement.
 
 
 
@@ -69,8 +73,8 @@ Optional if you're up for a fight and you really want fast computing with OpenCL
 Case 2 : with pip (prefered on linux)
 -------------------------------------
 
-Here I propose my method that install tridesclous with debian like dstro in an
-isolateted environement with virtualenvwrapper. Every other method is also valid.
+Here I propose my favorite method that install tridesclous with debian like distro in an
+isolated environement with virtualenvwrapper. Every other method is also valid.
 
 Open a terminal and do:
 
@@ -97,7 +101,7 @@ also on CPU multi core.
 Some heavy part of the processing chain is coded both in pure python (scipy/numpy) and OpenCL.
 So, TDC can be run in any situations.
 But if the dataset is too big, you can stop mining cryto-money for while and can try to run TDC on a big-fat-gleaming GPU.
-You should gain some speedup.
+You should gain some speedup if the number of channel is high.
 
 
 Depending, the OS and the hardware it used to be difficult to settle correctly the OpenCL drivers (=opencl ICD).
