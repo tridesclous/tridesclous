@@ -42,7 +42,7 @@ def test_export():
             kargs = dict(split_by_cluster=split_by_cluster, use_cell_label=use_cell_label)
             
             export_csv(*args, **kargs)
-            export_mat(*args, **kargs)
+            export_matlab(*args, **kargs)
             export_excel(*args, **kargs)
             
     

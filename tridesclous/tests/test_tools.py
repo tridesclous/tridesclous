@@ -67,7 +67,7 @@ def test_compute_cross_correlograms():
     
 
     t0 = time.perf_counter()
-    cgc = compute_cross_correlograms(spike_indexes, spike_labels, spike_segments,
+    cgc, bins = compute_cross_correlograms(spike_indexes, spike_labels, spike_segments,
                 cluster_labels, sample_rate, window_size, bin_size)
     t1 = time.perf_counter()
     
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     #~ test_get_neighborhood()
     #~ test_fix_prb_file_py2()
     #~ test_construct_probe_list()
-    #~ test_compute_cross_correlograms()
-    test_int32_to_rgba()
-    test_rgba_to_int32()
+    test_compute_cross_correlograms()
+    #~ test_int32_to_rgba()
+    #~ test_rgba_to_int32()
     

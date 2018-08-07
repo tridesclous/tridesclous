@@ -56,7 +56,7 @@ def test_plot_features_scatter_2d():
     dataio = DataIO('test_catalogueconstructor')
     catalogueconstructor = CatalogueConstructor(dataio=dataio, chan_grp=0)
     
-    plot_features_scatter_2d(catalogueconstructor)
+    #~ plot_features_scatter_2d(catalogueconstructor)
     plot_features_scatter_2d(catalogueconstructor, labels=[0])
 
     

@@ -34,7 +34,7 @@ def test_all_decomposition():
     #~ win.show()
     #~ app.exec_()
 
-def test_one_decomposition():
+def debug_one_decomposition():
     dirname = 'test_catalogueconstructor'
     
     dataio = DataIO(dirname=dirname)
@@ -53,14 +53,14 @@ def test_one_decomposition():
     t1 = time.perf_counter()
     print('extract_some_features', t1-t0)
 
-    app = mkQApp()
-    win = CatalogueWindow(catalogueconstructor)
-    win.show()
-    app.exec_()    
+    #~ app = mkQApp()
+    #~ win = CatalogueWindow(catalogueconstructor)
+    #~ win.show()
+    #~ app.exec_()    
 
 
 if __name__ == '__main__':
     #~ test_all_decomposition()
     
-    test_one_decomposition()
+    debug_one_decomposition()
 

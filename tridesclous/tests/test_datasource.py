@@ -6,8 +6,8 @@ from tridesclous import download_dataset
 #~ from tridesclous import DataIO
 from tridesclous.datasource import InMemoryDataSource, data_source_classes
 
-print(data_source_classes)
-exit()
+#~ print(data_source_classes)
+#~ exit()
 
 
 def test_InMemoryDataSource():
