@@ -412,7 +412,7 @@ class WaveformViewerBase(WidgetBase):
         
         wf = self.controller.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.controller.chan_grp,
                 i_start=peak_ind+n_left, i_stop=peak_ind+n_right,
-                signal_type='processed', return_type='raw_numpy')
+                signal_type='processed')
         
         if wf.shape[0]==(n_right-n_left):
             #this avoid border bugs

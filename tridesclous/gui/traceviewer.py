@@ -245,7 +245,7 @@ class BaseTraceViewer(WidgetBase):
         if self.signal_type=='initial':
             i_stop = min(int(60.*self.dataio.sample_rate), self.dataio.get_segment_shape(self.seg_num, chan_grp=self.controller.chan_grp)[0])
             sigs = self.dataio.get_signals_chunk(seg_num=self.seg_num, chan_grp=self.controller.chan_grp,
-                    i_start=0, i_stop=i_stop, signal_type=self.signal_type, return_type='raw_numpy')
+                    i_start=0, i_stop=i_stop, signal_type=self.signal_type)
             self.med, self.mad = median_mad(sigs.astype('float32'), axis = 0)
 
         elif self.signal_type=='processed':
@@ -325,7 +325,7 @@ class BaseTraceViewer(WidgetBase):
             if c  is None:
                 wf = self.controller.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.controller.chan_grp,
                         i_start=peak_ind, i_stop=peak_ind+1,
-                        signal_type='processed', return_type='raw_numpy')
+                        signal_type='processed')
                 c = np.argmax(np.abs(wf))
             
             self.center_scrollbar_on_channel(c)
@@ -355,8 +355,7 @@ class BaseTraceViewer(WidgetBase):
         ind2 = int((t2-t_start)*sr)
 
         sigs_chunk = self.dataio.get_signals_chunk(seg_num=self.seg_num, chan_grp=self.controller.chan_grp,
-                i_start=ind1, i_stop=ind2, signal_type=self.signal_type,
-                return_type='raw_numpy')
+                i_start=ind1, i_stop=ind2, signal_type=self.signal_type)
         
         if sigs_chunk is None: 
             return

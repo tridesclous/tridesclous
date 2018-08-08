@@ -66,7 +66,7 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         raise(ValueError, 'find_clusters method unknown')
     
     if selection is None:
-        cc.all_peaks['cluster_label'][:] = labelcodes.LABEL_UNCLASSIFIED
+        #~ cc.all_peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
         cc.all_peaks['cluster_label'][cc.some_peaks_index] = labels
     else:
         labels[labels>=0] += max(max(cc.cluster_labels), -1) + 1
@@ -119,14 +119,23 @@ class SawChainCut:
 
 
 
-
         #local max
         d0, d1, d2 = d[:-2], d[1:-1], d[2:]
-        ind_max,  = np.nonzero((d0<d1) & (d2<d1))
+        #~ ind_max,  = np.nonzero((d0<d1) & (d2<d1))
+        ind_max,  = np.nonzero((d0<d1) & (d2<=d1))
         ind_max += 1
-        ind_min,  = np.nonzero((d0>d1) & (d2>d1))
+        #~ ind_min,  = np.nonzero((d0>d1) & (d2>d1))
+        ind_min,  = np.nonzero((d0>d1) & (d2>=d1))
         ind_min += 1
         
+        #~ print('ind_max', ind_max)
+        #~ print('ind_min', ind_min)
+        #~ fig, ax = plt.subplots()
+        #~ ax.plot(d)
+        #~ ax.plot(ind_max, d[ind_max], ls='None', marker='o', color='r')
+        #~ ax.plot(ind_min, d[ind_min], ls='None', marker='o', color='g')
+        #~ plt.show()
+
         if ind_max.size>0:
             if ind_min.size==0:
                 assert ind_max.size==1, 'Super louche pas de min mais plusieur max'

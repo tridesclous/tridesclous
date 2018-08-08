@@ -13,11 +13,14 @@ import time
 import os
 import shutil
 
+import pytest
+
+from tridesclous.tests.testingtools import ON_CI_CLOUD
 
 
 
-
-def test_OnlineWindow():
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
+def test_TdcOnlineWindow():
     # get sigs
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     filename = filenames[0] #only first file
@@ -32,16 +35,15 @@ def test_OnlineWindow():
     #~ ng0 = man.create_nodegroup()
     ng0 = None
     dev = make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup=ng0, chunksize=chunksize)
-    
-    
-    
+
+
     channel_groups = {
-        0 : [5,6,7,8],
-        #~ 1 : [1,2,3,4],
-        #~ 2 : [9,10,11],
+        0 : {'channels': [5, 6, 7, 8]},
+        1 : {'channels': [1, 2, 3, 4]},
+        2 : {'channels': [9, 10, 11]},
     }
-    
-    workdir = 'test_onlinewindow'
+
+    workdir = 'test_tdconlinewindow'
     
     #~ if os.path.exists(workdir):
         #~ shutil.rmtree(workdir)
@@ -50,42 +52,38 @@ def test_OnlineWindow():
     
     
     
-    windows = []
-    for chan_grp, channel_indexes in channel_groups.items():
         
-        # nodegroup_firend
-        #~ nodegroup_friend = man.create_nodegroup() 
-        nodegroup_friend = None
+    # nodegroup_firend
+    #~ nodegroup_friends = [man.create_nodegroup() for chan_grp in channel_groups]
+    nodegroup_friends = None
 
-        w = OnlineWindow()
-        w.configure(chan_grp=chan_grp, channel_indexes=channel_indexes, chunksize=chunksize,
-                        workdir=workdir, nodegroup_friend=nodegroup_friend)
-        w.input.connect(dev.output)
-        w.initialize()
-        
-        w.resize(800, 600)
-        w.show()
-        w.start()
-        windows.append(w)
+    w = TdcOnlineWindow()
+    w.configure(channel_groups=channel_groups, chunksize=chunksize,
+                    workdir=workdir, nodegroup_friends=nodegroup_friends)
+    
+    w.input.connect(dev.output)
+    w.initialize()
+    w.show()
+
+    w.start()
     
     dev.start()
     
     
-    def terminate():
-        dev.stop()
-        for w in windows:
-            w.stop()
-        app.quit()
-        man.close()
+    #~ def terminate():
+        #~ dev.stop()
+        #~ w.stop()
+        #~ app.quit()
+        #~ man.close()
         
     
-    
-    app.exec_()
+    if __name__ =='__main__':
+        app.exec_()
 
 
 
 
 
 if __name__ =='__main__':
-    test_OnlineWindow()
+    test_TdcOnlineWindow()
     

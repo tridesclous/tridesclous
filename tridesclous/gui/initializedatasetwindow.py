@@ -78,8 +78,8 @@ class InitializeDatasetWindow(QT.QDialog):
         if step=='source_type':
             source_types = list(data_source_classes.keys())
             source_types.remove('InMemory')
-            if 'RawBinarySignal' in source_types:
-                source_types.remove('RawData')
+            #~ if 'RawBinarySignal' in source_types:
+                #~ source_types.remove('RawData')
             
             params = [{'name': 'source_type', 'type': 'list', 'values':source_types},
                             ]

@@ -1,3 +1,10 @@
+"""
+
+.. autoclass:: DataIO
+   :members:
+
+"""
+
 import os, shutil
 import json
 from collections import OrderedDict
@@ -9,6 +16,7 @@ import pickle
 from .datasource import data_source_classes
 from .iotools import ArrayCollection
 from .tools import download_probe, create_prb_file_from_dict, fix_prb_file_py2
+from .export import export_list, export_dict
 
 _signal_types = ['initial', 'processed']
 
@@ -18,9 +26,63 @@ _signal_types = ['initial', 'processed']
 
 class DataIO:
     """
+    Class to acces the dataset (raw data, processed, catalogue, 
+    spikes) in read/write mode.
     
-    Caution a DataIO instance must not be shared within CatalogueConstructor or Peeler
-    unless them have the same channel_group.
+    All operations on the dataset are done througth that class.
+    
+    The dataio :
+      * work in a path. Almost everything is persistent.
+      * needed by CatalogueConstructor and Peeler
+      * have a datasource member that access raw data
+      * store/load processed signals
+      * store/load spikes
+      * store/load the catalogue
+      * deal with sevral channel groups given a PRB file
+      * deal with several segment of recording (aka several files for raw data)
+      * export the results (labeled spikes) to differents format
+      
+    
+    The underlying data storage is a simple tree on the file system.
+    Everything is organised as simple as possible in sub folder 
+    (by channel group then segment index).
+    In each folder:
+      * arrays.json describe the list of numpy array (name, dtype, shape)
+      * XXX.raw are the raw numpy arrays and load with a simple memmap.
+      * some array are struct arrays (aka array of struct)
+      
+    The datasource system is based on neo.rawio so all format in neo.rawio are
+    available in tridesclous. neo.rawio is able to read chunk of signals indexed 
+    on time axis and channel axis.
+    
+    The raw dataset do not need to be inside the working directory but can be somewhere outside.
+    The info.json describe the link to the *datasource* (raw data)
+    
+    Many raw dataset are saved by the device with an underlying int16.
+    DataIO save the processed signals as float32 by default. So if
+    you have a 10Go raw dataset tridesclous will need at least 20 Go more for storage
+    of the processed signals.
+    
+    
+    **Usage**::
+    
+        # initialize a directory
+        dataio = DataIO(dirname='/path/to/a/working/dir')
+        
+        # set a data source
+        filenames = ['file1.raw', 'file2.raw']
+        dataio.dataio.set_data_source(type='RawData', filenames=filenames, 
+                                    sample_rate=10000, total_channel=16, dtype='int16')
+        
+        # set a PRB file
+        dataio.set_probe_file('/path/to/a/file.prb')
+        # or dowload it
+        dataio.download_probe('kampff_128', origin='spyking-circus')
+        
+        # check lenght and channel groups
+        print(dataio)
+
+    
     """
     
     @staticmethod
@@ -59,6 +121,8 @@ class DataIO:
                 self._reload_channel_group()
                 self._reload_data_source()
                 self._open_processed_data()
+            else:
+                self.datasource = None
                 
             #~ except:
                 #~ self.info = {}
@@ -99,6 +163,20 @@ class DataIO:
             json.dump(self.info, f, indent=4)
     
     def set_data_source(self, type='RawData', **kargs):
+        """
+        Set the datasource. Must be done only once otherwise raise error.
+        
+        
+        Parameters
+        ------------------
+        
+        type: str ('RawData', 'Blackrock', 'Neuralynx', ...)
+            The name of the neo.rawio class used to open the dataset.
+        kargs: 
+            depends on the class used. They are transimted to neo class.
+            So see neo doc for kargs
+        
+        """
         assert type in data_source_classes, 'this source type do not exists yet!!'
         assert 'datasource_type' not in self.info, 'datasource is already set'
         # force abs path name 
@@ -151,6 +229,11 @@ class DataIO:
             os.remove(os.path.join(self.dirname, old_filename))
         
     def set_probe_file(self, src_probe_filename):
+        """
+        Set the probe file.
+        The probe file is copied inside the working dir.
+        
+        """
         self._rm_old_probe_file()
         probe_filename = os.path.join(self.dirname, os.path.basename(src_probe_filename))
         shutil.copyfile(src_probe_filename, probe_filename)
@@ -162,6 +245,22 @@ class DataIO:
         
     
     def download_probe(self, probe_name, origin='kwikteam'):
+        """
+        Download a prb file from github  into the working dir.
+        
+        The spiking-circus and kwikteam propose a list prb file.
+        See:
+           * https://github.com/kwikteam/probes
+           * https://github.com/spyking-circus/spyking-circus/tree/master/probes
+        
+        Parameters
+        ------------------
+        probe_name: str
+            the name of file in github
+        origin: 'kwikteam' or 'spyking-circus'
+            github project
+        
+        """
         self._rm_old_probe_file()
         
         
@@ -198,6 +297,9 @@ class DataIO:
         return geometry
         
     def set_channel_groups(self, channel_groups, probe_filename='channels.prb'):
+        """
+        Set manually the channel groups dictionary.
+        """
         self._rm_old_probe_file()
         
         # checks
@@ -238,10 +340,39 @@ class DataIO:
         #rewrite with same name
         self.set_channel_groups(self.channel_groups, probe_filename=self.info['probe_filename'])
         
+    def get_geometry(self, chan_grp=0):
+        """
+        Get the geometry for a given channel group in a numpy array way.
+        """
+        channel_group = self.channel_groups[chan_grp]
+        geometry = [ channel_group['geometry'][chan] for chan in channel_group['channels'] ]
+        geometry = np.array(geometry)
+        return geometry
 
     def nb_channel(self, chan_grp=0):
+        """
+        Number of channel for a channel group.
+        """
         #~ print('DataIO.nb_channel', self.channel_groups)
         return len(self.channel_groups[chan_grp]['channels'])
+
+
+    def channel_group_label(self, chan_grp=0):
+        """
+        Label of channel for a group.
+        """
+        label = 'chan_grp {} - '.format(chan_grp)
+        
+        channels = self.channel_groups[chan_grp]['channels']
+        ch_names = np.array(self.datasource.get_channel_names())[channels]
+        
+        if len(ch_names)<8:
+            label += ' '.join(ch_names)
+        else:
+            label += ' '.join(ch_names[:3]) + ' ... ' + ' '.join(ch_names[-2:])
+        
+        return label
+
 
     
     def _open_processed_data(self):
@@ -271,18 +402,45 @@ class DataIO:
                     self.arrays[chan_grp][i].load_if_exists(name)
     
     def get_segment_length(self, seg_num):
+        """
+        Segment length (in sample) for a given segment index
+        """
         full_shape =  self.datasource.get_segment_shape(seg_num)
         return full_shape[0]
     
     def get_segment_shape(self, seg_num, chan_grp=0):
+        """
+        Segment shape for a given segment index and channel group.
+        """
         full_shape =  self.datasource.get_segment_shape(seg_num)
         shape = (full_shape[0], self.nb_channel(chan_grp))
         return shape
     
     def get_signals_chunk(self, seg_num=0, chan_grp=0,
                 i_start=None, i_stop=None,
-                signal_type='initial', return_type='raw_numpy'):
+                signal_type='initial'): #return_type='raw_numpy'
+        """
+        Get a chunk of signal for for a given segment index and channel group.
         
+        The signal can be the 'initial' (aka raw signal), the none filetered signals or
+        the 'processed' signal.
+        
+        Parameters
+        ------------------
+        seg_num: int
+            segment index
+        chan_grp: int
+            channel group key
+        i_start: int or None
+           start index (included)
+        i_stop: int or None
+            stop index (not included)
+        signal_type: str
+            'initial' or 'processed'
+        
+        
+        
+        """
         channels = self.channel_groups[chan_grp]['channels']
         
         if signal_type=='initial':
@@ -293,33 +451,56 @@ class DataIO:
         else:
             raise(ValueError, 'signal_type is not valide')
         
-        if return_type=='raw_numpy':
-            return data
-        elif return_type=='on_scale_numpy':
-            raise(NotImplementedError)
-        elif return_type=='pandas':
-            raise(NotImplementedError)
+        return data
+        #~ if return_type=='raw_numpy':
+            #~ return data
+        #~ elif return_type=='on_scale_numpy':
+            #~ raise(NotImplementedError)
+        #~ elif return_type=='pandas':
+            #~ raise(NotImplementedError)
 
     def iter_over_chunk(self, seg_num=0, chan_grp=0,  i_stop=None, chunksize=1024, **kargs):
-
+        """
+        Create an iterable on signals. ('initial' or 'processed')
+        
+        Usage
+        ----------
+        
+            for ind, sig_chunk in data.iter_over_chunk(seg_num=0, chan_grp=0, chunksize=1024, signal_type='processed'):
+                do_something_on_chunk(sig_chunk)
+        
+        """
         if i_stop is not None:
             length = min(self.get_segment_shape(seg_num, chan_grp=chan_grp)[0], i_stop)
         else:
             length = self.get_segment_shape(seg_num, chan_grp=chan_grp)[0]
         
-        #TODO for last chunk append some zeros: maybe: ????
+        
         nloop = length//chunksize
         for i in range(nloop):
             i_stop = (i+1)*chunksize
             i_start = i_stop - chunksize
             sigs_chunk = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, i_start=i_start, i_stop=i_stop, **kargs)
             yield  i_stop, sigs_chunk
+        
+        # lat chunk = very bad idea because it break chunksize in many place (OpenCL signal processor, Peeler, ...)
+        #~ if i_stop<length:
+            #~ i_start = i_stop
+            #~ i_stop = length
+            #~ sigs_chunk = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, i_start=i_start, i_stop=i_stop, **kargs)
+            #~ yield  i_stop, sigs_chunk
     
     def reset_processed_signals(self, seg_num=0, chan_grp=0, dtype='float32'):
+        """
+        Reset processed signals.
+        """
         self.arrays[chan_grp][seg_num].create_array('processed_signals', dtype, 
                             self.get_segment_shape(seg_num, chan_grp=chan_grp), 'memmap')
     
     def set_signals_chunk(self,sigs_chunk, seg_num=0, chan_grp=0, i_start=None, i_stop=None, signal_type='processed'):
+        """
+        Set a signal chunk (only for 'processed')
+        """
         assert signal_type != 'initial'
 
         if signal_type=='processed':
@@ -327,24 +508,49 @@ class DataIO:
             data[i_start:i_stop, :] = sigs_chunk
         
     def flush_processed_signals(self, seg_num=0, chan_grp=0):
+        """
+        Flush the underlying memmap for processed signals.
+        """
         self.arrays[chan_grp][seg_num].flush_array('processed_signals')
     
     def reset_spikes(self, seg_num=0,  chan_grp=0, dtype=None):
+        """
+        Reset spikes.
+        """
         assert dtype is not None
         self.arrays[chan_grp][seg_num].initialize_array('spikes', 'memmap', dtype, (-1,))
         
     def append_spikes(self, seg_num=0, chan_grp=0, spikes=None):
+        """
+        Append spikes.
+        """
         if spikes is None: return
         self.arrays[chan_grp][seg_num].append_chunk('spikes', spikes)
         
     def flush_spikes(self, seg_num=0, chan_grp=0):
+        """
+        Flush underlying memmap for spikes.
+        """
         self.arrays[chan_grp][seg_num].finalize_array('spikes')
     
     def get_spikes(self, seg_num=0, chan_grp=0, i_start=None, i_stop=None):
+        """
+        Read spikes
+        """
         spikes = self.arrays[chan_grp][seg_num].get('spikes')
+        if spikes is None:
+            return
         return spikes[i_start:i_stop]
     
     def save_catalogue(self, catalogue, name='initial'):
+        """
+        Save the catalogue made by `CatalogueConstructor` and needed
+        by `Peeler` inside the working dir.
+        
+        Note that you can construct several catalogue for the same dataset
+        to compare then just change the name. Different folder name so.
+        
+        """
         catalogue = dict(catalogue)
         chan_grp = catalogue['chan_grp']
         dir = os.path.join(self.dirname,'channel_group_{}'.format(chan_grp), 'catalogues', name)
@@ -370,6 +576,9 @@ class DataIO:
         
     
     def load_catalogue(self,  name='initial', chan_grp=0):
+        """
+        Load the catalogue dict.
+        """
         dir = os.path.join(self.dirname,'channel_group_{}'.format(chan_grp), 'catalogues', name)
         filename = os.path.join(dir, 'catalogue.pickle')
         #~ with open(os.path.join(dir, 'catalogue.json'), 'r', encoding='utf8') as f:
@@ -384,15 +593,52 @@ class DataIO:
         arrays = ArrayCollection(parent=None, dirname=dir)
         arrays.load_all()
         for k in arrays.keys():
-            catalogue[k] = arrays.get(k)
+            catalogue[k] = np.array(arrays.get(k), copy=True)
         
         
         return catalogue
     
-    def get_geometry(self, chan_grp=0):
-        channel_group = self.channel_groups[chan_grp]
-        geometry = [ channel_group['geometry'][chan] for chan in channel_group['channels'] ]
-        geometry = np.array(geometry)
-        return geometry
+    def export_spikes(self, export_path=None,
+                split_by_cluster=False,  use_cell_label=True, formats=None):
+        """
+        Export spikes to other format (csv, matlab, excel, ...)
         
+        Parameters
+        ------------------
+        export_path: str or None
+           export path. If None (default then inside working dir)
+        split_by_cluster: bool (default False)
+           Each cluster is split to a diffrent file or not.
+        use_cell_label: bool (deafult True)
+            if true cell_label is used if false cluster_label is used
+        formats: 'csv' or 'mat' or 'xlsx'
+            The output format.
+        """
+        
+        if export_path is None:
+            export_path = os.path.join(self.dirname, 'export')
+        
+        if formats is None:
+            exporters = export_list
+        elif isinstance(formats, str):
+            assert formats in export_dict
+            exporters = [ export_dict[formats] ]
+        elif isinstance(format, list):
+            exporters = [ export_dict[format] for format in formats]
+        else:
+            return
+        
+        for chan_grp in self.channel_groups.keys():
+            
+            catalogue = self.load_catalogue(chan_grp=chan_grp)
+            
+            for seg_num in range(self.nb_segment):
+                spikes = self.get_spikes(seg_num=seg_num, chan_grp=chan_grp)
+                
+                if spikes is None: continue
+                
+                args = (spikes, catalogue, seg_num, chan_grp, export_path,)
+                kargs = dict(split_by_cluster=split_by_cluster, use_cell_label=use_cell_label)
+                for exporter in exporters:
+                    exporter(*args, **kargs)
 

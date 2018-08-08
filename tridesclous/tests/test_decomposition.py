@@ -10,11 +10,21 @@ from tridesclous import mkQApp, CatalogueWindow
 
 from matplotlib import pyplot
 
-# run test_catalogueconstructor.py before this
+from tridesclous.tests.testingtools import setup_catalogue
+
+dataset_name='olfactory_bulb'
+
+
+def setup_module():
+    setup_catalogue('test_decomposition', dataset_name=dataset_name)
+
+def teardown_module():
+    shutil.rmtree('test_decomposition')
+
 
 
 def test_all_decomposition():
-    dirname = 'test_catalogueconstructor'
+    dirname = 'test_decomposition'
     
     dataio = DataIO(dirname=dirname)
     cc = catalogueconstructor = CatalogueConstructor(dataio=dataio)
@@ -34,7 +44,7 @@ def test_all_decomposition():
     #~ win.show()
     #~ app.exec_()
 
-def test_one_decomposition():
+def debug_one_decomposition():
     dirname = 'test_catalogueconstructor'
     
     dataio = DataIO(dirname=dirname)
@@ -53,14 +63,15 @@ def test_one_decomposition():
     t1 = time.perf_counter()
     print('extract_some_features', t1-t0)
 
-    app = mkQApp()
-    win = CatalogueWindow(catalogueconstructor)
-    win.show()
-    app.exec_()    
+    #~ app = mkQApp()
+    #~ win = CatalogueWindow(catalogueconstructor)
+    #~ win.show()
+    #~ app.exec_()    
 
 
 if __name__ == '__main__':
-    #~ test_all_decomposition()
+    setup_module()
+    test_all_decomposition()
     
-    test_one_decomposition()
+    #~ debug_one_decomposition()
 

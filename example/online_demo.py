@@ -47,14 +47,15 @@ dev = tridesclous.online.make_pyacq_device_from_buffer(sigs, sample_rate, nodegr
 
 
 # The device have 16 channel, take some take 2 tetrodes only
+# In fcat this dataset is absolutly not 2 tetrodes but for the demo, it is OK :)
 channel_groups = {
-    0 : [5,6,7,8],
-    1 : [1,2,3,4],
+    0 : {'channels': [5, 6, 7, 8]},
+    1 : {'channels': [1, 2, 3, 4]},
 }
 
 
 # where catalogue will be saved
-workdir = 'test_onlinewindow'
+workdir = 'demo_onlinewindow'
 
 
 # Qt Application
@@ -63,21 +64,20 @@ app = pg.mkQApp()
 
 
 windows = []
-for chan_grp, channel_indexes in channel_groups.items():
     
-    # OnelinePeeler will occur in backgroun in a diffrent process
-    # and possibly on other machine to split up the workload
-    nodegroup_friend = man.create_nodegroup()
+# OnelinePeeler will occur in backgroun in a diffrent process
+# and possibly on other machine to split up the workload
+nodegroup_friends = [man.create_nodegroup() for _ in range(2)]
 
-    w = tridesclous.online.OnlineWindow()
-    w.configure(chan_grp=chan_grp, channel_indexes=channel_indexes, chunksize=chunksize,
-                    workdir=workdir, nodegroup_friend=nodegroup_friend)
-    w.input.connect(dev.output)
-    w.initialize()
-    
-    w.show()
-    w.start()
-    windows.append(w)
+w = tridesclous.online.TdcOnlineWindow()
+w.configure(channel_groups=channel_groups, chunksize=chunksize,
+                workdir=workdir, nodegroup_friends=nodegroup_friends)
+w.input.connect(dev.output)
+w.initialize()
+
+w.show()
+w.start()
+windows.append(w)
 
 dev.start()
 

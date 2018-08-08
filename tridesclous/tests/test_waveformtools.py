@@ -1,16 +1,25 @@
 import numpy as np
-import scipy.signal
 import time
 
 
-from tridesclous import get_dataset
+from tridesclous.waveformtools import extract_chunks
 
 
-from matplotlib import pyplot
 
+
+def test_extract_chunks():
+    size = 100000
+    width = 50
+    signals = np.random.randn(size, 5)
+    indexes = np.random.randint(low=width, high=size-width, size=10)
+    chunks = extract_chunks(signals, indexes, width, chunks=None)
+    
+    chunks[:] = 0
+    chunks = extract_chunks(signals, indexes, width, chunks=chunks)
+    
 
 if __name__ == '__main__':
-    test_compare_offline_online_engines()
+    test_extract_chunks()
     
 
 

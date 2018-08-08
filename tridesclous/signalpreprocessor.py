@@ -159,29 +159,52 @@ class SignalPreprocessor_Numpy(SignalPreprocessor_base):
         #~ if pos2 is None:
             #~ return None, None
         
+        
         #Online filtfilt
         chunk = data.astype(self.output_dtype)
         forward_chunk_filtered, self.zi = scipy.signal.sosfilt(self.coefficients, chunk, zi=self.zi, axis=0)
         forward_chunk_filtered = forward_chunk_filtered.astype(self.output_dtype)
         
         self.forward_buffer.new_chunk(forward_chunk_filtered, index=pos)
-        start = pos-self.backward_chunksize
-        if start<-self.lostfront_chunksize:
-            return None, None
-        if start>0:
-            backward_chunk = self.forward_buffer.get_data(start,pos)
-        else:
-            backward_chunk = self.forward_buffer.get_data(0,pos)
+        
+        #OLD implementation
+        #~ start = pos-self.backward_chunksize
+        #~ if start<-self.lostfront_chunksize:
+            #~ return None, None
+        #~ if start>0:
+            #~ backward_chunk = self.forward_buffer.get_data(start,pos)
+        #~ else:
+            #~ backward_chunk = self.forward_buffer.get_data(0,pos)
+        #~ backward_filtered = scipy.signal.sosfilt(self.coefficients, backward_chunk[::-1, :], zi=None, axis=0)
+        #~ backward_filtered = backward_filtered[::-1, :]
+        #~ backward_filtered = backward_filtered.astype(self.output_dtype)
+            
+        #~ if start>0:
+            #~ backward_filtered = backward_filtered[:self.chunksize]
+            #~ assert data.shape[0] == self.chunksize
+        #~ else:
+            #~ backward_filtered = backward_filtered[:-self.lostfront_chunksize]
+        #~ data2 = backward_filtered
+        #~ pos2 = pos-self.lostfront_chunksize
+            
+        # NEW IMPLENTATION
+        backward_chunk = self.forward_buffer.buffer
         backward_filtered = scipy.signal.sosfilt(self.coefficients, backward_chunk[::-1, :], zi=None, axis=0)
         backward_filtered = backward_filtered[::-1, :]
         backward_filtered = backward_filtered.astype(self.output_dtype)
-            
-        if start>0:
-            backward_filtered = backward_filtered[:self.chunksize]
-        else:
-            backward_filtered = backward_filtered[:-self.lostfront_chunksize]
-        data2 = backward_filtered
+        
         pos2 = pos-self.lostfront_chunksize
+        if pos2<0:
+            return None, None
+        
+        i1 = self.backward_chunksize-self.lostfront_chunksize-chunk.shape[0]
+        i2 = self.chunksize
+
+        assert i1<i2
+        data2 = backward_filtered[i1:i2]
+        if (pos2-data2.shape[0])<0:
+            data2 = data2[data2.shape[0]-pos2:]
+        
         #~ print('pos', pos, 'pos2', pos2, data2.shape)
         
         # removal ref

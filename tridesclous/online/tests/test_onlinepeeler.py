@@ -15,6 +15,12 @@ import os
 import shutil
 
 
+import pytest
+from tridesclous.tests.testingtools import ON_CI_CLOUD
+
+
+def setup_module():
+    setup_catalogue()
 
 
 def setup_catalogue():
@@ -22,77 +28,62 @@ def setup_catalogue():
         shutil.rmtree('test_onlinepeeler')
     
     dataio = DataIO(dirname='test_onlinepeeler')
-    
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
-    filenames = filenames[:1] #only first file
-    #~ print(params)
-    #~ exit()
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
-    channel_group = {0:{'channels':[5, 6, 7, 8]}}
-    dataio.set_channel_groups(channel_group)
+    dataio.add_one_channel_group(channels=[5, 6, 7, 8, 9])
     
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
-
-    catalogueconstructor.set_preprocessor_params(chunksize=1024,
-            memory_mode='memmap',
-            
-            #signal preprocessor
-            highpass_freq=300,
-            lostfront_chunksize=64,
-            
-            #peak detector
-            peakdetector_engine='numpy',
-            peak_sign='-', relative_threshold=7, peak_span=0.0005,
-            )
     
-    t1 = time.perf_counter()
-    catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
-    t2 = time.perf_counter()
-    print('estimate_signals_noise', t2-t1)
     
-    t1 = time.perf_counter()
-    catalogueconstructor.run_signalprocessor()
-    t2 = time.perf_counter()
-    print('run_signalprocessor', t2-t1)
-
+    fullchain_kargs = {
+        'duration' : 60.,
+        'preprocessor' : {
+            'highpass_freq' : 300.,
+            'chunksize' : 1024,
+            'lostfront_chunksize' : 100,
+        },
+        'peak_detector' : {
+            'peak_sign' : '-',
+            'relative_threshold' : 7.,
+            'peak_span' : 0.0005,
+            #~ 'peak_span' : 0.000,
+        },
+        'extract_waveforms' : {
+            'n_left' : -25,
+            'n_right' : 40,
+            'nb_max' : 10000,
+        },
+        'clean_waveforms' : {
+            'alien_value_threshold' : 60.,
+        },
+        'noise_snippet' : {
+            'nb_snippet' : 300,
+        },        
+    }
     
-    t1 = time.perf_counter()
-    catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=35,  nb_max=10000)
-    t2 = time.perf_counter()
-    print('extract_some_waveforms', t2-t1)
-    print(catalogueconstructor)
-    
-    t1 = time.perf_counter()
-    catalogueconstructor.clean_waveforms(alien_value_threshold=100.)
-    t2 = time.perf_counter()
-    print('clean_waveforms', t2-t1)
-
-
-    # PCA
-    t1 = time.perf_counter()
-    catalogueconstructor.project(method='neighborhood_pca', n_components_by_neighborhood=3)
-    t2 = time.perf_counter()
-    print('project', t2-t1)
-    
-    # cluster
-    t1 = time.perf_counter()
-    catalogueconstructor.find_clusters(method='kmeans', n_clusters=13)
-    t2 = time.perf_counter()
-    print('find_clusters', t2-t1)
-    
-    # trash_small_cluster
+    apply_all_catalogue_steps(catalogueconstructor,
+        fullchain_kargs,
+        'global_pca', {'n_components': 12},
+        'kmeans', {'n_clusters': 12},
+        verbose=True)
     catalogueconstructor.trash_small_cluster()
+    
+    catalogueconstructor.order_clusters(by='waveforms_rms')
+    
+    catalogueconstructor.make_catalogue_for_peeler()
 
 
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    app = pg.mkQApp()
-    win = CatalogueWindow(catalogueconstructor)
-    win.show()
-    app.exec_()
+    
+    if __name__ =='__main__':
+        app = pg.mkQApp()
+        win = CatalogueWindow(catalogueconstructor)
+        win.show()
+        app.exec_()
 
     
 
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_OnlinePeeler():
     dataio = DataIO(dirname='test_onlinepeeler')
 
@@ -123,14 +114,14 @@ def test_OnlinePeeler():
     dev.start()
     
     # Node QOscilloscope
-    oscope = QOscilloscope()
-    oscope.configure(with_user_dialog=True)
-    oscope.input.connect(dev.output)
-    oscope.initialize()
-    oscope.show()
-    oscope.start()
-    oscope.params['decimation_method'] = 'min_max'
-    oscope.params['mode'] = 'scan'    
+    #~ oscope = QOscilloscope()
+    #~ oscope.configure(with_user_dialog=True)
+    #~ oscope.input.connect(dev.output)
+    #~ oscope.initialize()
+    #~ oscope.show()
+    #~ oscope.start()
+    #~ oscope.params['decimation_method'] = 'min_max'
+    #~ oscope.params['mode'] = 'scan'    
 
     # Node Peeler
     peeler = OnlinePeeler()
@@ -143,18 +134,26 @@ def test_OnlinePeeler():
     peeler.start()
     
     # Node traceviewer
-    tviewer = OnlineTraceViewer()
-    tviewer.configure(peak_buffer_size = 1000, catalogue=lighter_catalogue(catalogue))
-    #~ tviewer.configure(peak_buffer_size = 1000, catalogue=catalogue)
-    tviewer.inputs['signals'].connect(peeler.outputs['signals'])
-    tviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
-    tviewer.initialize()
-    tviewer.show()
-    tviewer.start()
-    tviewer.params['xsize'] = 3.
-    tviewer.params['decimation_method'] = 'min_max'
-    tviewer.params['mode'] = 'scan'
-    #~ tviewer.params['mode'] = 'scroll'
+    #~ tviewer = OnlineTraceViewer()
+    #~ tviewer.configure(peak_buffer_size = 1000, catalogue=lighter_catalogue(catalogue))
+    #~ tviewer.inputs['signals'].connect(peeler.outputs['signals'])
+    #~ tviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
+    #~ tviewer.initialize()
+    #~ tviewer.show()
+    #~ tviewer.start()
+    #~ tviewer.params['xsize'] = 3.
+    #~ tviewer.params['decimation_method'] = 'min_max'
+    #~ tviewer.params['mode'] = 'scan'
+
+    
+    # waveform histogram viewer
+    wviewer = OnlineWaveformHistViewer()
+    wviewer.configure(peak_buffer_size = 1000, catalogue=catalogue)
+    wviewer.inputs['signals'].connect(peeler.outputs['signals'])
+    wviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
+    wviewer.initialize()
+    wviewer.show()
+    wviewer.start()    
     
     
     def terminate():
@@ -164,10 +163,12 @@ def test_OnlinePeeler():
         tviewer.stop()
         app.quit()
     
-    app.exec_()
+    
+    if __name__ =='__main__':
+        app.exec_()
     
     
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_OnlinePeeler_no_catalogue():
     
 
@@ -275,6 +276,15 @@ def test_OnlinePeeler_no_catalogue():
     tviewer.params['scale_mode'] = 'same_for_all'
     tviewer.start()
     
+    # waveform histogram viewer
+    wviewer = OnlineWaveformHistViewer()
+    wviewer.configure(peak_buffer_size = 1000, catalogue=empty_catalogue)
+    wviewer.inputs['signals'].connect(peeler.outputs['signals'])
+    wviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
+    wviewer.initialize()
+    wviewer.show()
+    wviewer.start()        
+
     
     def auto_scale():
         oscope.auto_scale()
@@ -291,7 +301,9 @@ def test_OnlinePeeler_no_catalogue():
     timer.timeout.connect(auto_scale)
     timer.start()
     
-    app.exec_()
+    
+    if __name__ =='__main__':
+        app.exec_()
     
 
     

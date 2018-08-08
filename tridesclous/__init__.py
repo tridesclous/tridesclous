@@ -1,3 +1,15 @@
+"""
+
+.. automodule:: tridesclous.dataio
+
+.. automodule:: tridesclous.catalogueconstructor
+
+.. automodule:: tridesclous.peeler
+
+
+
+
+"""
 from .version import version as __version__
 
 import PyQt5 # this force pyqtgraph to deal with Qt5
@@ -16,6 +28,7 @@ from .tools import open_prb
 from .dataio import DataIO
 from .signalpreprocessor import offline_signal_preprocessor, estimate_medians_mads_after_preprocesing
 from .catalogueconstructor import CatalogueConstructor
+from .cataloguetools import apply_all_catalogue_steps
 from .peeler import Peeler
 from .peeler_cl import Peeler_OpenCl
 

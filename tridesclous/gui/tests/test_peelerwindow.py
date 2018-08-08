@@ -1,11 +1,28 @@
 from tridesclous import *
 import  pyqtgraph as pg
 from matplotlib import pyplot
+import time
+
+import pytest
+from tridesclous.tests.testingtools import ON_CI_CLOUD, setup_catalogue
+
+def setup_module():
+    dirname = 'test_peelerwindow'
+    setup_catalogue(dirname, dataset_name='olfactory_bulb')
+    
+    dataio = DataIO(dirname=dirname)
+    initial_catalogue = dataio.load_catalogue(chan_grp=0)
+    peeler = Peeler(dataio)
+    peeler.change_params(catalogue=initial_catalogue,chunksize=1024)
+    t1 = time.perf_counter()
+    peeler.run(progressbar=False)
+    t2 = time.perf_counter()
+    print('peeler.run_loop', t2-t1)
 
 
 
 def get_controller():
-    dataio = DataIO(dirname='test_peeler')
+    dataio = DataIO(dirname='test_peelerwindow')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     initial_catalogue = dataio.load_catalogue()
     controller = PeelerController(dataio=dataio,catalogue=initial_catalogue)
@@ -15,8 +32,9 @@ def get_controller():
 def test_Peelercontroller():
     controller = get_controller()
     assert controller.cluster_labels is not None
-    
 
+    
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_PeelerTraceViewer():
     controller = get_controller()
     
@@ -24,9 +42,11 @@ def test_PeelerTraceViewer():
     traceviewer = PeelerTraceViewer(controller=controller)
     traceviewer.show()
     traceviewer.resize(800,600)
-    app.exec_()
+    
+    if __name__ == '__main__':
+        app.exec_()
 
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_SpikeList():
     controller = get_controller()
     
@@ -34,8 +54,11 @@ def test_SpikeList():
     traceviewer = SpikeList(controller)
     traceviewer.show()
     traceviewer.resize(800,600)
-    app.exec_()
+    
+    if __name__ == '__main__':
+        app.exec_()
 
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_ClusterSpikeList():
     controller = get_controller()
     
@@ -43,8 +66,11 @@ def test_ClusterSpikeList():
     traceviewer = ClusterSpikeList(controller)
     traceviewer.show()
     traceviewer.resize(800,600)
-    app.exec_()
+    
+    if __name__ == '__main__':
+        app.exec_()
 
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_PeelerWaveformViewer():
     controller = get_controller()
     
@@ -52,9 +78,11 @@ def test_PeelerWaveformViewer():
     traceviewer = PeelerWaveformViewer(controller)
     traceviewer.show()
     traceviewer.resize(800,600)
-    app.exec_()
+    
+    if __name__ == '__main__':
+        app.exec_()
 
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_ISIViewer():
     controller = get_controller()
     for k in controller.cluster_labels:
@@ -67,8 +95,10 @@ def test_ISIViewer():
     isiviewer = ISIViewer(controller)
     isiviewer.show()
     isiviewer.refresh()
-    app.exec_()    
+    if __name__ == '__main__':
+        app.exec_()    
 
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_CrossCorrelogramViewer():
     controller = get_controller()
     for k in controller.cluster_labels:
@@ -81,24 +111,27 @@ def test_CrossCorrelogramViewer():
     ccgviewer = CrossCorrelogramViewer(controller)
     ccgviewer.show()
     ccgviewer.refresh()
-    app.exec_()    
+    if __name__ == '__main__':
+        app.exec_()    
 
     
 
-
 def test_PeelerWindow():
-    dataio = DataIO(dirname='test_peeler')
+    dataio = DataIO(dirname='test_peelerwindow')
     initial_catalogue = dataio.load_catalogue(chan_grp=0)
 
     app = pg.mkQApp()
     win = PeelerWindow(dataio=dataio, catalogue=initial_catalogue)
     win.show()
-    app.exec_()
+    if __name__ == '__main__':
+        app.exec_()
 
     
     
 if __name__ == '__main__':
-    #~ test_Peelercontroller()
+    #~ setup_module()
+    
+    test_Peelercontroller()
     
     #~ test_PeelerTraceViewer()
     #~ test_SpikeList()

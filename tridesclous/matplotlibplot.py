@@ -43,8 +43,7 @@ def plot_signals(dataio_or_cataloguecconstructor, chan_grp=0, seg_num=0, time_sl
     i_stop = int(time_slice[1]*dataio.sample_rate)
     
     raw_sigs = dataio.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp,
-                i_start=i_start, i_stop=i_stop,
-                signal_type=signal_type, return_type='raw_numpy')
+                i_start=i_start, i_stop=i_stop, signal_type=signal_type)
     
     if signal_type=='initial':
         med, mad = median_mad(raw_sigs)

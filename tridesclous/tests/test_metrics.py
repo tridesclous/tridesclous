@@ -31,9 +31,11 @@ def test_cluster_ratio():
         ax.set_title(name)
 
     
-    plt.show()
+    
 
 
 if __name__ == '__main__':
-    #~ test_all_metrics()
+    test_all_metrics()
     test_cluster_ratio()
+    
+    #~ plt.show()

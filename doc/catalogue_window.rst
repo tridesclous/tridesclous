@@ -8,7 +8,7 @@ mistakes made by the automatic steps (filtering, threshold, feature extraction, 
 
 All views are linked, this means that some actions interact with other views.
 
-All views can be customised by settings.
+All views can be customised by settings (often with a double in the view).
 
 Here some detail on each view.
 
@@ -22,7 +22,7 @@ Here some detail on each view.
 .. NOTE::
 
     For some manual actions on catalogue, CatalogueWindow can suddenly crash. While this is annoying,
-    you should not lose any dataset. Just open again the same dataset and you should be in a previous
+    you should not lose any data. Just open again the same dataset and you should be in a previous
     situation.
     
     In cases of crashes please send an issue on github `<https://github.com/tridesclous/tridesclous/issues>`_
@@ -35,7 +35,7 @@ Toolbar on the left
 
 You can:
 
-  * **Save the catalogue**: this construct all waveform centroid + first and second derivative + interpolated 
+  * **Make catalogue for Peeler**: this construct all waveform centroid + first and second derivative + interpolated 
     waveforms. This is needed by the Peeler. This initial catalogue is valid for one channel group only.
     This is saved inside the working directory of the DataIO in the appropriate channel_group sub dir.
     Do this at the end when the clusters seem OK before launching the Peeler on the entire dataset.
@@ -44,10 +44,14 @@ You can:
     This avoids to restart the UI.
   * **New peaks**: re detect peaks, you change the threshold for a new detection here.
   * **New waveforms**: take some other (or all) waveforms with other parameters.
+  * **Clean waveforms**: detect bad (allien) waveform.
   * **New noise snippet**: extract new noise snippet.
   * **New features**: choose other method or parameters for features extraction.
   * **New cluster**: choose other method or parameters for clustering.
   * **Compute metrics**: the compute metric on clusters : similarity, ratio_similarity, silhouet, ...
+  * **Help**: a button that magically telestranport you in that this current page.
+  * **Savepoint**: duplicate the working dir, that you can manually go back in the past 
+    with a funny game of folder renaming.
 
 
 Peak list

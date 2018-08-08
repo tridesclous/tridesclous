@@ -1,3 +1,10 @@
+"""
+
+.. autoclass:: Peeler
+   :members:
+
+"""
+
 import os
 import json
 from collections import OrderedDict, namedtuple
@@ -16,13 +23,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 
-try:
-    from tqdm import tqdm
-    HAVE_TQDM = True
-    #TODO: put this when finish
-    #~ HAVE_TQDM = False
-except ImportError:
-    HAVE_TQDM = False
+from tqdm import tqdm
 
 from . import pythran_tools
 if hasattr(pythran_tools, '__pythran__'):
@@ -44,19 +45,36 @@ LABEL_MAXIMUM_SHIFT = -13
 # good label are >=0
 
 
+#~ maximum_jitter_shift = 10
 maximum_jitter_shift = 4
-
+#~ maximum_jitter_shift = 1
 
 class Peeler:
     """
-    The peeler is core of online spike sorting.
+    The peeler is core of spike sorting itself.
+    It basically do a *template matching* on a signals.
     
-    Take as input preprocess data by chunk.
-    Detect peak on it.
-    For each peak classify and detect jitter.
-    With all peak/jitters create a prediction.
-    Substract the prediction until there is no peak or unknown cluster.
+    This class nedd a *catalogue* constructed by :class:`CatalogueConstructor`.
+    Then the compting is applied chunk chunk on the raw signal itself.
     
+    So this class is the same for both offline/online computing.
+    
+    At each chunk, the algo is basically this one:
+      1. apply the processing chain (filter, normamlize, ....)
+      2. Detect peaks
+      3. Try to classify peak and detect the *jitter*
+      4. With labeled peak create a prediction for the chunk
+      5. Substract the prediction from the processed signals.
+      6. Go back to **2** until there is no peak or only peaks that can't be labeled.
+      7. return labeld spikes from this or previous chunk and the processed signals (for display or recoding)
+    
+    The main difficulty in the implemtation is to deal with edge because spikes 
+    waveforms can spread out in between 2 chunk.
+    
+    Note that the global latency depend on this é paramters:
+      * lostfront_chunksize
+      * chunksize
+
     
     """
     def __init__(self, dataio):
@@ -73,6 +91,30 @@ class Peeler:
                                         use_sparse_template=False,
                                         sparse_threshold_mad=1.5,
                                         ):
+        """
+        Set parameters for the Peeler.
+        
+        
+        Parameters
+        ----------
+        catalogue: the catalogue (a dict)
+            The catalogue made by CatalogueConstructor.
+        chunksize: int (1024 by default)
+            the size of chunk for processing.
+        internal_dtype: 'float32' or 'float64'
+            dtype of internal processing. float32 is OK. float64 is totally useless.
+        use_sparse_template: bool (dafult False)
+            For very high channel count, centroids from catalogue can be sparcifyed.
+            The speedup a lot the process but the sparse_threshold_mad must be
+            set carrefully and compared with use_sparse_template=False.
+            For low channel count this is useless.
+        sparse_threshold_mad: float (1.5 by default)
+            The threshold level.
+            Under this value if all sample on one channel for one centroid
+            is considred as NaN
+            
+        
+        """
         assert catalogue is not None
         self.catalogue = catalogue
         self.chunksize = chunksize
@@ -130,14 +172,13 @@ class Peeler:
         
         #note abs_head_index is smaller than pos because prepcorcessed chunk
         # is late because of local filfilt in signalpreprocessor
-        if preprocessed_chunk is  None:
-            return
         
         #shift rsiruals buffer and put the new one on right side
         #~ t1 = time.perf_counter()
-        n = self.fifo_residuals.shape[0]-preprocessed_chunk.shape[0]
-        self.fifo_residuals[:n,:] = self.fifo_residuals[-n:,:]
-        self.fifo_residuals[n:,:] = preprocessed_chunk
+        fifo_roll_size = self.fifo_residuals.shape[0]-preprocessed_chunk.shape[0]
+        if fifo_roll_size>0 and fifo_roll_size!=self.fifo_residuals.shape[0]:
+            self.fifo_residuals[:fifo_roll_size,:] = self.fifo_residuals[-fifo_roll_size:,:]
+            self.fifo_residuals[fifo_roll_size:,:] = preprocessed_chunk
         #~ t2 = time.perf_counter()
         #~ print('fifo move', (t2-t1)*1000.)
 
@@ -148,33 +189,29 @@ class Peeler:
         # TODO remove from peak the very begining of the signal because of border filtering effects
         
         #~ t1 = time.perf_counter()
-        all_spikes = []
+        good_spikes = []
         all_ready_tested = []
         while True:
-            #~ print()
             #detect peaks
             t3 = time.perf_counter()
             local_peaks = detect_peaks_in_chunk(self.fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign)
             t4 = time.perf_counter()
             #~ print('self.fifo_residuals median', np.median(self.fifo_residuals, axis=0))
             #~ print('  detect_peaks_in_chunk', (t4-t3)*1000.)
-            #~ print('  local_peaks', local_peaks, local_peaks.shape)
+            
             if len(all_ready_tested)>0:
-                local_peaks = local_peaks[~np.in1d(local_peaks, all_ready_tested)]
-                #~ print('  all_ready_tested', all_ready_tested)
-                #~ print( '  cleaned local_peaks', local_peaks, local_peaks.shape)
+                local_peaks_to_check = local_peaks[~np.in1d(local_peaks, all_ready_tested)]
+            else:
+                local_peaks_to_check = local_peaks
             
             n_ok = 0
-            for i, local_peak in enumerate(local_peaks):
+            for i, local_peak in enumerate(local_peaks_to_check):
                 #~ print('    local_peak', local_peak, 'i', i)
                 #~ t3 = time.perf_counter()
                 spike = self.classify_and_align_one_spike(local_peak, self.fifo_residuals, self.catalogue)
                 #~ t4 = time.perf_counter()
                 #~ print('    classify_and_align_one_spike', (t4-t3)*1000.)
-                #~ print()
                 
-                
-                #~ if spikes['cluster_label'][0]>=0:
                 if spike.cluster_label>=0:
                     #~ t3 = time.perf_counter()
                     #~ print('     >>spike.index', spike.index, spike.cluster_label, 'abs index', spike.index+shift)
@@ -182,7 +219,7 @@ class Peeler:
                     prediction = make_prediction_signals(spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue, safe=False)
                     self.fifo_residuals -= prediction
                     spikes['index'] += shift
-                    all_spikes.append(spikes)
+                    good_spikes.append(spikes)
                     n_ok += 1
                     #~ t4 = time.perf_counter()
                     #~ print('    make_prediction_signals and sub', (t4-t3)*1000.)
@@ -192,26 +229,35 @@ class Peeler:
                     #~ print('    all_ready_tested new deal', all_ready_tested)
                 else:
                     all_ready_tested.append(local_peak)
-            #~ print('  n_ok', n_ok)
             
             if n_ok==0:
+                # no peak can be labeled
+                # reserve bad spikes on the right limit for next time
+                local_peaks = local_peaks[local_peaks<(self.chunksize+self.n_span)]
                 bad_spikes = np.zeros(local_peaks.shape[0], dtype=_dtype_spike)
                 bad_spikes['index'] = local_peaks + shift
                 bad_spikes['cluster_label'] = LABEL_UNCLASSIFIED
-                #~ print('bad_spikes', bad_spikes.size)
                 break
-
+        
         #~ t2 = time.perf_counter()
         #~ print('LOOP classify_and_align_one_spike', (t2-t1)*1000)
         
-        # append bad spike
-        all_spikes.append(bad_spikes)
-        #~ print('bad_spikes.size', bad_spikes)
-        #~ print('all_spikes.size', all_spikes)
         
-        #concatenate sort and count
-        all_spikes = np.concatenate(all_spikes)
-        #~ print('all_spikes.size', all_spikes.size)
+        #concatenate, sort and count
+        # here the trick is to keep spikes at the right border
+        # and keep then until the next loop this avoid unordered spike
+        if len(good_spikes)>0:
+            good_spikes = np.concatenate(good_spikes)
+            near_border = (good_spikes['index'] - shift)>=(self.chunksize+self.n_span)
+            near_border_good_spikes = good_spikes[near_border].copy()
+            good_spikes = good_spikes[~near_border]
+
+            all_spikes = np.concatenate([good_spikes] + [bad_spikes] + self.near_border_good_spikes)
+            self.near_border_good_spikes = [near_border_good_spikes] # for next chunk
+        else:
+            all_spikes = np.concatenate([bad_spikes] + self.near_border_good_spikes)
+            self.near_border_good_spikes = []
+        
         # all_spikes = all_spikes[np.argsort(all_spikes['index'])]
         all_spikes = all_spikes.take(np.argsort(all_spikes['index']))
         self.total_spike += all_spikes.size
@@ -239,7 +285,7 @@ class Peeler:
         p['signals_mads'] = self.catalogue['signals_mads']
         self.signalpreprocessor.change_params(**p)
         
-        
+        assert self.chunksize>self.signalpreprocessor.lostfront_chunksize
         
         self.internal_dtype = self.signalpreprocessor.output_dtype
 
@@ -251,9 +297,13 @@ class Peeler:
         self.peak_width = self.catalogue['peak_width']
         self.n_side = self.catalogue['peak_width'] + maximum_jitter_shift + self.n_span + 1
         
+        assert self.chunksize > (self.n_side+1), 'chunksize is too small because of n_size'
+        
         self.alien_value_threshold = self.catalogue['params_clean_waveforms']['alien_value_threshold']
         
         self.total_spike = 0
+        
+        self.near_border_good_spikes = []
         
         self.fifo_residuals = np.zeros((self.n_side+self.chunksize, nb_channel), 
                                                                 dtype=self.internal_dtype)
@@ -275,33 +325,39 @@ class Peeler:
             length = int(duration*self.dataio.sample_rate)
         else:
             length = self.dataio.get_segment_length(seg_num)
-        length -= length%self.chunksize
-                #initialize engines
+        #~ length -= length%self.chunksize
         
+        #initialize engines
         self.dataio.reset_processed_signals(seg_num=seg_num, chan_grp=chan_grp, dtype=self.internal_dtype)
         self.dataio.reset_spikes(seg_num=seg_num, chan_grp=chan_grp, dtype=_dtype_spike)
 
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=chan_grp, chunksize=self.chunksize, 
-                                                    i_stop=length, signal_type='initial', return_type='raw_numpy')
-        if HAVE_TQDM and progressbar:
+                                                    i_stop=length, signal_type='initial')
+        if progressbar:
             iterator = tqdm(iterable=iterator, total=length//self.chunksize)
         for pos, sigs_chunk in iterator:
-            #~ print(pos, length, pos/length)
+            
             sig_index, preprocessed_chunk, total_spike, spikes = self.process_one_chunk(pos, sigs_chunk)
-            #~ print('ici')
-            #~ print(sig_index)
-            #~ print(preprocessed_chunk.shape)
-            #~ print(total_spike)
-            #~ print(spikes)
+            
+            if sig_index<=0:
+                continue
+            
             # save preprocessed_chunk to file
-            # TODO optional ???
             self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num,chan_grp=chan_grp,
                         i_start=sig_index-preprocessed_chunk.shape[0], i_stop=sig_index,
                         signal_type='processed')
             
             if spikes is not None and spikes.size>0:
                 self.dataio.append_spikes(seg_num=seg_num, chan_grp=chan_grp, spikes=spikes)
-
+        
+        if len(self.near_border_good_spikes)>0:
+            # deal with extra remaining spikes
+            extra_spikes = self.near_border_good_spikes[0]
+            extra_spikes = extra_spikes.take(np.argsort(extra_spikes['index']))
+            self.total_spike += extra_spikes.size
+            if extra_spikes.size>0:
+                self.dataio.append_spikes(seg_num=seg_num, chan_grp=chan_grp, spikes=extra_spikes)
+        
         self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=chan_grp)
         self.dataio.flush_spikes(seg_num=seg_num, chan_grp=chan_grp)
 
@@ -317,10 +373,9 @@ class Peeler:
     run = run_offline_all_segment
 
     def classify_and_align_one_spike(self, local_index, residual, catalogue):
-        """
-        local_index is index of peaks inside residual and not
-        the absolute peak_pos. So time scaling must be done outside.
-        """
+        # local_index is index of peaks inside residual and not
+        # the absolute peak_pos. So time scaling must be done outside.
+        
         width = catalogue['peak_width']
         n_left = catalogue['n_left']
         alien_value_threshold = catalogue['params_clean_waveforms']['alien_value_threshold']

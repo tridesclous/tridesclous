@@ -1,8 +1,11 @@
 import os
 import json
-import numpy as np
 import io
 import sys
+import shutil
+import gc
+
+import numpy as np
 
 class ArrayCollection:
     """
@@ -14,7 +17,7 @@ class ArrayCollection:
     def __init__(self, parent=None, dirname=None):
         #~ assert parent is not None
         
-        self.dirname = dirname
+        self.dirname = os.path.abspath(dirname)
         if not os.path.exists(self.dirname):
             os.mkdir(self.dirname)
         
@@ -39,44 +42,99 @@ class ArrayCollection:
                 d[name] = dict(dtype=dt, shape=list(self._array[name].shape))
             json.dump(d, f, indent=4)        
     
-    def _fix_existing(self, name):
-        # deal with a bug on windows when creating a memmap in w+
-        # when the file already existing in r+ mode
-        #~ print(sys.platform)
-        if not sys.platform.startswith('win'):
-            return 'w+'
-        if name in self._array:
-            #~ print('create_array oups exists!!!', name)
-            #~ print(type(self._array[name]))
-            #~ print('new array', dtype, shape)
-            if isinstance(self._array[name], np.memmap):
-                a = self._array.pop(name)
-                #~ print('old array', a.dtype, a.shape, a.mode)#, a.filename)
-                a._mmap.close()
-                if self.parent is not None:
-                    delattr(self.parent, name)
-                del(a)
-            elif isinstance(self._array[name], io.IOBase):
-                a = self._array.pop(name)
-                a.close()
-            #~ if os.path.exists(self._fname(name)):
-                #~ print('remove', self._fname(name))
-                #~ os.remove(self._fname(name))
-            mode='r+'
+    def _check_nb_ref(self, name):
+        """Check if an array is not refrenced outside this class and aparent
+        Usefull before deleting.
+        """
+        nb_ref = len(gc.get_referrers(self._array[name]))
+        if self.parent is None:
+            nb_expect = 1
         else:
-            mode='w+'
-        #~ print('mode', mode)
+            nb_expect = 2
+        assert nb_ref == nb_expect, '{} array is referenced outside {}!={}'.format(name, nb_ref, nb_expect)
+        
+    
+    def _fix_existing(self, name):
+        """
+        Test if name is already in _array.
+        If state='a', then finalize and detach.
+        else detach.
+        
+        Then _check_nb_ref
+        
+        """
+        
+        if name in self._array and (self._array_attr[name]['memory_mode'] == 'memmap'):
+            if (self._array_attr[name]['state'] == 'a'):
+                # case appendable and memmap
+                self._array[name].close()
+                self._array.pop(name)
+                self._array_attr.pop(name)
+            else:
+                # case memmap standard
+                a = self._array.pop(name)
+                if a.size>0:
+                    # hack when size is 0
+                    a._mmap.close()
+                    if self.parent is not None:
+                        delattr(self.parent, name)
+                del(a)
+                self._array_attr.pop(name)
+                
+        
+        if os.path.exists(self._fname(name)):
+            mode = 'r+'
+        else:
+            mode = 'w+'
+        
         return mode
+        
+        #~ # deal with a bug on windows when creating a memmap in w+
+        #~ # when the file already existing in r+ mode
+        #~ if not sys.platform.startswith('win'):
+            #~ return 'w+'
+        #~ if name in self._array:
+            #~ if isinstance(self._array[name], np.memmap):
+                #~ a = self._array.pop(name)
+                #~ a._mmap.close()
+                #~ if self.parent is not None:
+                    #~ delattr(self.parent, name)
+                #~ del(a)
+            #~ elif isinstance(self._array[name], io.IOBase):
+                #~ a = self._array.pop(name)
+                #~ a.close()
+            
+            #~ try:
+                #~ if os.path.exists(self._fname(name)):
+                    #~ os.remove(self._fname(name))
+                #~ mode='w+'
+            #~ except:
+                #~ print('WARNING open r+')
+                #~ mode='r+'
+
+        #~ else:
+            #~ mode='w+'
+        #~ return mode
     
     def create_array(self, name, dtype, shape, memory_mode):
         
         if memory_mode=='ram':
             arr = np.zeros(shape, dtype=dtype)
         elif memory_mode=='memmap':
+            
+            if name in self._array:
+                self._check_nb_ref(name)
+            
             mode = self._fix_existing(name)
-            #~ arr = np.memmap(self._fname(name), dtype=dtype, mode='w+', shape=shape)
-            #TODO detect when 0 size because this bug
-            arr = np.memmap(self._fname(name), dtype=dtype, mode=mode, shape=shape)
+            # detect when 0 size because np.memmap  bug with size=0
+            if np.prod(shape)>0:
+                arr = np.memmap(self._fname(name), dtype=dtype, mode=mode, shape=shape)
+            else:
+                with open(self._fname(name), mode=mode) as f:
+                    f.write('')
+                arr = np.empty(shape, dtype=dtype)
+                #~ print('empty array memmap !!!!', name, shape)
+        
         self._array[name] = arr
         self._array_attr[name] = {'state':'w', 'memory_mode':memory_mode}
         
@@ -88,8 +146,8 @@ class ArrayCollection:
     def add_array(self, name, data, memory_mode):
         self.create_array(name, data.dtype, data.shape, memory_mode)
         self._array[name][:] = data
+        self.flush_array(name)
 
-    
     def delete_array(self, name):
         if name not in self._array:
             return
@@ -100,12 +158,15 @@ class ArrayCollection:
         raise(NotimplementedError)
         
         
-    def detach_array(self, name):
+    def detach_array(self, name, mmap_close=False):
         if name not in self._array:
             return
-        self._array.pop(name)
+        a = self._array.pop(name)
+        if mmap_close and hasattr(a, '_mmap'):
+            a._mmap.close()
         self._array_attr.pop(name)
-        delattr(self.parent, name)
+        if self.parent is not None:
+            delattr(self.parent, name)
         self.flush_json()
     
     def initialize_array(self, name, memory_mode, dtype, shape):
@@ -156,34 +217,56 @@ class ArrayCollection:
         if memory_mode=='ram':
             pass
         elif memory_mode=='memmap':
-            self._array[name].flush()
+            if self._array[name].size>0:
+                self._array[name].flush()
     
     
     def load_if_exists(self, name):
+        if not os.path.exists(self._fname('arrays', ext='.json')):
+            if self.parent is not None:
+                setattr(self.parent, name, None)
+            return
+        
         try:
             with open(self._fname('arrays', ext='.json'), 'r', encoding='utf8') as f:
                 d = json.load(f)
-                if name in d:
-                    if isinstance(d[name]['dtype'], str):
-                        dtype = np.dtype(d[name]['dtype'])
-                    else:
-                        dtype = np.dtype([ (k,v) for k,v in d[name]['dtype']])
-                    #TODO fix this
-                    arr = np.memmap(self._fname(name), dtype=dtype, mode='r+')
-                    #~ print(arr.shape, np.prod(d[name]['shape']))
-                    arr = arr[:np.prod(d[name]['shape'])]
-                    arr = arr.reshape(d[name]['shape'])
-                    self._array[name] = arr
-                    self._array_attr[name] = {'state':'r', 'memory_mode':'memmap'}
-                    if self.parent is not None:
-                        setattr(self.parent, name, self._array[name])
-                else:
-                    if self.parent is not None:
-                        setattr(self.parent, name, None)
         except:
-            #~ print('erreur load', name)
+            print('erreur load json', name)
             if self.parent is not None:
                 setattr(self.parent, name, None)
+            return
+        
+        if name in d:
+            if isinstance(d[name]['dtype'], str):
+                dtype = np.dtype(d[name]['dtype'])
+            else:
+                dtype = np.dtype([ (k,v) for k,v in d[name]['dtype']])
+            shape = d[name]['shape']
+            if np.prod(d[name]['shape'])>0:
+                arr = np.memmap(self._fname(name), dtype=dtype, mode='r+')
+                arr = arr[:np.prod(shape)]
+                arr = arr.reshape(shape)
+            else:
+                # little hack array is empty
+                arr = np.empty(shape, dtype=dtype)
+            self._array[name] = arr
+            self._array_attr[name] = {'state':'r', 'memory_mode':'memmap'}
+            if self.parent is not None:
+                setattr(self.parent, name, self._array[name])
+        else:
+            if self.parent is not None:
+                setattr(self.parent, name, None)
+            
+    #~ except:
+        #~ print('erreur load', name)
+        #~ if self.parent is not None:
+            #~ setattr(self.parent, name, None)
+
+        
+    #~ except:
+        #~ print('erreur load', name)
+        #~ if self.parent is not None:
+            #~ setattr(self.parent, name, None)
     
     def load_all(self):
         with open(self._fname('arrays', ext='.json'), 'r', encoding='utf8') as f:

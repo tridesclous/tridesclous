@@ -1,9 +1,10 @@
 import os
 import shutil
+import pytest
 
 from tridesclous import import_from_spykingcircus
 
-
+@pytest.mark.skip()
 def test_import_from_spykingcircus():
     p =  '/home/samuel/Documents/projet/DataSpikeSorting/Pierre/GT 252/'
     data_filename = p + '20160426/patch_2.raw'

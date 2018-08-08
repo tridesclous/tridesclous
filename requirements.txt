@@ -7,4 +7,6 @@ seaborn
 PyQt5
 pyqtgraph
 matplotlib
+tqdm
+#numpydoc
 #sphinxcontrib-napoleon

@@ -160,12 +160,14 @@ Waveforms extraction
 For contruction of catalogue, we need to extract **waveforms**. It is a snipet around each
 peak. The feature and cluster will be based on this array.
 
-  * Not all waveforms are extracted in tridesclou,s only a subset of them. If the **duration**
+  * Not all waveforms are extracted in tridesclous only a subset of them. If the **duration**
     choosen for the cataloque is too long them we could have too much peaks. Gathering them
     all of them can be too long and lead too memory overflow. So a random subset is choosen.
     If clusters are clear and dense enough, it is not a problem because it will lead to same
     centroid if we have took waveforms from all peak. For low firing rate neurons having 
     low dense cluster can be a problem and the user need to keep eye open on this.
+    In the catalogue peaks that have label -11 means:  they don't have been chossen,
+    so they have no waveforms.
   * catalogueconstructor.some_waveforms shape is (nb_peak, nb_sample, nb_channel). On the
     sample axis waveforms are aligned of the extrema.
   * sample width of each waveforms is controlled by **n_left** and **n_right** parameters.

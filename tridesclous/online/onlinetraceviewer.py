@@ -55,6 +55,7 @@ class OnlineTraceViewer(QOscilloscope):
         self.params['decimation_method'] = 'min_max'
         self.params['mode'] = 'scan'
         self.params['scale_mode'] = 'same_for_all'
+        self.params['display_labels'] = True
         
         self.timer_scale = QT.QTimer(singleShot=True, interval=500)
         self.timer_scale.timeout.connect(self.auto_scale)
@@ -117,6 +118,10 @@ class OnlineTraceViewer(QOscilloscope):
         
     
     def _refresh(self, **kargs):
+        if self.visibleRegion().isEmpty():
+            # when several tabs not need to refresh
+            return
+        
         with self.mutex:
             QOscilloscope._refresh(self, **kargs)
             
@@ -134,6 +139,7 @@ class OnlineTraceViewer(QOscilloscope):
             spikes = self.spikes_array[keep]
             
             spikes_ind = spikes['index'] - (head - self.full_size)
+            spikes_ind = spikes_ind[spikes_ind<full_arr.shape[0]] # to avoid bug if last peak is great than head
             real_spikes_amplitude = full_arr[spikes_ind, :]
             spikes_amplitude = real_spikes_amplitude.copy()
             spikes_amplitude[:, visibles] *= gains[visibles]

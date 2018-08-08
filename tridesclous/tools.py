@@ -65,7 +65,9 @@ class FifoBuffer:
         if self.last_index is not None:
             assert self.last_index+data.shape[0]==index, 'FifoBuffer self.last_index+data.shape[0]==index {} {}'.format(self.last_index+data.shape[0], index)
         
+        assert data.shape[0]<=self.buffer.shape[0]
         n = self.buffer.shape[0]-data.shape[0]
+        assert n>0
         #roll the end
         
         self.buffer[:n] = self.buffer[-n:]
@@ -101,12 +103,20 @@ def get_neighborhood(geometry, radius_um):
 
 def open_prb(probe_filename):
     d = {}
-    exec(open(probe_filename).read(), None, d)
+    with open(probe_filename) as f:
+        exec(f.read(), None, d)
     channel_groups = d['channel_groups']
     return channel_groups
 
 
 def create_prb_file_from_dict(channel_groups, filename):
+    # transform array to list
+    #~ channel_groups_ = {}
+    #~ for chan_grp, channel_group in channel_groups.items():
+        #~ channel_groups_[chan_grp] = dict(channel_group)
+        #~ if isinstance(channel_group['channels'], np.ndarray):
+            #~ channel_groups_[chan_grp]['channels'] = channel_group['channels'].tolist()
+    
     # write with hack on json to put key as inteteger (normally not possible in json)
     with open(filename, 'w', encoding='utf8') as f:
         txt = json.dumps(channel_groups,indent=4)
@@ -209,7 +219,8 @@ def download_probe(local_dirname, probe_name, origin='kwikteam'):
 
 def compute_cross_correlograms(spike_indexes, spike_labels, 
                 spike_segments, cluster_labels, sample_rate,
-                window_size=0.1, bin_size=0.001, symmetrize=False):
+                window_size=0.1, bin_size=0.001, symmetrize=False,
+                check_sorted=False):
     """
     Compute several cross-correlogram in one course
     from sevral cluster.
@@ -260,6 +271,14 @@ def compute_cross_correlograms(spike_indexes, spike_labels,
         sp_labels = spike_labels[keep]
         sp_segments = spike_segments[keep]
         sp_labels_i = spike_labels_i[keep]
+        if check_sorted:
+            # theprevent bugs if spike vector is not sorted
+            # could append in peeler if some case (too bad!!!)
+            order = np.argsort(sp_indexes)
+            sp_indexes = sp_indexes[order]
+            sp_labels = sp_labels[order]
+            sp_segments = sp_segments[order] 
+            sp_labels_i = sp_labels_i[order]
 
         # At a given shift, the mask precises which spikes have matching spikes
         # within the correlogram time window.
@@ -354,6 +373,8 @@ def make_color_dict(clusters):
     colors[labelcodes.LABEL_UNCLASSIFIED] = (.6, .6, .6)
     colors[labelcodes.LABEL_NOISE] = (.8, .8, .8)
     colors[labelcodes.LABEL_ALIEN] = (.4, .8, .1)
+    colors[labelcodes.LABEL_NO_WAVEFORM] = (.6, .6, .6)
+    
     
     return colors
 

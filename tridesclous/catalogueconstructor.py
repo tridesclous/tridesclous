@@ -1,3 +1,12 @@
+"""
+
+.. autoclass:: CatalogueConstructor
+   :members:
+
+
+"""
+
+
 import os
 import json
 from collections import OrderedDict
@@ -68,9 +77,9 @@ _keep_cluster_attr_on_new = ['cell_label', 'tag','annotations', 'color']
 
 
 class CatalogueConstructor:
-    """
+    __doc__ = """
     
-    The goal of CatalogueConstructor is to construct a catalogue of template (centroides)
+    The goal of CatalogueConstructor is to construct a catalogue of template (centroids)
     for the Peeler.
     
     For so the CatalogueConstructor will:
@@ -96,8 +105,78 @@ class CatalogueConstructor:
 
     You can explore/save/reload internal state by borwsing this directory:
     *path_of_dataset/channel_group_XXX/catalogue_constructor*
+    
+    
+    
+    **Usage**::
+    
+        from tridesclous  import Dataio, CatalogueConstructor
+        dirname = '/path/to/dataset'
+        dataio = DataIO(dirname=dirname)
+        cc = CatalogueConstructor(dataio, chan_grp=0)
+        
+        # preprocessing
+        cc.set_preprocessor_params(chunksize=1024,
+            highpass_freq=300.,
+            lowpass_freq=5000.,
+            common_ref_removal=True,
+            lostfront_chunksize=64,
+            peak_sign='-', 
+            relative_threshold=5.5,
+            peak_span=0.0005,
+            )
+        cc.estimate_signals_noise(seg_num=0, duration=10.)
+        cc.run_signalprocessor(duration=60.)
+        
+        # waveform/feature/cluster
+        cc.extract_some_waveforms(n_left=-25, n_right=40, mode='rand')
+        cc.clean_waveforms(alien_value_threshold=55.)
+        cc.project(method='global_pca', n_components=7)
+        cc.find_clusters(method='kmeans', n_clusters=7)
+        
+        # manual stuff
+        cc.trash_small_cluster(n=5)
+        cc.order_clusters()
+        
+        # do this before peeler
+        cc.make_catalogue_for_peeler()
+    
+    
+    For more example see examples.
+    
+    
+    
+    **Persitent atributes**:
+    
+    CatalogueConstructor have a mechanism to store/load some attributes in the
+    dirname of dataio. This is usefull to continue previous woprk on a catalogue.
+    
+    The attributes are almost all numpy arrays and stored using the numpy.memmap
+    mechanism. So prefer local fast fast storage like ssd.
+    
+    Here the list of theses attributes with shape and dtype. **N** is the total 
+    number of peak detected. **M** is the number of selected peak for
+    waveform/feature/cluser. **C** is the number of clusters
+      * all_peaks (N, ) dtype = {0}
+      * signals_medians (nb_sample, nb_channel, ) float32
+      * signals_mads (nb_sample, nb_channel, ) float32
+      * clusters (c, ) dtype= {1}
+      * some_peaks_index (M) int64
+      * some_waveforms (M, width, nb_channel) float32
+      * some_features (M, nb_feature) float32
+      * channel_to_features (nb_chan, nb_component) bool
+      * some_noise_snippet (nb_noise, width, nb_channel) float32
+      * some_noise_index (nb_noise, ) int64
+      * some_noise_features (nb_noise, nb_feature) float32
+      * centroids_median (C, width, nb_channel) float32
+      * centroids_mad (C, width, nb_channel) float32
+      * centroids_mean (C, width, nb_channel) float32
+      * centroids_std (C, width, nb_channel) float32
+      * spike_waveforms_similarity (M, M) float32
+      * cluster_similarity (C, C) float32
+      * cluster_ratio_similarity (C, C) float32
 
-    """
+    """.format(_dtype_peak, _dtype_cluster)
     def __init__(self, dataio, chan_grp=None, name='catalogue_constructor'):
         """
         Parameters
@@ -154,18 +233,19 @@ class CatalogueConstructor:
             json.dump(self.info, f, indent=4)
     
     def __repr__(self):
-        t = "CatalogueConstructor <id: {}> \n  workdir: {}\n".format(id(self), self.catalogue_path)
+        t = "CatalogueConstructor\n"
+        t += '  ' + self.dataio.channel_group_label(chan_grp=self.chan_grp) + '\n'
         if self.all_peaks is None:
             t += '  Signal pre-processing not done yet'
             return t
         
-        t += "  nb_peak: {}\n".format(self.nb_peak)
+        #~ t += "  nb_peak: {}\n".format(self.nb_peak)
         nb_peak_by_segment = [ np.sum(self.all_peaks['segment']==i)  for i in range(self.dataio.nb_segment)]
         t += '  nb_peak_by_segment: '+', '.join('{}'.format(n) for n in nb_peak_by_segment)+'\n'
 
         if self.some_waveforms is not None:
-            t += '  n_left {} n_right {}\n'.format(self.info['params_waveformextractor']['n_left'],
-                                                self.info['params_waveformextractor']['n_right'])
+            #~ t += '  n_left {} n_right {}\n'.format(self.info['params_waveformextractor']['n_left'],
+                                                #~ self.info['params_waveformextractor']['n_right'])
             t += '  some_waveforms.shape: {}\n'.format(self.some_waveforms.shape)
             
         if self.some_features is not None:
@@ -235,6 +315,7 @@ class CatalogueConstructor:
             ):
         """
         Set parameters for the preprocessor engine
+        
         Parameters
         ----------
         chunksize: int. default 1024
@@ -314,7 +395,21 @@ class CatalogueConstructor:
     
     
     def estimate_signals_noise(self, seg_num=0, duration=10.):
+        """
+        This estimate the median and mad on processed signals on 
+        a short duration. This will be necessary for normalisation
+        in next steps.
         
+        Note that if the noise is stable even a short duratio is OK.
+        
+        Parameters
+        ----------
+        seg_num: int
+            segment index
+        duration: float
+            duration in seconds
+        
+        """
         length = int(duration*self.dataio.sample_rate)
         length -= length%self.chunksize
         
@@ -330,7 +425,7 @@ class CatalogueConstructor:
         self.signalpreprocessor.change_params(**params2)
         
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp, chunksize=self.chunksize, i_stop=length,
-                                                    signal_type='initial',  return_type='raw_numpy')
+                                                    signal_type='initial')
         for pos, sigs_chunk in iterator:
             pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
             if preprocessed_chunk is not None:
@@ -363,7 +458,7 @@ class CatalogueConstructor:
                 peaks = np.zeros(chunk_peaks.size, dtype=_dtype_peak)
                 peaks['index'] = chunk_peaks
                 peaks['segment'][:] = seg_num
-                peaks['cluster_label'][:] = labelcodes.LABEL_UNCLASSIFIED
+                peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
                 self.arrays.append_chunk('all_peaks',  peaks)
     
     
@@ -391,7 +486,7 @@ class CatalogueConstructor:
         self.peakdetector.change_params(**self.params_peakdetector)
         
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp, chunksize=self.chunksize, i_stop=length,
-                                                    signal_type='initial', return_type='raw_numpy')
+                                                    signal_type='initial')
         for pos, sigs_chunk in iterator:
             #~ print(seg_num, pos, sigs_chunk.shape)
             self.signalprocessor_one_chunk(pos, sigs_chunk, seg_num, detect_peak=detect_peak)
@@ -407,6 +502,26 @@ class CatalogueConstructor:
         self.on_new_cluster()
     
     def run_signalprocessor(self, duration=60., detect_peak=True):
+        """
+        this run (chunk by chunk), the signal preprocessing chain on
+        all segments.
+        
+        The duration can be clip for very long recording. For catalogue 
+        construction the user must have the intuition of how signal we must
+        have to get enough spike to detect clusters. If the duration is too short clusters
+        will not be visible. If too long the processing time will be unacceptable.
+        This totally depend on the dataset (nb channel, spike rate ...)
+        
+        This also detect peak to avoid to useless access to the storage.
+        
+        Parameters
+        ----------
+        duration: float
+            duration in seconds for each segment
+        detect_peak: bool (default True)
+            Also detect peak.
+        
+        """
         self.arrays.initialize_array('all_peaks', self.memory_mode,  _dtype_peak, (-1, ))
         #~ for i in range(self.dataio.nb_segment):
             #~ self.dataio.reset_processed_signals(seg_num=i, chan_grp=self.chan_grp, dtype=internal_dtype)
@@ -419,7 +534,23 @@ class CatalogueConstructor:
         self.finalize_signalprocessor_loop()
     
     def re_detect_peak(self, peakdetector_engine='numpy', peak_sign='-', relative_threshold=7, peak_span=0.0002):
+        """
+        Peak are detected while **run_signalprocessor**.
+        But in some case for testing other threshold we can **re-detect peak** without signal processing.
         
+        Parameters
+        ----------
+        peakdetector_engine: 'numpy' or 'opencl'
+            Engine for peak detection.
+        peak_sign: '-' or '+'
+            Signa of peak.
+        relative_threshold: int default 7
+            Threshold for peak detection. The preprocessed signal have units
+            expressed in MAD (robust STD). So 7 is MAD*7.
+        peak_span: float default 0.0002
+            Peak span to avoid double detection. In second.
+        
+        """
         #TODO if not peak detector in class
         self.params_peakdetector = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span=peak_span)
         PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
@@ -440,7 +571,7 @@ class CatalogueConstructor:
             self.peakdetector.change_params(**self.params_peakdetector)#this reset the fifo index
             
             iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp,
-                            chunksize=self.info['chunksize'], i_stop=None, signal_type='processed', return_type='raw_numpy')
+                            chunksize=self.info['chunksize'], i_stop=None, signal_type='processed')
             for pos, preprocessed_chunk in iterator:
                 n_peaks, chunk_peaks = self.peakdetector.process_data(pos, preprocessed_chunk)
             
@@ -448,7 +579,7 @@ class CatalogueConstructor:
                     peaks = np.zeros(chunk_peaks.size, dtype=_dtype_peak)
                     peaks['index'] = chunk_peaks
                     peaks['segment'][:] = seg_num
-                    peaks['cluster_label'][:] = labelcodes.LABEL_UNCLASSIFIED
+                    peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
                     self.arrays.append_chunk('all_peaks',  peaks)
 
         self.arrays.finalize_array('all_peaks')
@@ -466,6 +597,28 @@ class CatalogueConstructor:
                                     mode='rand', nb_max=10000,
                                     align_waveform=False, subsample_ratio=20):
         """
+        Extract waveform snippet for a subset of peaks (already detected).
+        
+        Note that this operation is slow.
+        
+        After this the attribute some_peaks_index will contain index in all_peaks that
+        have waveforms.
+        
+        Parameters
+        ----------
+        n_left: int
+            Left sweep in sample must be negative
+        n_right: int
+            Right sweep in sample
+        index: None (by default) or numpy array of int
+            If mode is None then the user can give a selection index of peak 
+            to extract waveforms.
+        mode: 'rand' (default) or 'all' or None
+           'rand' select randomly some peak to extract waveform.
+           If None then index must not be None.
+        nb_max: int 
+            When rand then is this the number of selected waveform.
+        
         
         """
         if n_left is None or n_right is None:
@@ -478,7 +631,7 @@ class CatalogueConstructor:
         peak_width = n_right - n_left
         
         if index is not None:
-            some_peaks_index = index
+            some_peaks_index = index.copy()
         else:
             if mode=='rand' and self.nb_peak>nb_max:
                 some_peaks_index = np.random.choice(self.nb_peak, size=nb_max).astype('int64')
@@ -569,7 +722,7 @@ class CatalogueConstructor:
         self.projector = None
         self._reset_arrays(_reset_after_waveforms_arrays)
 
-        self.all_peaks['cluster_label'][:] = labelcodes.LABEL_UNCLASSIFIED
+        self.all_peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
         self.all_peaks['cluster_label'][self.some_peaks_index] = 0
         
         self.on_new_cluster()
@@ -577,7 +730,11 @@ class CatalogueConstructor:
         
     
     def clean_waveforms(self, alien_value_threshold=100.):
+        """
+        Detect bad waveform (artefact, ...) and tag them with allien 
+        label (-9)
         
+        """
         if alien_value_threshold is not None:
             over = np.any(np.abs(self.some_waveforms)>alien_value_threshold, axis=(1,2))
             index_over = self.some_peaks_index[over]
@@ -601,8 +758,8 @@ class CatalogueConstructor:
         The technics constists in finding continuous samples
         above 10% of backgroud noise for at least 30% of channels
         
-        Parameters
-        ----------
+        **Parameters**
+        
         mad_threshold: (default 1.1) threshold noise
         channel_percent:  (default 0.3) percent of channel above this noise.
         """
@@ -644,7 +801,8 @@ class CatalogueConstructor:
                 
                 if extract:
                     self.projector = None
-                    self.extract_some_waveforms(n_left=n_left, n_right=n_right, index=self.some_peaks_index, 
+                    self.extract_some_waveforms(n_left=n_left, n_right=n_right,
+                                            index=self.some_peaks_index.copy(), # copy is to avoid reference loop
                                             align_waveform=self.info['params_waveformextractor']['align_waveform'])
                 
                 return n_left, n_right
@@ -653,6 +811,9 @@ class CatalogueConstructor:
     def extract_some_noise(self, nb_snippet=300):
         """
         Find some snipet of signal that are not overlap with peak waveforms.
+        
+        Usefull to project this noise with the same tranform as real waveform
+        and see the distinction between waveforma and noise in the subspace.
         """
         #~ 'some_noise_index', 'some_noise_snippet', 
         assert  'params_waveformextractor' in self.info
@@ -702,11 +863,9 @@ class CatalogueConstructor:
             self.some_noise_snippet[n, :, :] = snippet
                 #~ n +=1
 
-    def extract_some_features(self, method='pca', selection=None, **params): #n_components=5, 
+    def extract_some_features(self, method='global_pca', selection=None, **params): #n_components=5, 
         """
-        params:
-        n_components
-        
+        Extract feature from waveforms.
         """
         
         
@@ -719,17 +878,20 @@ class CatalogueConstructor:
         features, channel_to_features, self.projector = decomposition.project_waveforms(self.some_waveforms, method=method, selection=None,
                     catalogueconstructor=self, **params)
         
-        #trick to make it persistant
-        #~ self.arrays.create_array('some_features', self.info['internal_dtype'], features.shape, self.memory_mode)
-        #~ self.some_features[:] = features
-        self.arrays.add_array('some_features', features.astype(self.info['internal_dtype']), self.memory_mode)
-        self.arrays.add_array('channel_to_features', channel_to_features, self.memory_mode)
+        if features is None:
+            for name in ['some_features', 'channel_to_features', 'some_noise_features']:
+                self.arrays.detach_array(name)
+                setattr(self, name, None)            
+        else:
+            # make it persistant
+            self.arrays.add_array('some_features', features.astype(self.info['internal_dtype']), self.memory_mode)
+            self.arrays.add_array('channel_to_features', channel_to_features, self.memory_mode)
+            
+            if self.some_noise_snippet is not None:
+                some_noise_features = self.projector.transform(self.some_noise_snippet)
+                self.arrays.add_array('some_noise_features', some_noise_features.astype(self.info['internal_dtype']), self.memory_mode)
         
-        if self.some_noise_snippet is not None:
-            some_noise_features = self.projector.transform(self.some_noise_snippet)
-            self.arrays.add_array('some_noise_features', some_noise_features.astype(self.info['internal_dtype']), self.memory_mode)
-        
-        print('extract_some_features', self.some_features.shape)
+            print('extract_some_features', self.some_features.shape)
     
     #ALIAS TODO remove it
     project = extract_some_features
@@ -746,11 +908,15 @@ class CatalogueConstructor:
     
     
     def find_clusters(self, method='kmeans', selection=None, **kargs):
+        """
+        Find cluster for peaks that have a waveform and feature.
+        
+        """
         #done in a separate module cluster.py
         
         if selection is not None:
-            old_labels = np.unique(self.all_peaks['cluster_label'][self.some_peaks_index[selection]])
-            print(old_labels)
+            old_labels = np.unique(self.all_peaks['cluster_label'][selection])
+            #~ print(old_labels)
         
         
         labels = cluster.find_clusters(self, method=method, selection=selection, **kargs)
@@ -765,7 +931,8 @@ class CatalogueConstructor:
             for new_label in new_labels:
                 if new_label not in self.clusters['cluster_label'] and new_label>0:
                     self.add_one_cluster(new_label)
-                self.compute_one_centroid(new_label)
+                if new_label>0:
+                    self.compute_one_centroid(new_label)
             for old_label in old_labels:
                 ind = self.index_of_label(old_label)
                 nb_peak = np.sum(self.all_peaks['cluster_label']==old_label)
@@ -802,8 +969,8 @@ class CatalogueConstructor:
                         
                     #~ print('j', j)
         
-        if clusters.size>0:
-            self.arrays.add_array('clusters', clusters, self.memory_mode)
+        #~ if clusters.size>0:
+        self.arrays.add_array('clusters', clusters, self.memory_mode)
     
     def add_one_cluster(self, label):
         assert label not in self.clusters['cluster_label']
@@ -827,7 +994,7 @@ class CatalogueConstructor:
         self.arrays.add_array('clusters', clusters, self.memory_mode)
         
         for name in _centroids_arrays:
-            arr = getattr(self, name)
+            arr = getattr(self, name).copy()
             new_arr = np.zeros((arr.shape[0]+1, arr.shape[1], arr.shape[2]), dtype=arr.dtype)
             if label>=0:
                 new_arr[:-1, :, :] = arr
@@ -858,8 +1025,7 @@ class CatalogueConstructor:
         self.arrays.add_array('clusters', clusters, self.memory_mode)
         
         for name in _centroids_arrays:
-            arr = getattr(self, name)
-            new_arr = arr[keep, :, :].copy()
+            new_arr = getattr(self, name)[keep, :, :].copy()
             self.arrays.add_array(name, new_arr, self.memory_mode)
     
     def compute_one_centroid(self, k, flush=True):
@@ -983,15 +1149,22 @@ class CatalogueConstructor:
         
     
     def split_cluster(self, label, method='kmeans',  **kargs):
+        """
+        This split one cluster by applying a new clustering method only on the subset.
+        """
         mask = self.all_peaks['cluster_label']==label
         self.find_clusters(method=method, selection=mask, **kargs)
     
     def trash_small_cluster(self, n=10):
+        to_remove = []
         for k in list(self.cluster_labels):
             mask = self.all_peaks['cluster_label']==k
             if np.sum(mask)<=n:
                 self.all_peaks['cluster_label'][mask] = -1
-                self.remove_one_cluster(k)
+                to_remove.append(k)
+        
+        for k in to_remove:
+            self.remove_one_cluster(k)
 
     def compute_spike_waveforms_similarity(self, method='cosine_similarity', size_max = 1e7):
         """This compute the similarity spike by spike.
@@ -1136,6 +1309,19 @@ class CatalogueConstructor:
         print('compute_spike_silhouette', t2-t1)                
     
     def tag_same_cell(self, labels_to_group):
+        """
+        In some situation in spike burst the amplitude change baldly.
+        In theses cases we can have 2 distinct cluster but the user suspect
+        that it is the same cell. In such cases the user must not merge 
+        the 2 clusters because the centroids will represent nothing and 
+        and  the Peeler.will fail.
+        
+        Instead we tag the 2 differents cluster as "same cell"
+        so same cell_label.
+        
+        This is a manual action.
+        
+        """
         inds, = np.nonzero(np.in1d(self.clusters['cluster_label'], labels_to_group))
         self.clusters['cell_label'][inds] = min(labels_to_group)
     
@@ -1320,6 +1506,10 @@ class CatalogueConstructor:
         return self.catalogue
     
     def make_catalogue_for_peeler(self):
+        """
+        Make and save catalogue in the working dir for the Peeler.
+        
+        """
         self.make_catalogue()
         
         #~ filename = os.path.join(self.catalogue_path, 'initial_catalogue.pickle')
