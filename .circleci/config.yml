@@ -32,7 +32,9 @@ jobs:
             . venv/bin/activate
             pip install -r requirements.txt
             pip install -r .circleci/requirements_testing.txt
-            pip install . 
+            python setup.py develop
+#             pip install . 
+
 
       - save_cache:
           paths:
@@ -40,11 +42,12 @@ jobs:
           key: v1-dependencies-{{ checksum "requirements.txt" }}
 
       # run tests!
+      # only core is tested at the moment
       - run:
           name: run tests
           command: |
             . venv/bin/activate
-            pytest 
+            pytest triodesclous/tests
 
       - store_artifacts:
           path: test-reports
