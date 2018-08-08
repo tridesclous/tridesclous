@@ -13,10 +13,13 @@ import time
 import os
 import shutil
 
+import pytest
+
+from tridesclous.tests.testingtools import ON_CI_CLOUD
 
 
 
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_TdcOnlineWindow():
     # get sigs
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
@@ -74,8 +77,8 @@ def test_TdcOnlineWindow():
         #~ man.close()
         
     
-    
-    app.exec_()
+    if __name__ =='__main__':
+        app.exec_()
 
 
 

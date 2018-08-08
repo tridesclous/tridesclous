@@ -15,6 +15,12 @@ import os
 import shutil
 
 
+import pytest
+from tridesclous.tests.testingtools import ON_CI_CLOUD
+
+
+def setup_module():
+    setup_catalogue()
 
 
 def setup_catalogue():
@@ -62,18 +68,22 @@ def setup_catalogue():
         verbose=True)
     catalogueconstructor.trash_small_cluster()
     
+    catalogueconstructor.order_clusters(by='waveforms_rms')
+    
     catalogueconstructor.make_catalogue_for_peeler()
 
 
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    app = pg.mkQApp()
-    win = CatalogueWindow(catalogueconstructor)
-    win.show()
-    app.exec_()
+    
+    if __name__ =='__main__':
+        app = pg.mkQApp()
+        win = CatalogueWindow(catalogueconstructor)
+        win.show()
+        app.exec_()
 
     
 
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_OnlinePeeler():
     dataio = DataIO(dirname='test_onlinepeeler')
 
@@ -153,10 +163,12 @@ def test_OnlinePeeler():
         tviewer.stop()
         app.quit()
     
-    app.exec_()
+    
+    if __name__ =='__main__':
+        app.exec_()
     
     
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_OnlinePeeler_no_catalogue():
     
 
@@ -289,7 +301,9 @@ def test_OnlinePeeler_no_catalogue():
     timer.timeout.connect(auto_scale)
     timer.start()
     
-    app.exec_()
+    
+    if __name__ =='__main__':
+        app.exec_()
     
 
     
