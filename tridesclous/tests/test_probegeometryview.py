@@ -18,7 +18,9 @@ def test_ProbeGeometryView():
     app = mkQApp()
     view = ProbeGeometryView(channel_groups=channel_groups)
     view.show()
-    app.exec_()
+    
+    if __name__ == '__main__':
+        app.exec_()
     
     
 
