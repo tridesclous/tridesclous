@@ -10,7 +10,6 @@ install_requires = [
                     'scikit-learn',
                     'matplotlib',
                     'seaborn',
-                    'quantities==0.12.1',
                     'neo>=0.6.1',
                     'tqdm',
                     ]
