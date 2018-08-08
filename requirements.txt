@@ -8,5 +8,5 @@ PyQt5
 pyqtgraph
 matplotlib
 tqdm
-numpydoc
+#numpydoc
 #sphinxcontrib-napoleon
