@@ -36,7 +36,7 @@ install:
 
   # Install tridesclous
   - "python setup.py develop"
-  - "python -c \"import ; print(tridesclous.__version__)\""
+  - "python -c \"import tridesclous; print(tridesclous.__version__)\""
 
 build: false
 
