@@ -1,11 +1,16 @@
 from tridesclous import *
-from tridesclous.online import *
+from tridesclous.online import HAVE_PYACQ
+
+if HAVE_PYACQ:
+    from tridesclous.online import *
+    import pyacq
+    
 from tridesclous.gui import QT
 
 
 import  pyqtgraph as pg
 
-import pyacq
+
 
 
 import numpy as np
@@ -18,7 +23,7 @@ import pytest
 from tridesclous.tests.testingtools import ON_CI_CLOUD
 
 
-
+@pytest.mark.skipif(not HAVE_PYACQ, reason='no pyacq')
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_TdcOnlineWindow():
     # get sigs

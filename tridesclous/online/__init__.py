@@ -19,14 +19,20 @@ an online engine which latency whihch can be controlled by the chunksize.
 
 
 """
-import pyacq
+try:
+    import pyacq
 
-#test pyacq version
-import distutils.version
-assert distutils.version.LooseVersion(pyacq.__version__)>='0.2.0-dev'
+    #test pyacq version
+    import distutils.version
+    assert distutils.version.LooseVersion(pyacq.__version__)>='0.2.0-dev'
+    HAVE_PYACQ = True
+except:
+    HAVE_PYACQ = False
 
-from .onlinepeeler import OnlinePeeler
-from .onlinetools import make_pyacq_device_from_buffer, make_empty_catalogue, lighter_catalogue
-from .onlinetraceviewer import OnlineTraceViewer
-from .onlinewindow import TdcOnlineWindow
-from .onlinewaveformhistviewer import OnlineWaveformHistViewer
+
+if HAVE_PYACQ:
+    from .onlinepeeler import OnlinePeeler
+    from .onlinetools import make_pyacq_device_from_buffer, make_empty_catalogue, lighter_catalogue
+    from .onlinetraceviewer import OnlineTraceViewer
+    from .onlinewindow import TdcOnlineWindow
+    from .onlinewaveformhistviewer import OnlineWaveformHistViewer

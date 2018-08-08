@@ -1,12 +1,18 @@
 from tridesclous import *
-from tridesclous.online import *
+
+from tridesclous.online import HAVE_PYACQ
+if HAVE_PYACQ:
+    from tridesclous.online import *
+    import pyacq
+    from pyacq.viewers import QOscilloscope, QTimeFreq
+
 from tridesclous.gui import QT
 
 
 import  pyqtgraph as pg
 
-import pyacq
-from pyacq.viewers import QOscilloscope, QTimeFreq
+
+
 
 
 import numpy as np
@@ -82,7 +88,7 @@ def setup_catalogue():
         app.exec_()
 
     
-
+@pytest.mark.skipif(not HAVE_PYACQ, reason='no pyacq')
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_OnlinePeeler():
     dataio = DataIO(dirname='test_onlinepeeler')
@@ -167,7 +173,8 @@ def test_OnlinePeeler():
     if __name__ =='__main__':
         app.exec_()
     
-    
+
+@pytest.mark.skipif(not HAVE_PYACQ, reason='no pyacq')
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_OnlinePeeler_no_catalogue():
     
