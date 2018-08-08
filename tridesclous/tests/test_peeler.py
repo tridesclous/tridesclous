@@ -1,3 +1,5 @@
+import pytest
+
 from tridesclous import *
 
 import numpy as np
@@ -17,53 +19,15 @@ from tridesclous.peakdetector import  detect_peaks_in_chunk
 from tridesclous.peeler_OLD import PeelerOLD
 
 
-def setup_catalogue():
-    if os.path.exists('test_peeler'):
-        shutil.rmtree('test_peeler')
-        
-    dataio = DataIO(dirname='test_peeler')
-    localdir, filenames, params = download_dataset(name='olfactory_bulb')
-    dataio.set_data_source(type='RawData', filenames=filenames, **params)
-    dataio.add_one_channel_group(channels=[5, 6, 7, 8, 9])
-    
-    catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    
-    
-    fullchain_kargs = {
-        'duration' : 60.,
-        'preprocessor' : {
-            'highpass_freq' : 300.,
-            'chunksize' : 1024,
-            'lostfront_chunksize' : 100,
-        },
-        'peak_detector' : {
-            'peak_sign' : '-',
-            'relative_threshold' : 7.,
-            'peak_span' : 0.0005,
-            #~ 'peak_span' : 0.000,
-        },
-        'extract_waveforms' : {
-            'n_left' : -25,
-            'n_right' : 40,
-            'nb_max' : 10000,
-        },
-        'clean_waveforms' : {
-            'alien_value_threshold' : 60.,
-        },
-        'noise_snippet' : {
-            'nb_snippet' : 300,
-        },        
-    }
-    
-    apply_all_catalogue_steps(catalogueconstructor,
-        fullchain_kargs,
-        'global_pca', {'n_components': 12},
-        'kmeans', {'n_clusters': 12},
-        verbose=True)
-    catalogueconstructor.trash_small_cluster()
-    
-    catalogueconstructor.make_catalogue_for_peeler()
+from tridesclous.tests.testingtools import setup_catalogue
 
+
+
+def setup_module():
+    setup_catalogue('test_peeler', dataset_name='olfactory_bulb')
+
+def teardown_module():
+    shutil.rmtree('test_peeler')
 
 
 def open_catalogue_window():
@@ -74,7 +38,7 @@ def open_catalogue_window():
     win.show()
     app.exec_()
 
-
+@pytest.mark.first
 def test_peeler():
     dataio = DataIO(dirname='test_peeler')
     print(dataio)
@@ -180,7 +144,8 @@ def test_peeler_several_chunksize():
         print('n_side', peeler.n_side, 'n_span', peeler.n_span, 'peak_width', peeler.peak_width)
         print('peeler.run_loop', t2-t1)
         
-        spikes = dataio.get_spikes(seg_num=0, chan_grp=0)
+        # copy is need because the memmap is reset at each loop
+        spikes = dataio.get_spikes(seg_num=0, chan_grp=0).copy()
         all_spikes.append(spikes)
     
     
@@ -189,7 +154,6 @@ def test_peeler_several_chunksize():
     for i, chunksize in enumerate(chunksizes):
         spikes = all_spikes[i]
         all_spikes[i] = spikes[spikes['index']<=last]
-    
     
     previsous_spikes = None
     for i, chunksize in enumerate(chunksizes):
@@ -201,7 +165,9 @@ def test_peeler_several_chunksize():
         labeled_spike = spikes[spikes['cluster_label']>=0]
         unlabeled_spike = spikes[spikes['cluster_label']<0]
         print('labeled_spike.size', labeled_spike.size, 'unlabeled_spike.size', unlabeled_spike.size)
+        print(spikes)
         
+        # TODO: Peeler chunksize influence the number of spikes
         
         if previsous_spikes is not None:
             assert  previsous_spikes.size == spikes.size
@@ -224,7 +190,7 @@ def test_export_spikes():
     dataio = DataIO(dirname='test_peeler')
     dataio.export_spikes()
 
-def test_compare_peeler():
+def debug_compare_peeler():
 
     dataio = DataIO(dirname='test_peeler')
     print(dataio)
@@ -268,7 +234,7 @@ def test_compare_peeler():
     
     
 if __name__ =='__main__':
-    #~ setup_catalogue()
+    setup_module()
     
     #~ open_catalogue_window()
     
@@ -278,11 +244,11 @@ if __name__ =='__main__':
     
     #~ test_peeler_several_chunksize()
     
-    #~ open_PeelerWindow()
-    
-    #~ test_export_spikes()
+    test_export_spikes()
     
     
-    #~ test_compare_peeler()
+    #~ debug_compare_peeler()
     
     #~ open_PeelerWindow()
+    
+    teardown_module()
