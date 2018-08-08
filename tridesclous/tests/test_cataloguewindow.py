@@ -5,8 +5,17 @@ from matplotlib import pyplot
 # run test_catalogueconstructor.py before this
 
 
+import pytest
+from tridesclous.tests.testingtools import ON_CI_CLOUD, setup_catalogue
+
+
+def setup_module():
+    dirname = 'test_cataloguewindow'
+    setup_catalogue(dirname, dataset_name='olfactory_bulb')
+    
+
 def get_controller():
-    dataio = DataIO(dirname='test_catalogueconstructor')
+    dataio = DataIO(dirname='test_cataloguewindow')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     controller = CatalogueController(catalogueconstructor=catalogueconstructor)
     return controller
@@ -18,7 +27,7 @@ def test_CatalogueController():
     #~ print(controller.cluster_labels)
 
 
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_CatalogueTraceViewer():
     controller = get_controller()
     app = mkQApp()
@@ -26,10 +35,11 @@ def test_CatalogueTraceViewer():
     traceviewer.show()
     traceviewer.resize(800,600)
     
-    app.exec_()
+    if __name__ == '__main__':
+        app.exec_()
     
 
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_PeakList():
     controller = get_controller()
     
@@ -38,8 +48,10 @@ def test_PeakList():
     peaklist.show()
     peaklist.resize(800,400)
     
-    app.exec_()
+    if __name__ == '__main__':
+        app.exec_()
 
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_ClusterPeakList():
     controller = get_controller()
     
@@ -48,8 +60,11 @@ def test_ClusterPeakList():
     clusterlist.show()
     clusterlist.resize(800,400)
     
-    app.exec_()
+    if __name__ == '__main__':
+        app.exec_()
 
+
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_NDScatter():
     controller = get_controller()
     controller.project()
@@ -58,8 +73,10 @@ def test_NDScatter():
     ndscatter = NDScatter(controller=controller)
     ndscatter.show()
     
-    app.exec_()
+    if __name__ == '__main__':
+        app.exec_()
 
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_WaveformViewer():
     controller = get_controller()
     
@@ -67,43 +84,55 @@ def test_WaveformViewer():
     waveformviewer = WaveformViewer(controller=controller)
     waveformviewer.show()
     
-    app.exec_()
+    if __name__ == '__main__':
+        app.exec_()
 
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_SpikeSimilarityView():
     controller = get_controller()
     controller.compute_spike_waveforms_similarity()
     app = mkQApp()
     similarityview = SpikeSimilarityView(controller=controller)
     similarityview.show()
-    app.exec_()
+    
+    if __name__ == '__main__':
+        app.exec_()
 
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_ClusterSimilarityView():
     controller = get_controller()
     controller.compute_cluster_similarity()
     app = mkQApp()
     similarityview = ClusterSimilarityView(controller=controller)
     similarityview.show()
-    app.exec_()
+    
+    if __name__ == '__main__':
+        app.exec_()
 
+
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_ClusterRatioSimilarityView():
     controller = get_controller()
     controller.compute_cluster_ratio_similarity()
     app = mkQApp()
     similarityview = ClusterRatioSimilarityView(controller=controller)
     similarityview.show()
-    app.exec_()
+    
+    if __name__ == '__main__':
+        app.exec_()
 
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_PairList():
     controller = get_controller()
     
     app = mkQApp()
     similarityview = PairList(controller=controller)
     similarityview.show()
-    app.exec_()
+    
+    if __name__ == '__main__':
+        app.exec_()
 
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_Silhouette():
     controller = get_controller()
     
@@ -112,8 +141,11 @@ def test_Silhouette():
     app = mkQApp()
     similarityview = Silhouette(controller=controller)
     similarityview.show()
-    app.exec_()
+    
+    if __name__ == '__main__':
+        app.exec_()
 
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_WaveformHistViewer():
     controller = get_controller()
     for k in controller.cluster_labels:
@@ -124,15 +156,20 @@ def test_WaveformHistViewer():
     app = mkQApp()
     similarityview = WaveformHistViewer(controller=controller)
     similarityview.show()
-    app.exec_()
+    
+    if __name__ == '__main__': 
+        app.exec_()
 
 
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_FeatureTimeViewer():
     controller = get_controller()
     app = mkQApp()
     view = FeatureTimeViewer(controller=controller)
     view.show()
-    app.exec_()
+    
+    if __name__ == '__main__':
+        app.exec_()
 
 
 def test_CatalogueWindow():
@@ -144,13 +181,16 @@ def test_CatalogueWindow():
     win = CatalogueWindow(catalogueconstructor)
     win.show()
     
-    app.exec_()
+    if __name__ == '__main__':
+        app.exec_()
 
 
 
     
     
 if __name__ == '__main__':
+    setup_module()
+    
     #~ test_CatalogueController()
     
     #~ test_CatalogueTraceViewer()

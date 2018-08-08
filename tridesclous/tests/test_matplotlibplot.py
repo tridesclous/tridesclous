@@ -9,20 +9,25 @@ from tridesclous.matplotlibplot import *
 
 import matplotlib.pyplot as plt
 
+from tridesclous.tests.testingtools import setup_catalogue
+import shutil
 
+def setup_module():
+    setup_catalogue('test_matplotlibplot', dataset_name='olfactory_bulb')
 
-
+def teardown_module():
+    shutil.rmtree('test_matplotlibplot')
 
     
 
 def test_plot_probe_geometry():
-    dataio = DataIO('test_catalogueconstructor')
+    dataio = DataIO('test_matplotlibplot')
     plot_probe_geometry(dataio, chan_grp=0) 
 
     
 
 def test_plot_signals():
-    dataio = DataIO('test_catalogueconstructor')
+    dataio = DataIO('test_matplotlibplot')
     catalogueconstructor = CatalogueConstructor(dataio=dataio, chan_grp=0)
     
     plot_signals(dataio, signal_type='initial')
@@ -45,7 +50,7 @@ def test_plot_waveforms_with_geometry():
     plot_waveforms_with_geometry(waveforms, channels, geometry) 
     
 def test_plot_waveforms():
-    dataio = DataIO('test_catalogueconstructor')
+    dataio = DataIO('test_matplotlibplot')
     catalogueconstructor = CatalogueConstructor(dataio=dataio, chan_grp=0)
     
     plot_waveforms(catalogueconstructor)
@@ -53,7 +58,7 @@ def test_plot_waveforms():
 
 
 def test_plot_features_scatter_2d():
-    dataio = DataIO('test_catalogueconstructor')
+    dataio = DataIO('test_matplotlibplot')
     catalogueconstructor = CatalogueConstructor(dataio=dataio, chan_grp=0)
     
     #~ plot_features_scatter_2d(catalogueconstructor)
@@ -61,11 +66,12 @@ def test_plot_features_scatter_2d():
 
     
 if __name__ == '__main__':
+    setup_module()
     
-    #~ test_plot_probe_geometry()
-    #~ test_plot_signals()
-    #~ test_plot_waveforms_with_geometry()
-    #~ test_plot_waveforms()
+    test_plot_probe_geometry()
+    test_plot_signals()
+    test_plot_waveforms_with_geometry()
+    test_plot_waveforms()
     test_plot_features_scatter_2d()
     
 

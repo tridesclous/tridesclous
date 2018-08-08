@@ -10,10 +10,21 @@ from tridesclous import mkQApp, CatalogueWindow
 
 from matplotlib import pyplot
 
-# run test_catalogueconstructor.py before this
+from tridesclous.tests.testingtools import setup_catalogue
+
+
+#~ dataset_name='olfactory_bulb'
+dataset_name = 'purkinje'
+#~ dataset_name='locust'
+#~ dataset_name='striatum_rat'
 
 
 
+def setup_module():
+    setup_catalogue('test_cluster', dataset_name=dataset_name)
+
+def teardown_module():
+    shutil.rmtree('test_cluster')
 
 
 def test_sawchaincut():
@@ -26,7 +37,10 @@ def test_sawchaincut():
     #~ dirname = '/home/samuel/Documents/projet/tridesclous/example/tridesclous_olfactory_bulb/'
     #~ dirname = '/home/samuel/Documents/projet/DataSpikeSorting/kampff/tdc_2015_09_03_Cell9.0/'
     #~ dirname = '/home/samuel/Documents/projet/DataSpikeSorting/spikesortingtest/tdc_silico_0/'
-    dirname = '/home/samuel/Documents/projet/tridesclous/example/tridesclous_purkinje/'
+    #~ dirname = '/home/samuel/Documents/projet/tridesclous/example/tridesclous_purkinje/'
+    
+    dirname = 'test_cluster'
+    
     
     dataio = DataIO(dirname=dirname)
     cc = catalogueconstructor = CatalogueConstructor(dataio=dataio)
@@ -42,12 +56,14 @@ def test_sawchaincut():
     print(cc)
 
 
-    app = mkQApp()
-    win = CatalogueWindow(catalogueconstructor)
-    win.show()
-    
-    app.exec_()
+    if __name__ == '__main__':
+        app = mkQApp()
+        win = CatalogueWindow(catalogueconstructor)
+        win.show()
+        app.exec_()
 
 
 if __name__ == '__main__':
+    setup_module()
     test_sawchaincut()
+    

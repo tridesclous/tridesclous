@@ -159,18 +159,19 @@ def test_smooth_with_filtfilt():
                                     btype = 'lowpass', ftype = 'butter', output = 'sos')
     sigs_smooth3 = scipy.signal.sosfiltfilt(coeff, sigs, axis=0)
     
-
-    print(sigs_smooth2.sum())
-    print(sigs_smooth2[40:60])
-    fig, ax = pyplot.subplots()
-    ax.plot(sigs, color='b', label='sig')
-    ax.plot(sigs_smooth, color='g', label='box smooth')
-    ax.plot(sigs_smooth2, color='r', label='filfilt smooth')
-    ax.plot(sigs_smooth3, color='m', label='lp filter')
     
-    ax.legend()
-    
-    pyplot.show()
+    if __name__ == '__main__':
+        print(sigs_smooth2.sum())
+        print(sigs_smooth2[40:60])
+        fig, ax = pyplot.subplots()
+        ax.plot(sigs, color='b', label='sig')
+        ax.plot(sigs_smooth, color='g', label='box smooth')
+        ax.plot(sigs_smooth2, color='r', label='filfilt smooth')
+        ax.plot(sigs_smooth3, color='m', label='lp filter')
+        
+        ax.legend()
+        
+        pyplot.show()
 
     
     
