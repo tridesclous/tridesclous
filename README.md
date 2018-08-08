@@ -54,3 +54,8 @@ http://tridesclous.readthedocs.io/en/latest/launch.html
 
 ## Online Peeler in a pyacq.Node
 ![snapshot](doc/img/online_tridesclous.gif)
+
+
+
+[![CircleCI](https://circleci.com/gh/tridesclous/tridesclous.svg?style=svg)](https://circleci.com/gh/tridesclous/tridesclous)
+[![Build status](https://ci.appveyor.com/api/projects/status/7cqmevwu0r3sq87e?svg=true)](https://ci.appveyor.com/project/samuelgarcia/tridesclous)
