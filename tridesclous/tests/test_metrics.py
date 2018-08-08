@@ -2,11 +2,24 @@ from tridesclous import *
 import  pyqtgraph as pg
 import matplotlib.pyplot as plt
 
-# run test_catalogueconstructor.py before this
+from tridesclous.tests.testingtools import setup_catalogue
 
+from tridesclous.tests.testingtools import ON_CI_CLOUD
+import pytest
+
+import shutil
+
+
+def setup_module():
+    setup_catalogue('test_metrics', dataset_name='olfactory_bulb')
+
+def teardown_module():
+    shutil.rmtree('test_metrics')
+    
+    
 
 def test_all_metrics():
-    dataio = DataIO(dirname='test_catalogueconstructor')
+    dataio = DataIO(dirname='test_metrics')
     cc = CatalogueConstructor(dataio=dataio)
     
     cc.compute_spike_waveforms_similarity()
@@ -15,8 +28,9 @@ def test_all_metrics():
     cc.compute_spike_silhouette()
 
 
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_cluster_ratio():
-    dataio = DataIO(dirname='test_catalogueconstructor')
+    dataio = DataIO(dirname='test_metrics')
     cc = CatalogueConstructor(dataio=dataio)
     
     cc.compute_cluster_similarity()
@@ -35,6 +49,8 @@ def test_cluster_ratio():
 
 
 if __name__ == '__main__':
+    setup_module()
+    
     test_all_metrics()
     test_cluster_ratio()
     
