@@ -1,21 +1,7 @@
-probes = {
-    #########    "spyking-circus" : [
-        "adrien",
-        "dan",
-        "emilie",
-        "imec",
-        "kampff_128",
-        "kampff_32",
-        "mea_128",
-        "mea_252",
-        "mea_256",
-        "mea_32",
-        "mea_4225",
-        "mea_64",
-        "small_mea_252",
-        "wide_mea_252",
-        "wide_mea_256",
-    ],    #########    "kwikteam" : [
+# This file is generated do not modify!!!
+probe_list = {
+    #########
+    "kwikteam" : [
         "neuronexus/1x32_buzsaki",
         "neuronexus/3D64 - 33",
         "neuronexus/3D64 - 64",
@@ -1045,4 +1031,23 @@ probes = {
         "neuronexus/rDBSA (c-style) -HC32",
         "neuronexus/rDBSA-H32",
         "neuronexus/rDBSA_T1-HC32",
-    ],}
+    ],
+    #########
+    "spyking-circus" : [
+        "adrien",
+        "dan",
+        "emilie",
+        "imec",
+        "kampff_128",
+        "kampff_32",
+        "mea_252",
+        "mea_256",
+        "mea_32",
+        "mea_4225",
+        "mea_64",
+        "small_mea_252",
+        "small_mea_256",
+        "wide_mea_252",
+        "wide_mea_256",
+    ],
+}

@@ -173,7 +173,7 @@ def test_FeatureTimeViewer():
 
 
 def test_CatalogueWindow():
-    dataio = DataIO(dirname='test_catalogueconstructor')
+    dataio = DataIO(dirname='test_cataloguewindow')
 
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     

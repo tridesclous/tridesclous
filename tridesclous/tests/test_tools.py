@@ -36,6 +36,9 @@ def test_fix_prb_file_py2():
     fix_prb_file_py2(prb_filename)
 
 
+def re_construct_probe_list():
+    construct_probe_list()
+
 def test_construct_probe_list():
     for k, v in probe_list.items():
         print('*'*20)
@@ -89,8 +92,9 @@ if __name__ == '__main__':
     #~ test_FifoBuffer()
     #~ test_get_neighborhood()
     #~ test_fix_prb_file_py2()
+    re_construct_probe_list()
     #~ test_construct_probe_list()
-    test_compute_cross_correlograms()
+    #~ test_compute_cross_correlograms()
     #~ test_int32_to_rgba()
     #~ test_rgba_to_int32()
     
