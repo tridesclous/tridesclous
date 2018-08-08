@@ -6,7 +6,6 @@ matplotlib
 seaborn
 PyQt5
 pyqtgraph
-matplotlib
 neo
 tqdm
 #numpydoc
