@@ -1,7 +1,9 @@
 from setuptools import setup
 import os
 
-import tridesclous
+d = {}
+exec(open("tridesclous/version.py").read(), None, d)
+version = d['version']
 
 install_requires = [
                     'numpy',
@@ -23,7 +25,7 @@ long_description = ""
 
 setup(
     name = "tridesclous",
-    version = tridesclous.__version__,
+    version = version,
     packages = ['tridesclous', 'tridesclous.gui', 'tridesclous.gui.icons',
                 'tridesclous.online', 'tridesclous.scripts', 'tridesclous.tests'],
     install_requires=install_requires,
