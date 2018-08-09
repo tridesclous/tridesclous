@@ -37,7 +37,10 @@ from .importers import import_from_spykingcircus
 from .matplotlibplot import *
 
 
-from .gui import *
+# very uggly ptach to let readthedoc working again
+from .tests.testingtools import ON_CI_CLOUD
+if not ON_CI_CLOUD:
+    from .gui import *
 
 
 #~ try:
