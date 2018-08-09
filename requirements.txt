@@ -11,3 +11,4 @@ tqdm
 PyQt5  
 pyqtgraph
 
+sphinx>=1.7.5
