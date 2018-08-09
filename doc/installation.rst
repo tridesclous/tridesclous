@@ -34,7 +34,7 @@ Do:
   5. **Open Terminal**
   6. For the basic::
     
-       conda install scipy numpy pandas scikit-learn matplotlib seaborn tqdm
+       conda install scipy numpy pandas scikit-learn matplotlib seaborn tqdm openpyxl
      
   
   7. For GUI and running example::
@@ -81,7 +81,7 @@ Open a terminal and do:
   1. sudo apt-get install virtualenvwrapper
   2. mkvirtualenv  tdc   --python=/usr/bin/python3.5
   3. workon tdc
-  4. pip install scipy numpy pandas scikit-learn matplotlib seaborn tqdm
+  4. pip install scipy numpy pandas scikit-learn matplotlib seaborn tqdm openpyxl
   5. pip install PyQt5 jupyter pyqtgraph==0.10 quantities neo
   6. pip install https://github.com/tridesclous/tridesclous/archive/master.zip
 

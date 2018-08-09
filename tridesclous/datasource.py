@@ -215,7 +215,9 @@ class NeoRawIOAggregator(DataSourceBase):
 
 #Put 'RawBinarySignal' at first position
 rawiolist = list(neo.rawio.rawiolist)
-RawBinarySignalRawIO = rawiolist.pop(rawiolist.index(neo.rawio.RawBinarySignalRawIO))
+if neo.rawio.RawBinarySignalRawIO in rawiolist:
+    # to avoid bug in readthe doc with moc
+    RawBinarySignalRawIO = rawiolist.pop(rawiolist.index(neo.rawio.RawBinarySignalRawIO))
 #~ rawiolist.insert(0, RawBinarySignalRawIO)
 
 for rawio_class in rawiolist:
