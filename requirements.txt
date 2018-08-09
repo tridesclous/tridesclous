@@ -7,5 +7,7 @@ seaborn
 neo
 tqdm
 
-# PyQt5  # this make readthedoc fail
-# pyqtgraph  # this make readthedoc fail
+# this make readthedoc fail
+#PyQt5  
+#pyqtgraph
+
