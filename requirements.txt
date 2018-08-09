@@ -4,9 +4,8 @@ pandas
 scikit-learn
 matplotlib
 seaborn
-PyQt5
-pyqtgraph
 neo
 tqdm
-#numpydoc
-#sphinxcontrib-napoleon
+
+# PyQt5  # this make readthedoc fail
+# pyqtgraph  # this make readthedoc fail

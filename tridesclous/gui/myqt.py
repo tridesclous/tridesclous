@@ -23,7 +23,7 @@ class ModuleProxy(object):
                     return obj
         raise AttributeError(name)
 
-
+QT_MODE = None
 try:
     import PyQt5
     from PyQt5 import QtCore, QtGui, QtWidgets
