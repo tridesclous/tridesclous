@@ -7,6 +7,7 @@ install_requires = [
                     'numpy',
                     'scipy',
                     'pandas',
+                    'openpyxl',
                     'scikit-learn',
                     'matplotlib',
                     'seaborn',

@@ -1,13 +1,13 @@
 numpy
 scipy
 pandas
+openpyxl
 scikit-learn
 matplotlib
 seaborn
 neo
 tqdm
 
-# this make readthedoc fail
-#PyQt5  
-#pyqtgraph
+PyQt5  
+pyqtgraph
 

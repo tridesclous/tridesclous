@@ -30,6 +30,7 @@ import os
 exec(open("../tridesclous/version.py").read())
 
 
+sys.path.insert(0, os.path.abspath('..'))
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
@@ -40,17 +41,31 @@ exec(open("../tridesclous/version.py").read())
 # http://read-the-docs.readthedocs.org/en/latest/faq.html#i-get-import-errors-on-libraries-that-depend-on-c-modules
 #~ from unittest.mock import MagicMock
 
-#~ MOCK_MODULES = ['numpy', 'scipy', 'pandas','scikit-learn','matplotlib','seaborn',
-             #~ 'neo', 'neo.rawio',  'quantities',
-            #~ 'tqdm', 'PyQt5', 'pyqtgraph', 'pyqtgraph.Qt', 'pyqtgraph.util.mutex', ]
-#~ sys.modules.update((mod_name, MagicMock(name=mod_name)) for mod_name in MOCK_MODULES)
+#~ import sys
+#~ from unittest.mock import MagicMock
+
+#~ class Mock(MagicMock):
+    #~ @classmethod
+    #~ def __getattr__(cls, name):
+        #~ return MagicMock()
+
+#~ MOCK_MODULES = ['numpy', 'numpy.core', 'numpy.core.multiarray',
+                    #~ 'scipy', 'scipy.sparse', 'scipy.io', 'scipy.signal', 'scipy.interpolate','scipy.stats',
+                    #~ 'pandas',
+                    #~ 'sklearn', 'sklearn.metrics', 'sklearn.metrics.pairwise', 'sklearn.decomposition','scipy.spatial',
+                    #~ 'sklearn.cluster', 'sklearn.manifold','sklearn.mixture','sklearn.neighbors',
+                    #~ 'matplotlib', 'matplotlib.pyplot', 'seaborn', 'neo', 'neo.rawio', 'quantities',
+                    #~ 'PyQt5', 'pyqtgraph', 'pyqtgraph.Qt', 'pyqtgraph.util.mutex', 
+                    #~ 'tqdm',
+                    #~ ]
+#~ sys.modules.update((mod_name, Mock(name=mod_name)) for mod_name in MOCK_MODULES)
 
 #~ class QWidget(object):
     #~ pass
 #~ class QObject(object):
     #~ pass
 
-#~ sys.modules['PyQt5'].QtGui.QWidget = QWidget
+#~ sys.modules['PyQt5'].QWidgets.QWidget = QWidget
 #~ sys.modules['pyqtgraph'].Qt.QtGui = sys.modules['PyQt5'].QtGui 
 #~ sys.modules['pyqtgraph.Qt'].QtGui = sys.modules['PyQt5'].QtGui 
 
