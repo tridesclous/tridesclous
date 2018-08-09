@@ -20,6 +20,8 @@ from tridesclous.peeler_OLD import PeelerOLD
 
 
 from tridesclous.tests.testingtools import setup_catalogue
+from tridesclous.tests.testingtools import ON_CI_CLOUD
+
 
 
 
@@ -41,7 +43,6 @@ def open_catalogue_window():
 @pytest.mark.first
 def test_peeler():
     dataio = DataIO(dirname='test_peeler')
-    print(dataio)
     initial_catalogue = dataio.load_catalogue(chan_grp=0)
 
     peeler = Peeler(dataio)
@@ -52,6 +53,26 @@ def test_peeler():
     peeler.run(progressbar=False)
     t2 = time.perf_counter()
     print('peeler.run_loop', t2-t1)
+
+
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
+def test_peeler_sparse_opencl():
+    dataio = DataIO(dirname='test_peeler')
+    initial_catalogue = dataio.load_catalogue(chan_grp=0)
+
+    peeler = Peeler(dataio)
+    
+    peeler.change_params(catalogue=initial_catalogue,chunksize=1024,
+                                        use_sparse_template=True,
+                                        sparse_threshold_mad=1.5,
+                                        use_opencl_with_sparse=True,)
+    
+    t1 = time.perf_counter()
+    peeler.run(progressbar=False)
+    t2 = time.perf_counter()
+    print('peeler.run_loop', t2-t1)
+
+
 
     
 
@@ -234,21 +255,23 @@ def debug_compare_peeler():
     
     
 if __name__ =='__main__':
-    setup_module()
+    #~ setup_module()
     
     #~ open_catalogue_window()
     
     test_peeler()
     
+    test_peeler_sparse_opencl()
+    
     #~ test_peeler_empty_catalogue()
     
     #~ test_peeler_several_chunksize()
     
-    test_export_spikes()
+    #~ test_export_spikes()
     
     
     #~ debug_compare_peeler()
     
     #~ open_PeelerWindow()
     
-    teardown_module()
+    #~ teardown_module()
