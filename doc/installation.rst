@@ -34,7 +34,7 @@ Do:
   5. **Open Terminal**
   6. For the basic::
     
-       conda install scipy numpy pandas scikit-learn matplotlib seaborn
+       conda install scipy numpy pandas scikit-learn matplotlib seaborn tqdm
      
   
   7. For GUI and running example::
