@@ -36,6 +36,7 @@ sys.path.insert(0, os.path.abspath('..'))
 #
 # needs_sphinx = '1.0'
 
+autodoc_mock_imports = ['sip', 'PyQt5', 'PyQt5.QtGui', 'PyQt5.QtCore', 'PyQt5.QtWidgets']
 
 
 # http://read-the-docs.readthedocs.org/en/latest/faq.html#i-get-import-errors-on-libraries-that-depend-on-c-modules
