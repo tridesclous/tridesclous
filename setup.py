@@ -13,7 +13,7 @@ install_requires = [
                     'neo>=0.6.1',
                     'tqdm',
                     ]
-extras_require={ 'gui' : ['PyQt5', 'pyqtgraph==0.10.0', 'matplotlib'],
+extras_require={ 'gui' : ['PyQt5', 'pyqtgraph==0.10.0', ],
                             'online' : 'pyacq',
                             'opencl' : ['pyopencl'],
                         }

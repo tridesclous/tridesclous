@@ -1,2 +1,6 @@
 pytest
 # pyacq
+openpyxl
+
+PyQt5
+pyqtgraph

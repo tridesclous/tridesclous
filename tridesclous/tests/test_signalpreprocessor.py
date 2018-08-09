@@ -1,6 +1,8 @@
 from tridesclous import get_dataset
 from tridesclous.signalpreprocessor import signalpreprocessor_engines, offline_signal_preprocessor
 
+from tridesclous.signalpreprocessor import HAVE_PYOPENCL
+
 import time
 
 import scipy.signal
@@ -17,7 +19,7 @@ from matplotlib import pyplot
 
 
 def test_compare_offline_online_engines():
-    HAVE_PYOPENCL = True
+    #~ HAVE_PYOPENCL = True
     if HAVE_PYOPENCL:
         engines = ['numpy', 'opencl']
         #~ engines = [ 'opencl']

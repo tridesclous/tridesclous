@@ -12,6 +12,9 @@ import matplotlib.pyplot as plt
 from tridesclous.tests.testingtools import setup_catalogue
 import shutil
 
+from tridesclous.tests.testingtools import ON_CI_CLOUD
+import pytest
+
 def setup_module():
     setup_catalogue('test_matplotlibplot', dataset_name='olfactory_bulb')
 
@@ -19,13 +22,13 @@ def teardown_module():
     shutil.rmtree('test_matplotlibplot')
 
     
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_plot_probe_geometry():
     dataio = DataIO('test_matplotlibplot')
     plot_probe_geometry(dataio, chan_grp=0) 
 
     
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_plot_signals():
     dataio = DataIO('test_matplotlibplot')
     catalogueconstructor = CatalogueConstructor(dataio=dataio, chan_grp=0)
@@ -36,7 +39,7 @@ def test_plot_signals():
     plot_signals(catalogueconstructor, signal_type='processed', with_span=True, time_slice=(2., 3))
     
 
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_plot_waveforms_with_geometry():
     nb_channel = 32
     waveforms = np.random.randn(200, 45, nb_channel)
@@ -48,7 +51,8 @@ def test_plot_waveforms_with_geometry():
     #~ print(geometry)
     
     plot_waveforms_with_geometry(waveforms, channels, geometry) 
-    
+
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_plot_waveforms():
     dataio = DataIO('test_matplotlibplot')
     catalogueconstructor = CatalogueConstructor(dataio=dataio, chan_grp=0)
@@ -56,7 +60,7 @@ def test_plot_waveforms():
     plot_waveforms(catalogueconstructor)
 
 
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_plot_features_scatter_2d():
     dataio = DataIO('test_matplotlibplot')
     catalogueconstructor = CatalogueConstructor(dataio=dataio, chan_grp=0)

@@ -9,7 +9,7 @@ environment:
 
   matrix:
     - PYTHON_VERSION: "3.6"
-      CONDA_DEPENDENCIES: "numpy scipy pandas scikit-learn scikit-learn matplotlib seaborn tqdm"
+      CONDA_DEPENDENCIES: "numpy scipy pandas scikit-learn scikit-learn matplotlib seaborn tqdm openpyxl"
       PIP_DEPENDENCIES: "PyQt5 pyqtgraph neo"
 
 platform:
@@ -42,4 +42,4 @@ build: false
 
 test_script:
   - 'netsh advfirewall firewall add rule name="tridesclous" dir=in action=allow program="C:\Python34-conda64\python.exe" enable=yes'
-  - "py.test -sv tridesclous"
+  - "py.test -sv tridesclous/tests"

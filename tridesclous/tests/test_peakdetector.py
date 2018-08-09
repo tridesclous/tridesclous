@@ -11,6 +11,8 @@ from matplotlib import pyplot
 from tridesclous.tests.test_signalpreprocessor import offline_signal_preprocessor
 
 
+from tridesclous.peakdetector import HAVE_PYOPENCL
+
 def offline_peak_detect(normed_sigs, sample_rate, peak_sign='-',relative_threshold = 5,  peak_span = 0.0005):
     n_span = int(sample_rate*peak_span)//2
    
@@ -44,7 +46,7 @@ def offline_peak_detect(normed_sigs, sample_rate, peak_sign='-',relative_thresho
     
 
 def test_compare_offline_online_engines():
-    HAVE_PYOPENCL = True
+    #~ HAVE_PYOPENCL = True
     if HAVE_PYOPENCL:
         engines = ['numpy', 'opencl']
         #~ engines = [ 'opencl']

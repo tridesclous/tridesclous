@@ -31,6 +31,13 @@ if hasattr(pythran_tools, '__pythran__'):
 else:
     HAVE_PYTHRAN = False
 
+try:
+    import pyopencl
+    mf = pyopencl.mem_flags
+    HAVE_PYOPENCL = True
+except ImportError:
+    HAVE_PYOPENCL = False
+
 
 _dtype_spike = [('index', 'int64'), ('cluster_label', 'int64'), ('jitter', 'float64'),]
 
@@ -90,6 +97,8 @@ class Peeler:
                                         internal_dtype='float32', 
                                         use_sparse_template=False,
                                         sparse_threshold_mad=1.5,
+                                        use_opencl_with_sparse=False,
+                                        use_pythran_with_sparse=False,
                                         ):
         """
         Set parameters for the Peeler.
@@ -112,8 +121,11 @@ class Peeler:
             The threshold level.
             Under this value if all sample on one channel for one centroid
             is considred as NaN
-            
-        
+        use_opencl_with_sparse: bool
+            When use_sparse_template is True, you can use this to accelerate
+            the labelling of each spike. Usefull for high channel count.
+        use_pythran_with_sparse: bool
+            experimental same as use_opencl_with_sparse but with pythran
         """
         assert catalogue is not None
         self.catalogue = catalogue
@@ -121,6 +133,18 @@ class Peeler:
         self.internal_dtype= internal_dtype
         self.use_sparse_template = use_sparse_template
         self.sparse_threshold_mad = sparse_threshold_mad
+        self.use_opencl_with_sparse = use_opencl_with_sparse
+        self.use_pythran_with_sparse = use_pythran_with_sparse
+        
+        # Some check
+        if self.use_opencl_with_sparse or self.use_pythran_with_sparse:
+            assert self.use_sparse_template, 'For that option you must use sparse template'
+        if self.use_sparse_template:
+            assert self.use_opencl_with_sparse or self.use_pythran_with_sparse, 'For that option you must use OpenCL or Pytran'
+        if self.use_opencl_with_sparse:
+            assert HAVE_PYOPENCL, 'OpenCL is not available'
+        if self.use_pythran_with_sparse:
+            assert HAVE_PYTHRAN, 'Pythran is not available'
         
         self.colors = make_color_dict(self.catalogue['clusters'])
         
@@ -158,6 +182,42 @@ class Peeler:
                 #~ ax.axhline(sparse_threshold_mad)
                 #~ ax.axhline(-sparse_threshold_mad)
                 #~ plt.show()
+        
+            if self.use_opencl_with_sparse:
+                self.ctx = pyopencl.create_some_context(interactive=False)
+                
+                self.queue = pyopencl.CommandQueue(self.ctx)
+                
+                centers = self.catalogue['centers0']
+                nb_channel = centers.shape[2]
+                peak_width = centers.shape[1]
+                nb_cluster = centers.shape[0]
+                kernel = kernel_opencl%{'nb_channel': nb_channel,'peak_width':peak_width,
+                                                        'total':peak_width*nb_channel,'nb_cluster' : nb_cluster}
+                prg = pyopencl.Program(self.ctx, kernel)
+                opencl_prg = prg.build(options='-cl-mad-enable')
+                self.kern_waveform_distance = getattr(opencl_prg, 'waveform_distance')
+
+                wf_shape = centers.shape[1:]
+                one_waveform = np.zeros(wf_shape, dtype='float32')
+                self.one_waveform_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=one_waveform)
+
+                self.catalogue_center_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=centers)
+
+                self.waveform_distance = np.zeros((nb_cluster), dtype='float32')
+                self.waveform_distance_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance)
+
+                #~ mask[:] = 0
+                self.mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=mask.astype('u1'))
+
+                rms_waveform_channel = np.zeros(nb_channel, dtype='float32')
+                self.rms_waveform_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=rms_waveform_channel)
+                
+                self.cl_global_size = (centers.shape[0], centers.shape[2])
+                #~ self.cl_local_size = None
+                self.cl_local_size = (centers.shape[0], 1) # faster a GPU because of memory access
+                #~ self.cl_local_size = (1, centers.shape[2])
+                
 
     
     def process_one_chunk(self,  pos, sigs_chunk):
@@ -407,7 +467,7 @@ class Peeler:
             else:
                 
                 #~ t1 = time.perf_counter()
-                label, jitter = self.estimate_one_jitter(waveform, catalogue)
+                label, jitter = self.estimate_one_jitter(waveform)
                 #~ t2 = time.perf_counter()
                 #~ print('  estimate_one_jitter', (t2-t1)*1000.)
 
@@ -440,7 +500,7 @@ class Peeler:
                             #TODO: force to label anyway the spike if spike is at the left of FIFO
                         else:
                             waveform = residual[ind:ind+width,:]
-                            new_label, new_jitter = self.estimate_one_jitter(waveform, catalogue)
+                            new_label, new_jitter = self.estimate_one_jitter(waveform)
                             if np.abs(new_jitter)<np.abs(prev_jitter):
                                 #~ print('keep shift')
                                 label, jitter = new_label, new_jitter
@@ -460,110 +520,120 @@ class Peeler:
         return Spike(local_index, label, jitter)
     
     
-    def estimate_one_jitter(self, waveform, catalogue):
-        return estimate_one_jitter_numpy(waveform, catalogue)
-
-def estimate_one_jitter_numpy(waveform, catalogue):
-    """
-    Estimate the jitter for one peak given its waveform
-    
-    Method proposed by Christophe Pouzat see:
-    https://hal.archives-ouvertes.fr/hal-01111654v1
-    http://christophe-pouzat.github.io/LASCON2016/SpikeSortingTheElementaryWay.html
-    
-    for best reading (at least for me SG):
-      * wf = the wafeform of the peak
-      * k = cluster label of the peak
-      * wf0, wf1, wf2 : center of catalogue[k] + first + second derivative
-      * jitter0 : jitter estimation at order 0
-      * jitter1 : jitter estimation at order 1
-      * h0_norm2: error at order0
-      * h1_norm2: error at order1
-      * h2_norm2: error at order2
-    """
-    
-    # This line is the slower part !!!!!!
-    # cluster_idx = np.argmin(np.sum(np.sum((catalogue['centers0']-waveform)**2, axis = 1), axis = 1))
-    
-    if 'sparse_mask' in catalogue and HAVE_PYTHRAN:
-        s = pythran_tools.pythran_loop_sparse_dist(waveform, 
-                            catalogue['centers0'],  catalogue['sparse_mask'])
-        cluster_idx = np.argmin(s)
-    else:
-        # replace by this (indentique but faster, a but)
+    def estimate_one_jitter(self, waveform):
+        """
+        Estimate the jitter for one peak given its waveform
         
-        #~ t1 = time.perf_counter()
-        d = catalogue['centers0']-waveform[None, :, :]
-        d *= d
-        #s = d.sum(axis=1).sum(axis=1)  # intuitive
-        #s = d.reshape(d.shape[0], -1).sum(axis=1) # a bit faster
-        s = np.einsum('ijk->i', d) # a bit faster
-        cluster_idx = np.argmin(s)
-        #~ t2 = time.perf_counter()
-        #~ print('    np.argmin V2', (t2-t1)*1000., cluster_idx)
-    
+        Method proposed by Christophe Pouzat see:
+        https://hal.archives-ouvertes.fr/hal-01111654v1
+        http://christophe-pouzat.github.io/LASCON2016/SpikeSortingTheElementaryWay.html
+        
+        for best reading (at least for me SG):
+          * wf = the wafeform of the peak
+          * k = cluster label of the peak
+          * wf0, wf1, wf2 : center of catalogue[k] + first + second derivative
+          * jitter0 : jitter estimation at order 0
+          * jitter1 : jitter estimation at order 1
+          * h0_norm2: error at order0
+          * h1_norm2: error at order1
+          * h2_norm2: error at order2
+        """
+        
+        # This line is the slower part !!!!!!
+        # cluster_idx = np.argmin(np.sum(np.sum((catalogue['centers0']-waveform)**2, axis = 1), axis = 1))
+        
+        catalogue = self.catalogue
+        
+        if self.use_opencl_with_sparse:
+            rms_waveform_channel = np.sum(waveform**2, axis=0).astype('float32')
+            
+            pyopencl.enqueue_copy(self.queue,  self.one_waveform_cl, waveform)
+            pyopencl.enqueue_copy(self.queue,  self.rms_waveform_channel_cl, rms_waveform_channel)
+            event = self.kern_waveform_distance(self.queue,  self.cl_global_size, self.cl_local_size,
+                        self.one_waveform_cl, self.catalogue_center_cl, self.mask_cl, 
+                        self.rms_waveform_channel_cl, self.waveform_distance_cl)
+            pyopencl.enqueue_copy(self.queue,  self.waveform_distance, self.waveform_distance_cl)
+            cluster_idx = np.argmin(self.waveform_distance)
 
-    k = catalogue['cluster_labels'][cluster_idx]
-    chan = catalogue['max_on_channel'][cluster_idx]
-    #~ print('cluster_idx', cluster_idx, 'k', k, 'chan', chan)
+        elif self.use_pythran_with_sparse:
+            s = pythran_tools.pythran_loop_sparse_dist(waveform, 
+                                catalogue['centers0'],  catalogue['sparse_mask'])
+            cluster_idx = np.argmin(s)
+        else:
+            # replace by this (indentique but faster, a but)
+            
+            #~ t1 = time.perf_counter()
+            d = catalogue['centers0']-waveform[None, :, :]
+            d *= d
+            #s = d.sum(axis=1).sum(axis=1)  # intuitive
+            #s = d.reshape(d.shape[0], -1).sum(axis=1) # a bit faster
+            s = np.einsum('ijk->i', d) # a bit faster
+            cluster_idx = np.argmin(s)
+            #~ t2 = time.perf_counter()
+            #~ print('    np.argmin V2', (t2-t1)*1000., cluster_idx)
+        
 
-    
-    #~ return k, 0.
+        k = catalogue['cluster_labels'][cluster_idx]
+        chan = catalogue['max_on_channel'][cluster_idx]
+        #~ print('cluster_idx', cluster_idx, 'k', k, 'chan', chan)
 
-    wf0 = catalogue['centers0'][cluster_idx,: , chan]
-    wf1 = catalogue['centers1'][cluster_idx,: , chan]
-    wf2 = catalogue['centers2'][cluster_idx,: , chan]
-    wf = waveform[:, chan]
-    #~ print()
-    #~ print(wf0.shape, wf.shape)
-    
-    
-    #it is  precompute that at init speedup 10%!!! yeah
-    #~ wf1_norm2 = wf1.dot(wf1)
-    #~ wf2_norm2 = wf2.dot(wf2)
-    #~ wf1_dot_wf2 = wf1.dot(wf2)
-    wf1_norm2= catalogue['wf1_norm2'][cluster_idx]
-    wf2_norm2 = catalogue['wf2_norm2'][cluster_idx]
-    wf1_dot_wf2 = catalogue['wf1_dot_wf2'][cluster_idx]
-    
-    
-    h = wf - wf0
-    h0_norm2 = h.dot(h)
-    h_dot_wf1 = h.dot(wf1)
-    jitter0 = h_dot_wf1/wf1_norm2
-    h1_norm2 = np.sum((h-jitter0*wf1)**2)
-    #~ print(h0_norm2, h1_norm2)
-    #~ print(h0_norm2 > h1_norm2)
-    
-    
-    
-    if h0_norm2 > h1_norm2:
-        #order 1 is better than order 0
-        h_dot_wf2 = np.dot(h,wf2)
-        rss_first = -2*h_dot_wf1 + 2*jitter0*(wf1_norm2 - h_dot_wf2) + 3*jitter0**2*wf1_dot_wf2 + jitter0**3*wf2_norm2
-        rss_second = 2*(wf1_norm2 - h_dot_wf2) + 6*jitter0*wf1_dot_wf2 + 3*jitter0**2*wf2_norm2
-        jitter1 = jitter0 - rss_first/rss_second
-        #~ h2_norm2 = np.sum((h-jitter1*wf1-jitter1**2/2*wf2)**2)
-        #~ if h1_norm2 <= h2_norm2:
-            #when order 2 is worse than order 1
-            #~ jitter1 = jitter0
-    else:
-        jitter1 = 0.
-    #~ print('jitter1', jitter1)
-    #~ return k, 0.
-    
-    #~ print(np.sum(wf**2), np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2))
-    #~ print(np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2))
-    #~ return k, jitter1
+        
+        #~ return k, 0.
 
-    
-    if np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2):
-        #prediction should be smaller than original (which have noise)
-        return k, jitter1
-    else:
-        #otherwise the prediction is bad
-        #~ print('bad prediction')
-        return LABEL_UNCLASSIFIED, 0.
+        wf0 = catalogue['centers0'][cluster_idx,: , chan]
+        wf1 = catalogue['centers1'][cluster_idx,: , chan]
+        wf2 = catalogue['centers2'][cluster_idx,: , chan]
+        wf = waveform[:, chan]
+        #~ print()
+        #~ print(wf0.shape, wf.shape)
+        
+        
+        #it is  precompute that at init speedup 10%!!! yeah
+        #~ wf1_norm2 = wf1.dot(wf1)
+        #~ wf2_norm2 = wf2.dot(wf2)
+        #~ wf1_dot_wf2 = wf1.dot(wf2)
+        wf1_norm2= catalogue['wf1_norm2'][cluster_idx]
+        wf2_norm2 = catalogue['wf2_norm2'][cluster_idx]
+        wf1_dot_wf2 = catalogue['wf1_dot_wf2'][cluster_idx]
+        
+        
+        h = wf - wf0
+        h0_norm2 = h.dot(h)
+        h_dot_wf1 = h.dot(wf1)
+        jitter0 = h_dot_wf1/wf1_norm2
+        h1_norm2 = np.sum((h-jitter0*wf1)**2)
+        #~ print(h0_norm2, h1_norm2)
+        #~ print(h0_norm2 > h1_norm2)
+        
+        
+        
+        if h0_norm2 > h1_norm2:
+            #order 1 is better than order 0
+            h_dot_wf2 = np.dot(h,wf2)
+            rss_first = -2*h_dot_wf1 + 2*jitter0*(wf1_norm2 - h_dot_wf2) + 3*jitter0**2*wf1_dot_wf2 + jitter0**3*wf2_norm2
+            rss_second = 2*(wf1_norm2 - h_dot_wf2) + 6*jitter0*wf1_dot_wf2 + 3*jitter0**2*wf2_norm2
+            jitter1 = jitter0 - rss_first/rss_second
+            #~ h2_norm2 = np.sum((h-jitter1*wf1-jitter1**2/2*wf2)**2)
+            #~ if h1_norm2 <= h2_norm2:
+                #when order 2 is worse than order 1
+                #~ jitter1 = jitter0
+        else:
+            jitter1 = 0.
+        #~ print('jitter1', jitter1)
+        #~ return k, 0.
+        
+        #~ print(np.sum(wf**2), np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2))
+        #~ print(np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2))
+        #~ return k, jitter1
+
+        
+        if np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2):
+            #prediction should be smaller than original (which have noise)
+            return k, jitter1
+        else:
+            #otherwise the prediction is bad
+            #~ print('bad prediction')
+            return LABEL_UNCLASSIFIED, 0.
 
 
 def make_prediction_signals(spikes, dtype, shape, catalogue, safe=True):
@@ -646,5 +716,70 @@ def make_prediction_signals(spikes, dtype, shape, catalogue, safe=True):
     
     
     
+
+kernel_opencl = """
+
+#define nb_channel %(nb_channel)d
+#define peak_width %(peak_width)d
+#define nb_cluster %(nb_cluster)d
+#define total %(total)d
     
+inline void AtomicAdd(volatile __global float *source, const float operand) {
+    union {
+        unsigned int intVal;
+        float floatVal;
+    } newVal;
+    union {
+        unsigned int intVal;
+        float floatVal;
+    } prevVal;
+    do {
+        prevVal.floatVal = *source;
+        newVal.floatVal = prevVal.floatVal + operand;
+    } while (atomic_cmpxchg((volatile __global unsigned int *)source, prevVal.intVal, newVal.intVal) != prevVal.intVal);
+}
+
+
+__kernel void waveform_distance(__global  float *one_waveform,
+                                        __global  float *catalogue_center,
+                                        __global  uchar  *mask,
+                                        __global  float *rms_waveform_channel,
+                                        __global  float *waveform_distance){
+    
+    int cluster_idx = get_global_id(0);
+    int c = get_global_id(1);
+    
+    
+    // initialize sum by cluster
+    if (c==0){
+        waveform_distance[cluster_idx] = 0;
+    }
+    
+    barrier(CLK_GLOBAL_MEM_FENCE);
+    
+    
+    
+    float sum = 0;
+    float d;
+    
+    
+    if (mask[nb_channel*cluster_idx+c]>0){
+        for (int s=0; s<peak_width; ++s){
+            d = one_waveform[nb_channel*s+c] - catalogue_center[total*cluster_idx+nb_channel*s+c];
+            sum += d*d;
+        }
+    }
+    else{
+        sum = rms_waveform_channel[c];
+    }
+    
+    AtomicAdd(&waveform_distance[cluster_idx], sum);
+    
+}
+
+
+"""
+
+
+
     
