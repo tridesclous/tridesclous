@@ -77,8 +77,7 @@ class MainWindow(QT.QMainWindow):
         self.dialog_method_cluster = MethodDialog(gui_params.cluster_params_by_methods, parent=self,
                         title='Which cluster method ?', selected_method = 'sawchaincut')
         
-        
-        
+        self.dialog_peeler = ParamDialog(gui_params.peeler_params)
     
 
     def create_actions_and_menu(self):
@@ -387,16 +386,25 @@ class MainWindow(QT.QMainWindow):
         lengths = [ self.dataio.datasource.get_segment_shape(i)[0] for i in range(self.dataio.nb_segment)]
         duration = max(lengths)/self.dataio.sample_rate
         
-        gui_params.peeler_params[1]['value'] = duration
+        #~ gui_params.peeler_params[1]['value'] = duration
+        
+        self.dialog_peeler.params['duration'] = duration
         
         
-        dia = ParamDialog(gui_params.peeler_params)
-        dia.resize(450, 500)
-        if not dia.exec_():
+        #~ dia = ParamDialog(gui_params.peeler_params)
+        #~ dia.resize(450, 500)
+        
+        #~ if not dia.exec_():
+            #~ return
+        #~ d = dia.get()
+            
+        if not self.dialog_peeler.exec_():
             return
-        d = dia.get()
-        #~ print(d)
-        
+        d = self.dialog_peeler.get()
+
+        duration = d['duration'] if d['limit_duration'] else None
+        d.pop('limit_duration')
+        d.pop('duration')
         
         errors = []
         for chan_grp in self.chan_grps:
@@ -414,9 +422,7 @@ Catalogue do not exists, please do:
                     continue
                 
                 peeler = Peeler(self.dataio)
-                peeler.change_params(catalogue=initial_catalogue)
-                
-                duration = d['duration'] if d['limit_duration'] else None
+                peeler.change_params(catalogue=initial_catalogue, **d)
                 
                 t1 = time.perf_counter()
                 peeler.run(duration=duration)
@@ -430,7 +436,6 @@ Catalogue do not exists, please do:
         
         for error in errors:
             self.errorToMessageBox(error)
-            
     
     def open_peelerwin(self):
         if self.dataio is None: return

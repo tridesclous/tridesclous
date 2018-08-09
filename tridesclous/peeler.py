@@ -185,6 +185,7 @@ class Peeler:
         
             if self.use_opencl_with_sparse:
                 self.ctx = pyopencl.create_some_context(interactive=False)
+                
                 self.queue = pyopencl.CommandQueue(self.ctx)
                 
                 centers = self.catalogue['centers0']
@@ -214,7 +215,8 @@ class Peeler:
                 
                 self.cl_global_size = (centers.shape[0], centers.shape[2])
                 #~ self.cl_local_size = None
-                self.cl_local_size = (centers.shape[0], 1)
+                self.cl_local_size = (centers.shape[0], 1) # faster a GPU because of memory access
+                #~ self.cl_local_size = (1, centers.shape[2])
                 
 
     

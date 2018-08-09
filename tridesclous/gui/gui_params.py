@@ -203,7 +203,13 @@ metrics_params = [
 peeler_params = [
     {'name':'limit_duration', 'type': 'bool', 'value':True},
     {'name':'duration', 'type': 'float', 'value':60., 'suffix': 's', 'siPrefix': True},
+    
+    {'name': 'use_sparse_template', 'type': 'bool', 'value':False},
+    {'name':'sparse_threshold_mad', 'type': 'float', 'value': 1.5, },
+    {'name': 'use_opencl_with_sparse', 'type': 'bool', 'value':False},
+    
 ]
+
 
 
 possible_tags = ['', 'so_bad', 'bad', 'not_so_bad','not_so_good','good', 'so_good', 'better_than_dreams']
