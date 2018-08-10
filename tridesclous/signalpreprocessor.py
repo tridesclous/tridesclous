@@ -88,7 +88,13 @@ class SignalPreprocessor_base:
         self.output_dtype = np.dtype(output_dtype)
         self.normalize = normalize
         self.lostfront_chunksize = lostfront_chunksize
-        self.backward_chunksize = self.chunksize + lostfront_chunksize
+        
+        if self.lostfront_chunksize is None or self.lostfront_chunksize==0:
+            assert self.highpass_freq is not None, 'lostfront_chunksize=None need a highpass_freq'
+            self.lostfront_chunksize = int(self.sample_rate/self.highpass_freq*3)
+            #~ print('self.lostfront_chunksize', self.lostfront_chunksize)
+        
+        self.backward_chunksize = self.chunksize + self.lostfront_chunksize
         #~ print('self.lostfront_chunksize', self.lostfront_chunksize)
         #~ print('self.backward_chunksize', self.backward_chunksize)
         #~ assert self.backward_chunksize>self.chunksize
