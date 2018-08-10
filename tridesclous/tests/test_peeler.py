@@ -144,6 +144,8 @@ def test_peeler_empty_catalogue():
         previous_peak = online_peaks
         
 
+
+@pytest.mark.skipif(ON_CI_CLOUD, reason='To hard for CI')
 def test_peeler_several_chunksize():
     
     dataio = DataIO(dirname='test_peeler')
