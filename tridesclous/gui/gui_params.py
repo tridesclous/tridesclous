@@ -17,6 +17,8 @@ Preprocessor
     * chunksize (int): the whole processing chain is applied chunk by chunk, this is the chunk size in sample. Typically 1024.
        The smaller size lead to less memory but more CPU comsuption in Peeler. For online, this will be more or less the latency.
     * lostfront_chunksize (int): size in sample of the margin at the front edge for each chunk to avoid border effect in backward filter.
+       In you don't known put None then lostfront_chunksize will be int(sample_rate/highpass_freq)*3 which is quite robust (<5% error)
+       compared to a true offline filtfilt.
     * signalpreprocessor_engine (str): 'numpy' or 'opencl'. There is a double implementation for signal preprocessor : With numpy/scipy
       flavor (and so CPU) or opencl with home made CL kernel (and so use GPU computing). If you have big fat GPU and are able to install
       "opencl driver" (ICD) for your platform the opencl flavor should speedup the peeler because pre processing signal take a quite
@@ -114,7 +116,7 @@ Several methods possible. See :ref:`important_details`.
 """
 
 from collections import OrderedDict
-
+import numpy as np
 
 preprocessor_params = [
     {'name': 'highpass_freq', 'type': 'float', 'value':400., 'step': 10., 'suffix': 'Hz', 'siPrefix': True},
@@ -122,7 +124,7 @@ preprocessor_params = [
     {'name': 'smooth_size', 'type': 'int', 'value':0},
     {'name': 'common_ref_removal', 'type': 'bool', 'value':False},
     {'name': 'chunksize', 'type': 'int', 'value':1024, 'decilmals':5},
-    {'name': 'lostfront_chunksize', 'type': 'int', 'value':128, 'decilmals':0},
+    {'name': 'lostfront_chunksize', 'type': 'int', 'value':0, 'decilmals':0, 'limits': (0, np.inf),},
     {'name': 'signalpreprocessor_engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl']},
 ]
 
