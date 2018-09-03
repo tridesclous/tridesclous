@@ -20,7 +20,7 @@ from .peakdetector import  detect_peaks_in_chunk
 from .tools import make_color_dict
 
 import matplotlib.pyplot as plt
-import seaborn as sns
+#import seaborn as sns
 
 
 from tqdm import tqdm
