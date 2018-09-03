@@ -32,8 +32,6 @@ jobs:
             . venv/bin/activate
             pip install -r requirements.txt
             pip install -r .circleci/requirements_testing.txt
-            python setup.py develop
-#             pip install . 
 
 
       - save_cache:
@@ -41,8 +39,14 @@ jobs:
             - ./venv
           key: v1-dependencies-{{ checksum "requirements.txt" }}
 
+      - run:
+          name: install dependencies
+          command: |
+            . venv/bin/activate
+            python setup.py install
+
       # run tests!
-      # only core is tested at the moment
+      # only core is tested at the moment (tridesclous/tests) not the online
       - run:
           name: run tests
           command: |
