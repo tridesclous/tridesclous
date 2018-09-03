@@ -12,11 +12,10 @@ import  pyqtgraph as pg
 
 from tridesclous.dataio import DataIO
 from tridesclous.catalogueconstructor import CatalogueConstructor
-from tridesclous import Peeler, Peeler_OpenCl, apply_all_catalogue_steps
+from tridesclous import Peeler, apply_all_catalogue_steps
+from tridesclous.peeler_cl import Peeler_OpenCl
 
 from tridesclous.peakdetector import  detect_peaks_in_chunk
-
-from tridesclous.peeler_OLD import PeelerOLD
 
 
 from tridesclous.tests.testingtools import setup_catalogue

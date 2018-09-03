@@ -14,6 +14,7 @@ from .version import version as __version__
 
 import PyQt5 # this force pyqtgraph to deal with Qt5
 
+# this avoid tinker problem when not installed
 import matplotlib
 matplotlib.use('Qt5Agg')
 
@@ -30,7 +31,7 @@ from .signalpreprocessor import offline_signal_preprocessor, estimate_medians_ma
 from .catalogueconstructor import CatalogueConstructor
 from .cataloguetools import apply_all_catalogue_steps
 from .peeler import Peeler
-from .peeler_cl import Peeler_OpenCl
+# from .peeler_cl import Peeler_OpenCl
 
 from .importers import import_from_spykingcircus
 
@@ -38,13 +39,4 @@ from .matplotlibplot import *
 
 
 from .gui import *
-
-
-#~ try:
-    #~ import PyQt5 # this force pyqtgraph to deal with Qt5
-    #~ from .gui import *
-#~ except ImportError:
-    #~ import logging
-    #~ logging.warning('Interactive GUI not availble')
-    #~ pass
 

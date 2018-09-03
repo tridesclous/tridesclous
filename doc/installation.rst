@@ -79,7 +79,7 @@ isolated environement with virtualenvwrapper. Every other method is also valid.
 Open a terminal and do:
 
   1. sudo apt-get install virtualenvwrapper
-  2. mkvirtualenv  tdc   --python=/usr/bin/python3.5
+  2. mkvirtualenv  tdc   --python=/usr/bin/python3.6    (or python3.5)
   3. workon tdc
   4. pip install scipy numpy pandas scikit-learn matplotlib seaborn tqdm openpyxl
   5. pip install PyQt5 jupyter pyqtgraph==0.10 quantities neo
@@ -138,19 +138,32 @@ Ephyviewer (optional)
 
 
 
-If you have neo (>=0.6) installed and want to view signals you can optionally install ephyviewer with::
+With neo (>=0.6) installed, if you want to view signals you can optionally install ephyviewer with::
     
     pip install ephyviewer
 
 
-Update tridesclous
+Upgrade tridesclous
 ------------------
 
-There are no official release on pypi at the moment, so you need to take the in developpement code on github.
+There are 3 sources for upgrading tridesclous package depending your need.
 
 
-For updating to not repeat installation of dependencies, just uninstall and reinstall::
+For **official** release at pypi::
 
-  pip uninstall tridesclous
-  pip install https://github.com/tridesclous/tridesclous/archive/master.zip
+    pip install --upgrade tridesclous
+
+
+For **up-to-date** or **new-featured** version get the master version on github::
+
+  pip install --upgrade https://github.com/tridesclous/tridesclous/archive/master.zip
+
+
+For **work-in-progress** or **in-debug** version, take master version on my personal repo::
+
+  pip install --upgrade https://github.com/samuelgarcia/tridesclous/archive/master.zip
+
+
+
+
 
