@@ -14,8 +14,8 @@ from .version import version as __version__
 
 import PyQt5 # this force pyqtgraph to deal with Qt5
 
-#import matplotlib
-#matplotlib.use('Qt5Agg')
+import matplotlib
+matplotlib.use('Qt5Agg')
 
 from .datasets import download_dataset, get_dataset
 
