@@ -15,9 +15,11 @@ install_requires = [
                     'seaborn',
                     'neo>=0.6.1',
                     'tqdm',
+                    'PyQt5',
+                    'pyqtgraph==0.10.0',
                     ]
-extras_require={ 'gui' : ['PyQt5', 'pyqtgraph==0.10.0', ],
-                            'online' : 'pyacq',
+extras_require={
+                            'online' : ['pyacq',],
                             'opencl' : ['pyopencl'],
                         }
 
