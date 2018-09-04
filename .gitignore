@@ -2,6 +2,8 @@
 *.raw
 *.zip
 *.prb
+*.dat
+*ns5
 
 tridesclous/tests/locust/*
 tridesclous/tests/olfactory_bulb/*
@@ -25,6 +27,8 @@ example/.ipynb_checkpoints/*
 example/tridesclous_*
 doc/_build
 example/demo_onlinewindow/*
+
+test_*
 
 
 
