@@ -889,7 +889,7 @@ class CatalogueConstructor:
                 some_noise_features = self.projector.transform(self.some_noise_snippet)
                 self.arrays.add_array('some_noise_features', some_noise_features.astype(self.info['internal_dtype']), self.memory_mode)
         
-            print('extract_some_features', self.some_features.shape)
+            #~ print('extract_some_features', self.some_features.shape)
     
     #ALIAS TODO remove it
     project = extract_some_features
@@ -941,7 +941,7 @@ class CatalogueConstructor:
                     self.compute_one_centroid(old_label)
 
     def on_new_cluster(self):
-        print('cc.on_new_cluster')
+        #~ print('cc.on_new_cluster')
         if self.all_peaks is None:
             return
         cluster_labels = np.unique(self.all_peaks['cluster_label'])
