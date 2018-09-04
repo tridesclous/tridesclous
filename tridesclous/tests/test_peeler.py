@@ -124,7 +124,7 @@ def test_peeler_empty_catalogue():
         
         online_peaks = unlabeled_spike['index']
 
-        i_stop = sig_length-catalogue['params_signalpreprocessor']['lostfront_chunksize']-peeler.n_side+peeler.n_span
+        i_stop = sig_length-catalogue['signal_preprocessor_params']['lostfront_chunksize']-peeler.n_side+peeler.n_span
         sigs = dataio.get_signals_chunk(signal_type='processed', i_stop=i_stop)
         offline_peaks  = detect_peaks_in_chunk(sigs, peeler.n_span, peeler.relative_threshold, peeler.peak_sign)
         

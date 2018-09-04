@@ -18,7 +18,9 @@ from matplotlib import pyplot
 
 
 # !!!!!!!! change the working dir here
-working_dir = '/home/samuel/Documents/projet/DataSpikeSorting/kampff/'
+#working_dir = '/home/samuel/Documents/projet/DataSpikeSorting/kampff/'
+working_dir = '/media/samuel/dataspikesorting/DataSpikeSortingHD2/kampff/'
+
 
 dirname= working_dir+'tdc_2015_09_09_Pair_6_0'
 
@@ -26,9 +28,10 @@ dirname= working_dir+'tdc_2015_09_09_Pair_6_0'
  
 def initialize_catalogueconstructor():
     #setup file source
-    filenames = working_dir+'2015_09_09_Pair_6_0/'+'amplifier2015-09-09T17_46_43.bin'
+    filename = working_dir+'2015_09_09_Pair_6_0/'+'amplifier2015-09-09T17_46_43.bin'
+    print(filename)
     dataio = DataIO(dirname=dirname)
-    dataio.set_data_source(type='RawData', filenames=filenames, dtype='uint16',
+    dataio.set_data_source(type='RawData', filenames=[filename], dtype='uint16',
                                      total_channel=128, sample_rate=30000.)
     print(dataio)#check
     
@@ -185,8 +188,8 @@ if __name__ =='__main__':
     #~ open_cataloguewindow()
 
     #~ clean_catalogue()
-    run_peeler()
-    #~ open_PeelerWindow()
+    #~ run_peeler()
+    open_PeelerWindow()
 
     
 

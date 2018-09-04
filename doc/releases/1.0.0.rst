@@ -1,7 +1,7 @@
 tridesclous release notes 1.0.0
 ===============================
 
-**September 2018**
+**2018-09-04**
 
 Very first official release of tridesclous after 18 month of developpement.
 

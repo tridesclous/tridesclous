@@ -167,6 +167,6 @@ if __name__ =='__main__':
     #~ extract_waveforms_pca_cluster()
     #~ open_cataloguewindow()
     
-    run_peeler()
+    #~ run_peeler()
     open_PeelerWindow()
     

@@ -31,6 +31,7 @@ class PeelerController(ControllerBase):
         
         
         self.init_plot_attributes()
+        self.update_visible_spikes()
     
     def init_plot_attributes(self):
         #concatenate all spikes for all segments
@@ -42,7 +43,7 @@ class PeelerController(ControllerBase):
             for k, _ in _dtype_spike:
                 spikes[k] = local_spikes[k]
             spikes['segment'] = i
-            spikes['visible'] = True
+            spikes['visible'] = spikes['cluster_label']>=0
             spikes['selected'] = False
             
             
@@ -70,7 +71,7 @@ class PeelerController(ControllerBase):
         self.cluster_count = { k:np.sum(self.spikes['cluster_label']==k) for k in self.cluster_labels}
         
         
-        self.cluster_visible = {k:True for k  in self.cluster_labels}
+        self.cluster_visible = {k:k>=0 for k  in self.cluster_labels}
 
         
         #qt colors
@@ -85,7 +86,7 @@ class PeelerController(ControllerBase):
     def check_plot_attributes(self):
         for k in self.cluster_labels:
             if k not in self.cluster_visible:
-                self.cluster_visible[k] = True
+                self.cluster_visible[k] = k>=0
         
         for k in list(self.cluster_visible.keys()):
             if k not in self.cluster_labels:
@@ -140,8 +141,8 @@ class PeelerController(ControllerBase):
         return self.catalogue['n_left'], self.catalogue['n_right']
     
     def get_threshold(self):
-        threshold = self.catalogue['params_peakdetector']['relative_threshold']
-        if self.catalogue['params_peakdetector']['peak_sign']=='-':
+        threshold = self.catalogue['peak_detector_params']['relative_threshold']
+        if self.catalogue['peak_detector_params']['peak_sign']=='-':
             threshold = -threshold
         return threshold
 

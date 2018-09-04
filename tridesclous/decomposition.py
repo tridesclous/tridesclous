@@ -69,7 +69,7 @@ class PeakMaxOnChannel:
         cc = catalogueconstructor
         
         self.waveforms = waveforms
-        self.ind_peak = -catalogueconstructor.info['params_waveformextractor']['n_left']
+        self.ind_peak = -catalogueconstructor.info['waveform_extractor_params']['n_left']
         #~ print('PeakMaxOnChannel self.ind_peak', self.ind_peak)
         
         
@@ -147,7 +147,7 @@ class NeighborhoodPca:
 #~ class PeakMax_and_PCA:
     #~ def __init__(self, waveforms, catalogueconstructor=None, **params):
         #~ self.waveforms = waveforms
-        #~ self.ind_peak = -catalogueconstructor.info['params_waveformextractor']['n_left']+1
+        #~ self.ind_peak = -catalogueconstructor.info['waveform_extractor_params']['n_left']+1
 
         #~ self.pca =  sklearn.decomposition.IncrementalPCA(**params)
         #~ peaks_val = waveforms[:, self.ind_peak, : ].copy()

@@ -235,7 +235,7 @@ class WaveformViewerBase(WidgetBase):
             return
 
         nb_channel = self.controller.nb_channel
-        #~ d = self.controller.info['params_waveformextractor']
+        #~ d = self.controller.info['waveform_extractor_params']
         #~ n_left, n_right = d['n_left'], d['n_right']
         n_left, n_right = self.controller.get_waveform_left_right()
         width = n_right - n_left

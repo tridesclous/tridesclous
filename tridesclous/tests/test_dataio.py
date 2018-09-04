@@ -101,7 +101,7 @@ def test_dataio_catalogue():
     catalogue['centers0'] = np.ones((300, 12, 50))
     
     catalogue['n_left'] = -15
-    catalogue['params_signalpreprocessor'] = {'highpass_freq' : 300.}
+    catalogue['signal_preprocessor_params'] = {'highpass_freq' : 300.}
     
     dataio.save_catalogue(catalogue, name='test')
     
@@ -109,7 +109,7 @@ def test_dataio_catalogue():
     print(c2)
     assert c2['n_left'] == -15
     assert np.all(c2['centers0']==1)
-    assert catalogue['params_signalpreprocessor']['highpass_freq'] == 300.
+    assert catalogue['signal_preprocessor_params']['highpass_freq'] == 300.
     
 
 

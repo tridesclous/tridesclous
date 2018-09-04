@@ -102,9 +102,9 @@ def make_empty_catalogue(chan_grp=0,
         signals_mads = signals_medians = np.ones(nchan, dtype=internal_dtype)
     
     #params
-    catalogue['params_signalpreprocessor'] = preprocessor_params_
-    catalogue['params_peakdetector'] = peak_detector_params_
-    catalogue['params_clean_waveforms'] = clean_waveforms_params_
+    catalogue['signal_preprocessor_params'] = preprocessor_params_
+    catalogue['peak_detector_params'] = peak_detector_params_
+    catalogue['clean_waveforms_params'] = clean_waveforms_params_
     catalogue['signals_medians'] = signals_medians
     catalogue['signals_mads'] = signals_mads
     
