@@ -43,7 +43,8 @@ def test_cluster_ratio():
         im.set_clim(0,1)
         fig.colorbar(im)
         ax.set_title(name)
-
+        
+    del fig, ax
     
     
 
