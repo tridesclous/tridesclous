@@ -303,7 +303,7 @@ class CatalogueConstructor:
             smooth_size=0,
             common_ref_removal=False,
             
-            lostfront_chunksize=128,
+            lostfront_chunksize=None,
             
             
             #peak detector
@@ -342,9 +342,10 @@ class CatalogueConstructor:
             like a low pass filter. Can be use instead lowpass_freq.
         common_ref_removal: bool. False by dfault.
             The remove the median of all channel sample by sample.
-        lostfront_chunksize: int. default 128
-            Number of sample for the lost front border. This is used to make local filtfilt
-            and to avoid border filtering effect.
+        lostfront_chunksize: int. default None
+            size in sample of the margin at the front edge for each chunk to avoid border effect in backward filter.
+            In you don't known put None then lostfront_chunksize will be int(sample_rate/highpass_freq)*3 which is quite robust (<5% error)
+            compared to a true offline filtfilt.
         peakdetector_engine: 'numpy' or 'opencl'
             Engine for peak detection.
         peak_sign: '-' or '+'
