@@ -8,6 +8,7 @@ from tridesclous.tests.testingtools import ON_CI_CLOUD
 import pytest
 
 import shutil
+import os
 
 
 def setup_module():
