@@ -174,7 +174,13 @@ cluster_params_by_methods = OrderedDict([
                     {'name' : 'n_init', 'type' : 'int', 'value' : 10}]),
     ('agglomerative', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5}]),
     ('dbscan', [{'name' : 'eps', 'type' : 'float', 'value' : 0.5}]),
-    ('sawchaincut', []),
+    ('sawchaincut', [{'name' : 'max_loop', 'type' : 'int', 'value' : 1000},
+                                {'name' : 'nb_min', 'type' : 'int', 'value' : 20},
+                                {'name' : 'break_nb_remain', 'type' : 'int', 'value' : 30},
+                                {'name':'print_debug', 'type': 'bool', 'value':False},
+                            
+                            
+                            ]),
 ])
 
 #~ split_params_by_methods = OrderedDict([

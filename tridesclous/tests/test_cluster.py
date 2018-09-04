@@ -50,7 +50,7 @@ def test_sawchaincut():
     #~ print(cc)
     
     t0 = time.perf_counter()
-    cc.find_clusters(method='sawchaincut')
+    cc.find_clusters(method='sawchaincut', print_debug=True)
     t1 = time.perf_counter()
     print('cluster', t1-t0)
     #~ exit()
@@ -60,7 +60,7 @@ def test_sawchaincut():
 
     if __name__ == '__main__':
         app = mkQApp()
-        win = CatalogueWindow(catalogueconstructor)
+        win = CatalogueWindow(cc)
         win.show()
         app.exec_()
 
