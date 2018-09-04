@@ -24,7 +24,9 @@ def setup_module():
     setup_catalogue('test_cluster', dataset_name=dataset_name)
 
 def teardown_module():
-    shutil.rmtree('test_cluster')
+    if not(os.environ.get('APPVEYOR') in ('true', 'True')):
+        # this fix appveyor teardown_module bug
+        shutil.rmtree('test_cluster')
 
 
 def test_sawchaincut():
@@ -43,9 +45,9 @@ def test_sawchaincut():
     
     
     dataio = DataIO(dirname=dirname)
-    cc = catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    print(dataio)
-    print(cc)
+    cc = CatalogueConstructor(dataio=dataio)
+    #~ print(dataio)
+    #~ print(cc)
     
     t0 = time.perf_counter()
     cc.find_clusters(method='sawchaincut')
@@ -53,7 +55,7 @@ def test_sawchaincut():
     print('cluster', t1-t0)
     #~ exit()
     
-    print(cc)
+    #~ print(cc)
 
 
     if __name__ == '__main__':

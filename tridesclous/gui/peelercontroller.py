@@ -2,7 +2,7 @@ from .myqt import QT
 import pyqtgraph as pg
 
 import numpy as np
-import seaborn as sns
+#import seaborn as sns
 
 
 from .base import ControllerBase

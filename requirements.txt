@@ -5,10 +5,11 @@ openpyxl
 scikit-learn
 matplotlib
 seaborn
-neo
+neo>=0.6.1
 tqdm
 
 PyQt5  
 pyqtgraph
 
 sphinx>=1.7.5
+

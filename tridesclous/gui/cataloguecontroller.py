@@ -3,7 +3,7 @@ import pyqtgraph as pg
 
 
 import numpy as np
-import seaborn as sns
+#import seaborn as sns
 
 from ..tools import median_mad, rgba_to_int32
 from .. import labelcodes

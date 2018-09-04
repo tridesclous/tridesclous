@@ -11,7 +11,7 @@ workflows:
 jobs:
   test-3.6:
     docker:
-      - image: circleci/python:3.6.1
+      - image: circleci/python:3.6.6-stretch-browsers
 
     working_directory: ~/repo
 
@@ -21,9 +21,9 @@ jobs:
       # Download and cache dependencies
       - restore_cache:
           keys:
-          - v1-dependencies-{{ checksum "requirements.txt" }}
+          - v2-dependencies-{{ checksum "requirements.txt" }}
           # fallback to using the latest cache if no exact match is found
-          - v1-dependencies-
+          - v2-dependencies-
 
       - run:
           name: install dependencies
@@ -32,22 +32,26 @@ jobs:
             . venv/bin/activate
             pip install -r requirements.txt
             pip install -r .circleci/requirements_testing.txt
-            python setup.py develop
-#             pip install . 
 
 
       - save_cache:
           paths:
             - ./venv
-          key: v1-dependencies-{{ checksum "requirements.txt" }}
+          key: v2-dependencies-{{ checksum "requirements.txt" }}
+
+      - run:
+          name: install tridesclous
+          command: |
+            . venv/bin/activate
+            python setup.py install
 
       # run tests!
-      # only core is tested at the moment
+      # only core is tested at the moment (tridesclous/tests) not the online
       - run:
           name: run tests
           command: |
             . venv/bin/activate
-            pytest tridesclous/tests
+            pytest tridesclous
 
       - store_artifacts:
           path: test-reports
