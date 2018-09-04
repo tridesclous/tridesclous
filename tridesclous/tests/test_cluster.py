@@ -43,9 +43,9 @@ def test_sawchaincut():
     
     
     dataio = DataIO(dirname=dirname)
-    cc = catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    print(dataio)
-    print(cc)
+    cc = CatalogueConstructor(dataio=dataio)
+    #~ print(dataio)
+    #~ print(cc)
     
     t0 = time.perf_counter()
     cc.find_clusters(method='sawchaincut')
@@ -53,7 +53,11 @@ def test_sawchaincut():
     print('cluster', t1-t0)
     #~ exit()
     
-    print(cc)
+    #~ print(cc)
+    
+    # this fix appveyor teardown_module bug
+    del cc
+    
 
 
     if __name__ == '__main__':

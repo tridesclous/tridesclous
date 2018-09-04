@@ -44,6 +44,10 @@ def test_all_decomposition():
     #~ win.show()
     #~ app.exec_()
 
+    # this fix appveyor teardown_module bug
+    del cc
+    
+
 def debug_one_decomposition():
     dirname = 'test_catalogueconstructor'
     

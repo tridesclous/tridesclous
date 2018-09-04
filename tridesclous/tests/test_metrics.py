@@ -27,6 +27,9 @@ def test_all_metrics():
     cc.compute_cluster_ratio_similarity()
     cc.compute_spike_silhouette()
 
+    # this fix appveyor teardown_module bug
+    del cc
+
 
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_cluster_ratio():
@@ -43,8 +46,6 @@ def test_cluster_ratio():
         im.set_clim(0,1)
         fig.colorbar(im)
         ax.set_title(name)
-        
-    del fig, ax
     
     
 
