@@ -54,10 +54,10 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         dbscan = sklearn.cluster.DBSCAN(**kargs)
         labels = dbscan.fit_predict(features)
     elif method == 'sawchaincut':
-        n_left = cc.info['params_waveformextractor']['n_left']
-        n_right = cc.info['params_waveformextractor']['n_right']
-        peak_sign = cc.info['params_peakdetector']['peak_sign']
-        relative_threshold = cc.info['params_peakdetector']['relative_threshold']
+        n_left = cc.info['waveform_extractor_params']['n_left']
+        n_right = cc.info['waveform_extractor_params']['n_right']
+        peak_sign = cc.info['peak_detector_params']['peak_sign']
+        relative_threshold = cc.info['peak_detector_params']['relative_threshold']
         #~ sawchaincut = SawChainCut_OLD(waveforms, n_left, n_right, peak_sign, relative_threshold)
         sawchaincut = SawChainCut(waveforms, n_left, n_right, peak_sign, relative_threshold)
         labels = sawchaincut.do_the_job()

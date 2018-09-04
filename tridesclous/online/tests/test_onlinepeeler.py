@@ -224,7 +224,7 @@ def test_OnlinePeeler_no_catalogue():
     
     
     print(empty_catalogue)
-    #~ print(empty_catalogue['params_signalpreprocessor'])
+    #~ print(empty_catalogue['signal_preprocessor_params'])
     #~ exit()
     
     

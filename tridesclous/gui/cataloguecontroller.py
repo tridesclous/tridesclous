@@ -147,7 +147,7 @@ class CatalogueController(ControllerBase):
         return wf_min, wf_max
 
     def get_waveform_left_right(self):
-        d = self.cc.info['params_waveformextractor']
+        d = self.cc.info['waveform_extractor_params']
         return d['n_left'], d['n_right']
         
     @property
@@ -179,8 +179,8 @@ class CatalogueController(ControllerBase):
         self.check_plot_attributes()
         
     def get_threshold(self):
-        threshold = self.cc.info['params_peakdetector']['relative_threshold']
-        if self.cc.info['params_peakdetector']['peak_sign']=='-':
+        threshold = self.cc.info['peak_detector_params']['relative_threshold']
+        if self.cc.info['peak_detector_params']['peak_sign']=='-':
             threshold = -threshold
         return threshold
     

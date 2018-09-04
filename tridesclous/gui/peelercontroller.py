@@ -140,8 +140,8 @@ class PeelerController(ControllerBase):
         return self.catalogue['n_left'], self.catalogue['n_right']
     
     def get_threshold(self):
-        threshold = self.catalogue['params_peakdetector']['relative_threshold']
-        if self.catalogue['params_peakdetector']['peak_sign']=='-':
+        threshold = self.catalogue['peak_detector_params']['relative_threshold']
+        if self.catalogue['peak_detector_params']['peak_sign']=='-':
             threshold = -threshold
         return threshold
 

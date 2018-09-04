@@ -76,7 +76,7 @@ def plot_signals(dataio_or_cataloguecconstructor, chan_grp=0, seg_num=0, time_sl
                 ax.plot(times[peak_indexes], sigs[peak_indexes, i], ls='None', marker='o', color='k')
         
         if with_span:
-            d = cataloguecconstructor.info['params_peakdetector']
+            d = cataloguecconstructor.info['peak_detector_params']
             s = d['peak_span']
             for ind in peak_indexes:
                 ax.axvspan(times[ind]-s, times[ind]+s, color='b', alpha = .3)
@@ -146,7 +146,7 @@ def plot_waveforms(cataloguecconstructor, labels=None, nb_max=50, **kargs):
     geometry = cc.dataio.get_geometry(chan_grp=cc.chan_grp)
     all_wfs = cc.some_waveforms
     
-    kargs['ratio_mad'] = cc.info['params_peakdetector']['relative_threshold']
+    kargs['ratio_mad'] = cc.info['peak_detector_params']['relative_threshold']
     
     if 'ax' not in kargs:
         fig, ax = plt.subplots()

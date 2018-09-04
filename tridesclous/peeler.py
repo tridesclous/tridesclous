@@ -332,13 +332,13 @@ class Peeler:
         self.sample_rate = sample_rate
         self.source_dtype = source_dtype
         
-        self.signalpreprocessor_engine = self.catalogue['params_signalpreprocessor']['signalpreprocessor_engine']
+        self.signalpreprocessor_engine = self.catalogue['signal_preprocessor_params']['signalpreprocessor_engine']
         #~ print('self.signalpreprocessor_engine', self.signalpreprocessor_engine)
         SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[self.signalpreprocessor_engine]
         #~ SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines['numpy']
         self.signalpreprocessor = SignalPreprocessor_class(sample_rate, nb_channel, self.chunksize, source_dtype)
         
-        p = dict(self.catalogue['params_signalpreprocessor'])
+        p = dict(self.catalogue['signal_preprocessor_params'])
         p.pop('signalpreprocessor_engine')
         p['normalize'] = True
         p['signals_medians'] = self.catalogue['signals_medians']
@@ -349,9 +349,9 @@ class Peeler:
         
         self.internal_dtype = self.signalpreprocessor.output_dtype
 
-        self.peak_sign = self.catalogue['params_peakdetector']['peak_sign']
-        self.relative_threshold = self.catalogue['params_peakdetector']['relative_threshold']
-        peak_span = self.catalogue['params_peakdetector']['peak_span']
+        self.peak_sign = self.catalogue['peak_detector_params']['peak_sign']
+        self.relative_threshold = self.catalogue['peak_detector_params']['relative_threshold']
+        peak_span = self.catalogue['peak_detector_params']['peak_span']
         self.n_span = int(sample_rate*peak_span)//2
         self.n_span = max(1, self.n_span)
         self.peak_width = self.catalogue['peak_width']
@@ -359,7 +359,7 @@ class Peeler:
         
         assert self.chunksize > (self.n_side+1), 'chunksize is too small because of n_size'
         
-        self.alien_value_threshold = self.catalogue['params_clean_waveforms']['alien_value_threshold']
+        self.alien_value_threshold = self.catalogue['clean_waveforms_params']['alien_value_threshold']
         
         self.total_spike = 0
         
@@ -438,7 +438,7 @@ class Peeler:
         
         width = catalogue['peak_width']
         n_left = catalogue['n_left']
-        alien_value_threshold = catalogue['params_clean_waveforms']['alien_value_threshold']
+        alien_value_threshold = catalogue['clean_waveforms_params']['alien_value_threshold']
         
         
         #ind is the windows border!!!!!
