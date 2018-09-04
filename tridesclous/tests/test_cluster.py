@@ -24,7 +24,9 @@ def setup_module():
     setup_catalogue('test_cluster', dataset_name=dataset_name)
 
 def teardown_module():
-    shutil.rmtree('test_cluster')
+    if not(os.environ.get('APPVEYOR') in ('true', 'True')):
+        # this fix appveyor teardown_module bug
+        shutil.rmtree('test_cluster')
 
 
 def test_sawchaincut():
@@ -54,10 +56,6 @@ def test_sawchaincut():
     #~ exit()
     
     #~ print(cc)
-    
-    # this fix appveyor teardown_module bug
-    del cc
-    
 
 
     if __name__ == '__main__':

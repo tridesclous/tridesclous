@@ -19,7 +19,9 @@ def setup_module():
     setup_catalogue('test_decomposition', dataset_name=dataset_name)
 
 def teardown_module():
-    shutil.rmtree('test_decomposition')
+    if not(os.environ.get('APPVEYOR') in ('true', 'True')):
+        # this fix appveyor teardown_module bug
+        shutil.rmtree('test_decomposition')
 
 
 
@@ -44,8 +46,6 @@ def test_all_decomposition():
     #~ win.show()
     #~ app.exec_()
 
-    # this fix appveyor teardown_module bug
-    del cc
     
 
 def debug_one_decomposition():

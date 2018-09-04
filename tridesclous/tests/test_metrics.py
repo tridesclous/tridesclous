@@ -14,7 +14,9 @@ def setup_module():
     setup_catalogue('test_metrics', dataset_name='olfactory_bulb')
 
 def teardown_module():
-    shutil.rmtree('test_metrics')
+    if not(os.environ.get('APPVEYOR') in ('true', 'True')):
+        # this fix appveyor teardown_module bug
+        shutil.rmtree('test_metrics')
     
     
 
@@ -27,8 +29,7 @@ def test_all_metrics():
     cc.compute_cluster_ratio_similarity()
     cc.compute_spike_silhouette()
 
-    # this fix appveyor teardown_module bug
-    del cc
+    
 
 
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
