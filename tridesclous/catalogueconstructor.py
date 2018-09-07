@@ -734,9 +734,14 @@ class CatalogueConstructor:
         label (-9)
         
         """
+        print('*******')
+        print('clean_waveforms', alien_value_threshold)
         if alien_value_threshold is not None:
             over = np.any(np.abs(self.some_waveforms)>alien_value_threshold, axis=(1,2))
+            print(over)
+            print(np.sum(over))
             index_over = self.some_peaks_index[over]
+            print('index_over', index_over)
             index_ok = self.some_peaks_index[~over]
             self.all_peaks['cluster_label'][index_over] = labelcodes.LABEL_ALIEN
             self.all_peaks['cluster_label'][index_ok] = 0
@@ -1026,6 +1031,15 @@ class CatalogueConstructor:
         for name in _centroids_arrays:
             new_arr = getattr(self, name)[keep, :, :].copy()
             self.arrays.add_array(name, new_arr, self.memory_mode)
+    
+    def move_cluster_to_trash(self, labels):
+        if isinstance(labels, int):
+            labels = [labels]
+        
+        mask = np.zeros(self.all_peaks.size, dtype='bool')
+        for k in labels:
+            mask |= self.all_peaks['cluster_label']== k
+        self.change_spike_label(mask, labelcodes.LABEL_TRASH)
     
     def compute_one_centroid(self, k, flush=True):
         #~ t1 = time.perf_counter()
