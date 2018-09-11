@@ -10,6 +10,8 @@ from tridesclous import download_dataset
 from tridesclous.cataloguetools import apply_all_catalogue_steps
 from tridesclous.peeler import make_prediction_signals
 from tridesclous.tools import int32_to_rgba
+from tridesclous.matplotlibplot import plot_waveforms_with_geometry, plot_features_scatter_2d
+
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -92,6 +94,8 @@ def make_animation():
     clusters = catalogue['clusters']
     
     sr = dataio.sample_rate
+    
+    # also a good one a  11.356 - 11.366
     
     t1, t2 = 1.272, 1.295
     i1, i2 = int(t1*sr), int(t2*sr)
@@ -179,12 +183,86 @@ def make_animation():
     #~ plt.show()
 
 
+def make_catalogue_figure():
+
+
+    dataio = DataIO(dirname=dirname)
+    catalogue = dataio.load_catalogue(chan_grp=0)
+    
+    clusters = catalogue['clusters']
+    
+    geometry = dataio.get_geometry(chan_grp=0)
+    
+    fig, ax = plt.subplots()
+    ax.set_title('Catalogue have 4 templates')
+    for i in range(clusters.size):
+        color = clusters[i]['color']
+        color = int32_to_rgba(color, mode='float')
+        
+        waveforms = catalogue['centers0' ][i:i+1]
+    
+        plot_waveforms_with_geometry(waveforms, channels, geometry,
+                ax=ax, ratioY=3, deltaX= 50, margin=50, color=color,
+                linewidth=3, alpha=1, show_amplitude=True, ratio_mad=8)
+    
+    fig.savefig('../img/peeler_templates_for_animation.png')
+    
+    #~ plt.show()
+
+def make_pca_collision_figure():
+
+    dataio = DataIO(dirname=dirname)
+    cc = CatalogueConstructor(dataio=dataio)
+    
+    clusters = cc.clusters
+    #~ plot_features_scatter_2d(cc, labels=None, nb_max=500)
+    
+    #~ plot_features_scatter_2d
+    
+    fig, ax = plt.subplots()
+    ax.set_title('Collision problem')
+    ax.set_aspect('equal')
+    features = cc.some_features
+    
+    labels = cc.all_peaks[cc.some_peaks_index]['cluster_label']
+    
+    for k in [0,1,2,3]:
+        color = clusters[clusters['cluster_label']==k]['color'][0]
+        color = int32_to_rgba(color, mode='float')
+        
+        keep = labels==k
+        feat = features[keep]
+    
+        print(np.unique(labels))
+        
+        
+        ax.plot(feat[:,0], feat[:,1], ls='None', marker='o', color=color, markersize=3, alpha=.5)
+    
+    ax.set_xlim(-40, 40)
+    ax.set_ylim(-40, 40)
+    
+    ax.set_xlabel('pca0')
+    ax.set_ylabel('pca1')
+    
+    ax.annotate('Collision', xy=(17.6, -16.4), xytext=(30, -30),
+            arrowprops=dict(facecolor='black', shrink=0.05))
+    
+    #~ 
+
+    
+    fig.savefig('../img/collision_proble_pca.png')
+    
+    #~ plt.show()
 
 if __name__ == '__main__':
     #~ make_catalogue()
     #~ apply_peeler()
     
-    make_animation()
+    #~ make_animation()
+    
+    #~ make_catalogue_figure()s
+    
+    make_pca_collision_figure()
     
     #convert -delay 250 -loop 0 png/*.png  ../img/peeler_animation.gif
 

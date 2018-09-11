@@ -88,8 +88,8 @@ def plot_signals(dataio_or_cataloguecconstructor, chan_grp=0, seg_num=0, time_sl
 
 
 def plot_waveforms_with_geometry(waveforms, channels, geometry,
-            ax=None, ratioY=1, deltaX= 50, margin=150, color='k',
-            show_amplitude=True, ratio_mad=5):
+            ax=None, ratioY=1, deltaX= 50, margin=150, color='k', 
+            linewidth=2, alpha=.3, show_amplitude=True, ratio_mad=5):
     """
     
     
@@ -116,7 +116,7 @@ def plot_waveforms_with_geometry(waveforms, channels, geometry,
     wf[:, 0,:] = np.nan
     wf = wf.swapaxes(1,2).reshape(wf.shape[0], -1).T
     
-    ax.plot(vect, wf, color=color, lw=1, alpha=.3)
+    ax.plot(vect, wf, color=color, lw=linewidth, alpha=alpha)
 
     for c, chan in enumerate(channels):
         x, y = geometry[c, :]
@@ -133,7 +133,7 @@ def plot_waveforms_with_geometry(waveforms, channels, geometry,
     if show_amplitude:
         x = xlim0 + margin/10
         y = (ylim1+ylim0)/2
-        ax.plot([x, x], [y, y+ratioY*ratio_mad], color='k', lw=2)
+        ax.plot([x, x], [y, y+ratioY*ratio_mad], color='k', linewidth=2)
         ax.text(x,y, '{}*MAD'.format(ratio_mad))
     
     return ax
