@@ -141,7 +141,9 @@ def make_animation():
     fig, ax = plt.subplots()
     plot_spread_sigs(residuals, ax, color='k', lw=2)
     ax.set_title('Initial filtered signals with spikes')
-
+    
+    fig.savefig('../img/peeler_animation_sigs.png')
+    
     fig.savefig('png/fig{}.png'.format(num_fig))
     num_fig += 1
     
@@ -258,9 +260,9 @@ if __name__ == '__main__':
     #~ make_catalogue()
     #~ apply_peeler()
     
-    #~ make_animation()
+    make_animation()
     
-    #~ make_catalogue_figure()s
+    make_catalogue_figure()
     
     make_pca_collision_figure()
     
