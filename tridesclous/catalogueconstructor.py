@@ -1492,6 +1492,7 @@ class CatalogueConstructor:
         #~ self.catalogue['cluster_colors'].update(self.colors)
         
         #params
+        self.catalogue['chunksize'] = self.info['chunksize']
         self.catalogue['signal_preprocessor_params'] = dict(self.info['signal_preprocessor_params'])
         self.catalogue['peak_detector_params'] = dict(self.info['peak_detector_params'])
         self.catalogue['clean_waveforms_params'] = dict(self.info['clean_waveforms_params'])

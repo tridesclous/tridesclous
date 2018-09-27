@@ -412,7 +412,7 @@ class MainWindow(QT.QMainWindow):
             #~ if True:
                 initial_catalogue = self.dataio.load_catalogue(chan_grp=chan_grp)
                 if initial_catalogue is None:
-                    txt =  """chran_grp{}
+                    txt =  """chan_grp{}
 Catalogue do not exists, please do:
     1. Initialize Catalogue (if not done)
     2. Open CatalogueWindow
@@ -420,6 +420,10 @@ Catalogue do not exists, please do:
                     """.format(chan_grp)
                     errors.append(txt)
                     continue
+                try:
+                    d['chunksize'] = initial_catalogue['chunksize']
+                except KeyError as e:
+                    print('chunksize was not saved with catalogue, peeler will use default chunksize')
                 
                 peeler = Peeler(self.dataio)
                 peeler.change_params(catalogue=initial_catalogue, **d)
@@ -431,7 +435,7 @@ Catalogue do not exists, please do:
                 
             except Exception as e:
                 print(e)
-                error = """chran_grp{}\n{}""".format(chan_grp, e)
+                error = """chan_grp{}\n{}""".format(chan_grp, e)
                 errors.append(error)
         
         for error in errors:
