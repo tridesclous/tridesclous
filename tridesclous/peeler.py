@@ -345,7 +345,7 @@ class Peeler:
         p['signals_mads'] = self.catalogue['signals_mads']
         self.signalpreprocessor.change_params(**p)
         
-        assert self.chunksize>self.signalpreprocessor.lostfront_chunksize
+        assert self.chunksize>self.signalpreprocessor.lostfront_chunksize, 'lostfront_chunksize ({}) is greater than chunksize ({})!'.format(self.signalpreprocessor.lostfront_chunksize, self.chunksize)
         
         self.internal_dtype = self.signalpreprocessor.output_dtype
 
