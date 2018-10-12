@@ -77,7 +77,7 @@ class SignalPreprocessor_base:
                                             normalize=True,
                                             lostfront_chunksize = None,
                                             signals_medians=None, signals_mads=None):
-        
+                
         self.signals_medians = signals_medians
         self.signals_mads = signals_mads
         
@@ -89,8 +89,9 @@ class SignalPreprocessor_base:
         self.normalize = normalize
         self.lostfront_chunksize = lostfront_chunksize
         
+        # set default lostfront_chunksize if none is provided
         if self.lostfront_chunksize is None or self.lostfront_chunksize==0:
-            assert self.highpass_freq is not None, 'lostfront_chunksize=None need a highpass_freq'
+            assert self.highpass_freq is not None, 'lostfront_chunksize=None needs a highpass_freq'
             self.lostfront_chunksize = int(self.sample_rate/self.highpass_freq*3)
             #~ print('self.lostfront_chunksize', self.lostfront_chunksize)
         

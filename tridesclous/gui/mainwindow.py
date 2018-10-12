@@ -462,7 +462,7 @@ Catalogue do not exists, please do:
         if not hasattr(self.dataio.datasource, 'rawios'):
             return
         
-        sources = ephyviewer.get_source_from_neo(self.dataio.datasource.rawios[0])
+        sources = ephyviewer.get_sources_from_neo_rawio(self.dataio.datasource.rawios[0])
         
         self.win_viewer = ephyviewer.MainViewer()
         
