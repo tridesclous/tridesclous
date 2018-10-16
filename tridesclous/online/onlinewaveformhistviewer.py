@@ -119,6 +119,8 @@ class OnlineWaveformHistViewer(WidgetNode):
         self.last_head_sigs = None
         self.last_head_spikes = None
         self.timer.start()
+        self.inputs['signals'].empty_queue()
+        self.inputs['spikes'].empty_queue()
         self.poller_sigs.start()
         self.poller_spikes.start()
 
