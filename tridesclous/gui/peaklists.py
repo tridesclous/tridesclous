@@ -314,7 +314,7 @@ class ClusterPeakList(ClusterBaseList):
         for k in self.selected_cluster():
             #~ mask = self.controller.spike_label == k
             mask |= self.controller.spike_label == k
-        self.controller.change_spike_label(mask, -1)
+        self.controller.change_spike_label(mask, labelcodes.LABEL_TRASH)
         self.refresh()
         self.spike_label_changed.emit()
     

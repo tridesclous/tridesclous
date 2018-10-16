@@ -22,8 +22,10 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
     cc = catalogueconstructor
     
     if selection is None:
-        features = cc.some_features
-        waveforms = cc.some_waveforms
+        # this include trash but not allien
+        sel = (cc.all_peaks['cluster_label']>=-1)[cc.some_peaks_index]
+        features = cc.some_features[sel]
+        waveforms = cc.some_waveforms[sel]
     else:
         sel = selection[cc.some_peaks_index]
         features = cc.some_features[sel]
@@ -67,7 +69,8 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
     
     if selection is None:
         #~ cc.all_peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
-        cc.all_peaks['cluster_label'][cc.some_peaks_index] = labels
+        #~ cc.all_peaks['cluster_label'][cc.some_peaks_index] = labels
+        cc.all_peaks['cluster_label'][cc.some_peaks_index[sel]] = labels
     else:
         labels[labels>=0] += max(max(cc.cluster_labels), -1) + 1
         cc.all_peaks['cluster_label'][cc.some_peaks_index[sel]] = labels

@@ -43,6 +43,7 @@ For demagogical reasons, we wrote a small GUI in Qt for launching tridesclous.
 
 Do:
   * open a terminal::
+  
       workon tdc  (or source activate tdc for windows)
       tdc
   
