@@ -123,8 +123,8 @@ preprocessor_params = [
     {'name': 'lowpass_freq', 'type': 'float', 'value':5000., 'step': 10., 'suffix': 'Hz', 'siPrefix': True},
     {'name': 'smooth_size', 'type': 'int', 'value':0},
     {'name': 'common_ref_removal', 'type': 'bool', 'value':False},
-    {'name': 'chunksize', 'type': 'int', 'value':1024, 'decilmals':5},
-    {'name': 'lostfront_chunksize', 'type': 'int', 'value':0, 'decilmals':0, 'limits': (0, np.inf),},
+    {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
+    {'name': 'lostfront_chunksize', 'type': 'int', 'value':0, 'decimals':10, 'limits': (0, np.inf),},
     {'name': 'signalpreprocessor_engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl']},
 ]
 

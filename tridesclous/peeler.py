@@ -345,7 +345,8 @@ class Peeler:
         p['signals_mads'] = self.catalogue['signals_mads']
         self.signalpreprocessor.change_params(**p)
         
-        assert self.chunksize>self.signalpreprocessor.lostfront_chunksize
+        assert self.chunksize>self.signalpreprocessor.lostfront_chunksize, 'lostfront_chunksize ({}) is greater than chunksize ({})!'.format(self.signalpreprocessor.lostfront_chunksize, self.chunksize)
+
         
         self.internal_dtype = self.signalpreprocessor.output_dtype
 
@@ -438,7 +439,7 @@ class Peeler:
         
         width = catalogue['peak_width']
         n_left = catalogue['n_left']
-        alien_value_threshold = catalogue['clean_waveforms_params']['alien_value_threshold']
+        #~ alien_value_threshold = catalogue['clean_waveforms_params']['alien_value_threshold']
         
         
         #ind is the windows border!!!!!
@@ -460,7 +461,7 @@ class Peeler:
         else:
             waveform = residual[ind:ind+width,:]
             
-            if alien_value_threshold is not None and \
+            if self.alien_value_threshold is not None and \
                     np.any(np.abs(waveform)>alien_value_threshold) :
                 label  = LABEL_ALIEN
                 jitter = 0
