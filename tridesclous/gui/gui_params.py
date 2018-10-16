@@ -210,8 +210,8 @@ metrics_params = [
 
 peeler_params = [
     {'name':'limit_duration', 'type': 'bool', 'value':True},
+    {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
     {'name':'duration', 'type': 'float', 'value':60., 'suffix': 's', 'siPrefix': True},
-    
     {'name': 'use_sparse_template', 'type': 'bool', 'value':False},
     {'name':'sparse_threshold_mad', 'type': 'float', 'value': 1.5, },
     {'name': 'use_opencl_with_sparse', 'type': 'bool', 'value':False},
