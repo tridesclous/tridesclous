@@ -462,7 +462,7 @@ class Peeler:
             waveform = residual[ind:ind+width,:]
             
             if self.alien_value_threshold is not None and \
-                    np.any(np.abs(waveform)>alien_value_threshold) :
+                    np.any(np.abs(waveform)>self.alien_value_threshold) :
                 label  = LABEL_ALIEN
                 jitter = 0
             else:
