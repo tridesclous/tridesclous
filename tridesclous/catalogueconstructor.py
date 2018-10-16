@@ -739,18 +739,12 @@ class CatalogueConstructor:
         label (-9)
         
         """
-        print('*******')
-        print('clean_waveforms', alien_value_threshold)
         if alien_value_threshold is not None:
             over = np.any(np.abs(self.some_waveforms)>alien_value_threshold, axis=(1,2))
-            print(over)
-            print(np.sum(over))
             index_over = self.some_peaks_index[over]
-            print('index_over', index_over)
             index_ok = self.some_peaks_index[~over]
             self.all_peaks['cluster_label'][index_over] = labelcodes.LABEL_ALIEN
             self.all_peaks['cluster_label'][index_ok] = 0
-
 
         self.info['clean_waveforms_params'] = dict(alien_value_threshold=alien_value_threshold)
         self.flush_info()
