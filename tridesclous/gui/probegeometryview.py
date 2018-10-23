@@ -66,7 +66,7 @@ class ProbeGeometryView(QT.QWidget):
         
         
         geometry = [ channel_group['geometry'][chan] for chan in channel_group['channels'] ]
-        geometry = np.array(geometry)
+        geometry = np.array(geometry, dtype='float64')
         
         if flip_bottom_up:
             geometry[:, 1] *= -1.
