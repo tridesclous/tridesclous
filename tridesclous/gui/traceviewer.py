@@ -43,6 +43,7 @@ class BaseTraceViewer(WidgetBase):
                        {'name': 'zoom_size', 'type': 'float', 'value':  0.08, 'step' : 0.001 },
                       {'name': 'plot_threshold', 'type': 'bool', 'value':  True },
                       {'name': 'alpha', 'type': 'float', 'value' : 0.8, 'limits':(0, 1.), 'step':0.05 },
+                      {'name': 'xsize_max', 'type': 'float', 'value': 4.0, 'step': 1.0, 'limits':(1.0, np.inf)},
                       ]
     
     def __init__(self,controller=None, signal_type='initial', parent=None):
@@ -104,7 +105,7 @@ class BaseTraceViewer(WidgetBase):
         # winsize
         self.xsize = .5
         tb.addWidget(QT.QLabel(u'X size (s)'))
-        self.spinbox_xsize = pg.SpinBox(value = self.xsize, bounds = [0.001, 4.], suffix = 's', siPrefix = True, step = 0.1, dec = True)
+        self.spinbox_xsize = pg.SpinBox(value = self.xsize, bounds = [0.001, self.params['xsize_max']], suffix = 's', siPrefix = True, step = 0.1, dec = True)
         self.spinbox_xsize.sigValueChanged.connect(self.on_xsize_changed)
         tb.addWidget(self.spinbox_xsize)
         tb.addSeparator()
@@ -208,6 +209,18 @@ class BaseTraceViewer(WidgetBase):
         
         if self.isVisible():
             self.refresh()
+    
+    def on_params_changed(self):
+        
+        # adjust xsize spinbox bounds, and adjust xsize if out of bounds
+        self.spinbox_xsize.opts['bounds'] = [0.001, self.params['xsize_max']]
+        if self.xsize > self.params['xsize_max']:
+            self.spinbox_xsize.sigValueChanged.disconnect(self.on_xsize_changed)
+            self.spinbox_xsize.setValue(self.params['xsize_max'])
+            self.xsize = self.params['xsize_max']
+            self.spinbox_xsize.sigValueChanged.connect(self.on_xsize_changed)
+        
+        self.refresh()
     
     def on_combo_seg_changed(self):
         s =  self.combo_seg.currentIndex()

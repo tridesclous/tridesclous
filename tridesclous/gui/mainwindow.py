@@ -20,6 +20,7 @@ from .peelerwindow import PeelerWindow
 from .initializedatasetwindow import InitializeDatasetWindow
 from .probegeometryview import ProbeGeometryView
 from ..export import export_list
+from ..tools import open_prb
 
 from . import icons
 
@@ -144,6 +145,12 @@ class MainWindow(QT.QMainWindow):
         do_open_peelerwin = QT.QAction('Open PeelerWindow', self,  icon=QT.QIcon(":peelerwindow.png"))
         do_open_peelerwin.triggered.connect(self.open_peelerwin)
         self.toolbar.addAction(do_open_peelerwin)
+
+        self.toolbar.addSeparator()
+        
+        do_check_prb = QT.QAction('Check PRB file', self, ) # icon=QT.QIcon(":document-export.svg"))
+        do_check_prb.triggered.connect(self.check_prb_file)
+        self.file_menu.addAction(do_check_prb)
         
         self.toolbar.addSeparator()
         
@@ -412,7 +419,7 @@ class MainWindow(QT.QMainWindow):
             #~ if True:
                 initial_catalogue = self.dataio.load_catalogue(chan_grp=chan_grp)
                 if initial_catalogue is None:
-                    txt =  """chran_grp{}
+                    txt =  """chan_grp{}
 Catalogue do not exists, please do:
     1. Initialize Catalogue (if not done)
     2. Open CatalogueWindow
@@ -431,7 +438,7 @@ Catalogue do not exists, please do:
                 
             except Exception as e:
                 print(e)
-                error = """chran_grp{}\n{}""".format(chan_grp, e)
+                error = """chan_grp{}\n{}""".format(chan_grp, e)
                 errors.append(error)
         
         for error in errors:
@@ -462,7 +469,7 @@ Catalogue do not exists, please do:
         if not hasattr(self.dataio.datasource, 'rawios'):
             return
         
-        sources = ephyviewer.get_source_from_neo(self.dataio.datasource.rawios[0])
+        sources = ephyviewer.get_sources_from_neo_rawio(self.dataio.datasource.rawios[0])
         
         self.win_viewer = ephyviewer.MainViewer()
         
@@ -507,4 +514,15 @@ Catalogue do not exists, please do:
         self.dataio.export_spikes(export_path=None,
                 split_by_cluster=p['split_by_cluster'],  use_cell_label=p['use_cell_label'], formats=p['format'])
 
-
+    def check_prb_file(self):
+        fd = QT.QFileDialog(fileMode=QT.QFileDialog.AnyFile, acceptMode=QT.QFileDialog.AcceptOpen)
+        fd.setNameFilters(['Probe geometry (*.PRB, *.prb)', 'All (*)'])
+        fd.setViewMode( QT.QFileDialog.Detail )
+        if fd.exec_():
+            prb_filename = fd.selectedFiles()[0]
+            #~ print(prb_filename)
+            channel_groups = open_prb(prb_filename)
+            self.probe_viewer = ProbeGeometryView(channel_groups=channel_groups, parent=self)
+            self.probe_viewer.setWindowFlags(QT.Qt.Window)
+            self.probe_viewer.show()
+            

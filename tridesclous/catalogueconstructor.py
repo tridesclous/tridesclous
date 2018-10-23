@@ -364,6 +364,11 @@ class CatalogueConstructor:
         self.chunksize = chunksize
         self.memory_mode = memory_mode
         
+        # set default lostfront_chunksize if none is provided
+        if lostfront_chunksize is None or lostfront_chunksize==0:
+            assert highpass_freq is not None, 'lostfront_chunksize=None needs a highpass_freq'
+            lostfront_chunksize = int(self.dataio.sample_rate/highpass_freq*3)
+        
         #~ self.arrays.initialize_array('all_peaks', self.memory_mode,  _dtype_peak, (-1, ))
         
         self.signal_preprocessor_params = dict(highpass_freq=highpass_freq, lowpass_freq=lowpass_freq, 
@@ -734,18 +739,12 @@ class CatalogueConstructor:
         label (-9)
         
         """
-        print('*******')
-        print('clean_waveforms', alien_value_threshold)
         if alien_value_threshold is not None:
             over = np.any(np.abs(self.some_waveforms)>alien_value_threshold, axis=(1,2))
-            print(over)
-            print(np.sum(over))
             index_over = self.some_peaks_index[over]
-            print('index_over', index_over)
             index_ok = self.some_peaks_index[~over]
             self.all_peaks['cluster_label'][index_over] = labelcodes.LABEL_ALIEN
             self.all_peaks['cluster_label'][index_ok] = 0
-
 
         self.info['clean_waveforms_params'] = dict(alien_value_threshold=alien_value_threshold)
         self.flush_info()
