@@ -31,12 +31,10 @@ if hasattr(pythran_tools, '__pythran__'):
 else:
     HAVE_PYTHRAN = False
 
-try:
+from .cltools import HAVE_PYOPENCL, OpenCL_Helper
+if HAVE_PYOPENCL:
     import pyopencl
     mf = pyopencl.mem_flags
-    HAVE_PYOPENCL = True
-except ImportError:
-    HAVE_PYOPENCL = False
 
 
 _dtype_spike = [('index', 'int64'), ('cluster_label', 'int64'), ('jitter', 'float64'),]
@@ -56,7 +54,7 @@ LABEL_MAXIMUM_SHIFT = -13
 maximum_jitter_shift = 4
 #~ maximum_jitter_shift = 1
 
-class Peeler:
+class Peeler(OpenCL_Helper):
     """
     The peeler is core of spike sorting itself.
     It basically do a *template matching* on a signals.
@@ -99,6 +97,9 @@ class Peeler:
                                         sparse_threshold_mad=1.5,
                                         use_opencl_with_sparse=False,
                                         use_pythran_with_sparse=False,
+                                        
+                                        cl_platform_index=None,
+                                        cl_device_index=None,
                                         ):
         """
         Set parameters for the Peeler.
@@ -184,9 +185,10 @@ class Peeler:
                 #~ plt.show()
         
             if self.use_opencl_with_sparse:
-                self.ctx = pyopencl.create_some_context(interactive=False)
+                OpenCL_Helper.initialize_opencl(self, cl_platform_index=cl_platform_index, cl_device_index=cl_device_index)
                 
-                self.queue = pyopencl.CommandQueue(self.ctx)
+                #~ self.ctx = pyopencl.create_some_context(interactive=False)
+                #~ self.queue = pyopencl.CommandQueue(self.ctx)
                 
                 centers = self.catalogue['centers0']
                 nb_channel = centers.shape[2]
