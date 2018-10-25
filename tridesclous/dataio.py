@@ -346,7 +346,7 @@ class DataIO:
         """
         channel_group = self.channel_groups[chan_grp]
         geometry = [ channel_group['geometry'][chan] for chan in channel_group['channels'] ]
-        geometry = np.array(geometry)
+        geometry = np.array(geometry, dtype='float64')
         return geometry
 
     def nb_channel(self, chan_grp=0):

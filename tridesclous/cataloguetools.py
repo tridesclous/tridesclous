@@ -1,7 +1,13 @@
+"""
+Some helping function that apply on catalogueconstructor (apply steps, sumamry, ...)
 
+"""
 import time
 
+import matplotlib.pyplot as plt
 
+
+from .matplotlibplot import plot_centroids
 
 
 #TODO debug this when no peak at all
@@ -69,7 +75,7 @@ def apply_all_catalogue_steps(catalogueconstructor, fullchain_kargs,
     
     #TODO offer noise esatimation duration somewhere
     noise_duration = min(10., fullchain_kargs['duration'], dataio.get_segment_length(seg_num=0)/dataio.sample_rate*.99)
-    print('noise_duration', noise_duration)
+    #~ print('noise_duration', noise_duration)
     t1 = time.perf_counter()
     cc.estimate_signals_noise(seg_num=0, duration=noise_duration)
     t2 = time.perf_counter()
@@ -109,7 +115,7 @@ def apply_all_catalogue_steps(catalogueconstructor, fullchain_kargs,
     if verbose:
         print('extract_some_noise', t2-t1)
     
-    print(cc)
+    #~ print(cc)
     
     t1 = time.perf_counter()
     cc.extract_some_features(method=feat_method, **feat_kargs)
@@ -122,4 +128,68 @@ def apply_all_catalogue_steps(catalogueconstructor, fullchain_kargs,
     t2 = time.perf_counter()
     if verbose:
         print('find_clusters', t2-t1)
+
+
+
+summay_template = """
+Cluster {label}
+Max on channel (abs): {max_on_abs_channel}
+Max on channel (local to group): {max_on_channel}
+Peak amplitude MAD: {max_peak_amplitude}
+Peak amplitude (µV): {max_peak_amplitude_uV}
+
+"""
+def summary_clusters(catalogueconstructor, labels=None, label=None):
+    cc =catalogueconstructor
     
+    if labels is None and label is None:
+        labels = cc.positive_cluster_labels
+    if label is not None:
+        labels = [label]
+    
+    
+    channels = cc.dataio.channel_groups[cc.chan_grp]['channels']
+    
+    for l, label in enumerate(labels):
+
+        ind = cc.index_of_label(label)
+        cluster = cc.clusters[ind]
+
+        max_on_channel = cluster['max_on_channel']
+        
+        if max_on_channel>=0:
+            max_on_abs_channel = channels[max_on_channel]
+        else:
+            max_on_channel = None
+            max_on_abs_channel = None
+        
+        max_peak_amplitude = cluster['max_peak_amplitude']
+        max_peak_amplitude_uV = 'No conversion available'
+        if cc.dataio.datasource.bit_to_microVolt is not None and max_on_channel is not None:
+            max_peak_amplitude_uV = max_peak_amplitude * cc.signals_mads[max_on_channel] * cc.dataio.datasource.bit_to_microVolt
+            
+            
+        
+        d = dict(label=label,
+                    max_on_channel=max_on_channel,
+                    max_on_abs_channel=max_on_abs_channel,
+                    max_peak_amplitude=max_peak_amplitude,
+                    max_peak_amplitude_uV=max_peak_amplitude_uV,
+                    )
+        text = summay_template.format(**d)
+        
+        print(text)
+        
+        fig, axs = plt.subplots(ncols=2)
+        plot_centroids(cc, labels=[label,], ax=axs[0])
+        axs[0].set_title('cluster {}'.format(label))
+        
+        
+
+    
+    
+    
+    
+    
+
+

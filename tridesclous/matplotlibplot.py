@@ -24,7 +24,9 @@ def plot_probe_geometry(dataio, chan_grp=0,  margin=150,):
     
     return fig
 
-    
+
+
+
 def plot_signals(dataio_or_cataloguecconstructor, chan_grp=0, seg_num=0, time_slice=(0., 5.), 
             signal_type='initial', with_span=False, with_peaks=False):
     
@@ -86,27 +88,78 @@ def plot_signals(dataio_or_cataloguecconstructor, chan_grp=0, seg_num=0, time_sl
     return fig
 
 
-
-def plot_waveforms_with_geometry(waveforms, channels, geometry,
-            ax=None, ratioY=1, deltaX= 50, margin=150, color='k', 
-            linewidth=2, alpha=.3, show_amplitude=True, ratio_mad=5):
-    """
+def _prepare_waveform_fig(ax=None, waveforms=None,
+                                        flip_bottom_up=False, 
+                                        ratioY='auto', deltaX='auto', margin='auto',
+                                        **kargs):
+    out_kargs = {}
+    out_kargs.update(kargs)
+    
+    out_kargs['waveforms'] = waveforms
+    out_kargs['flip_bottom_up'] = flip_bottom_up
     
     
-    """
     if ax is None:
         fig, ax = plt.subplots()
+    out_kargs['ax'] = ax
+    
+    if flip_bottom_up:
+        geometry = kargs['geometry'].copy()
+        geometry[:, 1] *= -1.
+        out_kargs['geometry'] = geometry
+    #~ print(out_kargs.keys())
+    
+    geometry = out_kargs['geometry']
+    # compute the smallest distance on x and y axis in between electrode
+    if np.unique(geometry[:, 0]).size>1:
+        xdist = np.min(np.diff(np.sort(np.unique(geometry[:, 0]))))
+    else:
+        xdist = None
+    
+    if np.unique(geometry[:, 1]).size>1:
+        ydist = np.min(np.diff(np.sort(np.unique(geometry[:, 1]))))
+    else:
+        ydist = None
+    
+    if xdist is None:
+        if ydist is not None:
+            xdist = ydist
+        else:
+            xdist = 10.
+    if ydist is None:
+        if xdist is not None:
+            ydist = xdist
+        else:
+            ydist = 10.
+
+    #deltaX is tha width along x axis
+    if deltaX =='auto':
+        deltaX = xdist/2.5
+    
+    if ratioY == 'auto':
+        m = np.max(np.abs(waveforms))
+        ratioY = ydist / m * 0.7
+    if margin =='auto':
+        margin = 1.5*min(xdist, ydist)
+    
+    out_kargs['deltaX'] = deltaX
+    out_kargs['ratioY'] = ratioY
+    out_kargs['margin'] = margin
+    
+    
+    return out_kargs
     
 
+
+def _plot_wfs(ax=None, waveforms=None, channels=None, geometry=None, 
+                        ratioY=None, deltaX=None, linewidth=2., alpha=1.0, color='k', **unused):
+        
     wf = waveforms.copy()
     if wf.ndim ==2:
         wf = wf[None, : ,:]
-    
     width = wf.shape[1]
-    
-    
+
     vect =np.zeros(wf.shape[1]*wf.shape[2])
-    
     wf *= ratioY
     for i, chan in enumerate(channels):
         x, y = geometry[i]
@@ -118,54 +171,139 @@ def plot_waveforms_with_geometry(waveforms, channels, geometry,
     
     ax.plot(vect, wf, color=color, lw=linewidth, alpha=alpha)
 
-    for c, chan in enumerate(channels):
-        x, y = geometry[c, :]
-        ax.text(x, y, '{}: {}'.format(c, chan), color='r', size=20)
-    
-    xlim0, xlim1 = np.min(geometry[:, 0])-margin, np.max(geometry[:, 0])+margin
-    ylim0, ylim1 = np.min(geometry[:, 1])-margin, np.max(geometry[:, 1])+margin
+
+def _enhance_waveform_fig(ax=None, channels=None, geometry=None,
+            show_channels=True, channel_number_mode='absolut',
+            show_amplitude=False, ratio_mad=5,
+            show_ticks=False, flip_bottom_up=True,
+            aspect_ratio='equal', xlims=None, ylims=None,
+            margin=None, ratioY=None,
+            text_size=10, text_color='k',
+            **unused):
+
+    if show_channels:
+        for c, chan in enumerate(channels):
+            x, y = geometry[c, :]
+            if channel_number_mode == 'absolut':
+                t = '{}'.format(chan)
+            elif channel_number_mode == 'local':
+                t = '{}'.format(c)
+            elif channel_number_mode == 'both':
+                t = '{}: {}'.format(c, chan)
+            ax.text(x, y, t, color=text_color, size=text_size,ha='center')
+
+    if xlims is None:
+        xlim0, xlim1 = np.min(geometry[:, 0])-margin, np.max(geometry[:, 0])+margin
+    else:
+        xlim0, xlim1 = xlims
+    if ylims is None:
+        ylim0, ylim1 = np.min(geometry[:, 1])-margin, np.max(geometry[:, 1])+margin
+    else:
+        ylim0, ylim1 = ylims
     ax.set_xlim(xlim0, xlim1)
     ax.set_ylim(ylim0, ylim1)
     
-    ax.set_xticks([])
-    ax.set_yticks([])
+    if not show_ticks:
+        ax.set_xticks([])
+        ax.set_yticks([])
     
     if show_amplitude:
-        x = xlim0 + margin/10
+        #~ x = xlim0 + margin/10
+        x = xlim0 + (xlim1-xlim0)/50
         y = (ylim1+ylim0)/2
         ax.plot([x, x], [y, y+ratioY*ratio_mad], color='k', linewidth=2)
-        ax.text(x,y, '{}*MAD'.format(ratio_mad))
+        ax.text(x,y, '{}*MAD'.format(ratio_mad), ha='left')
+        
+
+    ax.set_aspect(aspect_ratio)    
+
+
+def plot_waveforms_with_geometry(waveforms, channels, geometry, **kargs):
+    kargs['waveforms'] = waveforms
+    kargs['channels'] = channels
+    kargs['geometry'] = geometry
+    kargs = _prepare_waveform_fig(**kargs)
+    _plot_wfs(**kargs)
+    _enhance_waveform_fig(**kargs)
+
     
-    return ax
-
-
-
-def plot_waveforms(cataloguecconstructor, labels=None, nb_max=50, **kargs):
+def plot_waveforms(cataloguecconstructor, labels=None, nb_max=50, alpha=0.4, **kargs):
     cc = cataloguecconstructor
     channels = cc.dataio.channel_groups[cc.chan_grp]['channels']
     geometry = cc.dataio.get_geometry(chan_grp=cc.chan_grp)
+    
+    kargs['alpha'] = alpha
+    
     all_wfs = cc.some_waveforms
+    kargs['waveforms'] = all_wfs
+    kargs['channels'] = channels
+    kargs['geometry'] = geometry
+    kargs = _prepare_waveform_fig(**kargs)
     
-    kargs['ratio_mad'] = cc.info['peak_detector_params']['relative_threshold']
-    
-    if 'ax' not in kargs:
-        fig, ax = plt.subplots()
-        kargs['ax'] = ax
     if labels is None:
         wfs = all_wfs[:nb_max,:, :]
-        plot_waveforms_with_geometry(wfs, channels, geometry,  **kargs)
+        kargs['waveforms'] = wfs
+        _plot_wfs(**kargs)
+        _enhance_waveform_fig(**kargs)
     else:
         if not hasattr(cc, 'colors'):
             cc.refresh_colors()
         
         if isinstance(labels, int):
             labels = [labels]
+        
         for label in labels:
             peaks = cc.all_peaks[cc.some_peaks_index]
             keep = peaks['cluster_label'] == label
             wfs = all_wfs[keep][:nb_max]
+            
             kargs['color'] = cc.colors.get(label, 'k')
-            plot_waveforms_with_geometry(wfs, channels, geometry, **kargs)
+            kargs['waveforms'] = wfs
+            _plot_wfs(**kargs)
+        
+        _enhance_waveform_fig(**kargs)
+
+
+def plot_centroids(cataloguecconstructor, labels=[], alpha=1, **kargs):
+    cc = cataloguecconstructor
+    channels = cc.dataio.channel_groups[cc.chan_grp]['channels']
+    geometry = cc.dataio.get_geometry(chan_grp=cc.chan_grp)
+
+    if not hasattr(cc, 'colors'):
+        cc.refresh_colors()
+
+    if isinstance(labels, int):
+        labels = [labels]
+    
+    inds = []
+    for label in labels:
+        ind = cc.index_of_label(label)
+        inds.append(ind)
+    
+    kargs['ratio_mad'] = cc.info['peak_detector_params']['relative_threshold']
+    kargs['waveforms'] = cc.centroids_median[inds, :, :]
+    kargs['channels'] = channels
+    kargs['geometry'] = geometry
+    kargs = _prepare_waveform_fig(**kargs)
+
+    for label in labels:
+        ind = cc.index_of_label(label)
+        wf = cc.centroids_median[ind, :, :]
+        kargs['waveforms'] = wf
+        kargs['color'] = cc.colors.get(label, 'k')
+        _plot_wfs(**kargs)
+    
+    _enhance_waveform_fig(**kargs)
+
+
+def plot_waveforms_histogram(cataloguecconstructor, label=None, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots()
+    
+    ind = cc.index_of_label(label)
+    
+    
+
 
 
 def plot_features_scatter_2d(cataloguecconstructor, labels=None, nb_max=500):
