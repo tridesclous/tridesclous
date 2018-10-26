@@ -353,7 +353,7 @@ def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
         wf = cc.some_waveforms[spike_labels==label]
         wf = wf[:, :, channels]
         if units in ('uV', 'μV'):
-            wf = wf * cc.signals_mads[channels][None, None, :] * cc.dataio.datasource.bit_to_microVolt
+            wf = wf * cc.signals_mads[channels][None, None, :] * dataio.datasource.bit_to_microVolt
 
         n_left = cc.info['waveform_extractor_params']['n_left']
         n_right = cc.info['waveform_extractor_params']['n_right']
@@ -370,17 +370,19 @@ def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
         #~ spike_labels = spikes['cluster_label']
         spikes = spikes[spikes['cluster_label'] == label]
         spike_indexes = spikes['index']
-        
-        #TODO ICI
-        #~ wf = cc.some_waveforms[spike_labels==label]
-        #~ wf = wf[:, :, channels]
-        #~ if units in ('uV', 'μV'):
-            #~ wf = wf * cc.signals_mads[channels][None, None, :] * cc.dataio.datasource.bit_to_microVolt        
 
         n_left = catalogue['n_left']
         n_right = catalogue['n_right']
         
-    
+        wf = dataio.get_some_waveforms(seg_num=0, chan_grp=chan_grp,
+                    spike_indexes=spike_indexes, n_left=n_left, n_right=n_right)
+        wf = wf[:, :, channels]
+        
+        if units in ('uV', 'μV'):
+            wf = wf * catalogue['signals_mads'][channels][None, None, :] * dataio.datasource.bit_to_microVolt
+        
+        
+        
     else:
         raise(Exception('arg0 must a catalogue constructor or a catalogue dict'))
 

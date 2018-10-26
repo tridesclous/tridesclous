@@ -158,10 +158,6 @@ def summary_after_peeler_clusters(dataio, chan_grp=None, labels=None, label=None
         else:
             units = 'uV'
             title = 'Amplitude μV'
-        
-        plot_waveforms_histogram(catalogue, dataio=dataio, label=label, ax=axs[1], channels=[max_on_channel], units=units)
+        # TODO plot waveforms in a neighborhood
+        plot_waveforms_histogram(catalogue, dataio=dataio, label=label, ax=ax, channels=[max_on_channel], units=units)
         ax.set_ylabel(title)
-        
-        
-
-    

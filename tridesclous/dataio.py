@@ -542,6 +542,20 @@ class DataIO:
             return
         return spikes[i_start:i_stop]
     
+    def get_some_waveforms(self, seg_num=0, chan_grp=0, spike_indexes=None, n_left=None, n_right=None):
+        """
+        Exctract some waveforms given spike_indexes
+        """
+        assert spike_indexes is not None, 'Provide spike_indexes'
+        peak_width = n_right - n_left
+        wf = np.zeros((spike_indexes.size, peak_width, self.nb_channel(chan_grp)), dtype='float32')
+        for i, spike_index in enumerate(spike_indexes):
+            i_start = spike_index + n_left
+            i_stop = spike_index + n_right
+            wf[i, :, :] = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, 
+                        i_start=i_start, i_stop=i_stop, signal_type='processed')
+        return wf
+        
     def save_catalogue(self, catalogue, name='initial'):
         """
         Save the catalogue made by `CatalogueConstructor` and needed
