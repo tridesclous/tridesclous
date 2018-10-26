@@ -25,8 +25,7 @@ def summary_catalogue_clusters(dataio, chan_grp=None, labels=None, label=None):
     if label is not None:
         labels = [label]
     
-    
-    channels = cc.dataio.channel_groups[cc.chan_grp]['channels']
+    channels = dataio.channel_groups[chan_grp]['channels']
     
     for l, label in enumerate(labels):
 
@@ -67,9 +66,9 @@ def summary_catalogue_clusters(dataio, chan_grp=None, labels=None, label=None):
             title = 'Amplitude in MAD (STD) ratio'
         else:
             units = 'uV'
-            title = ('Amplitude μV')
+            title = 'Amplitude μV'
         
-        plot_waveforms_histogram(cc, label=0, ax=axs[1], channels=[max_on_channel], units=units)
+        plot_waveforms_histogram(cc, label=label, ax=axs[1], channels=[max_on_channel], units=units)
         axs[1].set_title('Hist on channel {}'.format(max_on_abs_channel))
         axs[1].set_ylabel(title)
 
@@ -88,7 +87,7 @@ Noise mesured with mesured with MAD (=robust STD)
 def summary_noise(dataio, chan_grp=None):
     cc =CatalogueConstructor(dataio, chan_grp=chan_grp)
     
-    channels = cc.dataio.channel_groups[cc.chan_grp]['channels']
+    channels = dataio.channel_groups[chan_grp]['channels']
     
     assert cc.dataio.datasource.bit_to_microVolt is not None, 'bit_to_microVolt is not provided for this data source'
     
@@ -118,9 +117,51 @@ def summary_noise(dataio, chan_grp=None):
     text = _summary_noise_template.format(**d)
     
     print(text)
+
+
+def summary_after_peeler_clusters(dataio, chan_grp=None, labels=None, label=None):
+    if chan_grp is None:
+        chan_grp = min(self.dataio.channel_groups.keys())
     
+    #~ cc =CatalogueConstructor(dataio, chan_grp=chan_grp)
     
+    catalogue = dataio.load_catalogue(chan_grp=chan_grp)
+    clusters = catalogue['clusters']
     
+    if labels is None and label is None:
+        labels = clusters['cluster_label']
+    if label is not None:
+        labels = [label]
     
+    channels = dataio.channel_groups[chan_grp]['channels']
     
+    for l, label in enumerate(labels):
+        ind = np.nonzero(clusters['cluster_label']==label)[0][0]
+        
+        cluster = clusters[ind]
+        
+        max_on_channel = cluster['max_on_channel']
+        
+        fig, axs = plt.subplots(ncols=2, nrows=2)
+        
+        # centroids
+        ax = axs[0, 0]
+        plot_centroids(catalogue, dataio=dataio, labels=[label,], ax=ax)
+        ax.set_title('cluster {}'.format(label))
+        
+        
+        # waveform density
+        ax = axs[0, 1]
+        if dataio.datasource.bit_to_microVolt is None:
+            units = 'MAD'
+            title = 'Amplitude in MAD (STD) ratio'
+        else:
+            units = 'uV'
+            title = 'Amplitude μV'
+        
+        plot_waveforms_histogram(catalogue, dataio=dataio, label=label, ax=axs[1], channels=[max_on_channel], units=units)
+        ax.set_ylabel(title)
+        
+        
+
     

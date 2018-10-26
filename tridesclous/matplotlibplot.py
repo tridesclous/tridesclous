@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from .tools import median_mad
 from .dataio import DataIO
 from .catalogueconstructor import CatalogueConstructor
+from .tools import make_color_dict
 
 
     
@@ -264,59 +265,126 @@ def plot_waveforms(cataloguecconstructor, labels=None, nb_max=50, alpha=0.4, **k
         _enhance_waveform_fig(**kargs)
 
 
-def plot_centroids(cataloguecconstructor, labels=[], alpha=1, **kargs):
-    cc = cataloguecconstructor
-    channels = cc.dataio.channel_groups[cc.chan_grp]['channels']
-    geometry = cc.dataio.get_geometry(chan_grp=cc.chan_grp)
-
-    if not hasattr(cc, 'colors'):
-        cc.refresh_colors()
-
+def plot_centroids(arg0, labels=[], alpha=1, **kargs):
+    """
+    arg0 can be cataloguecconstructor or catalogue (a dict)
+    """
+    
     if isinstance(labels, int):
         labels = [labels]
     
-    inds = []
-    for label in labels:
-        ind = cc.index_of_label(label)
-        inds.append(ind)
+    if isinstance(arg0, CatalogueConstructor):
+        cc = arg0
+        dataio = cc.dataio       
+        if not hasattr(cc, 'colors'):
+            cc.refresh_colors()
+        colors = cc.colors
+        chan_grp = cc.chan_grp
+        
+        centroids_wfs = cc.centroids_median
+        
+        inds = []
+        for label in labels:
+            ind = cc.index_of_label(label)
+            inds.append(ind)
+            
+        ratio_mad = cc.info['peak_detector_params']['relative_threshold']
+        
+    elif isinstance(arg0, dict) and 'clusters' in arg0:
+        catalogue = arg0
+        dataio = kargs['dataio']
+        chan_grp = catalogue['chan_grp']
+        clusters = catalogue['clusters']
+        colors = make_color_dict(clusters)
+        
+        centroids_wfs = catalogue['centers0']
+        
+        inds = []
+        for label in labels:
+            ind = np.nonzero(clusters['cluster_label']==label)[0][0]
+            inds.append(ind)
+        
+        ratio_mad = catalogue['peak_detector_params']['relative_threshold']
+        
+    else:
+        raise(Exception('arg0 must a catalogue constructor or a catalogue dict'))
     
-    kargs['ratio_mad'] = cc.info['peak_detector_params']['relative_threshold']
-    kargs['waveforms'] = cc.centroids_median[inds, :, :]
+    channels = dataio.channel_groups[chan_grp]['channels']
+    geometry =dataio.get_geometry(chan_grp=chan_grp)
+
+    
+    
+    kargs['ratio_mad'] = ratio_mad
+    kargs['waveforms'] = centroids_wfs[inds, :, :]
     kargs['channels'] = channels
     kargs['geometry'] = geometry
     kargs = _prepare_waveform_fig(**kargs)
 
-    for label in labels:
-        ind = cc.index_of_label(label)
-        wf = cc.centroids_median[ind, :, :]
+    for ind, label in zip(inds, labels):
+        wf = centroids_wfs[ind, :, :]
         kargs['waveforms'] = wf
-        kargs['color'] = cc.colors.get(label, 'k')
+        kargs['color'] = colors.get(label, 'k')
         _plot_wfs(**kargs)
     
     _enhance_waveform_fig(**kargs)
 
 
-def plot_waveforms_histogram(cataloguecconstructor, label=None, ax=None, channels=None,
-            bin_min=None, bin_max=None, bin_size=0.1, units='MAD'):
-    cc = cataloguecconstructor
-    
+
+
+def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
+            bin_min=None, bin_max=None, bin_size=0.1, units='MAD',
+            dataio=None,# usefull when arg0 is catalogue
+            ):
+    """
+    arg0 can be cataloguecconstructor or catalogue (a dict)
+    """
+
     if ax is None:
         fig, ax = plt.subplots()
     
-    ind = cc.index_of_label(label)
+    if isinstance(arg0, CatalogueConstructor):
+        cc = arg0
+        dataio = cc.dataio
+        chan_grp = cc.chan_grp
+        
+        # take waveforms
+        #~ ind = cc.index_of_label(label)
+        spike_labels = cc.all_peaks['cluster_label'][cc.some_peaks_index]
+        wf = cc.some_waveforms[spike_labels==label]
+        wf = wf[:, :, channels]
+        if units in ('uV', 'μV'):
+            wf = wf * cc.signals_mads[channels][None, None, :] * cc.dataio.datasource.bit_to_microVolt
+
+        n_left = cc.info['waveform_extractor_params']['n_left']
+        n_right = cc.info['waveform_extractor_params']['n_right']
     
+    elif isinstance(arg0, dict) and 'clusters' in arg0:
+        catalogue = arg0
+        chan_grp = catalogue['chan_grp']
+        clusters = catalogue['clusters']
+        
+        # TODO loop over segments
+        spikes = dataio.get_spikes(seg_num=0, chan_grp=0,)
+        
+        # take waveforms
+        #~ spike_labels = spikes['cluster_label']
+        spikes = spikes[spikes['cluster_label'] == label]
+        spike_indexes = spikes['index']
+        
+        #TODO ICI
+        #~ wf = cc.some_waveforms[spike_labels==label]
+        #~ wf = wf[:, :, channels]
+        #~ if units in ('uV', 'μV'):
+            #~ wf = wf * cc.signals_mads[channels][None, None, :] * cc.dataio.datasource.bit_to_microVolt        
+
+        n_left = catalogue['n_left']
+        n_right = catalogue['n_right']
+        
     
-    labels = cc.all_peaks['cluster_label'][cc.some_peaks_index]
-    wf = cc.some_waveforms[labels==label]
-    
-    wf = wf[:, :, channels]
-    
-    
-    #~ print(data.shape)
-    
-    if units in ('uV', 'μV'):
-        wf = wf * cc.signals_mads[channels][None, None, :] * cc.dataio.datasource.bit_to_microVolt
-    
+    else:
+        raise(Exception('arg0 must a catalogue constructor or a catalogue dict'))
+
+
     if bin_min is None:
         bin_min = np.min(wf) - 1.
     if bin_max is None:
@@ -327,11 +395,8 @@ def plot_waveforms_histogram(cataloguecconstructor, label=None, ax=None, channel
         elif units in ('uV', 'μV'):
             bin_size = (bin_max - bin_min) / 500.
     
-    
     data = wf.swapaxes(1,2).reshape(wf.shape[0], -1)
     
-        
-   
     bins = np.arange(bin_min, bin_max, bin_size)
     
     hist2d = np.zeros((data.shape[1], bins.size))
@@ -346,11 +411,9 @@ def plot_waveforms_histogram(cataloguecconstructor, label=None, ax=None, channel
     im = ax.imshow(hist2d.T, interpolation='nearest', 
                     origin='lower', aspect='auto', extent=(0, data.shape[1], bin_min, bin_max), cmap='hot')
 
-    n_left = cc.info['waveform_extractor_params']['n_left']
-    n_right = cc.info['waveform_extractor_params']['n_right']
     peak_width = n_right - n_left
     for c, chan in enumerate(channels):
-        abs_chan = channels = cc.dataio.channel_groups[cc.chan_grp]['channels'][chan]
+        abs_chan = dataio.channel_groups[chan_grp]['channels'][chan]
         ax.text(c*peak_width-n_left, 0, '{}'.format(abs_chan),  size=10, ha='center', color='w')
         if c>0:
             ax.axvline((c + 1) * peak_width, color='w')
