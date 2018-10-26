@@ -18,22 +18,14 @@ def teardown_module():
     shutil.rmtree('test_report')
 
 def test_summary_catalogue_clusters():
-    #~ dataio = DataIO(dirname='test_report')
+    dataio = DataIO(dirname='test_report')
 
-    workdir = '/home/samuel/Documents/projet/DataSpikeSorting/kampff/polytrode Impedance/'
-    dirname = workdir + 'tdc_amplifier2017-02-02T17_18_46'
-    dataio = DataIO(dirname)
-    
-    
     summary_catalogue_clusters(dataio, chan_grp=0)
-    #~ summary_catalogue_clusters(dataio, chan_grp=0, labels= [0])
+    summary_catalogue_clusters(dataio, chan_grp=0, labels= [0])
     
 def test_summary_noise():
     dataio = DataIO(dirname='test_report')
  
-    workdir = '/home/samuel/Documents/projet/DataSpikeSorting/kampff/polytrode Impedance/'
-    dirname = workdir + 'tdc_amplifier2017-02-02T17_18_46'
-    dataio = DataIO(dirname)
     summary_noise(dataio, chan_grp=0)
     
     
