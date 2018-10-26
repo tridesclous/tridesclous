@@ -13,6 +13,7 @@ datasets_info = {
         'total_channel': 4,
         'dtype': 'int16',
         'sample_rate': 15000.,
+        'bit_to_microVolt' : None, # TODO find it
     },
     
     'olfactory_bulb':{
@@ -21,7 +22,8 @@ datasets_info = {
         'total_channel': 16,
         'dtype': 'int16',
         'sample_rate': 10000.,
-        'channel_group': list(range(14))
+        'channel_group': list(range(14)),
+        'bit_to_microVolt' : 20. * 1000./2**16, # This is not sure, but the order of magnitude is OK.
     },
 
     'purkinje':{
@@ -30,6 +32,7 @@ datasets_info = {
         'total_channel': 4,
         'dtype': 'float32',
         'sample_rate': 15000.,
+        'bit_to_microVolt' : None, # TODO find it
     },
     'striatum_rat': {
         'url': 'https://raw.githubusercontent.com/tridesclous/tridesclous_datasets/master/striatum_rat/',
@@ -38,6 +41,7 @@ datasets_info = {
         'dtype': 'int16',
         'sample_rate': 20000.,
         'prb_filename' : 'tetrode_striatum.prb',
+        'bit_to_microVolt' : 0.195, # This is not sure, must be checked
     },
     
     
@@ -74,7 +78,7 @@ def download_dataset(name='locust', localdir=None):
             urlretrieve(distantfile, localfile)
     
     filenames = [os.path.join(localdir, f) for f in info['filenames']]
-    params = {k: datasets_info[name][k] for k in ('dtype', 'sample_rate', 'total_channel')}
+    params = {k: datasets_info[name][k] for k in ('dtype', 'sample_rate', 'total_channel', 'bit_to_microVolt')}
     return localdir, filenames, params
 
 

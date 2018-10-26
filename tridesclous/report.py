@@ -1,0 +1,126 @@
+
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+from .catalogueconstructor import CatalogueConstructor
+from .matplotlibplot import plot_centroids, plot_waveforms_histogram
+
+
+
+
+_summary_catalogue_clusters_template = """
+Cluster {label}
+Max on channel (abs): {max_on_abs_channel}
+Max on channel (local to group): {max_on_channel}
+Peak amplitude MAD: {max_peak_amplitude}
+Peak amplitude (µV): {max_peak_amplitude_uV}
+
+"""
+def summary_catalogue_clusters(dataio, chan_grp=None, labels=None, label=None):
+    cc =CatalogueConstructor(dataio, chan_grp=chan_grp)
+    
+    if labels is None and label is None:
+        labels = cc.positive_cluster_labels
+    if label is not None:
+        labels = [label]
+    
+    
+    channels = cc.dataio.channel_groups[cc.chan_grp]['channels']
+    
+    for l, label in enumerate(labels):
+
+        ind = cc.index_of_label(label)
+        cluster = cc.clusters[ind]
+
+        max_on_channel = cluster['max_on_channel']
+        
+        if max_on_channel>=0:
+            max_on_abs_channel = channels[max_on_channel]
+        else:
+            max_on_channel = None
+            max_on_abs_channel = None
+        
+        max_peak_amplitude = cluster['max_peak_amplitude']
+        max_peak_amplitude_uV = 'No conversion available'
+        if cc.dataio.datasource.bit_to_microVolt is not None and max_on_channel is not None:
+            max_peak_amplitude_uV = max_peak_amplitude * cc.signals_mads[max_on_channel] * cc.dataio.datasource.bit_to_microVolt
+            
+            
+        
+        d = dict(label=label,
+                    max_on_channel=max_on_channel,
+                    max_on_abs_channel=max_on_abs_channel,
+                    max_peak_amplitude=max_peak_amplitude,
+                    max_peak_amplitude_uV=max_peak_amplitude_uV,
+                    )
+        text = _summary_catalogue_clusters_template.format(**d)
+        
+        print(text)
+        
+        fig, axs = plt.subplots(ncols=2)
+        plot_centroids(cc, labels=[label,], ax=axs[0])
+        axs[0].set_title('cluster {}'.format(label))
+        
+        if dataio.datasource.bit_to_microVolt is None:
+            units = 'MAD'
+            title = 'Amplitude in MAD (STD) ratio'
+        else:
+            units = 'uV'
+            title = ('Amplitude μV')
+        
+        plot_waveforms_histogram(cc, label=0, ax=axs[1], channels=[max_on_channel], units=units)
+        axs[1].set_title('Hist on channel {}'.format(max_on_abs_channel))
+        axs[1].set_ylabel(title)
+
+
+
+_summary_noise_template = """
+Noise mesured with mesured with MAD (=robust STD)
+  Channel group {chan_grp}
+  Nb_channel:  {nb_chan}
+  Noise range: {min_mad:.2f} - {max_mad:.2f} μV
+  By channel noise: {reduce_noise_vector} μV
+  Average noise along channel: {noise_mean}  μV
+  Threshold:  {relative_threshold} *MAD = {thresh_uV} μV
+"""
+
+def summary_noise(dataio, chan_grp=None):
+    cc =CatalogueConstructor(dataio, chan_grp=chan_grp)
+    
+    channels = cc.dataio.channel_groups[cc.chan_grp]['channels']
+    
+    assert cc.dataio.datasource.bit_to_microVolt is not None, 'bit_to_microVolt is not provided for this data source'
+    
+    noise_uV = cc.signals_mads * cc.dataio.datasource.bit_to_microVolt
+    
+    noise_txt = [ '{:.1f}'.format(e) for e in noise_uV]
+    
+    if len(channels)>8:
+        reduce_noise_vector = "[{} ... {}]".format(' '.join(noise_txt[:4]),' '.join(noise_txt[-4:]))
+    else:
+        reduce_noise_vector = "[{}]".format(' '.join(noise_txt))
+    
+    
+    relative_threshold = cc.info['peak_detector_params']['relative_threshold']
+    
+    d =dict(chan_grp=chan_grp,
+        nb_chan=len(channels),
+        min_mad=min(noise_uV),
+        max_mad=max(noise_uV),
+        reduce_noise_vector=reduce_noise_vector,
+        noise_mean=np.mean(noise_uV),
+        relative_threshold=relative_threshold,
+        thresh_uV=relative_threshold * np.mean(noise_uV),
+        
+    )
+    
+    text = _summary_noise_template.format(**d)
+    
+    print(text)
+    
+    
+    
+    
+    
+    

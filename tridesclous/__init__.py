@@ -29,14 +29,14 @@ from .tools import open_prb
 from .dataio import DataIO
 from .signalpreprocessor import offline_signal_preprocessor, estimate_medians_mads_after_preprocesing
 from .catalogueconstructor import CatalogueConstructor
-from .cataloguetools import apply_all_catalogue_steps, summary_clusters
+from .cataloguetools import apply_all_catalogue_steps
 from .peeler import Peeler
 # from .peeler_cl import Peeler_OpenCl
 
 from .importers import import_from_spykingcircus
 
 from .matplotlibplot import *
-
+from .report import *
 
 from .gui import *
 

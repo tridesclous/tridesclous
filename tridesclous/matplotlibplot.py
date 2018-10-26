@@ -296,11 +296,67 @@ def plot_centroids(cataloguecconstructor, labels=[], alpha=1, **kargs):
     _enhance_waveform_fig(**kargs)
 
 
-def plot_waveforms_histogram(cataloguecconstructor, label=None, ax=None):
+def plot_waveforms_histogram(cataloguecconstructor, label=None, ax=None, channels=None,
+            bin_min=None, bin_max=None, bin_size=0.1, units='MAD'):
+    cc = cataloguecconstructor
+    
     if ax is None:
         fig, ax = plt.subplots()
     
     ind = cc.index_of_label(label)
+    
+    
+    labels = cc.all_peaks['cluster_label'][cc.some_peaks_index]
+    wf = cc.some_waveforms[labels==label]
+    
+    wf = wf[:, :, channels]
+    
+    
+    #~ print(data.shape)
+    
+    if units in ('uV', 'μV'):
+        wf = wf * cc.signals_mads[channels][None, None, :] * cc.dataio.datasource.bit_to_microVolt
+    
+    if bin_min is None:
+        bin_min = np.min(wf) - 1.
+    if bin_max is None:
+        bin_max = np.max(wf) +1
+    if bin_size is None:
+        if units=='MAD':
+            bin_size = 0.1
+        elif units in ('uV', 'μV'):
+            bin_size = (bin_max - bin_min) / 500.
+    
+    
+    data = wf.swapaxes(1,2).reshape(wf.shape[0], -1)
+    
+        
+   
+    bins = np.arange(bin_min, bin_max, bin_size)
+    
+    hist2d = np.zeros((data.shape[1], bins.size))
+    indexes0 = np.arange(data.shape[1])
+    
+    data_bined = np.floor((data-bin_min)/bin_size).astype('int32')
+    data_bined = data_bined.clip(0, bins.size-1)
+    
+    for d in data_bined:
+        hist2d[indexes0, d] += 1
+    
+    im = ax.imshow(hist2d.T, interpolation='nearest', 
+                    origin='lower', aspect='auto', extent=(0, data.shape[1], bin_min, bin_max), cmap='hot')
+
+    n_left = cc.info['waveform_extractor_params']['n_left']
+    n_right = cc.info['waveform_extractor_params']['n_right']
+    peak_width = n_right - n_left
+    for c, chan in enumerate(channels):
+        abs_chan = channels = cc.dataio.channel_groups[cc.chan_grp]['channels'][chan]
+        ax.text(c*peak_width-n_left, 0, '{}'.format(abs_chan),  size=10, ha='center', color='w')
+        if c>0:
+            ax.axvline((c + 1) * peak_width, color='w')
+        
+    
+    
     
     
 
