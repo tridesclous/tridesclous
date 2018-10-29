@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from .catalogueconstructor import CatalogueConstructor
-from .matplotlibplot import plot_centroids, plot_waveforms_histogram
+from .matplotlibplot import plot_centroids, plot_waveforms_histogram, plot_isi
 
 
 
@@ -119,13 +119,26 @@ def summary_noise(dataio, chan_grp=None):
     print(text)
 
 
-def summary_after_peeler_clusters(dataio, chan_grp=None, labels=None, label=None):
+
+
+_summary_after_peeler_clusters_template = """
+Cluster {label}
+Max on channel (abs): {max_on_abs_channel}
+Max on channel (local to group): {max_on_channel}
+Peak amplitude MAD: {max_peak_amplitude}
+Peak amplitude (µV): {max_peak_amplitude_uV}
+Nb spikes : {nb_spike}
+
+"""
+
+def summary_after_peeler_clusters(dataio, catalogue=None, chan_grp=None, labels=None, label=None):
     if chan_grp is None:
         chan_grp = min(self.dataio.channel_groups.keys())
     
     #~ cc =CatalogueConstructor(dataio, chan_grp=chan_grp)
+    if catalogue is None:
+        catalogue = dataio.load_catalogue(chan_grp=chan_grp)
     
-    catalogue = dataio.load_catalogue(chan_grp=chan_grp)
     clusters = catalogue['clusters']
     
     if labels is None and label is None:
@@ -141,9 +154,26 @@ def summary_after_peeler_clusters(dataio, chan_grp=None, labels=None, label=None
         cluster = clusters[ind]
         
         max_on_channel = cluster['max_on_channel']
+        if max_on_channel>=0:
+            max_on_abs_channel = channels[max_on_channel]
+        else:
+            max_on_channel = None
+            max_on_abs_channel = None
+
+        max_peak_amplitude = cluster['max_peak_amplitude']
+        max_peak_amplitude_uV = 'No conversion available'
+        if dataio.datasource.bit_to_microVolt is not None and max_on_channel is not None:
+            max_peak_amplitude_uV = max_peak_amplitude * catalogue['signals_mads'][max_on_channel] * dataio.datasource.bit_to_microVolt
+
+        
+        nb_spike = 0
+        for seg_num in range(dataio.nb_segment):
+            all_spikes = dataio.get_spikes(seg_num=seg_num, chan_grp=chan_grp)
+            nb_spike += np.sum(all_spikes['cluster_label'] == label)
+            
         
         fig, axs = plt.subplots(ncols=2, nrows=2)
-        
+        axs[1, 1].remove()
         # centroids
         ax = axs[0, 0]
         plot_centroids(catalogue, dataio=dataio, labels=[label,], ax=ax)
@@ -161,3 +191,28 @@ def summary_after_peeler_clusters(dataio, chan_grp=None, labels=None, label=None
         # TODO plot waveforms in a neighborhood
         plot_waveforms_histogram(catalogue, dataio=dataio, label=label, ax=ax, channels=[max_on_channel], units=units)
         ax.set_ylabel(title)
+        
+        # ISI
+        ax = axs[1, 0]
+        plot_isi(dataio, catalogue=catalogue, label=label, ax=ax, bin_min=0, bin_max=100, bin_size=1.)
+        
+
+        d =dict(chan_grp=chan_grp,
+                    label=label,
+                    max_on_channel=max_on_channel,
+                    max_on_abs_channel=max_on_abs_channel,
+                    max_peak_amplitude=max_peak_amplitude,
+                    max_peak_amplitude_uV=max_peak_amplitude_uV,
+                    nb_spike=nb_spike,
+            
+        )
+        
+        text = _summary_after_peeler_clusters_template.format(**d)
+        
+        print(text)
+        
+        
+        
+        
+        
+        

@@ -419,12 +419,6 @@ def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
         ax.text(c*peak_width-n_left, 0, '{}'.format(abs_chan),  size=10, ha='center', color='w')
         if c>0:
             ax.axvline((c + 1) * peak_width, color='w')
-        
-    
-    
-    
-    
-
 
 
 def plot_features_scatter_2d(cataloguecconstructor, labels=None, nb_max=500):
@@ -464,5 +458,33 @@ def plot_features_scatter_2d(cataloguecconstructor, labels=None, nb_max=500):
                     ax.plot(feat[:, c], feat[:, r], color=color, markersize=2, ls='None', marker='o')
             else:
                 fig.delaxes(ax)
+
+
+
+def plot_isi(dataio, catalogue=None, label=None, ax=None, bin_min=0, bin_max=100, bin_size=1.):
+    """
+    bin are in ms
+    """
+    if ax is None:
+        fig, ax = plt.subplots()
+
+    if catalogue is None:
+        catalogue = dataio.load_catalogue(chan_grp=chan_grp)
     
+    sr = dataio.sample_rate
+    
+    # TODO for all segments
+    spikes = dataio.get_spikes(seg_num=0, chan_grp=0,)
+    spikes = spikes[spikes['cluster_label'] == label]
+    spike_indexes = spikes['index']
+    
+    isi = np.diff(spike_indexes)/ (sr/1000.)
+    
+    bins = np.arange(bin_min, bin_max, bin_size)
+    count, bins = np.histogram(isi, bins=bins)
+    
+    ax.plot(bins[:-1], count, color='k') # TODO color
+    
+
+
     
