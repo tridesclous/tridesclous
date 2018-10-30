@@ -125,8 +125,8 @@ _summary_after_peeler_clusters_template = """
 Cluster {label}
 Max on channel (abs): {max_on_abs_channel}
 Max on channel (local to group): {max_on_channel}
-Peak amplitude MAD: {max_peak_amplitude}
-Peak amplitude (µV): {max_peak_amplitude_uV}
+Peak amplitude MAD: {max_peak_amplitude:.1f}
+Peak amplitude (µV): {max_peak_amplitude_uV:.1f}
 Nb spikes : {nb_spike}
 
 """
@@ -210,6 +210,8 @@ def summary_after_peeler_clusters(dataio, catalogue=None, chan_grp=None, labels=
         text = _summary_after_peeler_clusters_template.format(**d)
         
         print(text)
+        
+        ax.figure.text(.55, .25, text,  va='center') #, ha='center')
         
         
         
