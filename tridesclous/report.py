@@ -131,7 +131,8 @@ Nb spikes : {nb_spike}
 
 """
 
-def summary_after_peeler_clusters(dataio, catalogue=None, chan_grp=None, labels=None, label=None):
+def summary_after_peeler_clusters(dataio, catalogue=None, chan_grp=None, labels=None, label=None,
+            show_channels=True):
     if chan_grp is None:
         chan_grp = min(dataio.channel_groups.keys())
     
@@ -176,7 +177,7 @@ def summary_after_peeler_clusters(dataio, catalogue=None, chan_grp=None, labels=
         axs[1, 1].remove()
         # centroids
         ax = axs[0, 0]
-        plot_centroids(catalogue, dataio=dataio, labels=[label,], ax=ax)
+        plot_centroids(catalogue, dataio=dataio, labels=[label,], ax=ax, show_channels=show_channels)
         ax.set_title('cluster {}'.format(label))
         
         
