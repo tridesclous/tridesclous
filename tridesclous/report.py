@@ -133,7 +133,7 @@ Nb spikes : {nb_spike}
 
 def summary_after_peeler_clusters(dataio, catalogue=None, chan_grp=None, labels=None, label=None):
     if chan_grp is None:
-        chan_grp = min(self.dataio.channel_groups.keys())
+        chan_grp = min(dataio.channel_groups.keys())
     
     #~ cc =CatalogueConstructor(dataio, chan_grp=chan_grp)
     if catalogue is None:
@@ -194,7 +194,7 @@ def summary_after_peeler_clusters(dataio, catalogue=None, chan_grp=None, labels=
         
         # ISI
         ax = axs[1, 0]
-        plot_isi(dataio, catalogue=catalogue, label=label, ax=ax, bin_min=0, bin_max=100, bin_size=1.)
+        plot_isi(dataio, catalogue=catalogue, chan_grp=chan_grp, label=label, ax=ax, bin_min=0, bin_max=100, bin_size=1.)
         
 
         d =dict(chan_grp=chan_grp,

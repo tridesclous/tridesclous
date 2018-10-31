@@ -364,7 +364,7 @@ def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
         clusters = catalogue['clusters']
         
         # TODO loop over segments
-        spikes = dataio.get_spikes(seg_num=0, chan_grp=0,)
+        spikes = dataio.get_spikes(seg_num=0, chan_grp=chan_grp,)
         
         # take waveforms
         #~ spike_labels = spikes['cluster_label']
@@ -461,7 +461,7 @@ def plot_features_scatter_2d(cataloguecconstructor, labels=None, nb_max=500):
 
 
 
-def plot_isi(dataio, catalogue=None, label=None, ax=None, bin_min=0, bin_max=100, bin_size=1.):
+def plot_isi(dataio, catalogue=None, chan_grp=None, label=None, ax=None, bin_min=0, bin_max=100, bin_size=1.):
     """
     bin are in ms
     """
@@ -474,7 +474,7 @@ def plot_isi(dataio, catalogue=None, label=None, ax=None, bin_min=0, bin_max=100
     sr = dataio.sample_rate
     
     # TODO for all segments
-    spikes = dataio.get_spikes(seg_num=0, chan_grp=0,)
+    spikes = dataio.get_spikes(seg_num=0, chan_grp=chan_grp,)
     spikes = spikes[spikes['cluster_label'] == label]
     spike_indexes = spikes['index']
     
