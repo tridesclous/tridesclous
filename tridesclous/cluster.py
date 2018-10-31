@@ -88,6 +88,8 @@ class SawChainCut:
                     nb_min=20,
                     max_loop=1000,
                     break_nb_remain=30,
+                    kde_bandwith=1.0,
+                    auto_merge_threshold=2.,
                     print_debug=False):
         self.waveforms = waveforms
         self.n_left = n_left
@@ -101,10 +103,11 @@ class SawChainCut:
         self.nb_min = nb_min
         self.max_loop = max_loop
         self.break_nb_remain = break_nb_remain
+        self.kde_bandwith = kde_bandwith
+        self.auto_merge_threshold = auto_merge_threshold
 
         # magic params that could be set to user
         self.binsize = 0.1
-        self.kde_bandwith  = 0.4
         self.minima_rejection_factor = .3
         self.threshold_margin = 1.
         self.margin_first_max = 1.
@@ -116,7 +119,7 @@ class SawChainCut:
     def do_the_job(self):
         
         cluster_labels = self.split_loop()
-        #~ cluster_labels = self.merge_loop(cluster_labels)
+        cluster_labels = self.auto_merge_loop(cluster_labels)
         
         return cluster_labels
     
@@ -383,8 +386,44 @@ class SawChainCut:
         self.log('END loop', np.sum(cluster_labels==-1))
         return cluster_labels
 
-
-
+    def auto_merge_loop(self, cluster_labels):
+        cluster_labels2 = cluster_labels.copy()
+        
+        
+        while True:
+            self.log('')
+            self.log('new loop')
+            labels = np.unique(cluster_labels2)
+            labels = labels[labels>=0]
+            n = labels.size
+            self.log(labels)
+            centroids = np.zeros((labels.size, self.waveforms.shape[1], self.waveforms.shape[2]))
+            
+            
+            for ind, k in enumerate(labels):
+                keep = cluster_labels2 == k
+                centroids[ind,:,:] = np.median(self.waveforms[keep, :, :], axis=0)
+            
+            nb_merge = 0
+            for i in range(n):
+                for j in range(i+1, n):
+                    k1, k2 = labels[i], labels[j]
+                    wf1, wf2 = centroids[i, :, :], centroids[j, :, :]
+                    d = np.max(np.abs(wf1-wf2))
+                    if d<self.auto_merge_threshold:
+                        self.log('d', d)
+                        self.log('merge', k1, k2)
+                        
+                        cluster_labels2[cluster_labels2==k2] = k1
+                        
+                        nb_merge += 1
+            
+            self.log('nb_merge', nb_merge)
+            if nb_merge == 0:
+                break
+        
+    
+        return cluster_labels2
 
 
     

@@ -14,9 +14,16 @@ from .version import version as __version__
 
 import PyQt5 # this force pyqtgraph to deal with Qt5
 
-# this avoid tinker problem when not installed
+# For matplotlib to Qt5 : 
+#   * this avoid tinker problem when not installed
+#   * work better with GUI
+#   * trigger a warning on notebook
 import matplotlib
-matplotlib.use('Qt5Agg')
+import warnings
+with warnings.catch_warnings():
+    # This avoid warning in jupyter
+    warnings.simplefilter("ignore")
+    matplotlib.use('Qt5Agg')
 
 from .datasets import download_dataset, get_dataset
 
