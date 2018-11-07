@@ -7,7 +7,7 @@ from tridesclous import Peeler
 from tridesclous.tests.testingtools import setup_catalogue
 from tridesclous.tests.testingtools import ON_CI_CLOUD
 
-from tridesclous.report import summary_catalogue_clusters, summary_noise, summary_after_peeler_clusters
+from tridesclous.report import summary_catalogue_clusters, summary_noise, summary_after_peeler_clusters, generate_report
 
 
 import matplotlib.pyplot as plt
@@ -43,6 +43,14 @@ def test_summary_after_peeler_clusters():
     
     summary_after_peeler_clusters(dataio, chan_grp=0,  labels= [0], neighborhood_radius=200)
 
+
+
+def test_generate_report():
+    dataio = DataIO(dirname='test_report')
+    
+    generate_report(dataio)
+    
+
 if __name__ == '__main__':
     
     #~ setup_module()
@@ -51,8 +59,9 @@ if __name__ == '__main__':
     
     #~ test_summary_noise()
     
-    test_summary_after_peeler_clusters()
+    #~ test_summary_after_peeler_clusters()
     
+    #~ plt.show()
     
-    plt.show()
-    
+    test_generate_report()
+

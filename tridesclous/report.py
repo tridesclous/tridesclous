@@ -1,5 +1,5 @@
 
-
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -160,7 +160,7 @@ def summary_after_peeler_clusters(dataio, catalogue=None, chan_grp=None, labels=
         else:
             show_channels = True
     
-    
+    figs = []
     for l, label in enumerate(labels):
         ind = np.nonzero(clusters['cluster_label']==label)[0][0]
         
@@ -187,6 +187,7 @@ def summary_after_peeler_clusters(dataio, catalogue=None, chan_grp=None, labels=
 
         
         fig, axs = plt.subplots(ncols=2, nrows=2)
+        figs.append(fig)
         axs[0, 0].remove()
         # centroids
         ax = axs[0, 1]
@@ -234,9 +235,30 @@ def summary_after_peeler_clusters(dataio, catalogue=None, chan_grp=None, labels=
         #~ print(text)
         
         ax.figure.text(.05, .75, text,  va='center') #, ha='center')
+    
+    return figs
+
+
+def generate_report(dataio, export_path=None, neighborhood_radius=None) :
+    if export_path is None:
+        export_path = os.path.join(dataio.dirname, 'report')
+    
+    
+    for chan_grp in dataio.channel_groups.keys():
+        catalogue = dataio.load_catalogue(chan_grp=chan_grp)
+        clusters = catalogue['clusters']
         
+        # TODO with cell_label
+        labels = clusters['cluster_label']
         
-        
-        
-        
-        
+        path = os.path.join(export_path, 'chan_grp {}'.format(chan_grp), 'figures')
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        for label in labels:
+            figs = summary_after_peeler_clusters(dataio,chan_grp=chan_grp, label=label, neighborhood_radius=neighborhood_radius)
+            figs[0].savefig(os.path.join(path, 'summary_cluster_{}.png'.format(label)))
+    
+    
+    
+    
