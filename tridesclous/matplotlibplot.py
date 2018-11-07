@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from .tools import median_mad
 from .dataio import DataIO
 from .catalogueconstructor import CatalogueConstructor
-from .tools import make_color_dict
+from .tools import make_color_dict, get_neighborhood
 
 
     
@@ -228,9 +228,10 @@ def plot_waveforms_with_geometry(waveforms, channels, geometry, **kargs):
     _enhance_waveform_fig(**kargs)
 
     
-def plot_waveforms(cataloguecconstructor, labels=None, nb_max=50, alpha=0.4, **kargs):
+def plot_waveforms(cataloguecconstructor, labels=None, nb_max=50, alpha=0.4,
+                neighborhood_radius=None, **kargs):
     cc = cataloguecconstructor
-    channels = cc.dataio.channel_groups[cc.chan_grp]['channels']
+    channels = np.array(cc.dataio.channel_groups[cc.chan_grp]['channels'])
     geometry = cc.dataio.get_geometry(chan_grp=cc.chan_grp)
     
     kargs['alpha'] = alpha
@@ -265,7 +266,7 @@ def plot_waveforms(cataloguecconstructor, labels=None, nb_max=50, alpha=0.4, **k
         _enhance_waveform_fig(**kargs)
 
 
-def plot_centroids(arg0, labels=[], alpha=1, **kargs):
+def plot_centroids(arg0, labels=[], alpha=1, neighborhood_radius=None, **kargs):
     """
     arg0 can be cataloguecconstructor or catalogue (a dict)
     """
@@ -283,10 +284,10 @@ def plot_centroids(arg0, labels=[], alpha=1, **kargs):
         
         centroids_wfs = cc.centroids_median
         
-        inds = []
+        label_inds = []
         for label in labels:
             ind = cc.index_of_label(label)
-            inds.append(ind)
+            label_inds.append(ind)
             
         ratio_mad = cc.info['peak_detector_params']['relative_threshold']
         
@@ -299,10 +300,10 @@ def plot_centroids(arg0, labels=[], alpha=1, **kargs):
         
         centroids_wfs = catalogue['centers0']
         
-        inds = []
+        label_inds = []
         for label in labels:
             ind = np.nonzero(clusters['cluster_label']==label)[0][0]
-            inds.append(ind)
+            label_inds.append(ind)
         
         ratio_mad = catalogue['peak_detector_params']['relative_threshold']
         
@@ -312,15 +313,22 @@ def plot_centroids(arg0, labels=[], alpha=1, **kargs):
     channels = dataio.channel_groups[chan_grp]['channels']
     geometry =dataio.get_geometry(chan_grp=chan_grp)
 
-    
+    if neighborhood_radius is not None:
+        assert len(labels) == 1
+        neighborhood = get_neighborhood(geometry, neighborhood_radius)
+        max_on_channel = clusters[label_inds[0]]['max_on_channel']
+        keep = neighborhood[max_on_channel, :]
+        centroids_wfs = centroids_wfs[:,  :, keep]
+        channels = np.array(channels)[keep]
+        geometry = geometry[keep, :]
     
     kargs['ratio_mad'] = ratio_mad
-    kargs['waveforms'] = centroids_wfs[inds, :, :]
+    kargs['waveforms'] = centroids_wfs[label_inds, :, :]
     kargs['channels'] = channels
     kargs['geometry'] = geometry
     kargs = _prepare_waveform_fig(**kargs)
 
-    for ind, label in zip(inds, labels):
+    for ind, label in zip(label_inds, labels):
         wf = centroids_wfs[ind, :, :]
         kargs['waveforms'] = wf
         kargs['color'] = colors.get(label, 'k')
@@ -418,8 +426,9 @@ def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
         abs_chan = dataio.channel_groups[chan_grp]['channels'][chan]
         ax.text(c*peak_width-n_left, 0, '{}'.format(abs_chan),  size=10, ha='center', color='w')
         if c>0:
-            ax.axvline((c + 1) * peak_width, color='w')
-
+            ax.axvline((c) * peak_width, color='w')
+    
+    ax.set_xticks([])
 
 def plot_features_scatter_2d(cataloguecconstructor, labels=None, nb_max=500):
     cc = cataloguecconstructor

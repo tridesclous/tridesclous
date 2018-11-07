@@ -40,6 +40,8 @@ def test_summary_noise():
 def test_summary_after_peeler_clusters():
     dataio = DataIO(dirname='test_report')
     summary_after_peeler_clusters(dataio, chan_grp=0,  labels= [0])
+    
+    summary_after_peeler_clusters(dataio, chan_grp=0,  labels= [0], neighborhood_radius=200)
 
 if __name__ == '__main__':
     
