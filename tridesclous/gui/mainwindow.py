@@ -145,7 +145,7 @@ class MainWindow(QT.QMainWindow):
         self.toolbar.addAction(do_export_spikes)
         self.file_menu.addAction(do_export_spikes)
 
-        do_generate_report = QT.QAction('Generate report', self,  icon=QT.QIcon(":document-export.svg"))
+        do_generate_report = QT.QAction('Generate report', self,  icon=QT.QIcon(":kwrite.svg"))
         do_generate_report.triggered.connect(self.generate_report)
         self.toolbar.addAction(do_generate_report)
         self.file_menu.addAction(do_generate_report)

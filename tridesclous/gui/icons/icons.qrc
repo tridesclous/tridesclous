@@ -1,6 +1,7 @@
 <!DOCTYPE RCC><RCC version="1.0">
     <qresource>
             <file alias="document-export.svg">png/document-export.svg</file>
+            <file alias="kwrite.svg">png/kwrite.svg</file>
             <file alias="ephyviewer.png">png/ephyviewer.png</file>
             <file alias="configure-shortcuts.svg">png/configure-shortcuts.svg</file>
             <file alias="autocorrection.svg">png/autocorrection.svg</file>
