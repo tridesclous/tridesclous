@@ -246,6 +246,10 @@ def generate_report(dataio, export_path=None, neighborhood_radius=None) :
     
     for chan_grp in dataio.channel_groups.keys():
         catalogue = dataio.load_catalogue(chan_grp=chan_grp)
+        
+        if catalogue is None:
+            continue
+        
         clusters = catalogue['clusters']
         
         # TODO with cell_label

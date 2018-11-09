@@ -21,6 +21,7 @@ from .initializedatasetwindow import InitializeDatasetWindow
 from .probegeometryview import ProbeGeometryView
 from ..export import export_list
 from ..tools import open_prb
+from ..report import generate_report
 
 from . import icons
 
@@ -85,8 +86,14 @@ class MainWindow(QT.QMainWindow):
         
         self.toolbar = QT.QToolBar(orientation=QT.Vertical)
         self.toolbar.setToolButtonStyle(QT.Qt.ToolButtonTextUnderIcon)
-        self.addToolBar(QT.LeftToolBarArea, self.toolbar)
+        self.addToolBar(QT.TopToolBarArea, self.toolbar)
         self.toolbar.setIconSize(QT.QSize(60, 40))
+
+        self.toolbar2 = QT.QToolBar(orientation=QT.Vertical)
+        self.toolbar2.setToolButtonStyle(QT.Qt.ToolButtonTextUnderIcon)
+        self.addToolBar(QT.LeftToolBarArea, self.toolbar2)
+        self.toolbar2.setIconSize(QT.QSize(60, 40))
+        
         
         self.file_menu = self.menuBar().addMenu(self.tr("File"))
         
@@ -122,42 +129,10 @@ class MainWindow(QT.QMainWindow):
         self.toolbar.addAction(open_probe_viewer)
         
         self.toolbar.addSeparator()
-            
-        
-        self.toolbar.addWidget(QT.QLabel('Select chanel group:'))
-        self.combo_chan_grp = QT.QComboBox()
-        self.toolbar.addWidget(self.combo_chan_grp)
-        self.combo_chan_grp.currentIndexChanged .connect(self.on_chan_grp_change)
-
-        do_init_cataloguewin = QT.QAction('Initialize Catalogue', self, icon=QT.QIcon(":autocorrection.svg"))
-        do_init_cataloguewin.triggered.connect(self.initialize_catalogue)
-        self.toolbar.addAction(do_init_cataloguewin)
-        
-        do_open_cataloguewin = QT.QAction('Open CatalogueWindow', self,  icon=QT.QIcon(":catalogwinodw.png"))
-        do_open_cataloguewin.triggered.connect(self.open_cataloguewin)
-        self.toolbar.addAction(do_open_cataloguewin)
-
-
-        do_run_peeler = QT.QAction('Run Peeler', self,  icon=QT.QIcon(":configure-shortcuts.svg"))
-        do_run_peeler.triggered.connect(self.run_peeler)
-        self.toolbar.addAction(do_run_peeler)
-        
-        do_open_peelerwin = QT.QAction('Open PeelerWindow', self,  icon=QT.QIcon(":peelerwindow.png"))
-        do_open_peelerwin.triggered.connect(self.open_peelerwin)
-        self.toolbar.addAction(do_open_peelerwin)
-
-        self.toolbar.addSeparator()
         
         do_check_prb = QT.QAction('Check PRB file', self, ) # icon=QT.QIcon(":document-export.svg"))
         do_check_prb.triggered.connect(self.check_prb_file)
         self.file_menu.addAction(do_check_prb)
-        
-        self.toolbar.addSeparator()
-        
-        do_export_spikes = QT.QAction('Export spikes', self,  icon=QT.QIcon(":document-export.svg"))
-        do_export_spikes.triggered.connect(self.export_spikes)
-        self.toolbar.addAction(do_export_spikes)
-        self.file_menu.addAction(do_export_spikes)
         
         self.toolbar.addSeparator()
 
@@ -165,9 +140,50 @@ class MainWindow(QT.QMainWindow):
         do_refresh.triggered.connect(self.refresh_with_reload)
         self.toolbar.addAction(do_refresh)
         
+        do_export_spikes = QT.QAction('Export spikes', self,  icon=QT.QIcon(":document-export.svg"))
+        do_export_spikes.triggered.connect(self.export_spikes)
+        self.toolbar.addAction(do_export_spikes)
+        self.file_menu.addAction(do_export_spikes)
+
+        do_generate_report = QT.QAction('Generate report', self,  icon=QT.QIcon(":document-export.svg"))
+        do_generate_report.triggered.connect(self.generate_report)
+        self.toolbar.addAction(do_generate_report)
+        self.file_menu.addAction(do_generate_report)
+
+        self.toolbar.addSeparator()
+
         help_act = QT.QAction('Help', self,checkable = False, icon=QT.QIcon(":main_icon.png"))
         help_act.triggered.connect(self.open_webbrowser_help)
         self.toolbar.addAction(help_act)
+        
+        
+        # Toolbar2
+        self.toolbar2.addWidget(QT.QLabel('<b>Steps</b>'))
+        
+        self.toolbar2.addWidget(QT.QLabel('Select chanel group:'))
+        self.combo_chan_grp = QT.QComboBox()
+        self.toolbar2.addWidget(self.combo_chan_grp)
+        self.combo_chan_grp.currentIndexChanged .connect(self.on_chan_grp_change)
+
+        do_init_cataloguewin = QT.QAction('Initialize Catalogue', self, icon=QT.QIcon(":autocorrection.svg"))
+        do_init_cataloguewin.triggered.connect(self.initialize_catalogue)
+        self.toolbar2.addAction(do_init_cataloguewin)
+        
+        do_open_cataloguewin = QT.QAction('Open CatalogueWindow', self,  icon=QT.QIcon(":catalogwinodw.png"))
+        do_open_cataloguewin.triggered.connect(self.open_cataloguewin)
+        self.toolbar2.addAction(do_open_cataloguewin)
+
+
+        do_run_peeler = QT.QAction('Run Peeler', self,  icon=QT.QIcon(":configure-shortcuts.svg"))
+        do_run_peeler.triggered.connect(self.run_peeler)
+        self.toolbar2.addAction(do_run_peeler)
+        
+        do_open_peelerwin = QT.QAction('Open PeelerWindow', self,  icon=QT.QIcon(":peelerwindow.png"))
+        do_open_peelerwin.triggered.connect(self.open_peelerwin)
+        self.toolbar2.addAction(do_open_peelerwin)
+
+        
+        
         
     def open_webbrowser_help(self):
         url = "http://tridesclous.readthedocs.io"
@@ -513,6 +529,11 @@ Catalogue do not exists, please do:
         p = dialog.get()
         self.dataio.export_spikes(export_path=None,
                 split_by_cluster=p['split_by_cluster'],  use_cell_label=p['use_cell_label'], formats=p['format'])
+
+    def generate_report(self):
+        if self.dataio is None:
+            return
+        generate_report(self.dataio)
 
     def check_prb_file(self):
         fd = QT.QFileDialog(fileMode=QT.QFileDialog.AnyFile, acceptMode=QT.QFileDialog.AcceptOpen)
