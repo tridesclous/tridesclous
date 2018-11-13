@@ -7,7 +7,7 @@ from tridesclous.cltools import HAVE_PYOPENCL
 
 import pytest
 
-@pytest.mark.skip(not HAVE_PYOPENCL, 'not have opencl')
+@pytest.mark.skip(not HAVE_PYOPENCL, reason='need opencl')
 def test_GpuSelector():
     
     app = mkQApp()

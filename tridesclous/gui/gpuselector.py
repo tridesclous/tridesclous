@@ -6,18 +6,6 @@ from collections import OrderedDict
 from .tools import ParamDialog
 from ..cltools import get_cl_device_list, set_default_cl_device
 
-#~ class GpuSelector(QT.QWidget):
-    
-    #~ def __init__(self, parent = None):
-        #~ QT.QWidget.__init__(self, parent)
-        
-        #~ layout = QT.QVBoxLayout()
-        #~ self.setLayout(layout)
-        
-        #~ self.combo = QT.QComboBox()
-        #~ layout.addWidget(self.combo)
-
-    
 
     
 class GpuSelector(ParamDialog):

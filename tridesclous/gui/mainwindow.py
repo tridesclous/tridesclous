@@ -22,6 +22,7 @@ from .probegeometryview import ProbeGeometryView
 from ..export import export_list
 from ..tools import open_prb
 from ..report import generate_report
+from ..cltools import HAVE_PYOPENCL
 from .gpuselector import GpuSelector
 
 from . import icons
@@ -82,7 +83,8 @@ class MainWindow(QT.QMainWindow):
         
         self.dialog_peeler = ParamDialog(gui_params.peeler_params)
         
-        self.dialog_gpuselector = GpuSelector(settings=self.settings)
+        if HAVE_PYOPENCL:
+            self.dialog_gpuselector = GpuSelector(settings=self.settings)
     
 
     def create_actions_and_menu(self):
@@ -137,9 +139,10 @@ class MainWindow(QT.QMainWindow):
         do_check_prb.triggered.connect(self.check_prb_file)
         self.file_menu.addAction(do_check_prb)
         
-        do_open_gpuselector = QT.QAction('Default OpenCL (GPU) selector', self)
-        do_open_gpuselector.triggered.connect(self.open_gpuselector)
-        self.file_menu.addAction(do_open_gpuselector)
+        if HAVE_PYOPENCL:
+            do_open_gpuselector = QT.QAction('Default OpenCL (GPU) selector', self)
+            do_open_gpuselector.triggered.connect(self.open_gpuselector)
+            self.file_menu.addAction(do_open_gpuselector)
         
         self.toolbar.addSeparator()
 
@@ -559,6 +562,8 @@ Catalogue do not exists, please do:
             self.probe_viewer.show()
     
     def open_gpuselector(self):
+        if not HAVE_PYOPENCL:
+            return
         if not self.dialog_gpuselector.exec_():
             return
         self.dialog_gpuselector.apply_cl_setting()
