@@ -2,9 +2,12 @@ from tridesclous import *
 from tridesclous.gui import GpuSelector
 import  pyqtgraph as pg
 
+from tridesclous.cltools import HAVE_PYOPENCL
 
 
+import pytest
 
+@pytest.mark.skip(not HAVE_PYOPENCL, 'not have opencl')
 def test_GpuSelector():
     
     app = mkQApp()
