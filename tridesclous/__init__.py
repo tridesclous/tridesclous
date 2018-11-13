@@ -38,6 +38,8 @@ from .signalpreprocessor import offline_signal_preprocessor, estimate_medians_ma
 from .catalogueconstructor import CatalogueConstructor
 from .cataloguetools import apply_all_catalogue_steps
 from .peeler import Peeler
+from .cltools import get_cl_device_list, set_default_cl_device
+
 # from .peeler_cl import Peeler_OpenCl
 
 from .importers import import_from_spykingcircus

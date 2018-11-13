@@ -17,7 +17,10 @@ Peak amplitude MAD: {max_peak_amplitude}
 Peak amplitude (µV): {max_peak_amplitude_uV}
 
 """
-def summary_catalogue_clusters(dataio, chan_grp=None, labels=None, label=None):
+def summary_catalogue_clusters(dataio, chan_grp=None, labels=None, label=None,
+        show_channels=None, neighborhood_radius=None):
+    
+    
     cc =CatalogueConstructor(dataio, chan_grp=chan_grp)
     
     if labels is None and label is None:
@@ -26,7 +29,16 @@ def summary_catalogue_clusters(dataio, chan_grp=None, labels=None, label=None):
         labels = [label]
     
     # channel index absolut to datasource
-    channels_abs = dataio.channel_groups[chan_grp]['channels']
+    channel_abs = dataio.channel_groups[chan_grp]['channels']
+
+    if show_channels is None:
+        if neighborhood_radius is None:
+            if len(channel_abs)>10:
+                show_channels = False
+            else:
+                show_channels = True
+        else:
+            show_channels = True
     
     for l, label in enumerate(labels):
 
@@ -36,7 +48,7 @@ def summary_catalogue_clusters(dataio, chan_grp=None, labels=None, label=None):
         max_on_channel = cluster['max_on_channel']
         
         if max_on_channel>=0:
-            max_on_channel_abs = channels_abs[max_on_channel]
+            max_on_channel_abs = channel_abs[max_on_channel]
         else:
             max_on_channel = None
             max_on_channel_abs = None
@@ -59,7 +71,7 @@ def summary_catalogue_clusters(dataio, chan_grp=None, labels=None, label=None):
         print(text)
         
         fig, axs = plt.subplots(ncols=2)
-        plot_centroids(cc, labels=[label,], ax=axs[0])
+        plot_centroids(cc, labels=[label,], ax=axs[0], show_channels=show_channels, neighborhood_radius=neighborhood_radius)
         axs[0].set_title('cluster {}'.format(label))
         
         if dataio.datasource.bit_to_microVolt is None:
