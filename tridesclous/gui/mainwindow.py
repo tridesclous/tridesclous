@@ -542,8 +542,12 @@ Catalogue do not exists, please do:
         if fd.exec_():
             prb_filename = fd.selectedFiles()[0]
             #~ print(prb_filename)
-            channel_groups = open_prb(prb_filename)
-            self.probe_viewer = ProbeGeometryView(channel_groups=channel_groups, parent=self)
+            try:
+                channel_groups = open_prb(prb_filename)
+                self.probe_viewer = ProbeGeometryView(channel_groups=channel_groups, parent=self)
+            except:
+                self.warn('Error in PRB')
+                return
             self.probe_viewer.setWindowFlags(QT.Qt.Window)
             self.probe_viewer.show()
             
