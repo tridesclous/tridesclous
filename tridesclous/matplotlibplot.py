@@ -9,7 +9,7 @@ from .tools import make_color_dict, get_neighborhood
 
     
     
-def plot_probe_geometry(dataio, chan_grp=0,  margin=150,):
+def plot_probe_geometry(dataio, chan_grp=0,  margin=150, channel_number_mode='absolut'):
     channel_group = dataio.channel_groups[chan_grp]
     channels = channel_group['channels']
     geometry = dataio.get_geometry(chan_grp=chan_grp)
@@ -18,7 +18,14 @@ def plot_probe_geometry(dataio, chan_grp=0,  margin=150,):
     for c, chan in enumerate(channels):
         x, y = geometry[c]
         ax.plot([x], [y], marker='o', color='r')
-        ax.text(x, y, '{}: {}'.format(c, chan),  size=20)
+        if channel_number_mode == 'absolut':
+            t = '{}'.format(chan)
+        elif channel_number_mode == 'local':
+            t = '{}'.format(c)
+        elif channel_number_mode == 'both':
+            t = '{}: {}'.format(c, chan)
+        
+        ax.text(x, y, t,  size=14, ha='center')
 
     ax.set_xlim(np.min(geometry[:, 0])-margin, np.max(geometry[:, 0])+margin)
     ax.set_ylim(np.min(geometry[:, 1])-margin, np.max(geometry[:, 1])+margin)
@@ -370,21 +377,29 @@ def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
         catalogue = arg0
         chan_grp = catalogue['chan_grp']
         clusters = catalogue['clusters']
-        
-        # TODO loop over segments
-        spikes = dataio.get_spikes(seg_num=0, chan_grp=chan_grp,)
-        
-        # take waveforms
-        #~ spike_labels = spikes['cluster_label']
-        spikes = spikes[spikes['cluster_label'] == label]
-        spike_indexes = spikes['index']
 
         n_left = catalogue['n_left']
         n_right = catalogue['n_right']
         
-        wf = dataio.get_some_waveforms(seg_num=0, chan_grp=chan_grp,
-                    spike_indexes=spike_indexes, n_left=n_left, n_right=n_right)
-        wf = wf[:, :, channels]
+        all_wf = []
+        for seg_num in range(dataio.nb_segment):
+            # TODO loop over segments
+            spikes = dataio.get_spikes(seg_num=seg_num, chan_grp=chan_grp,)
+        
+            # take waveforms
+            #~ spike_labels = spikes['cluster_label']
+            spikes = spikes[spikes['cluster_label'] == label]
+            spike_indexes = spikes['index']
+            
+            if spike_indexes.size>1000:
+                # limit to 1000 spike by segment
+                spike_indexes = np.random.choice(spike_indexes, size=1000)
+            
+            wf_ = dataio.get_some_waveforms(seg_num=seg_num, chan_grp=chan_grp,
+                        spike_indexes=spike_indexes, n_left=n_left, n_right=n_right)
+            wf_ = wf_[:, :, channels]
+            all_wf.append(wf_)
+        wf = np.concatenate(all_wf, axis=0)
         
         if units in ('uV', 'μV'):
             wf = wf * catalogue['signals_mads'][channels][None, None, :] * dataio.datasource.bit_to_microVolt
@@ -482,15 +497,21 @@ def plot_isi(dataio, catalogue=None, chan_grp=None, label=None, ax=None, bin_min
     
     sr = dataio.sample_rate
     
-    # TODO for all segments
-    spikes = dataio.get_spikes(seg_num=0, chan_grp=chan_grp,)
-    spikes = spikes[spikes['cluster_label'] == label]
-    spike_indexes = spikes['index']
-    
-    isi = np.diff(spike_indexes)/ (sr/1000.)
-    
     bins = np.arange(bin_min, bin_max, bin_size)
-    count, bins = np.histogram(isi, bins=bins)
+    
+    count = None
+    for seg_num in range(dataio.nb_segment):
+        spikes = dataio.get_spikes(seg_num=seg_num, chan_grp=chan_grp,)
+        spikes = spikes[spikes['cluster_label'] == label]
+        spike_indexes = spikes['index']
+        
+        isi = np.diff(spike_indexes)/ (sr/1000.)
+        
+        count_, bins = np.histogram(isi, bins=bins)
+        if count is None:
+            count = count_
+        else:
+            count += count_
     
     ax.plot(bins[:-1], count, color='k') # TODO color
     
