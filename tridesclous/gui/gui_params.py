@@ -177,7 +177,10 @@ cluster_params_by_methods = OrderedDict([
     ('sawchaincut', [{'name' : 'max_loop', 'type' : 'int', 'value' : 1000},
                                 {'name' : 'nb_min', 'type' : 'int', 'value' : 20},
                                 {'name' : 'break_nb_remain', 'type' : 'int', 'value' : 30},
+                                {'name' : 'kde_bandwith', 'type' : 'float', 'value' : 1., 'step':0.1},
+                                {'name' : 'auto_merge_threshold', 'type' : 'float', 'value' : 2., 'step':0.1},
                                 {'name':'print_debug', 'type': 'bool', 'value':False},
+                                
                             
                             
                             ]),

@@ -64,7 +64,10 @@ def test_peeler_sparse_opencl():
     peeler.change_params(catalogue=initial_catalogue,chunksize=1024,
                                         use_sparse_template=True,
                                         sparse_threshold_mad=1.5,
-                                        use_opencl_with_sparse=True,)
+                                        use_opencl_with_sparse=True,
+                                        cl_platform_index=0,
+                                        cl_device_index=0,                                        
+                                        )
     
     t1 = time.perf_counter()
     peeler.run(progressbar=False)
@@ -260,7 +263,7 @@ if __name__ =='__main__':
     
     #~ open_catalogue_window()
     
-    test_peeler()
+    #~ test_peeler()
     
     test_peeler_sparse_opencl()
     

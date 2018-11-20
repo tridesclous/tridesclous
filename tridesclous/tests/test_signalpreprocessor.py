@@ -14,7 +14,6 @@ from matplotlib import pyplot
 
 
 def run_online(engine, sigs, sample_rate, chunksize, **params):
-    sigs, sample_rate = get_dataset(name='olfactory_bulb')
     nb_channel = sigs.shape[1]
     
     # precompute medians and mads
@@ -42,9 +41,9 @@ def run_online(engine, sigs, sample_rate, chunksize, **params):
         if preprocessed_chunk is not None:
             #~ print(preprocessed_chunk)
             all_online_sigs.append(preprocessed_chunk)
-    online_sig = np.concatenate(all_online_sigs)
     t2 = time.perf_counter()
     print(engine, 'process time', t2-t1)
+    online_sig = np.concatenate(all_online_sigs)
     
     
     return online_sig
@@ -106,11 +105,15 @@ def test_compare_offline_online_engines():
     
     t1 = time.perf_counter()
     offline_sig = offline_signal_preprocessor(sigs, sample_rate, **params)
+    
     t2 = time.perf_counter()
     print('offline', 'process time', t2-t1)
     
     online_sigs = {}
     for engine in engines:
+        if engine == 'opencl':
+            params['cl_platform_index'] = 0
+            params['cl_device_index'] = 0
         online_sigs[engine] = run_online(engine, sigs, sample_rate, chunksize, **params)
     
     # remove border for comparison
@@ -289,10 +292,10 @@ def test_smooth_with_filtfilt():
 
     
 if __name__ == '__main__':
-    #~ test_compare_offline_online_engines()
+    test_compare_offline_online_engines()
     #~ test_smooth_with_filtfilt()
     
     #~ explore_lostfront_chunksize()
     
-    test_auto_lostfront_chunksize()
+    #~ test_auto_lostfront_chunksize()
 

@@ -31,3 +31,4 @@ from .initializedatasetwindow import InitializeDatasetWindow, ChannelGroupWidget
 
 
 from .probegeometryview import ProbeGeometryView
+from .gpuselector import GpuSelector

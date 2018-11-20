@@ -1,12 +1,10 @@
 import scipy.signal
 import numpy as np
 
-try:
+from .cltools import HAVE_PYOPENCL, OpenCL_Helper
+if HAVE_PYOPENCL:
     import pyopencl
     mf = pyopencl.mem_flags
-    HAVE_PYOPENCL = True
-except ImportError:
-    HAVE_PYOPENCL = False
 
 
 #~ from pyacq.dsp.overlapfiltfilt import SosFiltfilt_Scipy
@@ -231,7 +229,7 @@ class SignalPreprocessor_Numpy(SignalPreprocessor_base):
 
 
 
-class SignalPreprocessor_OpenCL(SignalPreprocessor_base):
+class SignalPreprocessor_OpenCL(SignalPreprocessor_base, OpenCL_Helper):
     """
     Implementation in OpenCL depending on material and nb_channel
     this can lead to a smal speed improvement...
@@ -239,14 +237,6 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base):
     """
     def __init__(self,sample_rate, nb_channel, chunksize, input_dtype):
         SignalPreprocessor_base.__init__(self,sample_rate, nb_channel, chunksize, input_dtype)
-        
-        self.ctx = pyopencl.create_some_context(interactive=False)
-        #~ print(self.ctx)
-        #TODO : add arguments gpu_platform_index/gpu_device_index
-        #self.devices =  [pyopencl.get_platforms()[self.gpu_platform_index].get_devices()[self.gpu_device_index] ]
-        #self.ctx = pyopencl.Context(self.devices)        
-        self.queue = pyopencl.CommandQueue(self.ctx)
-    
     
     def process_data(self, pos, data):
         
@@ -321,6 +311,10 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base):
         
         
     def change_params(self, **kargs):
+
+        cl_platform_index=kargs.pop('cl_platform_index', None)
+        cl_device_index=kargs.pop('cl_device_index', None)
+        OpenCL_Helper.initialize_opencl(self,cl_platform_index=cl_platform_index, cl_device_index=cl_device_index)
         
         SignalPreprocessor_base.change_params(self, **kargs)
         assert self.output_dtype=='float32', 'SignalPreprocessor_OpenCL support only float32 at the moment'

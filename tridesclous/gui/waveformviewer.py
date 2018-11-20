@@ -158,7 +158,8 @@ class WaveformViewerBase(WidgetBase):
                     self.delta_y = np.unique(ypos)[0]
                 self.factor_y = .3
                 if self.delta_x>0.:
-                    espx = self.delta_x/2. *.95
+                    #~ espx = self.delta_x/2. *.95
+                    espx = self.delta_x/2.5
                 else:
                     espx = .5
                 for i, chan in enumerate(channel_group['channels']):

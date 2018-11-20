@@ -28,7 +28,7 @@ example/tridesclous_*
 doc/_build
 example/demo_onlinewindow/*
 
-test_*
+#test_*
 
 
 

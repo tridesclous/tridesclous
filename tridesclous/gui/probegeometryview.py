@@ -16,13 +16,20 @@ class ProbeGeometryView(QT.QWidget):
         
         self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
-
+        
+        h = QT.QHBoxLayout()
+        self.layout.addLayout(h)
+        
         self.combo_chan_grp = QT.QComboBox()
-        self.layout.addWidget(self.combo_chan_grp)
+        h.addWidget(self.combo_chan_grp)
         self.combo_chan_grp.clear()
         self.combo_chan_grp.addItems([str(k) for k in self.channel_groups.keys()])
         self.combo_chan_grp.currentIndexChanged .connect(self.on_chan_grp_change)
-    
+        
+        self.checkbox = QT.QCheckBox('flip_bottom_up')
+        h.addWidget(self.checkbox)
+        self.checkbox.stateChanged.connect(self.refresh)
+        
         #~ self.combo_chan_grp.blockSignals(True)
         #~ self.combo_chan_grp.blockSignals(False)
         #~ self.on_chan_grp_change()
@@ -46,8 +53,11 @@ class ProbeGeometryView(QT.QWidget):
     def on_chan_grp_change(self):
         self.refresh()
         
-    def refresh(self):
+    def refresh(self, v=None):
         self.plot.clear()
+        
+        flip_bottom_up = self.checkbox.checkState()
+        
         
         chan_grp = int(self.combo_chan_grp.currentText())
         channel_group = self.channel_groups[chan_grp]
@@ -56,7 +66,10 @@ class ProbeGeometryView(QT.QWidget):
         
         
         geometry = [ channel_group['geometry'][chan] for chan in channel_group['channels'] ]
-        geometry = np.array(geometry)
+        geometry = np.array(geometry, dtype='float64')
+        
+        if flip_bottom_up:
+            geometry[:, 1] *= -1.
         
         for c, chan in enumerate(channel_group['channels']):
             x, y = geometry[c]

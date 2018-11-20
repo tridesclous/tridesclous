@@ -1,6 +1,8 @@
+"""
+Some helping function that apply on catalogueconstructor (apply steps, sumamry, ...)
 
+"""
 import time
-
 
 
 
@@ -69,7 +71,7 @@ def apply_all_catalogue_steps(catalogueconstructor, fullchain_kargs,
     
     #TODO offer noise esatimation duration somewhere
     noise_duration = min(10., fullchain_kargs['duration'], dataio.get_segment_length(seg_num=0)/dataio.sample_rate*.99)
-    print('noise_duration', noise_duration)
+    #~ print('noise_duration', noise_duration)
     t1 = time.perf_counter()
     cc.estimate_signals_noise(seg_num=0, duration=noise_duration)
     t2 = time.perf_counter()
@@ -109,7 +111,7 @@ def apply_all_catalogue_steps(catalogueconstructor, fullchain_kargs,
     if verbose:
         print('extract_some_noise', t2-t1)
     
-    print(cc)
+    #~ print(cc)
     
     t1 = time.perf_counter()
     cc.extract_some_features(method=feat_method, **feat_kargs)
@@ -122,4 +124,8 @@ def apply_all_catalogue_steps(catalogueconstructor, fullchain_kargs,
     t2 = time.perf_counter()
     if verbose:
         print('find_clusters', t2-t1)
-    
+
+
+
+
+

@@ -1085,7 +1085,7 @@ class CatalogueConstructor:
             empty = np.zeros((self.cluster_labels.size, n_right - n_left, self.nb_channel), dtype=self.info['internal_dtype'])
             self.arrays.add_array(name, empty, self.memory_mode)
         
-        t1 = time.perf_counter()
+        #~ t1 = time.perf_counter()
         for k in self.cluster_labels:
             if k <0: continue
             
@@ -1096,8 +1096,8 @@ class CatalogueConstructor:
         
         #~ self.arrays.flush_array('clusters')
         
-        t2 = time.perf_counter()
-        print('compute_all_centroid', t2-t1)
+        #~ t2 = time.perf_counter()
+        #~ print('compute_all_centroid', t2-t1)
     
     def refresh_colors(self, reset=True, palette='husl', interleaved=True):
         
@@ -1181,7 +1181,7 @@ class CatalogueConstructor:
     def compute_spike_waveforms_similarity(self, method='cosine_similarity', size_max = 1e7):
         """This compute the similarity spike by spike.
         """
-        t1 = time.perf_counter()
+        #~ t1 = time.perf_counter()
         spike_waveforms_similarity = None
         if self.some_waveforms is not None:
             wf = self.some_waveforms
@@ -1195,8 +1195,8 @@ class CatalogueConstructor:
         else:
             self.arrays.add_array('spike_waveforms_similarity', spike_waveforms_similarity.astype('float32'), self.memory_mode)
 
-        t2 = time.perf_counter()
-        print('compute_spike_waveforms_similarity', t2-t1)
+        #~ t2 = time.perf_counter()
+        #~ print('compute_spike_waveforms_similarity', t2-t1)
         
         return self.spike_waveforms_similarity
 
@@ -1204,7 +1204,7 @@ class CatalogueConstructor:
         if self.centroids_median is None:
             self.compute_all_centroid()
         
-        t1 = time.perf_counter()
+        #~ t1 = time.perf_counter()
         
         labels = self.cluster_labels
         mask = labels>=0
@@ -1223,8 +1223,8 @@ class CatalogueConstructor:
         else:
             self.arrays.add_array('cluster_similarity', cluster_similarity.astype('float32'), self.memory_mode)
 
-        t2 = time.perf_counter()
-        print('compute_cluster_similarity', t2-t1)
+        #~ t2 = time.perf_counter()
+        #~ print('compute_cluster_similarity', t2-t1)
 
             
 
@@ -1257,7 +1257,7 @@ class CatalogueConstructor:
         #~ if not hasattr(self, 'centroids'):
             #~ self.compute_centroid()            
         
-        t1 = time.perf_counter()
+        #~ t1 = time.perf_counter()
         labels = self.positive_cluster_labels
         
         #TODO: this is stupid because cosine_similarity is the same at every scale!!!
@@ -1289,8 +1289,8 @@ class CatalogueConstructor:
         #~ return labels, ratio_similarity, wf_normed_flat
 
 
-        t2 = time.perf_counter()
-        print('compute_cluster_ratio_similarity', t2-t1)        
+        #~ t2 = time.perf_counter()
+        #~ print('compute_cluster_ratio_similarity', t2-t1)        
         
 
     def detect_similar_waveform_ratio(self, threshold=0.9):
@@ -1300,7 +1300,7 @@ class CatalogueConstructor:
         return pairs
     
     def compute_spike_silhouette(self, size_max=1e7):
-        t1 = time.perf_counter()
+        #~ t1 = time.perf_counter()
         
         spike_silhouette = None
         wf = self.some_waveforms
@@ -1317,8 +1317,8 @@ class CatalogueConstructor:
             self.arrays.add_array('spike_silhouette', spike_silhouette.astype('float32'), self.memory_mode)
 
 
-        t2 = time.perf_counter()
-        print('compute_spike_silhouette', t2-t1)                
+        #~ t2 = time.perf_counter()
+        #~ print('compute_spike_silhouette', t2-t1)                
     
     def tag_same_cell(self, labels_to_group):
         """
@@ -1523,25 +1523,8 @@ class CatalogueConstructor:
         
         """
         self.make_catalogue()
-        
-        #~ filename = os.path.join(self.catalogue_path, 'initial_catalogue.pickle')
-        #~ with open(filename, mode='wb') as f:
-            #~ pickle.dump(self.catalogue, f)
         self.dataio.save_catalogue(self.catalogue, name='initial')
         
-    
-    #~ def load_catalogue(self):
-        #~ filename = os.path.join(self.catalogue_path, 'initial_catalogue.pickle')
-        #~ assert os.path.exists(filename), 'No catalogue file is found'
-        #~ with open(filename, mode='rb') as f:
-            #~ self.catalogue = pickle.load(f)
-        #~ return self.catalogue
-
-        #~ print('!!!! CatalogueConstructor.load_catalogue WILL BE REMOVED!!!!!')
-        #~ self.catalogue = self.dataio.load_catalogue(name='initial')
-        #~ return 
-
-
     def create_savepoint(self):
         """this create a copy of the entire catalogue_constructor subdir
         Usefull for the UI when the user wants to snapshot and try tricky merge/split.
