@@ -127,8 +127,6 @@ data_source_classes['RawData'] = RawDataSource
 
 
 import neo.rawio
-#~ print(rawiolist)
-#~ print('neo.rawio')
 
 io_gui_params = {
     'RawBinarySignal':[
@@ -138,6 +136,30 @@ io_gui_params = {
                 {'name': 'bytesoffset', 'type': 'int', 'value':0},
     ],
 }
+
+
+# hook for some neo.rawio that have problem with TDC (multi sampling rate or default params)
+neo_rawio_hooks = {}
+
+class Intan(neo.rawio.IntanRawIO):
+    def _parse_header(self):
+        neo.rawio.IntanRawIO._parse_header(self)
+        sig_channels = self.header['signal_channels']
+        sig_channels = sig_channels[sig_channels['group_id']==0]
+        self.header['signal_channels'] = sig_channels
+
+    def _get_signal_size(self, block_index, seg_index, channel_indexes):
+        if channel_indexes is None:
+            channel_indexes = slice(None)
+        assert np.unique(self.header['signal_channels'][channel_indexes]['group_id']).size == 1
+        channel_names = self.header['signal_channels'][channel_indexes]['name']
+        chan_name = channel_names[0]
+        size = self._raw_data[chan_name].size
+        return size
+
+
+neo_rawio_hooks['Intan'] = Intan
+
 
 
 class NeoRawIOAggregator(DataSourceBase):
@@ -213,8 +235,14 @@ class NeoRawIOAggregator(DataSourceBase):
         return rawio.get_analogsignal_chunk(block_index=0, seg_index=s, 
                         i_start=i_start, i_stop=i_stop)
 
-#Put 'RawBinarySignal' at first position
-rawiolist = list(neo.rawio.rawiolist)
+#Construct the list with taking local class with hooks dict
+rawiolist = []
+for rawio_class in neo.rawio.rawiolist:
+    name = rawio_class.__name__.replace('RawIO', '')
+    if name in neo_rawio_hooks:
+        rawio_class = neo_rawio_hooks[name]
+    rawiolist.append(rawio_class)
+
 if neo.rawio.RawBinarySignalRawIO in rawiolist:
     # to avoid bug in readthe doc with moc
     RawBinarySignalRawIO = rawiolist.pop(rawiolist.index(neo.rawio.RawBinarySignalRawIO))
