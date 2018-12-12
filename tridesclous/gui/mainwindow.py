@@ -360,6 +360,8 @@ class MainWindow(QT.QMainWindow):
         for chan_grp in self.chan_grps:
             self.close_window_chan_grp(chan_grp)
         
+        self.refresh_with_reload()
+        
         if not self.dialog_fullchain_params.exec_():
             return
         if not self.dialog_method_features.exec_():
@@ -375,9 +377,9 @@ class MainWindow(QT.QMainWindow):
         clust_method = self.dialog_method_cluster.param_method['method']
         clust_kargs = get_dict_from_group_param(self.dialog_method_cluster.all_params[clust_method], cascade=True)
         
-        print(fullchain_kargs)
-        print('feat_method', feat_method)
-        print('clust_method', clust_method)
+        #~ print(fullchain_kargs)
+        #~ print('feat_method', feat_method)
+        #~ print('clust_method', clust_method)
 
         
         

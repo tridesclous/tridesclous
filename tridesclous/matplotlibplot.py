@@ -394,6 +394,7 @@ def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
             if spike_indexes.size>1000:
                 # limit to 1000 spike by segment
                 spike_indexes = np.random.choice(spike_indexes, size=1000)
+            spike_indexes = spike_indexes[(spike_indexes>-n_left)]
             
             wf_ = dataio.get_some_waveforms(seg_num=seg_num, chan_grp=chan_grp,
                         spike_indexes=spike_indexes, n_left=n_left, n_right=n_right)
