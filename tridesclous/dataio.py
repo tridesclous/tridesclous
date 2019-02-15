@@ -237,7 +237,10 @@ class DataIO:
         """
         self._rm_old_probe_file()
         probe_filename = os.path.join(self.dirname, os.path.basename(src_probe_filename))
-        shutil.copyfile(src_probe_filename, probe_filename)
+        try:
+            shutil.copyfile(src_probe_filename, probe_filename)
+        except shutil.SameFileError:
+            print('probe allready in dir')
         fix_prb_file_py2(probe_filename)
         self.info['probe_filename'] = os.path.basename(probe_filename)
         self.flush_info()

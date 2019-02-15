@@ -54,7 +54,7 @@ def summary_catalogue_clusters(dataio, chan_grp=None, labels=None, label=None,
             max_on_channel_abs = None
         
         max_peak_amplitude = cluster['max_peak_amplitude']
-        max_peak_amplitude_uV = 'No conversion available'
+        max_peak_amplitude_uV = np.nan
         if cc.dataio.datasource.bit_to_microVolt is not None and max_on_channel is not None:
             max_peak_amplitude_uV = max_peak_amplitude * cc.signals_mads[max_on_channel] * cc.dataio.datasource.bit_to_microVolt
             
@@ -186,7 +186,7 @@ def summary_after_peeler_clusters(dataio, catalogue=None, chan_grp=None, labels=
             max_on_channel_abs = None
 
         max_peak_amplitude = cluster['max_peak_amplitude']
-        max_peak_amplitude_uV = 'No conversion available'
+        max_peak_amplitude_uV = np.nan
         if dataio.datasource.bit_to_microVolt is not None and max_on_channel is not None:
             max_peak_amplitude_uV = max_peak_amplitude * catalogue['signals_mads'][max_on_channel] * dataio.datasource.bit_to_microVolt
 
@@ -270,11 +270,9 @@ def generate_report(dataio, export_path=None, neighborhood_radius=None) :
         path = os.path.join(export_path, 'chan_grp {}'.format(chan_grp), 'figures')
         if not os.path.exists(path):
             os.makedirs(path)
-
+        
+        
         for label in labels:
             figs = summary_after_peeler_clusters(dataio,chan_grp=chan_grp, label=label, neighborhood_radius=neighborhood_radius)
             figs[0].savefig(os.path.join(path, 'summary_cluster_{}.png'.format(label)))
-    
-    
-    
     
