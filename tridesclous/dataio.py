@@ -240,7 +240,8 @@ class DataIO:
         try:
             shutil.copyfile(src_probe_filename, probe_filename)
         except shutil.SameFileError:
-            print('probe allready in dir')
+            # print('probe allready in dir')
+            pass
         fix_prb_file_py2(probe_filename)
         self.info['probe_filename'] = os.path.basename(probe_filename)
         self.flush_info()
