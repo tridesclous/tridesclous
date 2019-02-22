@@ -212,7 +212,8 @@ class DataIO:
         #TODO test in prb is compatible with py3
         d = {}
         probe_filename = os.path.join(self.dirname, self.info['probe_filename'])
-        exec(open(probe_filename).read(), None, d)
+        with open(probe_filename) as f:
+            exec(f.read(), None, d)
         channel_groups = d['channel_groups']
 
         for chan_grp, channel_group in channel_groups.items():
