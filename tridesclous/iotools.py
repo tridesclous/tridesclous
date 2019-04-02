@@ -127,7 +127,7 @@ class ArrayCollection:
             
             mode = self._fix_existing(name)
             # detect when 0 size because np.memmap  bug with size=0
-            if np.prod(shape)>0:
+            if np.prod(shape)!=0:
                 arr = np.memmap(self._fname(name), dtype=dtype, mode=mode, shape=shape)
             else:
                 with open(self._fname(name), mode=mode) as f:
