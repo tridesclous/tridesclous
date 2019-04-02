@@ -539,10 +539,16 @@ class DataIO:
         """
         self.arrays[chan_grp][seg_num].finalize_array('spikes')
     
+    def is_spike_computed(self, chan_grp=0):
+        done = all(self.arrays[chan_grp][seg_num].has_key('spikes') for seg_num in range(self.nb_segment))
+        return done
+    
     def get_spikes(self, seg_num=0, chan_grp=0, i_start=None, i_stop=None):
         """
         Read spikes
         """
+        if not self.arrays[chan_grp][seg_num].has_key('spikes'):
+            return None
         spikes = self.arrays[chan_grp][seg_num].get('spikes')
         if spikes is None:
             return
@@ -651,6 +657,11 @@ class DataIO:
         for chan_grp in self.channel_groups.keys():
             
             catalogue = self.load_catalogue(chan_grp=chan_grp)
+            if catalogue is None:
+                continue
+            
+            if not self.is_spike_computed(chan_grp=chan_grp):
+                continue
             
             for seg_num in range(self.nb_segment):
                 spikes = self.get_spikes(seg_num=seg_num, chan_grp=chan_grp)

@@ -275,6 +275,9 @@ class ArrayCollection:
         for k in all_keys:
             self.load_if_exists(k)
     
+    def has_key(self, name):
+        return name in self._array_attr
+    
     def get(self, name):
         assert name in self._array_attr
         return self._array[name]

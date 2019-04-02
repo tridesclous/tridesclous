@@ -257,6 +257,9 @@ def generate_report(dataio, export_path=None, neighborhood_radius=None) :
     
     
     for chan_grp in dataio.channel_groups.keys():
+        if not dataio.is_spike_computed(chan_grp=chan_grp):
+            continue
+        
         catalogue = dataio.load_catalogue(chan_grp=chan_grp)
         
         if catalogue is None:
@@ -271,8 +274,7 @@ def generate_report(dataio, export_path=None, neighborhood_radius=None) :
         if not os.path.exists(path):
             os.makedirs(path)
         
-        
         for label in labels:
-            figs = summary_after_peeler_clusters(dataio,chan_grp=chan_grp, label=label, neighborhood_radius=neighborhood_radius)
+            figs = summary_after_peeler_clusters(dataio, chan_grp=chan_grp, label=label, neighborhood_radius=neighborhood_radius)
             figs[0].savefig(os.path.join(path, 'summary_cluster_{}.png'.format(label)))
     

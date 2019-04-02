@@ -57,11 +57,11 @@ if __name__ == '__main__':
     
     #~ test_summary_catalogue_clusters()
     
-    #~ test_summary_noise()
+    test_summary_noise()
     
     #~ test_summary_after_peeler_clusters()
     
     #~ plt.show()
     
-    test_generate_report()
+    #~ test_generate_report()
 
