@@ -263,9 +263,9 @@ if __name__ =='__main__':
     
     #~ open_catalogue_window()
     
-    #~ test_peeler()
+    test_peeler()
     
-    test_peeler_sparse_opencl()
+    #~ test_peeler_sparse_opencl()
     
     #~ test_peeler_empty_catalogue()
     

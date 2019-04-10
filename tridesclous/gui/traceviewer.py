@@ -8,7 +8,7 @@ from .base import WidgetBase
 from .tools import TimeSeeker
 from ..tools import median_mad
 from ..dataio import _signal_types
-from ..peeler import make_prediction_signals
+from ..peeler_tools import make_prediction_signals
 
 
 class MyViewBox(pg.ViewBox):
