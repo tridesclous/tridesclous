@@ -46,7 +46,7 @@ def test_peeler():
 
     peeler = Peeler(dataio)
     
-    peeler.change_params(catalogue=initial_catalogue,chunksize=1024)
+    peeler.change_params(engine='classic', catalogue=initial_catalogue,chunksize=1024)
     
     t1 = time.perf_counter()
     peeler.run(progressbar=False)
@@ -61,7 +61,9 @@ def test_peeler_sparse_opencl():
 
     peeler = Peeler(dataio)
     
-    peeler.change_params(catalogue=initial_catalogue,chunksize=1024,
+    peeler.change_params(engine='classic',
+                                        catalogue=initial_catalogue,
+                                        chunksize=1024,
                                         use_sparse_template=True,
                                         sparse_threshold_mad=1.5,
                                         use_opencl_with_sparse=True,
@@ -107,7 +109,7 @@ def test_peeler_empty_catalogue():
     for chunksize in chunksizes:
         print('**',  chunksize, '**')
         peeler = Peeler(dataio)
-        peeler.change_params(catalogue=catalogue,chunksize=chunksize)
+        peeler.change_params(engine='classic', catalogue=catalogue,chunksize=chunksize)
         t1 = time.perf_counter()
         #~ peeler.run(progressbar=False)
         peeler.run_offline_loop_one_segment(seg_num=0, progressbar=False)
@@ -126,10 +128,11 @@ def test_peeler_empty_catalogue():
         
         
         online_peaks = unlabeled_spike['index']
-
-        i_stop = sig_length-catalogue['signal_preprocessor_params']['lostfront_chunksize']-peeler.n_side+peeler.n_span
+        engine = peeler.peeler_engine
+        
+        i_stop = sig_length-catalogue['signal_preprocessor_params']['lostfront_chunksize']-engine.n_side+engine.n_span
         sigs = dataio.get_signals_chunk(signal_type='processed', i_stop=i_stop)
-        offline_peaks  = detect_peaks_in_chunk(sigs, peeler.n_span, peeler.relative_threshold, peeler.peak_sign)
+        offline_peaks  = detect_peaks_in_chunk(sigs, engine.n_span, engine.relative_threshold, engine.peak_sign)
         
         offline_peaks  = offline_peaks[offline_peaks<=online_peaks[-1]]
         
@@ -162,11 +165,12 @@ def test_peeler_several_chunksize():
     for chunksize in chunksizes:
         print('**',  chunksize, '**')
         peeler = Peeler(dataio)
-        peeler.change_params(catalogue=catalogue,chunksize=chunksize)
+        peeler.change_params(engine='classic', catalogue=catalogue,chunksize=chunksize)
         t1 = time.perf_counter()
         peeler.run_offline_loop_one_segment(seg_num=0, progressbar=False)
         t2 = time.perf_counter()
-        print('n_side', peeler.n_side, 'n_span', peeler.n_span, 'peak_width', peeler.peak_width)
+        print('n_side', peeler.peeler_engine.n_side, 'n_span', peeler.peeler_engine.n_span,
+                        'peak_width', peeler.peeler_engine.peak_width)
         print('peeler.run_loop', t2-t1)
         
         # copy is need because the memmap is reset at each loop
@@ -267,9 +271,9 @@ if __name__ =='__main__':
     
     #~ test_peeler_sparse_opencl()
     
-    #~ test_peeler_empty_catalogue()
+    test_peeler_empty_catalogue()
     
-    #~ test_peeler_several_chunksize()
+    test_peeler_several_chunksize()
     
     #~ test_export_spikes()
     
