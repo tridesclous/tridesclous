@@ -171,7 +171,7 @@ def test_FeatureTimeViewer():
     if __name__ == '__main__':
         app.exec_()
 
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_CatalogueWindow():
     dataio = DataIO(dirname='test_cataloguewindow')
 
@@ -189,14 +189,14 @@ def test_CatalogueWindow():
     
     
 if __name__ == '__main__':
-    setup_module()
+    #~ setup_module()
     
     #~ test_CatalogueController()
     
     #~ test_CatalogueTraceViewer()
     #~ test_PeakList()
     #~ test_ClusterPeakList()
-    #~ test_NDScatter()
+    test_NDScatter()
     #~ test_WaveformViewer()
     #~ test_SpikeSimilarityView()
     #~ test_ClusterSimilarityView()
@@ -206,7 +206,7 @@ if __name__ == '__main__':
     #~ test_WaveformHistViewer()
     #~ test_FeatureTimeViewer()
     
-    test_CatalogueWindow()
+    #~ test_CatalogueWindow()
 
 
 
