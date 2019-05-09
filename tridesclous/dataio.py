@@ -244,6 +244,19 @@ class DataIO:
             # print('probe allready in dir')
             pass
         fix_prb_file_py2(probe_filename)
+        # check that the geometry is 2D
+        with open(probe_filename) as f:
+            d = {}
+            exec(f.read(), None, d)
+            channel_groups = d['channel_groups']
+            for chan_grp, channel_group in channel_groups.items():
+                geometry = channel_group.get('geometry', None)
+                if geometry is not None:
+                    for c, v in geometry.items():
+                        assert len(v) == 2, 'Tridesclous need 2D geometry'
+                    
+                
+        
         self.info['probe_filename'] = os.path.basename(probe_filename)
         self.flush_info()
         self._reload_channel_group()
