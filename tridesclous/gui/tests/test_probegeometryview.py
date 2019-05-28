@@ -3,8 +3,10 @@ from tridesclous.tools import download_probe
 import  pyqtgraph as pg
 
 
+import pytest
+from tridesclous.tests.testingtools import ON_CI_CLOUD
 
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_ProbeGeometryView():
     local_dirname = ''
     
