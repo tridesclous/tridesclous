@@ -212,7 +212,8 @@ class DataIO:
         #TODO test in prb is compatible with py3
         d = {}
         probe_filename = os.path.join(self.dirname, self.info['probe_filename'])
-        exec(open(probe_filename).read(), None, d)
+        with open(probe_filename) as f:
+            exec(f.read(), None, d)
         channel_groups = d['channel_groups']
 
         for chan_grp, channel_group in channel_groups.items():
@@ -240,8 +241,22 @@ class DataIO:
         try:
             shutil.copyfile(src_probe_filename, probe_filename)
         except shutil.SameFileError:
-            print('probe allready in dir')
+            # print('probe allready in dir')
+            pass
         fix_prb_file_py2(probe_filename)
+        # check that the geometry is 2D
+        with open(probe_filename) as f:
+            d = {}
+            exec(f.read(), None, d)
+            channel_groups = d['channel_groups']
+            for chan_grp, channel_group in channel_groups.items():
+                geometry = channel_group.get('geometry', None)
+                if geometry is not None:
+                    for c, v in geometry.items():
+                        assert len(v) == 2, 'Tridesclous need 2D geometry'
+                    
+                
+        
         self.info['probe_filename'] = os.path.basename(probe_filename)
         self.flush_info()
         self._reload_channel_group()
@@ -537,10 +552,16 @@ class DataIO:
         """
         self.arrays[chan_grp][seg_num].finalize_array('spikes')
     
+    def is_spike_computed(self, chan_grp=0):
+        done = all(self.arrays[chan_grp][seg_num].has_key('spikes') for seg_num in range(self.nb_segment))
+        return done
+    
     def get_spikes(self, seg_num=0, chan_grp=0, i_start=None, i_stop=None):
         """
         Read spikes
         """
+        if not self.arrays[chan_grp][seg_num].has_key('spikes'):
+            return None
         spikes = self.arrays[chan_grp][seg_num].get('spikes')
         if spikes is None:
             return
@@ -649,6 +670,11 @@ class DataIO:
         for chan_grp in self.channel_groups.keys():
             
             catalogue = self.load_catalogue(chan_grp=chan_grp)
+            if catalogue is None:
+                continue
+            
+            if not self.is_spike_computed(chan_grp=chan_grp):
+                continue
             
             for seg_num in range(self.nb_segment):
                 spikes = self.get_spikes(seg_num=seg_num, chan_grp=chan_grp)

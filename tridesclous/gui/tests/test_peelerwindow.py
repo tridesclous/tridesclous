@@ -115,7 +115,7 @@ def test_CrossCorrelogramViewer():
         app.exec_()    
 
     
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_PeelerWindow():
     dataio = DataIO(dirname='test_peelerwindow')
     initial_catalogue = dataio.load_catalogue(chan_grp=0)

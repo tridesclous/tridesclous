@@ -127,7 +127,7 @@ class ArrayCollection:
             
             mode = self._fix_existing(name)
             # detect when 0 size because np.memmap  bug with size=0
-            if np.prod(shape)>0:
+            if np.prod(shape)!=0:
                 arr = np.memmap(self._fname(name), dtype=dtype, mode=mode, shape=shape)
             else:
                 with open(self._fname(name), mode=mode) as f:
@@ -274,6 +274,9 @@ class ArrayCollection:
             all_keys = list(d.keys())
         for k in all_keys:
             self.load_if_exists(k)
+    
+    def has_key(self, name):
+        return name in self._array_attr
     
     def get(self, name):
         assert name in self._array_attr

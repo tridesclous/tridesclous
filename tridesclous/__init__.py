@@ -21,9 +21,13 @@ import PyQt5 # this force pyqtgraph to deal with Qt5
 import matplotlib
 import warnings
 with warnings.catch_warnings():
-    # This avoid warning in jupyter
-    warnings.simplefilter("ignore")
-    matplotlib.use('Qt5Agg')
+    try:                                                                                                                                                                                                                                    
+        warnings.simplefilter("ignore")
+        matplotlib.use('Qt5Agg')                                                                                                                                                                                                            
+    except:
+        # on server without screen this is not possible.
+        pass
+
 
 from .datasets import download_dataset, get_dataset
 
@@ -42,7 +46,7 @@ from .cltools import get_cl_device_list, set_default_cl_device
 
 # from .peeler_cl import Peeler_OpenCl
 
-from .importers import import_from_spykingcircus
+from .importers import import_from_spykingcircus, import_from_spike_interface
 
 from .matplotlibplot import *
 from .report import *

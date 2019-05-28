@@ -157,7 +157,6 @@ class Intan(neo.rawio.IntanRawIO):
         size = self._raw_data[chan_name].size
         return size
 
-
 neo_rawio_hooks['Intan'] = Intan
 
 

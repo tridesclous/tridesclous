@@ -1362,7 +1362,7 @@ class CatalogueConstructor:
         neg_clusters = clusters[clusters['cluster_label']<0]
         pos_clusters = clusters[clusters['cluster_label']>=0]
         
-        print('order_clusters', by)
+        #~ print('order_clusters', by)
         if by=='waveforms_rms':
             order = np.argsort(pos_clusters['waveform_rms'])[::-1]
         elif by=='max_peak_amplitude':
@@ -1412,7 +1412,7 @@ class CatalogueConstructor:
     def make_catalogue(self):
         #TODO: offer possibility to resample some waveforms or choose the number
         
-        t1 = time.perf_counter()
+        #~ t1 = time.perf_counter()
         self.catalogue = {}
         
         self.catalogue = {}
@@ -1512,8 +1512,8 @@ class CatalogueConstructor:
         self.catalogue['signals_mads'] = np.array(self.signals_mads, copy=True)
         
         
-        t2 = time.perf_counter()
-        print('make_catalogue', t2-t1)
+        #~ t2 = time.perf_counter()
+        #~ print('make_catalogue', t2-t1)
         
         return self.catalogue
     
