@@ -13,6 +13,10 @@ from tridesclous.report import summary_catalogue_clusters, summary_noise, summar
 import matplotlib.pyplot as plt
 
 
+from tridesclous.tests.testingtools import ON_CI_CLOUD
+import pytest
+
+
 def setup_module():
     setup_catalogue('test_report', dataset_name='striatum_rat')
     
@@ -25,18 +29,21 @@ def setup_module():
 def teardown_module():
     shutil.rmtree('test_report')
 
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_summary_catalogue_clusters():
     dataio = DataIO(dirname='test_report')
 
     #~ summary_catalogue_clusters(dataio, chan_grp=0)
     summary_catalogue_clusters(dataio, chan_grp=0, labels= [0])
-    
+
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_summary_noise():
     dataio = DataIO(dirname='test_report')
  
     
     summary_noise(dataio, chan_grp=0)
-    
+
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_summary_after_peeler_clusters():
     dataio = DataIO(dirname='test_report')
     summary_after_peeler_clusters(dataio, chan_grp=0,  labels= [0])
@@ -44,7 +51,7 @@ def test_summary_after_peeler_clusters():
     summary_after_peeler_clusters(dataio, chan_grp=0,  labels= [0], neighborhood_radius=200)
 
 
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_generate_report():
     dataio = DataIO(dirname='test_report')
     
