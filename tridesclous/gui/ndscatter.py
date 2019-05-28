@@ -32,11 +32,11 @@ class MyViewBox(pg.ViewBox):
         
     def mouseClickEvent(self, ev):
         ev.accept()
+        
     def mouseDoubleClickEvent(self, ev):
         self.doubleclicked.emit()
         ev.accept()
-    def mouseDragEvent(self, ev):
-        ev.ignore()
+        
     def wheelEvent(self, ev, axis=None):
         if ev.modifiers() == QT.Qt.ControlModifier:
             z = 10 if ev.delta()>0 else 1/10.
@@ -44,6 +44,7 @@ class MyViewBox(pg.ViewBox):
             z = 1.3 if ev.delta()>0 else 1/1.3
         self.gain_zoom.emit(z)
         ev.accept()
+        
     def mouseDragEvent(self, ev):
         ev.accept()
         if ev.button()!=1: return
