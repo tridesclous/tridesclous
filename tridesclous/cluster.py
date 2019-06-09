@@ -53,8 +53,13 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         agg = sklearn.cluster.AgglomerativeClustering(n_clusters=kargs.pop('n_clusters'), **kargs)
         labels = agg.fit_predict(features)
     elif method == 'dbscan':
+        if 'eps' not in kargs:
+            kargs['eps'] = 2.5
         dbscan = sklearn.cluster.DBSCAN(**kargs)
         labels = dbscan.fit_predict(features)
+    elif  method == 'optics':
+        optic = sklearn.cluster.OPTICS(**kargs)
+        labels = optic.fit_predict(features)
     elif method == 'sawchaincut':
         n_left = cc.info['waveform_extractor_params']['n_left']
         n_right = cc.info['waveform_extractor_params']['n_right']

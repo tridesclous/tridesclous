@@ -32,7 +32,7 @@ def apply_all_catalogue_steps(catalogueconstructor, fullchain_kargs,
             'peakdetector_engine' : 'numpy',
             'peak_sign' : '-',
             'relative_threshold' : 5.,
-            'peak_span' : 0.0002,
+            'peak_span_ms' : 0.2,
         },
         'noise_snippet' : {
             'nb_snippet' : 300,

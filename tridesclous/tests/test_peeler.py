@@ -263,7 +263,7 @@ def debug_compare_peeler():
     
     
 if __name__ =='__main__':
-    #~ setup_module()
+    setup_module()
     
     #~ open_catalogue_window()
     

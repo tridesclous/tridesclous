@@ -123,7 +123,7 @@ class CatalogueConstructor:
             lostfront_chunksize=64,
             peak_sign='-', 
             relative_threshold=5.5,
-            peak_span=0.0005,
+            peak_span_ms=0.3,
             )
         cc.estimate_signals_noise(seg_num=0, duration=10.)
         cc.run_signalprocessor(duration=60.)
@@ -308,7 +308,7 @@ class CatalogueConstructor:
             
             #peak detector
             peakdetector_engine='numpy',
-            peak_sign='-', relative_threshold=7, peak_span=0.0002,
+            peak_sign='-', relative_threshold=7, peak_span_ms=0.3,
             
             ):
         """
@@ -353,8 +353,8 @@ class CatalogueConstructor:
         relative_threshold: int default 7
             Threshold for peak detection. The preprocessed signal have units
             expressed in MAD (robust STD). So 7 is MAD*7.
-        peak_span: float default 0.0002
-            Peak span to avoid double detection. In second.
+        peak_span_ms: float default 0.3
+            Peak span to avoid double detection. In millisecond.
         """
 
         
@@ -379,7 +379,7 @@ class CatalogueConstructor:
         self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.nb_channel, chunksize, self.dataio.source_dtype)
         
         
-        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span=peak_span)
+        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span_ms=peak_span_ms)
         PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
         self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.nb_channel,
                                                         self.chunksize, internal_dtype)
@@ -537,7 +537,7 @@ class CatalogueConstructor:
             
         self.finalize_signalprocessor_loop()
     
-    def re_detect_peak(self, peakdetector_engine='numpy', peak_sign='-', relative_threshold=7, peak_span=0.0002):
+    def re_detect_peak(self, peakdetector_engine='numpy', peak_sign='-', relative_threshold=7, peak_span_ms=0.3):
         """
         Peak are detected while **run_signalprocessor**.
         But in some case for testing other threshold we can **re-detect peak** without signal processing.
@@ -551,12 +551,12 @@ class CatalogueConstructor:
         relative_threshold: int default 7
             Threshold for peak detection. The preprocessed signal have units
             expressed in MAD (robust STD). So 7 is MAD*7.
-        peak_span: float default 0.0002
+        peak_span_ms: float default 0.3
             Peak span to avoid double detection. In second.
         
         """
         #TODO if not peak detector in class
-        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span=peak_span)
+        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span_ms=peak_span_ms)
         PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
         self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.nb_channel,
                                                         self.info['chunksize'], self.info['internal_dtype'])
@@ -597,9 +597,10 @@ class CatalogueConstructor:
     
 
     
-    def extract_some_waveforms(self, n_left=None, n_right=None, index=None, 
-                                    mode='rand', nb_max=10000,
-                                    align_waveform=False, subsample_ratio=20):
+    def extract_some_waveforms(self, n_left=None, n_right=None,
+                            wf_left_ms=None, wf_right_ms=None,
+                            index=None, mode='rand', nb_max=10000,
+                            align_waveform=False, subsample_ratio=20):
         """
         Extract waveform snippet for a subset of peaks (already detected).
         
@@ -614,6 +615,10 @@ class CatalogueConstructor:
             Left sweep in sample must be negative
         n_right: int
             Right sweep in sample
+        wf_left_ms: 
+            Left sweep in ms must be negative
+        wf_right_ms: 
+            Right sweep in ms must be negative
         index: None (by default) or numpy array of int
             If mode is None then the user can give a selection index of peak 
             to extract waveforms.
@@ -626,9 +631,14 @@ class CatalogueConstructor:
         
         """
         if n_left is None or n_right is None:
-            assert  'waveform_extractor_params' in self.info
-            n_left = self.info['waveform_extractor_params']['n_left']
-            n_right = self.info['waveform_extractor_params']['n_right']
+            if 'waveform_extractor_params' in self.info:
+                n_left = self.info['waveform_extractor_params']['n_left']
+                n_right = self.info['waveform_extractor_params']['n_right']
+            elif wf_left_ms is not None and wf_right_ms is not None:
+                n_left = int(wf_left_ms / 1000. * self.dataio.sample_rate)
+                n_right = int(wf_right_ms / 1000. * self.dataio.sample_rate)
+            else:
+                raise(ValueError('Must provide wf_left_ms/wf_right_ms'))
         
         peak_sign = self.info['peak_detector_params']['peak_sign']
         

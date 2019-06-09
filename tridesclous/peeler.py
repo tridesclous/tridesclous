@@ -20,12 +20,13 @@ from .peeler_tools import _dtype_spike
 from tqdm import tqdm
 
 from .peeler_engine_classic import PeelerEngineClassic
-#~ from .peeler_engine_classic_cl import PeelerEngineClassicOpenCl
-
+from .peeler_engine_classic_cl import PeelerEngineClassicOpenCl
+#~ from .peeler_engine_strict import PeelerEngineStrict
 
 peeler_engines = {
     'classic' : PeelerEngineClassic,
-    #~ 'classic_cl' : PeelerEngineClassicOpenCl,
+    'classic_opencl' : PeelerEngineClassicOpenCl,
+    #~ 'strict' : PeelerEngineStrict,
 }
 
 
@@ -68,6 +69,8 @@ class Peeler:
         return t
 
     def change_params(self, catalogue=None, engine='classic', internal_dtype='float32', chunksize=1024, **params):
+        assert catalogue is not None
+        
         self.catalogue = catalogue
         self.internal_dtype = internal_dtype
         self.chunksize = chunksize
@@ -76,7 +79,7 @@ class Peeler:
         self.peeler_engine.change_params(catalogue=catalogue, internal_dtype=internal_dtype, chunksize=chunksize, **params)
     
     def process_one_chunk(self,  pos, sigs_chunk):
-        self.peeler_engine.process_one_chunk(pos, sigs_chunk)
+        return self.peeler_engine.process_one_chunk(pos, sigs_chunk)
     
     def initialize_online_loop(self, sample_rate=None, nb_channel=None, source_dtype=None):
         self.peeler_engine.initialize_before_each_segment(sample_rate=sample_rate, nb_channel=nb_channel, source_dtype=source_dtype)

@@ -87,7 +87,7 @@ def plot_signals(dataio_or_cataloguecconstructor, chan_grp=0, seg_num=0, time_sl
         
         if with_span:
             d = cataloguecconstructor.info['peak_detector_params']
-            s = d['peak_span']
+            s = d['peak_span_ms'] / 1000.
             for ind in peak_indexes:
                 ax.axvspan(times[ind]-s, times[ind]+s, color='b', alpha = .3)
     

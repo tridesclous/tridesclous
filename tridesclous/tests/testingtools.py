@@ -53,8 +53,7 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
         'peak_detector' : {
             'peak_sign' : '-',
             'relative_threshold' : 7.,
-            'peak_span' : 0.0005,
-            #~ 'peak_span' : 0.000,
+            'peak_span_ms' : 0.5,
         },
         'extract_waveforms' : {
             'n_left' : -25,

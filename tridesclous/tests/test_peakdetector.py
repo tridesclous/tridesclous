@@ -13,8 +13,8 @@ from tridesclous.tests.test_signalpreprocessor import offline_signal_preprocesso
 
 from tridesclous.peakdetector import HAVE_PYOPENCL
 
-def offline_peak_detect(normed_sigs, sample_rate, peak_sign='-',relative_threshold = 5,  peak_span = 0.0005):
-    n_span = int(sample_rate*peak_span)//2
+def offline_peak_detect(normed_sigs, sample_rate, peak_sign='-',relative_threshold = 5,  peak_span_ms=0.5):
+    n_span = int(sample_rate * peak_span_ms / 1000.)//2
    
     # rectifiy
     rectified_sigs = normed_sigs.copy()
@@ -67,7 +67,7 @@ def test_compare_offline_online_engines():
     chunksize = 1024
     peak_sign = '-'
     relative_threshold = 8
-    peak_span = 0.0009
+    peak_span_ms = 0.9
     
     #~ print('n_span', n_span)
     nloop = sigs.shape[0]//chunksize
@@ -101,7 +101,7 @@ def test_compare_offline_online_engines():
         
         
         t1 = time.perf_counter()
-        offline_peaks, rectified_sum = offline_peak_detect(sigs, sample_rate, peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span=peak_span)
+        offline_peaks, rectified_sum = offline_peak_detect(sigs, sample_rate, peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span_ms=peak_span_ms)
         t2 = time.perf_counter()
         print('offline', 'process time', t2-t1)
         #~ print(offline_peaks)
@@ -114,7 +114,7 @@ def test_compare_offline_online_engines():
             peakdetector_engine = EngineClass(sample_rate, nb_channel, chunksize, 'float32')
             
             peakdetector_engine.change_params(peak_sign=peak_sign, relative_threshold=relative_threshold,
-                            peak_span=peak_span)
+                            peak_span_ms=peak_span_ms)
             
             all_online_peaks = []
             t1 = time.perf_counter()
@@ -123,6 +123,7 @@ def test_compare_offline_online_engines():
                 pos = (i+1)*chunksize
                 chunk = sigs[pos-chunksize:pos,:]
                 n_peaks, chunk_peaks = peakdetector_engine.process_data(pos, chunk)
+                #~ print(n_peaks)
                 if chunk_peaks is not None:
                     #~ all_online_peaks.append(chunk_peaks['index'])
                     all_online_peaks.append(chunk_peaks)

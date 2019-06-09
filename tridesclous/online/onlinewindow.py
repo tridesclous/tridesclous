@@ -157,6 +157,8 @@ class TdcOnlineWindow(MainWindowNode):
                             nodegroup_friends=None, 
                             ):
         
+        self.sample_rate = None
+        
         self.channel_groups = channel_groups
         
         self.chunksize = chunksize
@@ -430,9 +432,16 @@ class TdcOnlineWindow(MainWindowNode):
         p = self.dialog_fullchain_params.get()
         p['preprocessor'].pop('chunksize')
         
+        if self.sample_rate is None:
+            # before input connect need to make fake catalogue
+            n_left, n_right = -20, 40
+        else:
+            n_left=int(p['extract_waveforms']['wf_left_ms'] / 1000. * self.sample_rate)
+            n_right=int(p['extract_waveforms']['wf_right_ms'] / 1000. * self.sample_rate)
+        
         params = dict(
-            n_left=p['extract_waveforms']['n_left'],
-            n_right=p['extract_waveforms']['n_right'],
+            n_left=n_left,
+            n_right=n_right,
             
             internal_dtype='float32',
             

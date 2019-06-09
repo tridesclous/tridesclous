@@ -69,7 +69,7 @@ def preprocess_signals_and_peaks():
             peakdetector_engine='opencl',
             peak_sign='-', 
             relative_threshold=6,
-            peak_span=0.0002,
+            peak_span_ms=0.2,
             )
             
     t1 = time.perf_counter()
