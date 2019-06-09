@@ -612,20 +612,21 @@ class TdcOnlineWindow(MainWindowNode):
         for chan_grp in self.channel_groups:
             cc = CatalogueConstructor(dataio=self.dataio, chan_grp=chan_grp)
             self.catalogueconstructors[chan_grp] = cc
-
-        fullchain_kargs = self.dialog_fullchain_params.get()
-        fullchain_kargs['preprocessor']['chunksize'] = self.chunksize
         
-        feat_method = self.dialog_method_features.param_method['method']
-        feat_kargs = get_dict_from_group_param(self.dialog_method_features.all_params[feat_method], cascade=True)
+        params = {}
+        params.update(self.dialog_fullchain_params.get())
+        params['preprocessor']['chunksize'] = self.chunksize
+        
+        params['feature_method'] = self.dialog_method_features.param_method['method']
+        params['feature_kargs'] = get_dict_from_group_param(self.dialog_method_features.all_params[params['feature_method']], cascade=True)
 
-        clust_method = self.dialog_method_cluster.param_method['method']
-        clust_kargs = get_dict_from_group_param(self.dialog_method_cluster.all_params[clust_method], cascade=True)
+        params['cluster_method'] = self.dialog_method_cluster.param_method['method']
+        params['cluster_kargs'] = get_dict_from_group_param(self.dialog_method_cluster.all_params[params['cluster_method']], cascade=True)
 
-        #~ print('feat_method', feat_method, 'clust_method', clust_method)
-        self.worker = Worker(self.catalogueconstructors, fullchain_kargs,
-                feat_method, feat_kargs,
-                clust_method, clust_kargs)
+        params['clean_cluster'] = False
+        params['clean_cluster_kargs'] = {}
+
+        self.worker = Worker(self.catalogueconstructors, params)
         
         self.worker.moveToThread(self.worker_thread)
         self.request_compute.connect(self.worker.compute)
@@ -807,17 +808,11 @@ class WidgetOverview(QT.QWidget):
 class Worker(QT.QObject):
     done = QT.pyqtSignal(int)
     compute_catalogue_error = QT.pyqtSignal(object)
-    def __init__(self, catalogueconstructors, fullchain_kargs, 
-                feat_method, feat_kargs,
-                clust_method, clust_kargs, parent=None):
+    def __init__(self, catalogueconstructors, params, parent=None):
         QT.QObject.__init__(self, parent=parent)
         
         self.catalogueconstructors = catalogueconstructors
-        self.fullchain_kargs = fullchain_kargs
-        self.feat_method = feat_method
-        self.feat_kargs = feat_kargs
-        self.clust_method = clust_method
-        self.clust_kargs = clust_kargs
+        self.params = params
     
     def compute(self):
         #~ print('compute')
@@ -825,15 +820,11 @@ class Worker(QT.QObject):
         for chan_grp, catalogueconstructor in self.catalogueconstructors.items():
         
             print(catalogueconstructor)
-            print('self.fullchain_kargs duration', self.fullchain_kargs['duration'])
+            print('self.params duration', self.params['duration'])
             
             try:
             #~ if 1:
-                apply_all_catalogue_steps(catalogueconstructor, self.fullchain_kargs, 
-                        self.feat_method, self.feat_kargs, self.clust_method, self.clust_kargs,
-                        verbose=False,
-                        #~ verbose=True,
-                        )
+                apply_all_catalogue_steps(catalogueconstructor, self.params,  verbose=False)
                 
                 catalogueconstructor.make_catalogue_for_peeler()
                 print(catalogueconstructor)

@@ -43,7 +43,7 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
     
-    fullchain_kargs = {
+    params = {
         'duration' : 60.,
         'preprocessor' : {
             'highpass_freq' : 300.,
@@ -56,8 +56,8 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
             'peak_span_ms' : 0.5,
         },
         'extract_waveforms' : {
-            'n_left' : -25,
-            'n_right' : 40,
+            'wf_left_ms' : -2.5,
+            'wf_right_ms' : 4.0,
             'nb_max' : 10000,
         },
         'clean_waveforms' : {
@@ -65,14 +65,17 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
         },
         'noise_snippet' : {
             'nb_snippet' : 300,
-        },        
+        },
+        'feature_method': 'global_pca', 
+        'feature_kargs':{'n_components': 5},
+        'cluster_method' : 'kmeans', 
+        'cluster_kargs' : {'n_clusters': 12},
+        'clean_cluster' : False,
+        'clean_cluster_kargs' : {},
     }
     
-    apply_all_catalogue_steps(catalogueconstructor,
-        fullchain_kargs,
-        'global_pca', {'n_components': 5},
-        'kmeans', {'n_clusters': 12},
-        verbose=True)
+    apply_all_catalogue_steps(catalogueconstructor, params, verbose=True)
+        
     catalogueconstructor.trash_small_cluster()
     
     catalogueconstructor.order_clusters(by='waveforms_rms')

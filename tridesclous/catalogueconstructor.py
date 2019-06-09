@@ -950,7 +950,7 @@ class CatalogueConstructor:
                 ind = self.index_of_label(old_label)
                 nb_peak = np.sum(self.all_peaks['cluster_label']==old_label)
                 if nb_peak == 0:
-                    self.remove_one_cluster(old_label)
+                    self.pop_labels_from_cluster([old_label])
                 else:
                     self.clusters['nb_peak'][ind] = nb_peak
                     self.compute_one_centroid(old_label)
@@ -1025,15 +1025,21 @@ class CatalogueConstructor:
         return ind
     
     def remove_one_cluster(self, label):
-        #~ if label not in self.clusters['cluster_label']:
-            #~ return
-        ind = self.index_of_label(label)
-        
-        #~ keep = np.arange(self.clusters.size).tolist()
-        #~ keep.remove(ind)
+        print('WARNING remove_one_cluster')
+        # This should not be called any more
+        # because name ambiguous
+        self.pop_labels_from_cluster([label])
+    
+    def pop_labels_from_cluster(self, labels):
+        # this reduce the array clusters by removing some labels
+        # warning all_peak are touched
+        if isinstance(labels, int):
+            labels = [labels]
         keep = np.ones(self.clusters.size, dtype='bool')
-        keep[ind] = False
-        
+        for k in labels:
+            ind = self.index_of_label(k)
+            keep[ind] = False
+
         clusters = self.clusters[keep].copy()
         self.arrays.add_array('clusters', clusters, self.memory_mode)
         
@@ -1163,8 +1169,7 @@ class CatalogueConstructor:
                 else:
                     to_remove.append(k)
         
-        for k in to_remove:
-            self.remove_one_cluster(k)
+        self.pop_labels_from_cluster(to_remove)
         
         self.arrays.flush_array('all_peaks')
         self.arrays.flush_array('clusters')
@@ -1185,8 +1190,7 @@ class CatalogueConstructor:
                 self.all_peaks['cluster_label'][mask] = -1
                 to_remove.append(k)
         
-        for k in to_remove:
-            self.remove_one_cluster(k)
+        self.pop_labels_from_cluster(to_remove)
 
     def compute_spike_waveforms_similarity(self, method='cosine_similarity', size_max = 1e7):
         """This compute the similarity spike by spike.
@@ -1257,7 +1261,7 @@ class CatalogueConstructor:
             mask = self.all_peaks['cluster_label'] == k2
             self.all_peaks['cluster_label'][mask] = k1
             already_merge[k2] = k1
-            self.remove_one_cluster(k2)
+            self.pop_labels_from_cluster([k2])
 
     def compute_cluster_ratio_similarity(self, method='cosine_similarity_with_max'):
         #~ print('compute_cluster_ratio_similarity')
@@ -1301,13 +1305,16 @@ class CatalogueConstructor:
 
         #~ t2 = time.perf_counter()
         #~ print('compute_cluster_ratio_similarity', t2-t1)        
-        
 
     def detect_similar_waveform_ratio(self, threshold=0.9):
         if self.cluster_ratio_similarity is None:
             self.compute_cluster_ratio_similarity()
         pairs = get_pairs_over_threshold(self.cluster_ratio_similarity, self.positive_cluster_labels, threshold)
         return pairs
+    
+    
+    def clean_cluster(self, too_small=10):
+        self.trash_small_cluster(n=too_small)
     
     def compute_spike_silhouette(self, size_max=1e7):
         #~ t1 = time.perf_counter()

@@ -41,7 +41,7 @@ def setup_catalogue():
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
     
-    fullchain_kargs = {
+    params = {
         'duration' : 60.,
         'preprocessor' : {
             'highpass_freq' : 300.,
@@ -64,14 +64,16 @@ def setup_catalogue():
         },
         'noise_snippet' : {
             'nb_snippet' : 300,
-        },        
+        },
+        'feature_method': 'global_pca', 
+        'feature_kargs':{'n_components': 12},
+        'cluster_method' : 'kmeans', 
+        'cluster_kargs' : {'n_clusters': 12},
+        'clean_cluster' : False,
+        'clean_cluster_kargs' : {},
     }
     
-    apply_all_catalogue_steps(catalogueconstructor,
-        fullchain_kargs,
-        'global_pca', {'n_components': 12},
-        'kmeans', {'n_clusters': 12},
-        verbose=True)
+    apply_all_catalogue_steps(catalogueconstructor, params, verbose=True)
     catalogueconstructor.trash_small_cluster()
     
     catalogueconstructor.order_clusters(by='waveforms_rms')

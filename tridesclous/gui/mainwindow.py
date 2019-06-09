@@ -369,28 +369,26 @@ class MainWindow(QT.QMainWindow):
         if not self.dialog_method_cluster.exec_():
             return
         
-        fullchain_kargs = self.dialog_fullchain_params.get()
+        params = {}
+        params.update(self.dialog_fullchain_params.get())
         
-        feat_method = self.dialog_method_features.param_method['method']
-        feat_kargs = get_dict_from_group_param(self.dialog_method_features.all_params[feat_method], cascade=True)
+        params['feature_method'] = self.dialog_method_features.param_method['method']
+        params['feature_kargs'] = get_dict_from_group_param(self.dialog_method_features.all_params[params['feature_method']], cascade=True)
 
-        clust_method = self.dialog_method_cluster.param_method['method']
-        clust_kargs = get_dict_from_group_param(self.dialog_method_cluster.all_params[clust_method], cascade=True)
+        params['cluster_method'] = self.dialog_method_cluster.param_method['method']
+        params['cluster_kargs'] = get_dict_from_group_param(self.dialog_method_cluster.all_params[params['cluster_method']], cascade=True)
         
-        #~ print(fullchain_kargs)
-        #~ print('feat_method', feat_method)
-        #~ print('clust_method', clust_method)
+        #TODO dialog for that
+        params['clean_cluster'] = False
+        params['clean_cluster_kargs'] = {}
 
-        
-        
         for chan_grp in self.chan_grps:
             print('### chan_grp', chan_grp, ' ###')
         
             try:
             #~ if 1:
                 catalogueconstructor = CatalogueConstructor(dataio=self.dataio, chan_grp=chan_grp)
-                apply_all_catalogue_steps(catalogueconstructor, fullchain_kargs, 
-                    feat_method, feat_kargs,clust_method, clust_kargs, verbose=True)            
+                apply_all_catalogue_steps(catalogueconstructor, params, verbose=True)            
                 
             except Exception as e:
                 print(e)

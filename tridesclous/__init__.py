@@ -40,7 +40,7 @@ from .tools import open_prb
 from .dataio import DataIO
 from .signalpreprocessor import offline_signal_preprocessor, estimate_medians_mads_after_preprocesing
 from .catalogueconstructor import CatalogueConstructor
-from .cataloguetools import apply_all_catalogue_steps
+from .cataloguetools import apply_all_catalogue_steps, get_auto_params_for_catalogue
 from .peeler import Peeler
 from .cltools import get_cl_device_list, set_default_cl_device
 
