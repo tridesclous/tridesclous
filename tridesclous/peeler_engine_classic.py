@@ -299,8 +299,8 @@ class PeelerEngineClassic(OpenCL_Helper):
 
         self.peak_sign = self.catalogue['peak_detector_params']['peak_sign']
         self.relative_threshold = self.catalogue['peak_detector_params']['relative_threshold']
-        peak_span = self.catalogue['peak_detector_params']['peak_span']
-        self.n_span = int(sample_rate*peak_span)//2
+        peak_span_ms = self.catalogue['peak_detector_params']['peak_span_ms']
+        self.n_span = int(sample_rate * peak_span_ms / 1000.)//2
         self.n_span = max(1, self.n_span)
         self.peak_width = self.catalogue['peak_width']
         self.n_side = self.catalogue['peak_width'] + maximum_jitter_shift + self.n_span + 1

@@ -43,7 +43,7 @@ def test_catalogue_constructor():
                 
                 #peak detector
                 peakdetector_engine='numpy',
-                peak_sign='-', relative_threshold=7, peak_span=0.0005,
+                peak_sign='-', relative_threshold=7, peak_span_ms=0.5,
                 
                 #waveformextractor
                 #~ n_left=-20, n_right=30, 
@@ -68,7 +68,7 @@ def test_catalogue_constructor():
         
         #redetect peak
         catalogueconstructor.re_detect_peak(peakdetector_engine='numpy',
-                                            peak_sign='-', relative_threshold=5, peak_span=0.0002)
+                                            peak_sign='-', relative_threshold=5, peak_span_ms=0.2)
         for seg_num in range(dataio.nb_segment):
             mask = catalogueconstructor.all_peaks['segment']==seg_num
             print('seg_num', seg_num, 'nb peak',  np.sum(mask))
@@ -76,7 +76,8 @@ def test_catalogue_constructor():
         
         
         t1 = time.perf_counter()
-        catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40, mode='rand', nb_max=5000)
+        #~ catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40, mode='rand', nb_max=5000)
+        catalogueconstructor.extract_some_waveforms(wf_left_ms=-2.5, wf_right_ms=4.0, mode='rand', nb_max=5000)
         t2 = time.perf_counter()
         print('extract_some_waveforms rand', t2-t1)
         print(catalogueconstructor.some_waveforms.shape)
@@ -177,7 +178,7 @@ def compare_nb_waveforms():
                                 lostfront_chunksize=128,
                                 
                                 #peak detector
-                                peak_sign='-', relative_threshold=7, peak_span=0.0005,
+                                peak_sign='-', relative_threshold=7, peak_span_ms=0.5,
                                 )
     
     t1 = time.perf_counter()
@@ -197,7 +198,7 @@ def compare_nb_waveforms():
     colors = ['r', 'g', 'b']
     for i, nb_max in enumerate([100, 1000, 10000]):
         t1 = time.perf_counter()
-        catalogueconstructor.extract_some_waveforms(n_left=-20, n_right=30,  nb_max=nb_max)
+        catalogueconstructor.extract_some_waveforms(wf_left_ms=-2.0, wf_right_ms=3.0,  nb_max=nb_max)
         t2 = time.perf_counter()
         print('extract_some_waveforms', nb_max,  t2-t1)
         print(catalogueconstructor.some_waveforms.shape)

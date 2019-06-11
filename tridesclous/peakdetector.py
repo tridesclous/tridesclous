@@ -22,8 +22,10 @@ def detect_peaks_in_chunk(sig, k, thresh, peak_sign):
     
     if peak_sign == '+':
         sig[sig<thresh] = 0.
+        #~ sig[sig<3.] = 0.
     else:
         sig[sig>-thresh] = 0.
+        #~ sig[sig>-3.] = 0.
 
     if sig.shape[1]>1:
         sum_rectified = np.sum(sig, axis=1)
@@ -68,8 +70,11 @@ class PeakDetectorEngine_Numpy:
         
         if self.peak_sign == '+':
             newbuf[newbuf<self.relative_threshold] = 0.
+            #~ newbuf[newbuf<3.] = 0.
+            
         else:
             newbuf[newbuf>-self.relative_threshold] = 0.
+            #~ newbuf[newbuf>-3.] = 0.
 
         if self.nb_channel>1:
             sum_rectified = np.sum(newbuf, axis=1)
@@ -116,12 +121,20 @@ class PeakDetectorEngine_Numpy:
         
         #~ return None, None
         
-    def change_params(self, peak_sign=None, relative_threshold=None, peak_span=None):
+    def change_params(self, peak_sign=None, relative_threshold=None, peak_span_ms=None, peak_span=None):
         self.peak_sign = peak_sign
         self.relative_threshold = relative_threshold
-        self.peak_span = peak_span
         
-        self.n_span = int(self.sample_rate*self.peak_span)//2
+        
+        if peak_span_ms is None:
+            # kept for compatibility with previous version
+            assert peak_span is not None
+            peak_span_ms = peak_span * 1000.
+        
+        self.peak_span_ms = peak_span_ms
+        
+        self.n_span = int(self.sample_rate * self.peak_span_ms / 1000.)//2
+        #~ print('self.n_span', self.n_span)
         self.n_span = max(1, self.n_span)
         
         #~ self.ring_sum = RingBuffer((self.chunksize*2,), self.dtype, double=True)
@@ -187,12 +200,17 @@ class PeakDetectorEngine_OpenCL:
         
         return None, None
         
-    def change_params(self, peak_sign=None, relative_threshold=None, peak_span=None):
+    def change_params(self, peak_sign=None, relative_threshold=None, peak_span_ms=None, peak_span=None):
         self.peak_sign = peak_sign
         self.relative_threshold = relative_threshold
-        self.peak_span = peak_span
+
+        if peak_span_ms is None:
+            # kept for compatibility with previous version
+            assert peak_span is not None
+            peak_span_ms = peak_span *1000.
         
-        self.n_span = int(self.sample_rate*self.peak_span)//2
+        self.peak_span_ms = peak_span_ms
+        self.n_span = int(self.sample_rate * self.peak_span_ms / 1000.)//2
         self.n_span = max(1, self.n_span)
         
         chunksize2=self.chunksize+2*self.n_span

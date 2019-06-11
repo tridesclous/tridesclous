@@ -123,7 +123,7 @@ class CatalogueConstructor:
             lostfront_chunksize=64,
             peak_sign='-', 
             relative_threshold=5.5,
-            peak_span=0.0005,
+            peak_span_ms=0.3,
             )
         cc.estimate_signals_noise(seg_num=0, duration=10.)
         cc.run_signalprocessor(duration=60.)
@@ -308,7 +308,7 @@ class CatalogueConstructor:
             
             #peak detector
             peakdetector_engine='numpy',
-            peak_sign='-', relative_threshold=7, peak_span=0.0002,
+            peak_sign='-', relative_threshold=7, peak_span_ms=0.3,
             
             ):
         """
@@ -353,8 +353,8 @@ class CatalogueConstructor:
         relative_threshold: int default 7
             Threshold for peak detection. The preprocessed signal have units
             expressed in MAD (robust STD). So 7 is MAD*7.
-        peak_span: float default 0.0002
-            Peak span to avoid double detection. In second.
+        peak_span_ms: float default 0.3
+            Peak span to avoid double detection. In millisecond.
         """
 
         
@@ -379,7 +379,7 @@ class CatalogueConstructor:
         self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.nb_channel, chunksize, self.dataio.source_dtype)
         
         
-        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span=peak_span)
+        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span_ms=peak_span_ms)
         PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
         self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.nb_channel,
                                                         self.chunksize, internal_dtype)
@@ -537,7 +537,7 @@ class CatalogueConstructor:
             
         self.finalize_signalprocessor_loop()
     
-    def re_detect_peak(self, peakdetector_engine='numpy', peak_sign='-', relative_threshold=7, peak_span=0.0002):
+    def re_detect_peak(self, peakdetector_engine='numpy', peak_sign='-', relative_threshold=7, peak_span_ms=0.3):
         """
         Peak are detected while **run_signalprocessor**.
         But in some case for testing other threshold we can **re-detect peak** without signal processing.
@@ -551,12 +551,12 @@ class CatalogueConstructor:
         relative_threshold: int default 7
             Threshold for peak detection. The preprocessed signal have units
             expressed in MAD (robust STD). So 7 is MAD*7.
-        peak_span: float default 0.0002
+        peak_span_ms: float default 0.3
             Peak span to avoid double detection. In second.
         
         """
         #TODO if not peak detector in class
-        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span=peak_span)
+        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span_ms=peak_span_ms)
         PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
         self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.nb_channel,
                                                         self.info['chunksize'], self.info['internal_dtype'])
@@ -597,9 +597,10 @@ class CatalogueConstructor:
     
 
     
-    def extract_some_waveforms(self, n_left=None, n_right=None, index=None, 
-                                    mode='rand', nb_max=10000,
-                                    align_waveform=False, subsample_ratio=20):
+    def extract_some_waveforms(self, n_left=None, n_right=None,
+                            wf_left_ms=None, wf_right_ms=None,
+                            index=None, mode='rand', nb_max=10000,
+                            align_waveform=False, subsample_ratio=20):
         """
         Extract waveform snippet for a subset of peaks (already detected).
         
@@ -614,6 +615,10 @@ class CatalogueConstructor:
             Left sweep in sample must be negative
         n_right: int
             Right sweep in sample
+        wf_left_ms: 
+            Left sweep in ms must be negative
+        wf_right_ms: 
+            Right sweep in ms must be negative
         index: None (by default) or numpy array of int
             If mode is None then the user can give a selection index of peak 
             to extract waveforms.
@@ -626,9 +631,14 @@ class CatalogueConstructor:
         
         """
         if n_left is None or n_right is None:
-            assert  'waveform_extractor_params' in self.info
-            n_left = self.info['waveform_extractor_params']['n_left']
-            n_right = self.info['waveform_extractor_params']['n_right']
+            if 'waveform_extractor_params' in self.info:
+                n_left = self.info['waveform_extractor_params']['n_left']
+                n_right = self.info['waveform_extractor_params']['n_right']
+            elif wf_left_ms is not None and wf_right_ms is not None:
+                n_left = int(wf_left_ms / 1000. * self.dataio.sample_rate)
+                n_right = int(wf_right_ms / 1000. * self.dataio.sample_rate)
+            else:
+                raise(ValueError('Must provide wf_left_ms/wf_right_ms'))
         
         peak_sign = self.info['peak_detector_params']['peak_sign']
         
@@ -940,7 +950,7 @@ class CatalogueConstructor:
                 ind = self.index_of_label(old_label)
                 nb_peak = np.sum(self.all_peaks['cluster_label']==old_label)
                 if nb_peak == 0:
-                    self.remove_one_cluster(old_label)
+                    self.pop_labels_from_cluster([old_label])
                 else:
                     self.clusters['nb_peak'][ind] = nb_peak
                     self.compute_one_centroid(old_label)
@@ -1015,15 +1025,21 @@ class CatalogueConstructor:
         return ind
     
     def remove_one_cluster(self, label):
-        #~ if label not in self.clusters['cluster_label']:
-            #~ return
-        ind = self.index_of_label(label)
-        
-        #~ keep = np.arange(self.clusters.size).tolist()
-        #~ keep.remove(ind)
+        print('WARNING remove_one_cluster')
+        # This should not be called any more
+        # because name ambiguous
+        self.pop_labels_from_cluster([label])
+    
+    def pop_labels_from_cluster(self, labels):
+        # this reduce the array clusters by removing some labels
+        # warning all_peak are touched
+        if isinstance(labels, int):
+            labels = [labels]
         keep = np.ones(self.clusters.size, dtype='bool')
-        keep[ind] = False
-        
+        for k in labels:
+            ind = self.index_of_label(k)
+            keep[ind] = False
+
         clusters = self.clusters[keep].copy()
         self.arrays.add_array('clusters', clusters, self.memory_mode)
         
@@ -1153,8 +1169,7 @@ class CatalogueConstructor:
                 else:
                     to_remove.append(k)
         
-        for k in to_remove:
-            self.remove_one_cluster(k)
+        self.pop_labels_from_cluster(to_remove)
         
         self.arrays.flush_array('all_peaks')
         self.arrays.flush_array('clusters')
@@ -1175,8 +1190,7 @@ class CatalogueConstructor:
                 self.all_peaks['cluster_label'][mask] = -1
                 to_remove.append(k)
         
-        for k in to_remove:
-            self.remove_one_cluster(k)
+        self.pop_labels_from_cluster(to_remove)
 
     def compute_spike_waveforms_similarity(self, method='cosine_similarity', size_max = 1e7):
         """This compute the similarity spike by spike.
@@ -1247,7 +1261,7 @@ class CatalogueConstructor:
             mask = self.all_peaks['cluster_label'] == k2
             self.all_peaks['cluster_label'][mask] = k1
             already_merge[k2] = k1
-            self.remove_one_cluster(k2)
+            self.pop_labels_from_cluster([k2])
 
     def compute_cluster_ratio_similarity(self, method='cosine_similarity_with_max'):
         #~ print('compute_cluster_ratio_similarity')
@@ -1291,13 +1305,16 @@ class CatalogueConstructor:
 
         #~ t2 = time.perf_counter()
         #~ print('compute_cluster_ratio_similarity', t2-t1)        
-        
 
     def detect_similar_waveform_ratio(self, threshold=0.9):
         if self.cluster_ratio_similarity is None:
             self.compute_cluster_ratio_similarity()
         pairs = get_pairs_over_threshold(self.cluster_ratio_similarity, self.positive_cluster_labels, threshold)
         return pairs
+    
+    
+    def clean_cluster(self, too_small=10):
+        self.trash_small_cluster(n=too_small)
     
     def compute_spike_silhouette(self, size_max=1e7):
         #~ t1 = time.perf_counter()

@@ -39,7 +39,7 @@ def setup_catalogue():
             
             #peak detector
             peakdetector_engine='numpy',
-            peak_sign='-', relative_threshold=7, peak_span=0.0005,
+            peak_sign='-', relative_threshold=7, peak_span_ms=0.5,
             )
     
     t1 = time.perf_counter()
@@ -54,7 +54,7 @@ def setup_catalogue():
 
     
     t1 = time.perf_counter()
-    catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=35,  nb_max=10000)
+    catalogueconstructor.extract_some_waveforms(wf_left_ms=-2.5, wf_right_ms=3.5,  nb_max=10000)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
     print(catalogueconstructor)
@@ -196,16 +196,16 @@ def tridesclous_onlinepeeler():
     
 
 
-    #~ tfr_viewer = QTimeFreq()
-    #~ tfr_viewer.configure(with_user_dialog=True, nodegroup_friends=None)
-    #~ tfr_viewer.input.connect(dev.output)
-    #~ tfr_viewer.initialize()
-    #~ tfr_viewer.show()
-    #~ tfr_viewer.params['refresh_interval'] = 300
-    #~ tfr_viewer.params['timefreq', 'f_start'] = 1
-    #~ tfr_viewer.params['timefreq', 'f_stop'] = 100.
-    #~ tfr_viewer.params['timefreq', 'deltafreq'] = 5
-    #~ tfr_viewer.start()
+    tfr_viewer = QTimeFreq()
+    tfr_viewer.configure(with_user_dialog=True, nodegroup_friends=None)
+    tfr_viewer.input.connect(dev.output)
+    tfr_viewer.initialize()
+    tfr_viewer.show()
+    tfr_viewer.params['refresh_interval'] = 300
+    tfr_viewer.params['timefreq', 'f_start'] = 1
+    tfr_viewer.params['timefreq', 'f_stop'] = 100.
+    tfr_viewer.params['timefreq', 'deltafreq'] = 5
+    tfr_viewer.start()
     
     
     
@@ -234,7 +234,7 @@ def tridesclous_onlinepeeler():
     
     
 if __name__ =='__main__':
-    #~ setup_catalogue()
+    setup_catalogue()
     
     tridesclous_onlinepeeler()
 

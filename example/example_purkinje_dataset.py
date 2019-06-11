@@ -54,8 +54,7 @@ def preprocess_signals_and_peaks():
             peakdetector_engine='numpy',
             peak_sign='-', 
             relative_threshold=5,
-            #~ peak_span=0.0005,
-            peak_span=0.0004,
+            peak_span_ms=0.4,
             
             )
     

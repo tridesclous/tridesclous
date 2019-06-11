@@ -214,7 +214,7 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=3
             peakdetector_engine='numpy',
             peak_sign='-',
             relative_threshold=relative_threshold,
-            peak_span=1./sr,
+            peak_span_ms=1000./sr,
             )
     
     t1 = time.perf_counter()

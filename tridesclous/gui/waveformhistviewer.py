@@ -80,8 +80,18 @@ class WaveformHistViewer(WidgetBase):
         self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
         
+        h = QT.QHBoxLayout()
+        self.layout.addLayout(h)
+        but = QT.QPushButton('Show 1D dist', checkable=True)
+        h.addWidget(but)
+        but.clicked.connect(self.show_hide_1d_dist)
+        
         self.graphicsview = pg.GraphicsView()
         self.layout.addWidget(self.graphicsview)
+
+        self.graphicsview2 = pg.GraphicsView()
+        self.layout.addWidget(self.graphicsview2)
+        self.graphicsview2.hide()
         
         self.create_settings()
         
@@ -317,6 +327,12 @@ class WaveformHistViewer(WidgetBase):
     def on_cluster_tag_changed(self):
         pass
 
+    def show_hide_1d_dist(self, v=None):
+        #~ print(v)
+        if v:
+            self.graphicsview2.show()
+        else:
+            self.graphicsview2.hide()
 
 
 

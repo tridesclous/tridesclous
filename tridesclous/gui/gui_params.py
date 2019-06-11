@@ -32,13 +32,13 @@ Peak detector
     because it lead to many mistake for users in multi electrode arrays where the same cluster is seen both on negative peak
     and positive rebounce.
   * relative_threshold (str): the threshold without sign with MAD units (robust standard deviation). See :ref:`important_details`.
-  * peak_span (float) : this avoid double detection of the same peak in a short span. The units is second.
+  * peak_span_ms (float) : this avoid double detection of the same peak in a short span. The units is millisecond.
   
 Waveform extraction
 --------------------------------
 
-  * n_left (int); size in sample of the left sweep from the peak index. This number is negative.
-  * n_right (int): size in sample of the right sweep from the peak index. This number is positive.
+  * wf_left_ms (float); size in ms of the left sweep from the peak index. This number is negative.
+  * wf_right_ms (float): size in ms of the right sweep from the peak index. This number is positive.
   * mode (str): 'rand' or 'all' With 'all' all detected peaks are extracted. With 'all' only an randomized subset is taken.
      Note that if you use tridesclous with the script/notebook method you can also choose by yourself which peak are 
      choosen for waveform extraction. This can be usefull to avoid electrical/optical stimlation periods or force peak around
@@ -108,6 +108,10 @@ Several methods possible. See :ref:`important_details`.
   * **dbscan** `DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_ implemented in sklearn
      
     * eps (float): The maximum distance between two samples for them to be considered as in the same neighborhood.
+
+  * **optics** `OPTICS <https://scikit-learn.org/stable/modules/generated/sklearn.cluster.OPTICS.html>`_ implemented in sklearn
+     
+    * min_samples (int): The number of samples in a neighborhood for a point to be considered as a core point.
   
   * **sawchaincut** Home made automatic clustering, usefull for dense arrays. Autodetect well isolated cluster
     and put to trash ambiguous things.
@@ -132,12 +136,12 @@ peak_detector_params = [
     {'name': 'peakdetector_engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl']},
     {'name': 'peak_sign', 'type': 'list',  'value':'-', 'values':['-', '+']},
     {'name': 'relative_threshold', 'type': 'float', 'value': 5., 'step': .1,},
-    {'name': 'peak_span', 'type': 'float', 'value':0.0002, 'step': 0.0001, 'suffix': 's', 'siPrefix': True},
+    {'name': 'peak_span_ms', 'type': 'float', 'value':0.3, 'step': 0.05, 'suffix': 'ms', 'siPrefix': False},
 ]
 
 waveforms_params = [
-    {'name': 'n_left', 'type': 'int', 'value':-20},
-    {'name': 'n_right', 'type': 'int', 'value':30},
+    {'name': 'wf_left_ms', 'type': 'float', 'value':-2.0, 'suffix': 'ms', 'step': .1,},
+    {'name': 'wf_right_ms', 'type': 'float', 'value': 3.0,  'suffix': 'ms','step': .1,},
     {'name': 'mode', 'type': 'list', 'values':['rand', 'all']},
     {'name': 'nb_max', 'type': 'int', 'value':20000},
     {'name': 'align_waveform', 'type': 'bool', 'value':False},
@@ -173,7 +177,8 @@ cluster_params_by_methods = OrderedDict([
                     {'name' : 'covariance_type', 'type' : 'list', 'values' : ['full']},
                     {'name' : 'n_init', 'type' : 'int', 'value' : 10}]),
     ('agglomerative', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5}]),
-    ('dbscan', [{'name' : 'eps', 'type' : 'float', 'value' : 0.5}]),
+    ('dbscan', [{'name' : 'eps', 'type' : 'float', 'value' : 2.5}]),
+    ('optics', [{'name' : 'min_samples', 'type' : 'int', 'value' : 5}]),
     ('sawchaincut', [{'name' : 'max_loop', 'type' : 'int', 'value' : 1000},
                                 {'name' : 'nb_min', 'type' : 'int', 'value' : 20},
                                 {'name' : 'break_nb_remain', 'type' : 'int', 'value' : 30},
