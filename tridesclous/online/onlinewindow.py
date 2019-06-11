@@ -559,8 +559,8 @@ class TdcOnlineWindow(MainWindowNode):
             return
         
         # get duration for raw sigs record
-        fullchain_kargs = self.dialog_fullchain_params.get()
-        self.timer_recording.setInterval(int((fullchain_kargs['duration']+1)*1000.))
+        p = self.dialog_fullchain_params.get()
+        self.timer_recording.setInterval(int((p['duration']+1)*1000.))
         
         for chan_grp, w in self.cataloguewindows.items():
             w.close()
