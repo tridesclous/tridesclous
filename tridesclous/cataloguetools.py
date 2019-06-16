@@ -123,6 +123,8 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     
     if params['clean_cluster']:
         cc.clean_cluster(**params['clean_cluster_kargs'])
+    
+    cc.order_clusters(by='waveforms_rms')
 
 
 _default_catalogue_params = {
@@ -184,11 +186,20 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
     #  * by detecting if dense array or not.
     #  * better method sleection
     
+    
     if nb_chan <=8:
         params['feature_method'] = 'global_pca'
-        params['feature_kargs'] = {'n_components' : int(nb_chan*1.5) }
+        
+        if nb_chan in (1,2):
+            n_components = 3
+        elif nb_chan in (3, 4):
+            n_components = 5
+        else:
+            n_components = int(nb_chan)
+        
+        params['feature_kargs'] = {'n_components' : n_components }
         params['cluster_method'] = 'dbscan'
-        params['cluster_kargs'] = {'eps': 2.5}
+        params['cluster_kargs'] = {'eps': 3,  'metric':'euclidean', 'algorithm':'brute'}
         params['clean_cluster'] = True
         params['clean_cluster_kargs'] = {'too_small' : 20 }
         

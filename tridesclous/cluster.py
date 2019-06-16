@@ -54,12 +54,20 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         labels = agg.fit_predict(features)
     elif method == 'dbscan':
         if 'eps' not in kargs:
-            kargs['eps'] = 2.5
+            kargs['eps'] = 3
+        if 'metric' not in kargs:
+            kargs['metric'] = 'euclidean'
+        if 'algorithm' not in kargs:
+            kargs['algorithm'] = 'brute'
+        print('DBSCAN', kargs)
         dbscan = sklearn.cluster.DBSCAN(**kargs)
         labels = dbscan.fit_predict(features)
     elif  method == 'optics':
         optic = sklearn.cluster.OPTICS(**kargs)
         labels = optic.fit_predict(features)
+    elif  method == 'meanshift':
+        ms = sklearn.cluster.MeanShift()
+        labels = ms.fit_predict(features)
     elif method == 'sawchaincut':
         n_left = cc.info['waveform_extractor_params']['n_left']
         n_right = cc.info['waveform_extractor_params']['n_right']

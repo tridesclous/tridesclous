@@ -18,6 +18,12 @@ except ImportError:
 
 
 def detect_peaks_in_chunk(sig, k, thresh, peak_sign):
+    sum_rectified = make_sum_rectified(sig, thresh, peak_sign)
+    ind_peaks = detect_peaks_in_rectified(sum_rectified, k, thresh, peak_sign)
+    return ind_peaks
+
+
+def make_sum_rectified(sig, thresh, peak_sign):
     sig = sig.copy()
     
     if peak_sign == '+':
@@ -32,12 +38,10 @@ def detect_peaks_in_chunk(sig, k, thresh, peak_sign):
     else:
         sum_rectified = sig[:,0]
     
-    ind_peaks = _detect_peaks_in_rectified(sum_rectified, k, thresh, peak_sign)
+    return sum_rectified
     
-    return ind_peaks
 
-
-def _detect_peaks_in_rectified(sig_rectified, k, thresh, peak_sign):
+def detect_peaks_in_rectified(sig_rectified, k, thresh, peak_sign):
     sig_center = sig_rectified[k:-k]
     if peak_sign == '+':
         peaks = sig_center>thresh
@@ -92,7 +96,7 @@ class PeakDetectorEngine_Numpy:
         #~ sig = self.ring_sum.get_data(pos-(newbuf.shape[0]+2*k), pos)
         sig_rectified = self.fifo_sum_rectified.get_data(pos-(newbuf.shape[0]+2*k), pos)
         
-        ind_peaks = _detect_peaks_in_rectified(sig_rectified, k, self.relative_threshold, self.peak_sign)
+        ind_peaks = detect_peaks_in_rectified(sig_rectified, k, self.relative_threshold, self.peak_sign)
         
         if ind_peaks.size>0:
             ind_peaks = ind_peaks + pos - newbuf.shape[0] -2*k

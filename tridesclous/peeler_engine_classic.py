@@ -6,7 +6,7 @@ from .peeler_tools import *
 from .peeler_tools import _dtype_spike
 from .tools import make_color_dict
 from . import signalpreprocessor
-from .peakdetector import  detect_peaks_in_chunk
+from .peakdetector import  detect_peaks_in_chunk, detect_peaks_in_rectified, make_sum_rectified
 
 
 from . import pythran_tools
@@ -193,6 +193,16 @@ class PeelerEngineClassic(OpenCL_Helper):
             #detect peaks
             t3 = time.perf_counter()
             local_peaks = detect_peaks_in_chunk(self.fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign)
+            
+            # try order by amplitude
+            #~ sum_rectified = make_sum_rectified(self.fifo_residuals, self.relative_threshold, self.peak_sign)
+            #~ local_peaks = detect_peaks_in_rectified(sum_rectified, self.n_span, self.relative_threshold, self.peak_sign)
+            #~ if local_peaks.size > 0:
+                #~ order = np.argsort(sum_rectified[local_peaks])
+                #~ if self.peak_sign == '+':
+                    #~ order = order[::-1]
+                #~ local_peaks = local_peaks[order]
+            
             t4 = time.perf_counter()
             #~ print('self.fifo_residuals median', np.median(self.fifo_residuals, axis=0))
             #~ print('  detect_peaks_in_chunk', (t4-t3)*1000.)
@@ -510,7 +520,7 @@ class PeelerEngineClassic(OpenCL_Helper):
         #~ print(np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2))
         #~ return k, jitter1
 
-        
+        # BUG here : need to do this for all channel (or all channel non sparse at least)
         if np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2):
             #prediction should be smaller than original (which have noise)
             return k, jitter1
