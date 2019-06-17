@@ -39,8 +39,8 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
             'nb_snippet': 300,
         },
         'extract_waveforms': {
-            'wf_left_ms': -0.2,
-            'wf_right_ms': 3.0,
+            'wf_left_ms': -1.5,
+            'wf_right_ms': 2.5,
             'mode': 'rand',
             'nb_max': 20000.,
             'align_waveform': False,
@@ -148,8 +148,8 @@ _default_catalogue_params = {
         'nb_snippet': 300,
     },
     'extract_waveforms': {
-        'wf_left_ms': -0.2,
-        'wf_right_ms': 3.0,
+        'wf_left_ms': -1.5,
+        'wf_right_ms': 2.5,
         'mode': 'rand',
         'nb_max': 20000.,
         'align_waveform': False,
