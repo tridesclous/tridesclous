@@ -1,0 +1,6 @@
+tridesclous release notes 1.2.0
+===============================
+
+**2019-06-11**
+
+Release mainly for parameters names chnage and make spikeforest wrapper more robust.

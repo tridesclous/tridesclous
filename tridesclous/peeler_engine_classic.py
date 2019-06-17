@@ -6,7 +6,7 @@ from .peeler_tools import *
 from .peeler_tools import _dtype_spike
 from .tools import make_color_dict
 from . import signalpreprocessor
-from .peakdetector import  detect_peaks_in_chunk
+from .peakdetector import  detect_peaks_in_chunk, detect_peaks_in_rectified, make_sum_rectified
 
 
 from . import pythran_tools
@@ -76,8 +76,8 @@ class PeelerEngineClassic(OpenCL_Helper):
         # Some check
         if self.use_opencl_with_sparse or self.use_pythran_with_sparse:
             assert self.use_sparse_template, 'For that option you must use sparse template'
-        if self.use_sparse_template:
-            assert self.use_opencl_with_sparse or self.use_pythran_with_sparse, 'For that option you must use OpenCL or Pytran'
+        #~ if self.use_sparse_template:
+            #~ assert self.use_opencl_with_sparse or self.use_pythran_with_sparse, 'For that option you must use OpenCL or Pytran'
         if self.use_opencl_with_sparse:
             assert HAVE_PYOPENCL, 'OpenCL is not available'
         if self.use_pythran_with_sparse:
@@ -100,25 +100,47 @@ class PeelerEngineClassic(OpenCL_Helper):
             self.catalogue['wf2_norm2'][i] = wf2.dot(wf2)
             self.catalogue['wf1_dot_wf2'][i] = wf1.dot(wf2)
         
+        
+        #~ print('self.use_sparse_template', self.use_sparse_template)
+        
+        centers = self.catalogue['centers0']
+        #~ print(centers.shape)
         if self.use_sparse_template:
-            centers = wf0 = self.catalogue['centers0']
             #~ print(centers.shape)
-            mask = np.any(np.abs(centers)>sparse_threshold_mad, axis=1)
-            #~ print(mask.shape)
-            #~ print(mask)
-            print('average sparseness for templates', np.sum(mask)/mask.size)
-            self.catalogue['sparse_mask'] = mask
+            self.sparse_mask = np.any(np.abs(centers)>sparse_threshold_mad, axis=1)
+        else:
+            self.sparse_mask = np.ones((centers.shape[0], centers.shape[2]), dtype='bool')
+        
+        #~ print('self.sparse_mask.shape', self.sparse_mask.shape)
+        self.weight_per_template = {}
+        for i, k in enumerate(self.catalogue['cluster_labels']):
+            mask = self.sparse_mask[i, :]
+            wf = centers[i, :, :][:, mask]
+            self.weight_per_template[k] = np.sum(wf**2, axis=0)
+            #~ print(wf.shape, self.weight_per_template[k].shape)
+
+        #~ print(mask.shape)
+        #~ print(mask)
+        #~ print('average sparseness for templates', np.sum(mask)/mask.size)
+        self.catalogue['sparse_mask'] = self.sparse_mask
+        self.catalogue['weight_per_template'] = self.weight_per_template
+
+        #~ for i in range(centers.shape[0]):
+            #~ fig, ax = plt.subplots()
+            #~ center = centers[i,:,:].copy()
+            #~ center_sparse = center.copy()
+            #~ center_sparse[:, ~mask[i, :]] = 0.
+            #~ ax.plot(center.T.flatten(), color='g')
+            #~ ax.plot(center_sparse.T.flatten(), color='r', ls='--')
+            #~ ax.axhline(sparse_threshold_mad)
+            #~ ax.axhline(-sparse_threshold_mad)
+            #~ plt.show()
+        
+        
+        
+        
+        if self.use_sparse_template:
             
-            #~ for i in range(centers.shape[0]):
-                #~ fig, ax = plt.subplots()
-                #~ center = centers[i,:,:].copy()
-                #~ center_sparse = center.copy()
-                #~ center_sparse[:, ~mask[i, :]] = 0.
-                #~ ax.plot(center.T.flatten(), color='g')
-                #~ ax.plot(center_sparse.T.flatten(), color='r', ls='--')
-                #~ ax.axhline(sparse_threshold_mad)
-                #~ ax.axhline(-sparse_threshold_mad)
-                #~ plt.show()
         
             if self.use_opencl_with_sparse:
                 OpenCL_Helper.initialize_opencl(self, cl_platform_index=cl_platform_index, cl_device_index=cl_device_index)
@@ -146,7 +168,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                 self.waveform_distance_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance)
 
                 #~ mask[:] = 0
-                self.mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=mask.astype('u1'))
+                self.sparse_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask.astype('u1'))
 
                 rms_waveform_channel = np.zeros(nb_channel, dtype='float32')
                 self.rms_waveform_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=rms_waveform_channel)
@@ -193,6 +215,16 @@ class PeelerEngineClassic(OpenCL_Helper):
             #detect peaks
             t3 = time.perf_counter()
             local_peaks = detect_peaks_in_chunk(self.fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign)
+            
+            # try order by amplitude
+            #~ sum_rectified = make_sum_rectified(self.fifo_residuals, self.relative_threshold, self.peak_sign)
+            #~ local_peaks = detect_peaks_in_rectified(sum_rectified, self.n_span, self.relative_threshold, self.peak_sign)
+            #~ if local_peaks.size > 0:
+                #~ order = np.argsort(sum_rectified[local_peaks])
+                #~ if self.peak_sign == '+':
+                    #~ order = order[::-1]
+                #~ local_peaks = local_peaks[order]
+            
             t4 = time.perf_counter()
             #~ print('self.fifo_residuals median', np.median(self.fifo_residuals, axis=0))
             #~ print('  detect_peaks_in_chunk', (t4-t3)*1000.)
@@ -434,7 +466,7 @@ class PeelerEngineClassic(OpenCL_Helper):
             pyopencl.enqueue_copy(self.queue,  self.one_waveform_cl, waveform)
             pyopencl.enqueue_copy(self.queue,  self.rms_waveform_channel_cl, rms_waveform_channel)
             event = self.kern_waveform_distance(self.queue,  self.cl_global_size, self.cl_local_size,
-                        self.one_waveform_cl, self.catalogue_center_cl, self.mask_cl, 
+                        self.one_waveform_cl, self.catalogue_center_cl, self.sparse_mask_cl, 
                         self.rms_waveform_channel_cl, self.waveform_distance_cl)
             pyopencl.enqueue_copy(self.queue,  self.waveform_distance, self.waveform_distance_cl)
             cluster_idx = np.argmin(self.waveform_distance)
@@ -509,14 +541,31 @@ class PeelerEngineClassic(OpenCL_Helper):
         #~ print(np.sum(wf**2), np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2))
         #~ print(np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2))
         #~ return k, jitter1
-
         
-        if np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2):
-            #prediction should be smaller than original (which have noise)
+        
+        
+        # criteria mono channel = old implementation
+        #~ keep_template = np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2)
+        
+        # criteria multi channel
+        mask = catalogue['sparse_mask'][cluster_idx]
+        full_wf0 = catalogue['centers0'][cluster_idx,: , :][:, mask]
+        full_wf1 = catalogue['centers1'][cluster_idx,: , :][:, mask]
+        full_wf2 = catalogue['centers2'][cluster_idx,: , :][:, mask]
+        full_wf = waveform[:, :][:, mask]
+        weight = self.weight_per_template[k]
+        wf_nrj = np.sum(full_wf**2, axis=0)
+        res_nrj = np.sum((full_wf-(full_wf0+jitter1*full_wf1+jitter1**2/2*full_wf2))**2, axis=0)
+        # criteria per channel
+        crietria_weighted = (wf_nrj>res_nrj).astype('float') * weight
+        accept_template = np.sum(crietria_weighted) >= 0.9 * np.sum(weight)
+        
+        
+        if accept_template:
+            # keep prediction
             return k, jitter1
         else:
             #otherwise the prediction is bad
-            #~ print('bad prediction')
             return LABEL_UNCLASSIFIED, 0.
 
 

@@ -1,6 +1,7 @@
 from collections import OrderedDict, namedtuple
 import numpy as np
 
+from .cltools import HAVE_PYOPENCL
 
 from .labelcodes import (LABEL_TRASH, LABEL_UNCLASSIFIED, LABEL_ALIEN)
 
@@ -89,3 +90,21 @@ def make_prediction_signals(spikes, dtype, shape, catalogue, safe=True):
                 
         
     return prediction
+
+
+def get_auto_params_for_peelers(dataio, chan_grp=0):
+    nb_chan = dataio.nb_channel(chan_grp=chan_grp)
+    params = {}
+    
+    if nb_chan <=8:
+        params['use_sparse_template'] = False
+        params['sparse_threshold_mad'] = 1.5
+        params['use_opencl_with_sparse'] = False
+    else:
+        params['use_sparse_template'] = True
+        params['sparse_threshold_mad'] = 1.5
+        params['use_opencl_with_sparse'] = HAVE_PYOPENCL
+
+    return params
+    
+    

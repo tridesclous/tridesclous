@@ -5,7 +5,7 @@ Some helping function that apply on catalogueconstructor (apply steps, sumamry, 
 import time
 import copy
 
-
+from .cltools import HAVE_PYOPENCL
 
 #TODO debug this when no peak at all
 def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
@@ -39,8 +39,8 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
             'nb_snippet': 300,
         },
         'extract_waveforms': {
-            'wf_left_ms': -0.2,
-            'wf_right_ms': 3.0,
+            'wf_left_ms': -1.5,
+            'wf_right_ms': 2.5,
             'mode': 'rand',
             'nb_max': 20000.,
             'align_waveform': False,
@@ -123,6 +123,8 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     
     if params['clean_cluster']:
         cc.clean_cluster(**params['clean_cluster_kargs'])
+    
+    cc.order_clusters(by='waveforms_rms')
 
 
 _default_catalogue_params = {
@@ -146,8 +148,8 @@ _default_catalogue_params = {
         'nb_snippet': 300,
     },
     'extract_waveforms': {
-        'wf_left_ms': -0.2,
-        'wf_right_ms': 3.0,
+        'wf_left_ms': -1.5,
+        'wf_right_ms': 2.5,
         'mode': 'rand',
         'nb_max': 20000.,
         'align_waveform': False,
@@ -184,19 +186,33 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
     #  * by detecting if dense array or not.
     #  * better method sleection
     
+    
     if nb_chan <=8:
         params['feature_method'] = 'global_pca'
-        params['feature_kargs'] = {'n_components' : int(nb_chan*1.5) }
+        
+        if nb_chan in (1,2):
+            n_components = 3
+        elif nb_chan in (3, 4):
+            n_components = 5
+        else:
+            n_components = int(nb_chan)
+        
+        params['feature_kargs'] = {'n_components' : n_components }
         params['cluster_method'] = 'dbscan'
-        params['cluster_kargs'] = {'eps': 2.5}
+        params['cluster_kargs'] = {'eps': 3,  'metric':'euclidean', 'algorithm':'brute'}
         params['clean_cluster'] = True
         params['clean_cluster_kargs'] = {'too_small' : 20 }
-        
+
     else:
         params['feature_method'] = 'peak_max'
         params['feature_kargs'] = {}
         params['cluster_method'] = 'sawchaincut'
         params['cluster_kargs'] = {'kde_bandwith': 1.}
+        
+        if nb_chan >64 and HAVE_PYOPENCL:
+            # force opencl : this limit depend on the platform of course
+            params['preprocessor']['signalpreprocessor_engine'] = 'opencl'
+
     
     return params
 
