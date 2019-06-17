@@ -1,0 +1,7 @@
+tridesclous release notes 1.1.0
+===============================
+
+**201-05-28**
+
+Release only for making spiketoolkit unitest working.
+No other special reason.
