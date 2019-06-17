@@ -5,7 +5,7 @@ Some helping function that apply on catalogueconstructor (apply steps, sumamry, 
 import time
 import copy
 
-
+from .cltools import HAVE_PYOPENCL
 
 #TODO debug this when no peak at all
 def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
@@ -202,12 +202,17 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['cluster_kargs'] = {'eps': 3,  'metric':'euclidean', 'algorithm':'brute'}
         params['clean_cluster'] = True
         params['clean_cluster_kargs'] = {'too_small' : 20 }
-        
+
     else:
         params['feature_method'] = 'peak_max'
         params['feature_kargs'] = {}
         params['cluster_method'] = 'sawchaincut'
         params['cluster_kargs'] = {'kde_bandwith': 1.}
+        
+        if nb_chan >64 and HAVE_PYOPENCL:
+            # force opencl : this limit depend on the platform of course
+            params['preprocessor']['signalpreprocessor_engine'] = 'opencl'
+
     
     return params
 

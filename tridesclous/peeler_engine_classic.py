@@ -76,8 +76,8 @@ class PeelerEngineClassic(OpenCL_Helper):
         # Some check
         if self.use_opencl_with_sparse or self.use_pythran_with_sparse:
             assert self.use_sparse_template, 'For that option you must use sparse template'
-        if self.use_sparse_template:
-            assert self.use_opencl_with_sparse or self.use_pythran_with_sparse, 'For that option you must use OpenCL or Pytran'
+        #~ if self.use_sparse_template:
+            #~ assert self.use_opencl_with_sparse or self.use_pythran_with_sparse, 'For that option you must use OpenCL or Pytran'
         if self.use_opencl_with_sparse:
             assert HAVE_PYOPENCL, 'OpenCL is not available'
         if self.use_pythran_with_sparse:
@@ -101,23 +101,23 @@ class PeelerEngineClassic(OpenCL_Helper):
             self.catalogue['wf1_dot_wf2'][i] = wf1.dot(wf2)
         
         
-        print('self.use_sparse_template', self.use_sparse_template)
+        #~ print('self.use_sparse_template', self.use_sparse_template)
         
         centers = self.catalogue['centers0']
-        print(centers.shape)
+        #~ print(centers.shape)
         if self.use_sparse_template:
             #~ print(centers.shape)
             self.sparse_mask = np.any(np.abs(centers)>sparse_threshold_mad, axis=1)
         else:
             self.sparse_mask = np.ones((centers.shape[0], centers.shape[2]), dtype='bool')
         
-        print('self.sparse_mask.shape', self.sparse_mask.shape)
+        #~ print('self.sparse_mask.shape', self.sparse_mask.shape)
         self.weight_per_template = {}
         for i, k in enumerate(self.catalogue['cluster_labels']):
             mask = self.sparse_mask[i, :]
             wf = centers[i, :, :][:, mask]
             self.weight_per_template[k] = np.sum(wf**2, axis=0)
-            print(wf.shape, self.weight_per_template[k].shape)
+            #~ print(wf.shape, self.weight_per_template[k].shape)
 
         #~ print(mask.shape)
         #~ print(mask)
@@ -545,7 +545,7 @@ class PeelerEngineClassic(OpenCL_Helper):
         
         
         # criteria mono channel = old implementation
-        keep_template = np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2)
+        #~ keep_template = np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2)
         
         # criteria multi channel
         mask = catalogue['sparse_mask'][cluster_idx]
@@ -558,10 +558,10 @@ class PeelerEngineClassic(OpenCL_Helper):
         res_nrj = np.sum((full_wf-(full_wf0+jitter1*full_wf1+jitter1**2/2*full_wf2))**2, axis=0)
         # criteria per channel
         crietria_weighted = (wf_nrj>res_nrj).astype('float') * weight
-        keep_template = np.sum(cond_weighted) >= 0.9 * np.sum(weight)
+        accept_template = np.sum(crietria_weighted) >= 0.9 * np.sum(weight)
         
         
-        if keep_template:
+        if accept_template:
             # keep prediction
             return k, jitter1
         else:

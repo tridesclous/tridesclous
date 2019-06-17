@@ -59,7 +59,7 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
             kargs['metric'] = 'euclidean'
         if 'algorithm' not in kargs:
             kargs['algorithm'] = 'brute'
-        print('DBSCAN', kargs)
+        #~ print('DBSCAN', kargs)
         dbscan = sklearn.cluster.DBSCAN(**kargs)
         labels = dbscan.fit_predict(features)
     elif  method == 'optics':
