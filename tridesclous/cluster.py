@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 
 
 def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs):
+    
     cc = catalogueconstructor
     
     if selection is None:
