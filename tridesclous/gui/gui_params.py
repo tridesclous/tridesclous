@@ -136,7 +136,7 @@ peak_detector_params = [
     {'name': 'peakdetector_engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl']},
     {'name': 'peak_sign', 'type': 'list',  'value':'-', 'values':['-', '+']},
     {'name': 'relative_threshold', 'type': 'float', 'value': 5., 'step': .1,},
-    {'name': 'peak_span_ms', 'type': 'float', 'value':0.3, 'step': 0.05, 'suffix': 'ms', 'siPrefix': False},
+    {'name': 'peak_span_ms', 'type': 'float', 'value':0.5, 'step': 0.05, 'suffix': 'ms', 'siPrefix': False},
 ]
 
 waveforms_params = [
@@ -182,15 +182,13 @@ cluster_params_by_methods = OrderedDict([
                         {'name' : 'algorithm', 'type' : 'list', 'values' : ['brute', 'auto', 'ball_tree', 'kd_tree', 'brute']},
                     ]),
     ('optics', [{'name' : 'min_samples', 'type' : 'int', 'value' : 5}]),
+    ('isosplit5', []),
     ('sawchaincut', [{'name' : 'max_loop', 'type' : 'int', 'value' : 1000},
                                 {'name' : 'nb_min', 'type' : 'int', 'value' : 20},
                                 {'name' : 'break_nb_remain', 'type' : 'int', 'value' : 30},
                                 {'name' : 'kde_bandwith', 'type' : 'float', 'value' : 1., 'step':0.1},
                                 {'name' : 'auto_merge_threshold', 'type' : 'float', 'value' : 2., 'step':0.1},
                                 {'name':'print_debug', 'type': 'bool', 'value':False},
-                                
-                            
-                            
                             ]),
 ])
 

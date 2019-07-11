@@ -6,6 +6,7 @@ import time
 import copy
 
 from .cltools import HAVE_PYOPENCL
+from .cluster import HAVE_ISOSPLIT5
 
 #TODO debug this when no peak at all
 def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
@@ -142,7 +143,7 @@ _default_catalogue_params = {
         'peakdetector_engine': 'numpy',
         'peak_sign': '-',
         'relative_threshold': 5.,
-        'peak_span_ms': .3,
+        'peak_span_ms': .7,
     },
     'noise_snippet': {
         'nb_snippet': 300,
@@ -198,8 +199,12 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             n_components = int(nb_chan)
         
         params['feature_kargs'] = {'n_components' : n_components }
-        params['cluster_method'] = 'dbscan'
-        params['cluster_kargs'] = {'eps': 3,  'metric':'euclidean', 'algorithm':'brute'}
+        if HAVE_ISOSPLIT5:
+            params['cluster_method'] = 'isosplit5'
+            params['cluster_kargs'] = {}
+        else:
+            params['cluster_method'] = 'dbscan'
+            params['cluster_kargs'] = {'eps': 3,  'metric':'euclidean', 'algorithm':'brute'}
         params['clean_cluster'] = True
         params['clean_cluster_kargs'] = {'too_small' : 20 }
 
