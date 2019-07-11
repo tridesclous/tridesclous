@@ -289,10 +289,11 @@ class CatalogueController(ControllerBase):
         self.cc.project(method=method, selection=selection, **kargs)
     
     def split_cluster(self, *args,  **kargs):
-        print('controller.split_cluster')
+        #~ print('controller.split_cluster', args, kargs)
+        
         self.cc.split_cluster(*args,  **kargs)
         self.check_plot_attributes()
-        print(self.cluster_count)
+        #~ print(self.cluster_count)
     
     @property
     def spike_waveforms_similarity(self):

@@ -17,8 +17,16 @@ from .tools import median_mad
 
 import matplotlib.pyplot as plt
 
+try:
+    import isosplit5
+    HAVE_ISOSPLIT5 = True
+except:
+    HAVE_ISOSPLIT5 = False
+
+
 
 def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs):
+    
     cc = catalogueconstructor
     
     if selection is None:
@@ -77,6 +85,9 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         sawchaincut = SawChainCut(waveforms, n_left, n_right, peak_sign, relative_threshold, **kargs)
         labels = sawchaincut.do_the_job()
         #~ print('ici trash nb', np.sum(labels==-1))
+    elif method =='isosplit5':
+        assert HAVE_ISOSPLIT5, 'isosplit5 is not installed'
+        labels = isosplit5.isosplit5(features.T)
     else:
         raise(ValueError, 'find_clusters method unknown')
     

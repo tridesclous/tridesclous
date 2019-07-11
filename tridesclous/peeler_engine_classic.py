@@ -142,7 +142,7 @@ class PeelerEngineClassic(OpenCL_Helper):
         if self.use_sparse_template:
             
         
-            if self.use_opencl_with_sparse:
+            if self.use_opencl_with_sparse and self.catalogue['centers0'].size>0:
                 OpenCL_Helper.initialize_opencl(self, cl_platform_index=cl_platform_index, cl_device_index=cl_device_index)
                 
                 #~ self.ctx = pyopencl.create_some_context(interactive=False)

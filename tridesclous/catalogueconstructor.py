@@ -926,7 +926,7 @@ class CatalogueConstructor:
         
         """
         #done in a separate module cluster.py
-        
+
         if selection is not None:
             old_labels = np.unique(self.all_peaks['cluster_label'][selection])
             #~ print(old_labels)
@@ -942,10 +942,11 @@ class CatalogueConstructor:
         else:
             new_labels = np.unique(labels)
             for new_label in new_labels:
-                if new_label not in self.clusters['cluster_label'] and new_label>0:
+                if new_label not in self.clusters['cluster_label'] and new_label>=0:
                     self.add_one_cluster(new_label)
-                if new_label>0:
+                if new_label>=0:
                     self.compute_one_centroid(new_label)
+            
             for old_label in old_labels:
                 ind = self.index_of_label(old_label)
                 nb_peak = np.sum(self.all_peaks['cluster_label']==old_label)
