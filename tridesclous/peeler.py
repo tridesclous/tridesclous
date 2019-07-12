@@ -91,6 +91,7 @@ class Peeler:
         kargs['sample_rate'] = self.dataio.sample_rate
         kargs['nb_channel'] = self.dataio.nb_channel(chan_grp)
         kargs['source_dtype'] = self.dataio.source_dtype
+        kargs['geometry'] = self.dataio.get_geometry(chan_grp)
         self.peeler_engine.initialize_before_each_segment(**kargs)
         
         

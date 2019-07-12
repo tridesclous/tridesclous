@@ -6,33 +6,35 @@ Here 2 version for peakdetector.
 
 import numpy as np
 
+import sklearn.metrics.pairwise
+
 #~ from pyacq.core.stream.ringbuffer import RingBuffer
 from .tools import FifoBuffer
 
-try:
+from .cltools import HAVE_PYOPENCL, OpenCL_Helper
+if HAVE_PYOPENCL:
     import pyopencl
     mf = pyopencl.mem_flags
-    HAVE_PYOPENCL = True
-except ImportError:
-    HAVE_PYOPENCL = False
 
 
-def detect_peaks_in_chunk(sig, k, thresh, peak_sign):
-    sum_rectified = make_sum_rectified(sig, thresh, peak_sign)
-    ind_peaks = detect_peaks_in_rectified(sum_rectified, k, thresh, peak_sign)
+def detect_peaks_in_chunk(sig, n_span, thresh, peak_sign, spatial_matrix=None):
+    sum_rectified = make_sum_rectified(sig, thresh, peak_sign, spatial_matrix)
+    ind_peaks = detect_peaks_in_rectified(sum_rectified, n_span, thresh, peak_sign)
     return ind_peaks
 
 
-def make_sum_rectified(sig, thresh, peak_sign):
-    sig = sig.copy()
+def make_sum_rectified(sig, thresh, peak_sign, spatial_matrix):
+    if spatial_matrix is None:
+        sig = sig.copy()
+    else:
+        sig = np.dot(sig, spatial_matrix)
+    
     
     if peak_sign == '+':
         sig[sig<thresh] = 0.
-        #~ sig[sig<3.] = 0.
     else:
         sig[sig>-thresh] = 0.
-        #~ sig[sig>-3.] = 0.
-
+    
     if sig.shape[1]>1:
         sum_rectified = np.sum(sig, axis=1)
     else:
@@ -41,91 +43,71 @@ def make_sum_rectified(sig, thresh, peak_sign):
     return sum_rectified
     
 
-def detect_peaks_in_rectified(sig_rectified, k, thresh, peak_sign):
-    sig_center = sig_rectified[k:-k]
+def detect_peaks_in_rectified(sig_rectified, n_span, thresh, peak_sign):
+    sig_center = sig_rectified[n_span:-n_span]
     if peak_sign == '+':
         peaks = sig_center>thresh
-        for i in range(k):
+        for i in range(n_span):
             peaks &= sig_center>sig_rectified[i:i+sig_center.size]
-            peaks &= sig_center>=sig_rectified[k+i+1:k+i+1+sig_center.size]
+            peaks &= sig_center>=sig_rectified[n_span+i+1:n_span+i+1+sig_center.size]
     elif peak_sign == '-':
         peaks = sig_center<-thresh
-        for i in range(k):
+        for i in range(n_span):
             peaks &= sig_center<sig_rectified[i:i+sig_center.size]
-            peaks &= sig_center<=sig_rectified[k+i+1:k+i+1+sig_center.size]
+            peaks &= sig_center<=sig_rectified[n_span+i+1:n_span+i+1+sig_center.size]
     
     ind_peaks,  = np.nonzero(peaks)
 
-    ind_peaks += k
+    ind_peaks += n_span
     return ind_peaks
 
 
+
 class PeakDetectorEngine_Numpy:
-    def __init__(self, sample_rate, nb_channel, chunksize, dtype,):
+    def __init__(self, sample_rate, nb_channel, chunksize, dtype, geometry):
         self.sample_rate = sample_rate
         self.nb_channel = nb_channel
         self.chunksize = chunksize
         self.dtype = dtype
+        self.geometry = geometry # 2D array (nb_channel, 2 or 3) 
         
         self.n_peak = 0
         
     def process_data(self, pos, newbuf):
-        newbuf = newbuf.copy()
+        # this is used by catalogue constructor
+        # here the fifo is only the rectified sum
         
-        if self.peak_sign == '+':
-            newbuf[newbuf<self.relative_threshold] = 0.
-            #~ newbuf[newbuf<3.] = 0.
-            
-        else:
-            newbuf[newbuf>-self.relative_threshold] = 0.
-            #~ newbuf[newbuf>-3.] = 0.
-
-        if self.nb_channel>1:
-            sum_rectified = np.sum(newbuf, axis=1)
-        else:
-            sum_rectified = newbuf[:,0]
-        
-        #~ self.ring_sum.new_chunk(sum_rectified, index=pos)
+        sum_rectified = make_sum_rectified(newbuf, self.relative_threshold, self.peak_sign, self.spatial_matrix)
         self.fifo_sum_rectified.new_chunk(sum_rectified, pos)
         
-        k = self.n_span
-        if pos-(newbuf.shape[0]+2*k)<0:
+        if pos-(newbuf.shape[0]+2*self.n_span)<0:
             # the very first buffer is sacrified because of peak span
             return None, None
         
         #~ sig = self.ring_sum.get_data(pos-(newbuf.shape[0]+2*k), pos)
-        sig_rectified = self.fifo_sum_rectified.get_data(pos-(newbuf.shape[0]+2*k), pos)
+        sig_rectified = self.fifo_sum_rectified.get_data(pos-(newbuf.shape[0]+2*self.n_span), pos)
         
-        ind_peaks = detect_peaks_in_rectified(sig_rectified, k, self.relative_threshold, self.peak_sign)
+        ind_peaks = detect_peaks_in_rectified(sig_rectified, self.n_span, self.relative_threshold, self.peak_sign)
         
         if ind_peaks.size>0:
-            ind_peaks = ind_peaks + pos - newbuf.shape[0] -2*k
+            ind_peaks = ind_peaks + pos - newbuf.shape[0] -2*self.n_span
             self.n_peak += ind_peaks.size
             return self.n_peak, ind_peaks
 
         return None, None
-        #~ sig_center = sig[k:-k]
-        #~ if self.peak_sign == '+':
-            #~ peaks = sig_center>self.relative_threshold
-            #~ for i in range(k):
-                #~ peaks &= sig_center>sig[i:i+sig_center.size]
-                #~ peaks &= sig_center>=sig[k+i+1:k+i+1+sig_center.size]
-        #~ elif self.peak_sign == '-':
-            #~ peaks = sig_center<-self.relative_threshold
-            #~ for i in range(k):
-                #~ peaks &= sig_center<sig[i:i+sig_center.size]
-                #~ peaks &= sig_center<=sig[k+i+1:k+i+1+sig_center.size]
-        
-        #~ ind_peaks,  = np.where(peaks)
-        
-        #~ if ind_peaks.size>0:
-            #~ ind_peaks = ind_peaks + pos - newbuf.shape[0] - k
-            #~ self.n_peak += ind_peaks.size
-            #~ return self.n_peak, ind_peaks
-        
-        #~ return None, None
-        
-    def change_params(self, peak_sign=None, relative_threshold=None, peak_span_ms=None, peak_span=None):
+    
+    def detect_peaks_in_chunk(self, fifo_residuals):
+        # this is used by peeler which handle externaly
+        # a fifo residual
+        sum_rectified = make_sum_rectified(fifo_residuals, self.relative_threshold, self.peak_sign, self.spatial_matrix)
+        ind_peaks = detect_peaks_in_rectified(sum_rectified, self.n_span, self.relative_threshold, self.peak_sign)
+        return ind_peaks        
+    
+    
+    def change_params(self, peak_sign=None, relative_threshold=None,
+                                            peak_span_ms=None, peak_span=None,
+                                            adjacency_radius_um=None,
+                                            ):
         self.peak_sign = peak_sign
         self.relative_threshold = relative_threshold
         
@@ -141,6 +123,19 @@ class PeakDetectorEngine_Numpy:
         #~ print('self.n_span', self.n_span)
         self.n_span = max(1, self.n_span)
         
+        self.adjacency_radius_um = adjacency_radius_um
+        if self.adjacency_radius_um is None or self.adjacency_radius_um <= 0.:
+            self.spatial_matrix = None
+        else:
+            d = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
+            self.spatial_matrix = np.exp(-d/self.adjacency_radius_um)
+            
+            # make it sparse
+            self.spatial_matrix[self.spatial_matrix<0.01] = 0.
+            ## self.spatial_matrix = self.spatial_matrix / np.sum(self.spatial_matrix, axis=0)[None, :] ## BAD IDEA this is worst
+            
+            #~ print(np.sum(self.spatial_matrix, axis=0))
+                    
         #~ self.ring_sum = RingBuffer((self.chunksize*2,), self.dtype, double=True)
         self.fifo_sum_rectified = FifoBuffer((self.chunksize*2,), self.dtype)
         
@@ -154,13 +149,14 @@ class PeakDetectorEngine_OpenCL:
     For standard GPU PeakDetectorEngine implemented with numpy is faster.
     I wasted my time here....
     """
-    def __init__(self, sample_rate, nb_channel, chunksize, dtype,):
+    def __init__(self, sample_rate, nb_channel, chunksize, dtype, geometry):
         assert HAVE_PYOPENCL
         
         self.sample_rate = sample_rate
         self.nb_channel = nb_channel
         self.chunksize = chunksize
         self.dtype = np.dtype(dtype)
+        self.geometry = geometry
         
         self.n_peak = 0
 

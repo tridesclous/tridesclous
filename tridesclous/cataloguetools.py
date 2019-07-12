@@ -144,6 +144,7 @@ _default_catalogue_params = {
         'peak_sign': '-',
         'relative_threshold': 5.,
         'peak_span_ms': .7,
+        'adjacency_radius_um' : None,
     },
     'noise_snippet': {
         'nb_snippet': 300,

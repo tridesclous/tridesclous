@@ -5,8 +5,8 @@ import numpy as np
 from .peeler_tools import *
 from .peeler_tools import _dtype_spike
 from .tools import make_color_dict
-from . import signalpreprocessor
-from .peakdetector import  detect_peaks_in_chunk, detect_peaks_in_rectified, make_sum_rectified
+from .signalpreprocessor import signalpreprocessor_engines
+from .peakdetector import peakdetector_engines  #detect_peaks_in_chunk
 
 
 from . import pythran_tools
@@ -214,7 +214,10 @@ class PeelerEngineClassic(OpenCL_Helper):
         while True:
             #detect peaks
             t3 = time.perf_counter()
-            local_peaks = detect_peaks_in_chunk(self.fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign)
+            #~ local_peaks = detect_peaks_in_chunk(self.fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign)
+            
+            local_peaks = self.peakdetector.detect_peaks_in_chunk(self.fifo_residuals)
+            
             
             # try order by amplitude
             #~ sum_rectified = make_sum_rectified(self.fifo_residuals, self.relative_threshold, self.peak_sign)
@@ -305,18 +308,17 @@ class PeelerEngineClassic(OpenCL_Helper):
         
     
     
-    def initialize_before_each_segment(self, sample_rate=None, nb_channel=None, source_dtype=None):
+    def initialize_before_each_segment(self, sample_rate=None, nb_channel=None, source_dtype=None, geometry=None):
         
         self.nb_channel = nb_channel
         self.sample_rate = sample_rate
         self.source_dtype = source_dtype
+        self.geometry = geometry
         
+        # signal processor class
         self.signalpreprocessor_engine = self.catalogue['signal_preprocessor_params']['signalpreprocessor_engine']
-        #~ print('self.signalpreprocessor_engine', self.signalpreprocessor_engine)
-        SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[self.signalpreprocessor_engine]
-        #~ SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines['numpy']
+        SignalPreprocessor_class = signalpreprocessor_engines[self.signalpreprocessor_engine]
         self.signalpreprocessor = SignalPreprocessor_class(sample_rate, nb_channel, self.chunksize, source_dtype)
-        
         p = dict(self.catalogue['signal_preprocessor_params'])
         p.pop('signalpreprocessor_engine')
         p['normalize'] = True
@@ -324,10 +326,17 @@ class PeelerEngineClassic(OpenCL_Helper):
         p['signals_mads'] = self.catalogue['signals_mads']
         self.signalpreprocessor.change_params(**p)
         
+        self.internal_dtype = self.signalpreprocessor.output_dtype
+        
         assert self.chunksize>self.signalpreprocessor.lostfront_chunksize, 'lostfront_chunksize ({}) is greater than chunksize ({})!'.format(self.signalpreprocessor.lostfront_chunksize, self.chunksize)
 
-        
-        self.internal_dtype = self.signalpreprocessor.output_dtype
+        # peak detecetor class
+        p = dict(self.catalogue['peak_detector_params'])
+        peakdetector_engine = p.pop('peakdetector_engine', 'numpy') # TODO put engine in info json back
+        PeakDetector_class = peakdetector_engines[peakdetector_engine]
+        self.peakdetector = PeakDetector_class(self.sample_rate, self.nb_channel,
+                                                        self.chunksize, self.internal_dtype, self.geometry)
+        self.peakdetector.change_params(**p)
 
         self.peak_sign = self.catalogue['peak_detector_params']['peak_sign']
         self.relative_threshold = self.catalogue['peak_detector_params']['relative_threshold']

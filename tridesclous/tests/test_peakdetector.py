@@ -2,57 +2,50 @@ from tridesclous import get_dataset
 from tridesclous.peakdetector import peakdetector_engines
 
 import time
+import itertools
 
 import scipy.signal
 import numpy as np
+import sklearn.metrics.pairwise
 
 from matplotlib import pyplot
 
 from tridesclous.tests.test_signalpreprocessor import offline_signal_preprocessor
 
-
+from tridesclous.peakdetector import make_sum_rectified, detect_peaks_in_rectified
 from tridesclous.peakdetector import HAVE_PYOPENCL
 
-def offline_peak_detect(normed_sigs, sample_rate, peak_sign='-',relative_threshold = 5,  peak_span_ms=0.5):
-    n_span = int(sample_rate * peak_span_ms / 1000.)//2
-   
-    # rectifiy
-    rectified_sigs = normed_sigs.copy()
-    if peak_sign=='+':
-        rectified_sigs[rectified_sigs<relative_threshold] = 0.
-    else:
-        rectified_sigs[rectified_sigs>-relative_threshold] = 0.
-
-    # peaks with span
-    k = n_span
-    sig = rectified_sum = rectified_sigs.sum(axis=1)
-    sig_center = sig[k:-k]
-    if peak_sign == '+':
-        peaks = sig_center>relative_threshold
-        for i in range(k):
-            peaks &= sig_center>sig[i:i+sig_center.size]
-            peaks &= sig_center>=sig[k+i+1:k+i+1+sig_center.size]
-    elif peak_sign == '-':
-        peaks = sig_center<-relative_threshold
-        for i in range(k):
-            peaks &= sig_center<sig[i:i+sig_center.size]
-            peaks &= sig_center<=sig[k+i+1:k+i+1+sig_center.size]
-    peaks_pos,  = np.where(peaks)
-    peaks_pos += k
+def offline_peak_detect(normed_sigs, sample_rate, geometry, 
+                peak_sign='-',relative_threshold = 5,  peak_span_ms=0.5, adjacency_radius_um=None):
     
-    return peaks_pos, rectified_sum
+    
+    n_span = int(sample_rate * peak_span_ms / 1000.)//2
+    
+    if adjacency_radius_um is None:
+        spatial_matrix = None
+    else:
+        d = sklearn.metrics.pairwise.euclidean_distances(geometry)
+        spatial_matrix = np.exp(-d/adjacency_radius_um)
+        spatial_matrix[spatial_matrix<0.01] = 0.
+    
+    sum_rectified = make_sum_rectified(normed_sigs, relative_threshold, peak_sign, spatial_matrix)
+    ind_peaks = detect_peaks_in_rectified(sum_rectified, n_span, relative_threshold, peak_sign)
+    
+    return ind_peaks, sum_rectified
 
 
     
 
 def test_compare_offline_online_engines():
     #~ HAVE_PYOPENCL = True
-    if HAVE_PYOPENCL:
-        engines = ['numpy', 'opencl']
+    #~ if HAVE_PYOPENCL:
+        #~ engines = ['numpy', 'opencl']
         #~ engines = [ 'opencl']
         #~ engines = ['numpy']
-    else:
-        engines = ['numpy']
+    #~ else:
+        #~ engines = ['numpy']
+        
+    engines = ['numpy']
 
     # get sigs
     sigs, sample_rate = get_dataset(name='olfactory_bulb')
@@ -60,6 +53,9 @@ def test_compare_offline_online_engines():
     
     nb_channel = sigs.shape[1]
     print('nb_channel', nb_channel)
+    
+    geometry = np.zeros((nb_channel, 2))
+    geometry[:, 0] = np.arange(nb_channel) * 50 # um spacing
 
     
     
@@ -68,6 +64,7 @@ def test_compare_offline_online_engines():
     peak_sign = '-'
     relative_threshold = 8
     peak_span_ms = 0.9
+    adjacency_radius_um = None
     
     #~ print('n_span', n_span)
     nloop = sigs.shape[0]//chunksize
@@ -86,11 +83,12 @@ def test_compare_offline_online_engines():
     
     
     
-    for peak_sign in ['-', '+', ]:
+    #~ for peak_sign in ['-', '+', ]:
+    for peak_sign, adjacency_radius_um in itertools.product(['-', '+'], [None, 100]):
     #~ for peak_sign in ['+', ]:
     #~ for peak_sign in ['-', ]:
         print()
-        print('peak_sign', peak_sign)
+        print('peak_sign', peak_sign, 'adjacency_radius_um', adjacency_radius_um)
         if peak_sign=='-':
             sigs = normed_sigs
         elif peak_sign=='+':
@@ -101,7 +99,9 @@ def test_compare_offline_online_engines():
         
         
         t1 = time.perf_counter()
-        offline_peaks, rectified_sum = offline_peak_detect(sigs, sample_rate, peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span_ms=peak_span_ms)
+        offline_peaks, rectified_sum = offline_peak_detect(sigs, sample_rate, geometry, 
+                                        peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span_ms=peak_span_ms, 
+                                        adjacency_radius_um=adjacency_radius_um)
         t2 = time.perf_counter()
         print('offline', 'process time', t2-t1)
         #~ print(offline_peaks)
@@ -111,10 +111,10 @@ def test_compare_offline_online_engines():
             print(engine)
             EngineClass = peakdetector_engines[engine]
             #~ buffer_size = chunksize*4
-            peakdetector_engine = EngineClass(sample_rate, nb_channel, chunksize, 'float32')
+            peakdetector_engine = EngineClass(sample_rate, nb_channel, chunksize, 'float32', geometry)
             
             peakdetector_engine.change_params(peak_sign=peak_sign, relative_threshold=relative_threshold,
-                            peak_span_ms=peak_span_ms)
+                            peak_span_ms=peak_span_ms, adjacency_radius_um=adjacency_radius_um)
             
             all_online_peaks = []
             t1 = time.perf_counter()

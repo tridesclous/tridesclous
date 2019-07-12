@@ -309,6 +309,7 @@ class CatalogueConstructor:
             #peak detector
             peakdetector_engine='numpy',
             peak_sign='-', relative_threshold=7, peak_span_ms=0.3,
+            adjacency_radius_um=None,
             
             ):
         """
@@ -379,10 +380,11 @@ class CatalogueConstructor:
         self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.nb_channel, chunksize, self.dataio.source_dtype)
         
         
-        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span_ms=peak_span_ms)
+        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span_ms=peak_span_ms, adjacency_radius_um=adjacency_radius_um)
         PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
+        geometry = self.dataio.get_geometry(self.chan_grp)
         self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.nb_channel,
-                                                        self.chunksize, internal_dtype)
+                                                        self.chunksize, internal_dtype, geometry)
         
         #TODO make processed data as int32 ???
         for i in range(self.dataio.nb_segment):
@@ -537,7 +539,7 @@ class CatalogueConstructor:
             
         self.finalize_signalprocessor_loop()
     
-    def re_detect_peak(self, peakdetector_engine='numpy', peak_sign='-', relative_threshold=7, peak_span_ms=0.3):
+    def re_detect_peak(self, peakdetector_engine='numpy', peak_sign='-', relative_threshold=7, peak_span_ms=0.3, adjacency_radius_um=None):
         """
         Peak are detected while **run_signalprocessor**.
         But in some case for testing other threshold we can **re-detect peak** without signal processing.
@@ -556,10 +558,11 @@ class CatalogueConstructor:
         
         """
         #TODO if not peak detector in class
-        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span_ms=peak_span_ms)
+        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span_ms=peak_span_ms, adjacency_radius_um=adjacency_radius_um)
         PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
+        geometry = self.dataio.get_geometry(self.chan_grp)
         self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.nb_channel,
-                                                        self.info['chunksize'], self.info['internal_dtype'])
+                                                        self.info['chunksize'], self.info['internal_dtype'], geometry)
 
         self.peakdetector.change_params(**self.peak_detector_params)
         
