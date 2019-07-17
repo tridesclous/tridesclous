@@ -73,6 +73,7 @@ _dtype_cluster = [('cluster_label', 'int64'), ('cell_label', 'int64'),
 _keep_cluster_attr_on_new = ['cell_label', 'tag','annotations', 'color']
 
 
+_default_max_per_cluster = 350
 
 
 
@@ -603,7 +604,8 @@ class CatalogueConstructor:
     def extract_some_waveforms(self, n_left=None, n_right=None,
                             wf_left_ms=None, wf_right_ms=None,
                             index=None, mode='rand', nb_max=10000,
-                            align_waveform=False, subsample_ratio=20):
+                            align_waveform=False, subsample_ratio=20, 
+                            recompute_all_centroid=True):
         """
         Extract waveform snippet for a subset of peaks (already detected).
         
@@ -633,6 +635,7 @@ class CatalogueConstructor:
         
         
         """
+        print('cc.extract_some_waveforms', 0)
         if n_left is None or n_right is None:
             if 'waveform_extractor_params' in self.info:
                 n_left = self.info['waveform_extractor_params']['n_left']
@@ -677,60 +680,49 @@ class CatalogueConstructor:
 
         seg_nums = np.unique(self.all_peaks['segment'])
         n = 0
+        print('cc.extract_some_waveforms', 1)
         for seg_num in seg_nums:
             insegment_peaks  = self.all_peaks[some_peak_mask & (self.all_peaks['segment']==seg_num)]
-            for peak in insegment_peaks:
-                i_start = peak['index']+n_left
-                i_stop = i_start+peak_width
-                if align_waveform:
+            
+            if not align_waveform:
+                spike_indexes = insegment_peaks['index']
+                if spike_indexes.size == 0:
+                    continue
+                print('cc.extract_some_waveforms', 1.2)
+                waveforms = self.some_waveforms[n:n+spike_indexes.size]
+                print('cc.extract_some_waveforms', 1.3)
+                self.dataio.get_some_waveforms(seg_num=seg_num, chan_grp=self.chan_grp,
+                                                        spike_indexes=spike_indexes, n_left=n_left, n_right=n_right,
+                                                        waveforms=waveforms, n_jobs=8)
+
+                print('cc.extract_some_waveforms', 1.4)
+            
+            else:
+                print('WARNING align_waveform depreciated')
+                
+                for peak in insegment_peaks:
+                    i_start = peak['index']+n_left
+                    i_stop = i_start+peak_width
+                
                     ratio = subsample_ratio
                     wf = self.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.chan_grp, i_start=i_start-peak_width, i_stop=i_stop+peak_width, signal_type='processed')
                     wf2 = scipy.signal.resample(wf, wf.shape[0]*ratio, axis=0)
                     wf2_around_peak = wf2[(peak_width-n_left-2)*ratio:(peak_width-n_left+3)*ratio, :]
-                    #~ print(wf2_around_peak.shape)
+
                     if peak_sign=='+':
-                        #~ ind_chan_max = np.argmax(np.max(wf2_around_peak, axis=0))
                         ind_chan_max = np.argmax(wf2_around_peak[ratio, :])
                         ind_max = np.argmax(wf2_around_peak[:, ind_chan_max])
                     elif peak_sign=='-':
-                        #~ ind_chan_max_old = np.argmin(np.min(wf2_around_peak, axis=0))
                         ind_chan_max = np.argmin(wf2_around_peak[ratio, :])
-                        #~ print(ind_chan_max_old, ind_chan_max)
                         ind_max = np.argmin(wf2_around_peak[:, ind_chan_max])
                     shift = ind_max - ratio*2
-                    #~ print('ind_chan_max', ind_chan_max, 'ind_max', ind_max, 'shift', shift)
-                    
-                    #~ i1=peak_width*ratio+ind_max
-                    #~ i1_old = (peak_width-n_left-1)*ratio + ind_max + n_left*ratio 
-                    #~ i1 = peak_width*ratio + shift
                     i1 = peak_width*ratio + shift
-                    #~ print('i1_old', i1_old, 'i1', i1)
                     i2 = i1+peak_width*ratio
                     wf_short = wf2[i1:i2:ratio, :]
                     self.some_waveforms[n, :, :] = wf_short
+                    n +=1
                     
-                    #DEBUG
-                    #~ wf_short = self.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.chan_grp, i_start=i_start, i_stop=i_stop, signal_type='processed')
-                    #~ import matplotlib.pyplot as plt
-                    #~ fig, ax = plt.subplots()
-                    #~ ax.plot(wf2[:, ind_chan_max])
-                    #~ x = (peak_width-n_left-2)*ratio + ind_max
-                    #~ print(x, n_left, n_right, peak_width, ratio)
-                    #~ y = wf2[(peak_width-n_left-2)*ratio+ind_max, ind_chan_max]
-                    #~ y_av = wf2[(peak_width-n_left-2)*ratio+ind_max-ratio, ind_chan_max]
-                    #~ y_af = wf2[(peak_width-n_left-2)*ratio+ind_max+ratio, ind_chan_max]
-                    #~ ax.plot([x-ratio, x, x+ratio], [y_av, y, y_af], marker='o', markersize=10)
-                    #~ ax.axvline((peak_width-n_left-2)*ratio)
-                    #~ ax.axvline((peak_width-n_left+3)*ratio)
-                    #~ ax.plot(np.arange(wf_short.shape[0])*ratio+peak_width*ratio, wf_short[:, ind_chan_max], ls='--')
-                    #~ plt.show()
-                    #END DEBUG
-                    
-                else:
-                    wf = self.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.chan_grp, i_start=i_start, i_stop=i_stop, signal_type='processed')
-                    self.some_waveforms[n, :, :] = wf
-                n +=1
-        
+        print('cc.extract_some_waveforms', 2)
         self.info['waveform_extractor_params'] = dict(n_left=n_left, n_right=n_right, 
                                                                 nb_max=nb_max, align_waveform=align_waveform,
                                                                 subsample_ratio=subsample_ratio)
@@ -738,32 +730,42 @@ class CatalogueConstructor:
         
         self.projector = None
         self._reset_arrays(_reset_after_waveforms_arrays)
-
+        print('cc.extract_some_waveforms', 3)
         self.all_peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
         self.all_peaks['cluster_label'][self.some_peaks_index] = 0
-        
+        print('cc.extract_some_waveforms', 4)
         self.on_new_cluster()
-        self.compute_all_centroid()
+        print('cc.extract_some_waveforms', 5)
+        if recompute_all_centroid:
+            self.compute_all_centroid(max_per_cluster=_default_max_per_cluster)
+        print('cc.extract_some_waveforms', 6)
         
     
-    def clean_waveforms(self, alien_value_threshold=100.):
+    def clean_waveforms(self, alien_value_threshold=100., recompute_all_centroid=True):
         """
         Detect bad waveform (artefact, ...) and tag them with allien 
         label (-9)
         
         """
+        print('cc.clean_waveforms', 0)
         if alien_value_threshold is not None:
+            print('cc.clean_waveforms', 1)
             over = np.any(np.abs(self.some_waveforms)>alien_value_threshold, axis=(1,2))
+            print('cc.clean_waveforms', 2)
             index_over = self.some_peaks_index[over]
+            print('cc.clean_waveforms', 3)
             index_ok = self.some_peaks_index[~over]
+            print('cc.clean_waveforms', 4)
             self.all_peaks['cluster_label'][index_over] = labelcodes.LABEL_ALIEN
             self.all_peaks['cluster_label'][index_ok] = 0
+            print('cc.clean_waveforms', 5)
 
         self.info['clean_waveforms_params'] = dict(alien_value_threshold=alien_value_threshold)
         self.flush_info()
 
         self.on_new_cluster()
-        self.compute_all_centroid()
+        if recompute_all_centroid:
+            self.compute_all_centroid(max_per_cluster=_default_max_per_cluster)
 
     
     def find_good_limits(self, mad_threshold = 1.1, channel_percent=0.3, extract=True, min_left=-5, max_right=5):
@@ -1060,14 +1062,26 @@ class CatalogueConstructor:
             mask |= self.all_peaks['cluster_label']== k
         self.change_spike_label(mask, labelcodes.LABEL_TRASH)
     
-    def compute_one_centroid(self, k, flush=True):
+    def compute_one_centroid(self, k, flush=True, max_per_cluster=None):
+        print('cc.compute_one_centroid', 0, 'k=', k)
         #~ t1 = time.perf_counter()
         ind = self.index_of_label(k)
         
         n_left = int(self.info['waveform_extractor_params']['n_left'])
         
-        wf = self.some_waveforms[self.all_peaks['cluster_label'][self.some_peaks_index]==k]
+        selected, = np.nonzero(self.all_peaks['cluster_label'][self.some_peaks_index]==k)
+        print(selected.size)
+        if max_per_cluster is not None and selected.size>max_per_cluster:
+            keep = np.random.choice(selected.size, max_per_cluster, replace=False)
+            selected = selected[keep]
+        print(selected.size)
+        
+        #~ wf = self.some_waveforms[self.all_peaks['cluster_label'][self.some_peaks_index]==k]
+        wf = self.some_waveforms[selected, :, :]
+        
+        print('cc.compute_one_centroid', 1)
         median, mad = median_mad(wf, axis = 0)
+        print('cc.compute_one_centroid', 2)
         mean, std = np.mean(wf, axis=0), np.std(wf, axis=0)
         max_on_channel = np.argmax(np.abs(median[-n_left,:]), axis=0)
         
@@ -1088,8 +1102,8 @@ class CatalogueConstructor:
         #~ t2 = time.perf_counter()
         #~ print('compute_one_centroid',k, t2-t1)
 
-    def compute_all_centroid(self):
-        
+    def compute_all_centroid(self, max_per_cluster=None):
+        print('cc.compute_all_centroid', 0)
         t1 = time.perf_counter()
         if self.some_waveforms is None:
             for name in _centroids_arrays:
@@ -1104,13 +1118,12 @@ class CatalogueConstructor:
         for name in _centroids_arrays:
             empty = np.zeros((self.cluster_labels.size, n_right - n_left, self.nb_channel), dtype=self.info['internal_dtype'])
             self.arrays.add_array(name, empty, self.memory_mode)
-        
+        print('cc.compute_all_centroid', 1)
         #~ t1 = time.perf_counter()
         for k in self.cluster_labels:
             if k <0: continue
-            
-            self.compute_one_centroid(k, flush=False)
-
+            self.compute_one_centroid(k, flush=False, max_per_cluster=max_per_cluster)
+        print('cc.compute_all_centroid', 2)
         for name in ('clusters',) + _centroids_arrays:
             self.arrays.flush_array(name)
         

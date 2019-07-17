@@ -16,6 +16,7 @@ import pickle
 from .datasource import data_source_classes
 from .iotools import ArrayCollection
 from .tools import download_probe, create_prb_file_from_dict, fix_prb_file_py2
+from .waveformtools import extract_chunks
 
 from .export import export_list, export_dict
 
@@ -567,19 +568,25 @@ class DataIO:
             return
         return spikes[i_start:i_stop]
     
-    def get_some_waveforms(self, seg_num=0, chan_grp=0, spike_indexes=None, n_left=None, n_right=None):
+    def get_some_waveforms(self, seg_num=0, chan_grp=0, spike_indexes=None,
+                                n_left=None, n_right=None, waveforms=None, n_jobs=1):
         """
         Exctract some waveforms given spike_indexes
         """
         assert spike_indexes is not None, 'Provide spike_indexes'
         peak_width = n_right - n_left
-        wf = np.zeros((spike_indexes.size, peak_width, self.nb_channel(chan_grp)), dtype='float32')
-        for i, spike_index in enumerate(spike_indexes):
-            i_start = spike_index + n_left
-            i_stop = spike_index + n_right
-            wf[i, :, :] = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, 
-                        i_start=i_start, i_stop=i_stop, signal_type='processed')
-        return wf
+        
+        if waveforms is None:
+            waveforms = np.zeros((spike_indexes.size, peak_width, self.nb_channel(chan_grp)), dtype='float32')
+        else:
+            assert waveforms.shape[0] == spike_indexes.size
+            assert waveforms.shape[1] == peak_width
+        
+        sigs = self.arrays[chan_grp][seg_num].get('processed_signals')
+        
+        extract_chunks(sigs, spike_indexes+n_left, peak_width, chunks=waveforms, n_jobs=n_jobs)
+        
+        return waveforms
         
     def save_catalogue(self, catalogue, name='initial'):
         """

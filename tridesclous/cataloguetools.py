@@ -84,7 +84,7 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
         print('run_signalprocessor', t2-t1)
 
     t1 = time.perf_counter()
-    cc.extract_some_waveforms(**params['extract_waveforms'])
+    cc.extract_some_waveforms(**params['extract_waveforms'], recompute_all_centroid=False)
     t2 = time.perf_counter()
     if verbose:
         print('extract_some_waveforms', t2-t1)
@@ -92,7 +92,7 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     t1 = time.perf_counter()
     #~ duration = d['duration'] if d['limit_duration'] else None
     #~ d['clean_waveforms']
-    cc.clean_waveforms(**params['clean_waveforms'])
+    cc.clean_waveforms(**params['clean_waveforms'], recompute_all_centroid=False)
     t2 = time.perf_counter()
     if verbose:
         print('clean_waveforms', t2-t1)
@@ -123,7 +123,10 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
         print('find_clusters', t2-t1)
     
     if params['clean_cluster']:
+        t1 = time.perf_counter()
         cc.clean_cluster(**params['clean_cluster_kargs'])
+        t2 = time.perf_counter()
+        print('clean_cluster', t2-t1)
     
     cc.order_clusters(by='waveforms_rms')
 
@@ -153,7 +156,7 @@ _default_catalogue_params = {
         'wf_left_ms': -1.5,
         'wf_right_ms': 2.5,
         'mode': 'rand',
-        'nb_max': 20000.,
+        'nb_max': 20000,
         'align_waveform': False,
     },
     'clean_waveforms': {
