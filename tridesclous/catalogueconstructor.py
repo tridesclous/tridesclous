@@ -693,7 +693,8 @@ class CatalogueConstructor:
                 print('cc.extract_some_waveforms', 1.3)
                 self.dataio.get_some_waveforms(seg_num=seg_num, chan_grp=self.chan_grp,
                                                         spike_indexes=spike_indexes, n_left=n_left, n_right=n_right,
-                                                        waveforms=waveforms, n_jobs=8)
+                                                        waveforms=waveforms, n_jobs=1) # TODO option n=8
+                n += spike_indexes.size
 
                 print('cc.extract_some_waveforms', 1.4)
             
@@ -941,7 +942,7 @@ class CatalogueConstructor:
         
         if selection is None:
             self.on_new_cluster()
-            self.compute_all_centroid()
+            self.compute_all_centroid(max_per_cluster=_default_max_per_cluster)
             #maybe remove this but this is a good practice
             self.order_clusters(by='waveforms_rms')
         else:
@@ -950,7 +951,7 @@ class CatalogueConstructor:
                 if new_label not in self.clusters['cluster_label'] and new_label>=0:
                     self.add_one_cluster(new_label)
                 if new_label>=0:
-                    self.compute_one_centroid(new_label)
+                    self.compute_one_centroid(new_label, max_per_cluster=_default_max_per_cluster)
             
             for old_label in old_labels:
                 ind = self.index_of_label(old_label)
@@ -959,7 +960,8 @@ class CatalogueConstructor:
                     self.pop_labels_from_cluster([old_label])
                 else:
                     self.clusters['nb_peak'][ind] = nb_peak
-                    self.compute_one_centroid(old_label)
+                    self.compute_one_centroid(old_label, max_per_cluster=_default_max_per_cluster)
+                    
 
     def on_new_cluster(self):
         #~ print('cc.on_new_cluster')
@@ -1082,14 +1084,17 @@ class CatalogueConstructor:
         print('cc.compute_one_centroid', 1)
         median, mad = median_mad(wf, axis = 0)
         print('cc.compute_one_centroid', 2)
-        mean, std = np.mean(wf, axis=0), np.std(wf, axis=0)
+        # mean, std = np.mean(wf, axis=0), np.std(wf, axis=0) # TODO rome the mean/std
         max_on_channel = np.argmax(np.abs(median[-n_left,:]), axis=0)
         
         # to persistant arrays
         self.centroids_median[ind, :, :] = median
         self.centroids_mad[ind, :, :] = mad
-        self.centroids_mean[ind, :, :] = mean
-        self.centroids_std[ind, :, :] = std
+        #~ self.centroids_mean[ind, :, :] = mean
+        #~ self.centroids_std[ind, :, :] = std
+        self.centroids_mean[ind, :, :] = 0
+        self.centroids_std[ind, :, :] = 0
+
         
         self.clusters['max_on_channel'][ind] = max_on_channel
         self.clusters['max_peak_amplitude'][ind] = median[-n_left, max_on_channel]
