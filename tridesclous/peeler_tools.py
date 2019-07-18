@@ -15,6 +15,19 @@ _dtype_spike = [('index', 'int64'), ('cluster_label', 'int64'), ('jitter', 'floa
 Spike = namedtuple('Spike', ('index', 'cluster_label', 'jitter'))
 
 
+def make_prediction_one_spike(spike_index, spike_label, spike_jitter, dtype, catalogue):
+    assert spike_label >= 0
+    cluster_idx = catalogue['label_to_index'][spike_label]
+    r = catalogue['subsample_ratio']
+    pos = spike_index + catalogue['n_left']
+    #TODO debug that sign
+    shift = -int(np.round(spike_jitter))
+    pos = pos + shift
+    int_jitter = int((spike_jitter+shift)*r) + r//2
+    pred = catalogue['interp_centers0'][cluster_idx, int_jitter::r, :]
+    
+    return pos, pred
+
 
 def make_prediction_signals(spikes, dtype, shape, catalogue, safe=True):
     #~ n_left, peak_width, 
@@ -24,51 +37,7 @@ def make_prediction_signals(spikes, dtype, shape, catalogue, safe=True):
         k = spikes[i]['cluster_label']
         if k<0: continue
         
-        #~ cluster_idx = np.nonzero(catalogue['cluster_labels']==k)[0][0]
-        cluster_idx = catalogue['label_to_index'][k]
-        
-        #~ print('make_prediction_signals', 'k', k, 'cluster_idx', cluster_idx)
-        
-        # prediction with no interpolation
-        #~ wf0 = catalogue['centers0'][cluster_idx,:,:]
-        #~ pred = wf0
-        
-        # predict with tailor approximate with derivative
-        #~ wf1 = catalogue['centers1'][cluster_idx,:,:]
-        #~ wf2 = catalogue['centers2'][cluster_idx]
-        #~ pred = wf0 +jitter*wf1 + jitter**2/2*wf2
-        
-        #predict with with precilputed splin
-        r = catalogue['subsample_ratio']
-        pos = spikes[i]['index'] + catalogue['n_left']
-        jitter = spikes[i]['jitter']
-        #TODO debug that sign
-        shift = -int(np.round(jitter))
-        pos = pos + shift
-        
-        #~ if np.abs(jitter)>=0.5:
-            #~ print('strange jitter', jitter)
-        
-        #TODO debug that sign
-        #~ if shift >=1:
-            #~ print('jitter', jitter, 'jitter+shift', jitter+shift, 'shift', shift)
-        #~ int_jitter = int((jitter+shift)*r) + r//2
-        int_jitter = int((jitter+shift)*r) + r//2
-        #~ int_jitter = -int((jitter+shift)*r) + r//2
-        
-        #~ assert int_jitter>=0
-        #~ assert int_jitter<r
-        #TODO this is wrong we should move index first
-        #~ int_jitter = max(int_jitter, 0)
-        #~ int_jitter = min(int_jitter, r-1)
-        
-        pred = catalogue['interp_centers0'][cluster_idx, int_jitter::r, :]
-        #~ print(pred.shape)
-        #~ print(int_jitter, spikes[i]['jitter'])
-        
-        
-        #~ print(prediction[pos:pos+catalogue['peak_width'], :].shape)
-        
+        pos, pred = make_prediction_one_spike(spikes[i]['index'], spikes[i]['cluster_label'], spikes[i]['jitter'], dtype, catalogue)
         
         if pos>=0 and  pos+catalogue['peak_width']<shape[0]:
             prediction[pos:pos+catalogue['peak_width'], :] += pred

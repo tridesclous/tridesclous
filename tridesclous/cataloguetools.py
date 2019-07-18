@@ -221,7 +221,11 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         if nb_chan >64 and HAVE_PYOPENCL:
             # force opencl : this limit depend on the platform of course
             params['preprocessor']['signalpreprocessor_engine'] = 'opencl'
-
+    
+    # auto chunsize of 100 ms
+    params['preprocessor']['chunksize'] = int(dataio.sample_rate * 0.1)
+    
+    
     
     return params
 

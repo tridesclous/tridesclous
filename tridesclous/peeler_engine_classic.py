@@ -184,9 +184,9 @@ class PeelerEngineClassic(OpenCL_Helper):
         #~ print('*'*5)
         #~ print('chunksize', self.chunksize, '=', self.chunksize/self.sample_rate*1000, 'ms')
         
-        #~ t1 = time.perf_counter()
+        t1 = time.perf_counter()
         abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
-        #~ t2 = time.perf_counter()
+        t2 = time.perf_counter()
         #~ print('process_data', (t2-t1)*1000)
         
         
@@ -208,68 +208,108 @@ class PeelerEngineClassic(OpenCL_Helper):
         
         # TODO remove from peak the very begining of the signal because of border filtering effects
         
-        #~ t1 = time.perf_counter()
+     
         good_spikes = []
-        all_ready_tested = []
+        #~ already_tested = []
+        
+        # negative mask 1: not tested 0: already tested
+        mask_already_tested = np.ones(self.fifo_residuals.shape[0] - 2 * self.n_span, dtype='bool')
+        
+        local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+        
+        t1 = time.perf_counter()
         while True:
             #detect peaks
-            t3 = time.perf_counter()
-            #~ local_peaks = detect_peaks_in_chunk(self.fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign)
+            #~ t3 = time.perf_counter()
             
-            local_peaks = self.peakdetector.detect_peaks_in_chunk(self.fifo_residuals)
+            #~ local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+            
+            local_peaks_indexes,  = np.nonzero(local_peaks_mask & mask_already_tested)
+            local_peaks_indexes += self.n_span
             
             
-            # try order by amplitude
-            #~ sum_rectified = make_sum_rectified(self.fifo_residuals, self.relative_threshold, self.peak_sign)
-            #~ local_peaks = detect_peaks_in_rectified(sum_rectified, self.n_span, self.relative_threshold, self.peak_sign)
-            #~ if local_peaks.size > 0:
-                #~ order = np.argsort(sum_rectified[local_peaks])
-                #~ if self.peak_sign == '+':
-                    #~ order = order[::-1]
-                #~ local_peaks = local_peaks[order]
-            
-            t4 = time.perf_counter()
-            #~ print('self.fifo_residuals median', np.median(self.fifo_residuals, axis=0))
+            #~ t4 = time.perf_counter()
             #~ print('  detect_peaks_in_chunk', (t4-t3)*1000.)
             
-            if len(all_ready_tested)>0:
-                local_peaks_to_check = local_peaks[~np.in1d(local_peaks, all_ready_tested)]
-            else:
-                local_peaks_to_check = local_peaks
+            #~ if len(already_tested)>0:
+                #~ local_peaks_to_check = local_peaks_indexes[~np.in1d(local_peaks_indexes, already_tested)]
+            #~ else:
+                #~ local_peaks_to_check = local_peaks_indexes
             
             n_ok = 0
-            for i, local_peak in enumerate(local_peaks_to_check):
+            for local_ind in local_peaks_indexes:
                 #~ print('    local_peak', local_peak, 'i', i)
-                #~ t3 = time.perf_counter()
-                spike = self.classify_and_align_one_spike(local_peak, self.fifo_residuals, self.catalogue)
-                #~ t4 = time.perf_counter()
+                t3 = time.perf_counter()
+                spike = self.classify_and_align_one_spike(local_ind, self.fifo_residuals, self.catalogue)
+                t4 = time.perf_counter()
                 #~ print('    classify_and_align_one_spike', (t4-t3)*1000.)
                 
                 if spike.cluster_label>=0:
-                    #~ t3 = time.perf_counter()
+                    t3 = time.perf_counter()
                     #~ print('     >>spike.index', spike.index, spike.cluster_label, 'abs index', spike.index+shift)
+                    
+                    
+                    #~ spikes = np.array([spike], dtype=_dtype_spike)
+                    #~ prediction = make_prediction_signals(spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue, safe=False)
+                    #~ self.fifo_residuals -= prediction
+                    #~ spikes['index'] += shift
+                    #~ good_spikes.append(spikes)
+                    #~ n_ok += 1
+                    
+                    # substract one spike
+                    pos, pred = make_prediction_one_spike(spike.index, spike.cluster_label, spike.jitter, self.fifo_residuals.dtype, self.catalogue)
+                    self.fifo_residuals[pos:pos+self.peak_width, :] -= pred
+                    
+                    # append
                     spikes = np.array([spike], dtype=_dtype_spike)
-                    prediction = make_prediction_signals(spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue, safe=False)
-                    self.fifo_residuals -= prediction
                     spikes['index'] += shift
                     good_spikes.append(spikes)
                     n_ok += 1
-                    #~ t4 = time.perf_counter()
+                    
+                    # recompute peak in neiborhood
+                    # here indexing is tricky 
+                    # sl1 : we need n_pan more in each side
+                    # sl2: we need a shift of n_span because smaler shape
+                    sl1 = slice(local_ind + self.n_left - 1 - self.n_span, local_ind + self.n_right + 1 + self.n_span)
+                    sl2 = slice(local_ind + self.n_left - 1 - self.n_span, local_ind + self.n_right + 1- self.n_span)
+                    local_peaks_mask[sl2] = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals[sl1, :])
+                    
+                    
+                    #~ print('    already_tested before', already_tested)
+                    #~ already_tested = [ind for ind in already_tested if np.abs(spike.index-ind)>self.peak_width]
+                    
+                    # set neighboor untested
+                    mask_already_tested[local_ind - self.peak_width - self.n_span:local_ind + self.peak_width - self.n_span] = True
+
+                    t4 = time.perf_counter()
                     #~ print('    make_prediction_signals and sub', (t4-t3)*1000.)
                     
-                    #~ print('    all_ready_tested before', all_ready_tested)
-                    all_ready_tested = [ind for ind in all_ready_tested if np.abs(spike.index-ind)>self.peak_width]
-                    #~ print('    all_ready_tested new deal', all_ready_tested)
+                    #~ print('    already_tested new deal', already_tested)
                 else:
-                    all_ready_tested.append(local_peak)
+                    # set peak tested
+                    #~ print(mask_already_tested.shape)
+                    #~ print(self.fifo_residuals.shape)
+                    #~ print(self.n_span)
+                    mask_already_tested[local_ind - self.n_span] = False
+                    #~ print('already tested', local_ind)
+                    #~ already_tested.append(local_peak)
             
             if n_ok==0:
                 # no peak can be labeled
                 # reserve bad spikes on the right limit for next time
-                local_peaks = local_peaks[local_peaks<(self.chunksize+self.n_span)]
-                bad_spikes = np.zeros(local_peaks.shape[0], dtype=_dtype_spike)
-                bad_spikes['index'] = local_peaks + shift
+
+                #~ local_peaks_indexes = local_peaks_indexes[local_peaks_indexes<(self.chunksize+self.n_span)]
+                #~ bad_spikes = np.zeros(local_peaks_indexes.shape[0], dtype=_dtype_spike)
+                #~ bad_spikes['index'] = local_peaks_indexes + shift
+                #~ bad_spikes['cluster_label'] = LABEL_UNCLASSIFIED
+                
+                nolabel_indexes, = np.nonzero(~mask_already_tested)
+                nolabel_indexes += self.n_span
+                nolabel_indexes = nolabel_indexes[nolabel_indexes<(self.chunksize+self.n_span)]
+                bad_spikes = np.zeros(nolabel_indexes.shape[0], dtype=_dtype_spike)
+                bad_spikes['index'] = nolabel_indexes + shift
                 bad_spikes['cluster_label'] = LABEL_UNCLASSIFIED
+                
                 break
         
         #~ t2 = time.perf_counter()
@@ -345,6 +385,8 @@ class PeelerEngineClassic(OpenCL_Helper):
         self.n_span = max(1, self.n_span)
         self.peak_width = self.catalogue['peak_width']
         self.n_side = self.catalogue['peak_width'] + maximum_jitter_shift + self.n_span + 1
+        self.n_right = self.catalogue['n_right']
+        self.n_left = self.catalogue['n_left']
         
         assert self.chunksize > (self.n_side+1), 'chunksize is too small because of n_size'
         
@@ -386,7 +428,7 @@ class PeelerEngineClassic(OpenCL_Helper):
             waveform = residual[ind:ind+width,:]
             
             if self.alien_value_threshold is not None and \
-                    np.any(np.abs(waveform)>self.alien_value_threshold) :
+                    np.any((waveform>self.alien_value_threshold) | (waveform<-self.alien_value_threshold)) :
                 label  = LABEL_ALIEN
                 jitter = 0
             else:

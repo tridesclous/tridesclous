@@ -263,7 +263,7 @@ def debug_compare_peeler():
     
     
 if __name__ =='__main__':
-    setup_module()
+    #~ setup_module()
     
     #~ open_catalogue_window()
     
@@ -271,9 +271,9 @@ if __name__ =='__main__':
     
     #~ test_peeler_sparse_opencl()
     
-    test_peeler_empty_catalogue()
+    #~ test_peeler_empty_catalogue()
     
-    test_peeler_several_chunksize()
+    #~ test_peeler_several_chunksize()
     
     #~ test_export_spikes()
     

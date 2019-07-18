@@ -635,7 +635,6 @@ class CatalogueConstructor:
         
         
         """
-        print('cc.extract_some_waveforms', 0)
         if n_left is None or n_right is None:
             if 'waveform_extractor_params' in self.info:
                 n_left = self.info['waveform_extractor_params']['n_left']
@@ -680,7 +679,7 @@ class CatalogueConstructor:
 
         seg_nums = np.unique(self.all_peaks['segment'])
         n = 0
-        print('cc.extract_some_waveforms', 1)
+
         for seg_num in seg_nums:
             insegment_peaks  = self.all_peaks[some_peak_mask & (self.all_peaks['segment']==seg_num)]
             
@@ -688,16 +687,13 @@ class CatalogueConstructor:
                 spike_indexes = insegment_peaks['index']
                 if spike_indexes.size == 0:
                     continue
-                print('cc.extract_some_waveforms', 1.2)
+                
                 waveforms = self.some_waveforms[n:n+spike_indexes.size]
-                print('cc.extract_some_waveforms', 1.3)
                 self.dataio.get_some_waveforms(seg_num=seg_num, chan_grp=self.chan_grp,
                                                         spike_indexes=spike_indexes, n_left=n_left, n_right=n_right,
                                                         waveforms=waveforms, n_jobs=1) # TODO option n=8
                 n += spike_indexes.size
 
-                print('cc.extract_some_waveforms', 1.4)
-            
             else:
                 print('WARNING align_waveform depreciated')
                 
@@ -723,7 +719,6 @@ class CatalogueConstructor:
                     self.some_waveforms[n, :, :] = wf_short
                     n +=1
                     
-        print('cc.extract_some_waveforms', 2)
         self.info['waveform_extractor_params'] = dict(n_left=n_left, n_right=n_right, 
                                                                 nb_max=nb_max, align_waveform=align_waveform,
                                                                 subsample_ratio=subsample_ratio)
@@ -731,16 +726,13 @@ class CatalogueConstructor:
         
         self.projector = None
         self._reset_arrays(_reset_after_waveforms_arrays)
-        print('cc.extract_some_waveforms', 3)
+        
         self.all_peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
         self.all_peaks['cluster_label'][self.some_peaks_index] = 0
-        print('cc.extract_some_waveforms', 4)
+
         self.on_new_cluster()
-        print('cc.extract_some_waveforms', 5)
         if recompute_all_centroid:
             self.compute_all_centroid(max_per_cluster=_default_max_per_cluster)
-        print('cc.extract_some_waveforms', 6)
-        
     
     def clean_waveforms(self, alien_value_threshold=100., recompute_all_centroid=True):
         """
@@ -748,18 +740,15 @@ class CatalogueConstructor:
         label (-9)
         
         """
-        print('cc.clean_waveforms', 0)
         if alien_value_threshold is not None:
-            print('cc.clean_waveforms', 1)
-            over = np.any(np.abs(self.some_waveforms)>alien_value_threshold, axis=(1,2))
-            print('cc.clean_waveforms', 2)
+            # over = np.any(np.abs(self.some_waveforms)>alien_value_threshold, axis=(1,2)) # BAD IDEA copye evrything in mem
+            over1 = np.any(self.some_waveforms>alien_value_threshold, axis=(1,2))
+            over2 = np.any(self.some_waveforms<-alien_value_threshold, axis=(1,2))
+            over = over1 | over2
             index_over = self.some_peaks_index[over]
-            print('cc.clean_waveforms', 3)
             index_ok = self.some_peaks_index[~over]
-            print('cc.clean_waveforms', 4)
             self.all_peaks['cluster_label'][index_over] = labelcodes.LABEL_ALIEN
             self.all_peaks['cluster_label'][index_ok] = 0
-            print('cc.clean_waveforms', 5)
 
         self.info['clean_waveforms_params'] = dict(alien_value_threshold=alien_value_threshold)
         self.flush_info()
@@ -964,7 +953,6 @@ class CatalogueConstructor:
                     
 
     def on_new_cluster(self):
-        #~ print('cc.on_new_cluster')
         if self.all_peaks is None:
             return
         cluster_labels = np.unique(self.all_peaks['cluster_label'])
@@ -1065,25 +1053,20 @@ class CatalogueConstructor:
         self.change_spike_label(mask, labelcodes.LABEL_TRASH)
     
     def compute_one_centroid(self, k, flush=True, max_per_cluster=None):
-        print('cc.compute_one_centroid', 0, 'k=', k)
         #~ t1 = time.perf_counter()
         ind = self.index_of_label(k)
         
         n_left = int(self.info['waveform_extractor_params']['n_left'])
         
         selected, = np.nonzero(self.all_peaks['cluster_label'][self.some_peaks_index]==k)
-        print(selected.size)
         if max_per_cluster is not None and selected.size>max_per_cluster:
             keep = np.random.choice(selected.size, max_per_cluster, replace=False)
             selected = selected[keep]
-        print(selected.size)
         
         #~ wf = self.some_waveforms[self.all_peaks['cluster_label'][self.some_peaks_index]==k]
         wf = self.some_waveforms[selected, :, :]
         
-        print('cc.compute_one_centroid', 1)
         median, mad = median_mad(wf, axis = 0)
-        print('cc.compute_one_centroid', 2)
         # mean, std = np.mean(wf, axis=0), np.std(wf, axis=0) # TODO rome the mean/std
         max_on_channel = np.argmax(np.abs(median[-n_left,:]), axis=0)
         
@@ -1108,7 +1091,6 @@ class CatalogueConstructor:
         #~ print('compute_one_centroid',k, t2-t1)
 
     def compute_all_centroid(self, max_per_cluster=None):
-        print('cc.compute_all_centroid', 0)
         t1 = time.perf_counter()
         if self.some_waveforms is None:
             for name in _centroids_arrays:
@@ -1123,12 +1105,12 @@ class CatalogueConstructor:
         for name in _centroids_arrays:
             empty = np.zeros((self.cluster_labels.size, n_right - n_left, self.nb_channel), dtype=self.info['internal_dtype'])
             self.arrays.add_array(name, empty, self.memory_mode)
-        print('cc.compute_all_centroid', 1)
+        
         #~ t1 = time.perf_counter()
         for k in self.cluster_labels:
             if k <0: continue
             self.compute_one_centroid(k, flush=False, max_per_cluster=max_per_cluster)
-        print('cc.compute_all_centroid', 2)
+
         for name in ('clusters',) + _centroids_arrays:
             self.arrays.flush_array(name)
         
@@ -1279,7 +1261,7 @@ class CatalogueConstructor:
             # merge if k2 still exists
             if k1 in already_merge:
                 k1 = already_merge[k1]
-            print('auto_merge', k1, 'with', k2)
+            #~ print('auto_merge', k1, 'with', k2)
             mask = self.all_peaks['cluster_label'] == k2
             self.all_peaks['cluster_label'][mask] = k1
             already_merge[k2] = k1

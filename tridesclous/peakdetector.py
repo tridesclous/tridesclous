@@ -19,7 +19,9 @@ if HAVE_PYOPENCL:
 
 def detect_peaks_in_chunk(sig, n_span, thresh, peak_sign, spatial_matrix=None):
     sum_rectified = make_sum_rectified(sig, thresh, peak_sign, spatial_matrix)
-    ind_peaks = detect_peaks_in_rectified(sum_rectified, n_span, thresh, peak_sign)
+    mask_peaks = detect_peaks_in_rectified(sum_rectified, n_span, thresh, peak_sign)
+    ind_peaks,  = np.nonzero(mask_peaks)
+    ind_peaks += n_span
     return ind_peaks
 
 
@@ -46,20 +48,20 @@ def make_sum_rectified(sig, thresh, peak_sign, spatial_matrix):
 def detect_peaks_in_rectified(sig_rectified, n_span, thresh, peak_sign):
     sig_center = sig_rectified[n_span:-n_span]
     if peak_sign == '+':
-        peaks = sig_center>thresh
+        mask_peaks = sig_center>thresh
         for i in range(n_span):
-            peaks &= sig_center>sig_rectified[i:i+sig_center.size]
-            peaks &= sig_center>=sig_rectified[n_span+i+1:n_span+i+1+sig_center.size]
+            mask_peaks &= sig_center>sig_rectified[i:i+sig_center.size]
+            mask_peaks &= sig_center>=sig_rectified[n_span+i+1:n_span+i+1+sig_center.size]
     elif peak_sign == '-':
-        peaks = sig_center<-thresh
+        mask_peaks = sig_center<-thresh
         for i in range(n_span):
-            peaks &= sig_center<sig_rectified[i:i+sig_center.size]
-            peaks &= sig_center<=sig_rectified[n_span+i+1:n_span+i+1+sig_center.size]
+            mask_peaks &= sig_center<sig_rectified[i:i+sig_center.size]
+            mask_peaks &= sig_center<=sig_rectified[n_span+i+1:n_span+i+1+sig_center.size]
+    return mask_peaks
     
-    ind_peaks,  = np.nonzero(peaks)
-
-    ind_peaks += n_span
-    return ind_peaks
+    #~ ind_peaks,  = np.nonzero(mask_peaks)
+    #~ ind_peaks += n_span
+    #~ return ind_peaks
 
 
 
@@ -87,7 +89,10 @@ class PeakDetectorEngine_Numpy:
         #~ sig = self.ring_sum.get_data(pos-(newbuf.shape[0]+2*k), pos)
         sig_rectified = self.fifo_sum_rectified.get_data(pos-(newbuf.shape[0]+2*self.n_span), pos)
         
-        ind_peaks = detect_peaks_in_rectified(sig_rectified, self.n_span, self.relative_threshold, self.peak_sign)
+        mask_peaks = detect_peaks_in_rectified(sig_rectified, self.n_span, self.relative_threshold, self.peak_sign)
+        ind_peaks,  = np.nonzero(mask_peaks)
+        ind_peaks += self.n_span
+        
         
         if ind_peaks.size>0:
             ind_peaks = ind_peaks + pos - newbuf.shape[0] -2*self.n_span
@@ -96,12 +101,12 @@ class PeakDetectorEngine_Numpy:
 
         return None, None
     
-    def detect_peaks_in_chunk(self, fifo_residuals):
+    def get_mask_peaks_in_chunk(self, fifo_residuals):
         # this is used by peeler which handle externaly
         # a fifo residual
         sum_rectified = make_sum_rectified(fifo_residuals, self.relative_threshold, self.peak_sign, self.spatial_matrix)
-        ind_peaks = detect_peaks_in_rectified(sum_rectified, self.n_span, self.relative_threshold, self.peak_sign)
-        return ind_peaks        
+        mask_peaks = detect_peaks_in_rectified(sum_rectified, self.n_span, self.relative_threshold, self.peak_sign)
+        return mask_peaks        
     
     
     def change_params(self, peak_sign=None, relative_threshold=None,

@@ -29,7 +29,9 @@ def offline_peak_detect(normed_sigs, sample_rate, geometry,
         spatial_matrix[spatial_matrix<0.01] = 0.
     
     sum_rectified = make_sum_rectified(normed_sigs, relative_threshold, peak_sign, spatial_matrix)
-    ind_peaks = detect_peaks_in_rectified(sum_rectified, n_span, relative_threshold, peak_sign)
+    mask_peaks = detect_peaks_in_rectified(sum_rectified, n_span, relative_threshold, peak_sign)
+    ind_peaks,  = np.nonzero(mask_peaks)
+    ind_peaks += n_span
     
     return ind_peaks, sum_rectified
 

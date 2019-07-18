@@ -75,11 +75,6 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
     }
     
     apply_all_catalogue_steps(catalogueconstructor, params, verbose=True)
-        
-    catalogueconstructor.trash_small_cluster()
-    
-    catalogueconstructor.order_clusters(by='waveforms_rms')
-    
     
     catalogueconstructor.make_catalogue_for_peeler()
 
