@@ -181,13 +181,13 @@ class PeelerEngineClassic(OpenCL_Helper):
 
     
     def process_one_chunk(self,  pos, sigs_chunk):
-        #~ print('*'*5)
-        #~ print('chunksize', self.chunksize, '=', self.chunksize/self.sample_rate*1000, 'ms')
+        print('*'*5)
+        print('chunksize', self.chunksize, '=', self.chunksize/self.sample_rate*1000, 'ms')
         
         t1 = time.perf_counter()
         abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
         t2 = time.perf_counter()
-        #~ print('process_data', (t2-t1)*1000)
+        print('process_data', (t2-t1)*1000)
         
         
         #note abs_head_index is smaller than pos because prepcorcessed chunk
@@ -216,6 +216,7 @@ class PeelerEngineClassic(OpenCL_Helper):
         mask_already_tested = np.ones(self.fifo_residuals.shape[0] - 2 * self.n_span, dtype='bool')
         
         local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+        print('sum(local_peaks_mask)', np.sum(local_peaks_mask))
         
         t1 = time.perf_counter()
         while True:
@@ -242,7 +243,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                 t3 = time.perf_counter()
                 spike = self.classify_and_align_one_spike(local_ind, self.fifo_residuals, self.catalogue)
                 t4 = time.perf_counter()
-                #~ print('    classify_and_align_one_spike', (t4-t3)*1000.)
+                print('    classify_and_align_one_spike', (t4-t3)*1000., spike.cluster_label)
                 
                 if spike.cluster_label>=0:
                     t3 = time.perf_counter()
@@ -282,7 +283,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                     mask_already_tested[local_ind - self.peak_width - self.n_span:local_ind + self.peak_width - self.n_span] = True
 
                     t4 = time.perf_counter()
-                    #~ print('    make_prediction_signals and sub', (t4-t3)*1000.)
+                    print('    make_prediction_signals and sub', (t4-t3)*1000.)
                     
                     #~ print('    already_tested new deal', already_tested)
                 else:
@@ -312,8 +313,8 @@ class PeelerEngineClassic(OpenCL_Helper):
                 
                 break
         
-        #~ t2 = time.perf_counter()
-        #~ print('LOOP classify_and_align_one_spike', (t2-t1)*1000)
+        t2 = time.perf_counter()
+        print('LOOP classify_and_align_one_spike', (t2-t1)*1000)
         
         
         #concatenate, sort and count
@@ -443,7 +444,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                 
                 #~ print('label, jitter', label, jitter)
                 
-                # if more than one sample of jitter
+                # if more than one sample of jitterFranky Zapata sur le Flyboard 
                 # then we try a peak shift
                 # take it if better
                 #TODO debug peak shift
@@ -467,7 +468,9 @@ class PeelerEngineClassic(OpenCL_Helper):
                             #TODO: force to label anyway the spike if spike is at the left of FIFO
                         else:
                             waveform = residual[ind:ind+width,:]
-                            new_label, new_jitter = self.estimate_one_jitter(waveform)
+                            print('    second estimate jitter')
+                            new_label, new_jitter = self.estimate_one_jitter(waveform, label=label)
+                            #~ new_label, new_jitter = self.estimate_one_jitter(waveform, label=None)
                             if np.abs(new_jitter)<np.abs(prev_jitter):
                                 #~ print('keep shift')
                                 label, jitter = new_label, new_jitter
@@ -487,9 +490,14 @@ class PeelerEngineClassic(OpenCL_Helper):
         return Spike(local_index, label, jitter)
     
     
-    def estimate_one_jitter(self, waveform):
+    def estimate_one_jitter(self, waveform, label=None):
         """
         Estimate the jitter for one peak given its waveform
+        
+        label=None general case
+        label not None when estimate_one_jitter is the second call
+        frequently happen when abs(jitter)>0.5
+        
         
         Method proposed by Christophe Pouzat see:
         https://hal.archives-ouvertes.fr/hal-01111654v1
@@ -505,42 +513,53 @@ class PeelerEngineClassic(OpenCL_Helper):
           * h1_norm2: error at order1
           * h2_norm2: error at order2
         """
-        
         # This line is the slower part !!!!!!
         # cluster_idx = np.argmin(np.sum(np.sum((catalogue['centers0']-waveform)**2, axis = 1), axis = 1))
         
         catalogue = self.catalogue
         
-        if self.use_opencl_with_sparse:
-            rms_waveform_channel = np.sum(waveform**2, axis=0).astype('float32')
-            
-            pyopencl.enqueue_copy(self.queue,  self.one_waveform_cl, waveform)
-            pyopencl.enqueue_copy(self.queue,  self.rms_waveform_channel_cl, rms_waveform_channel)
-            event = self.kern_waveform_distance(self.queue,  self.cl_global_size, self.cl_local_size,
-                        self.one_waveform_cl, self.catalogue_center_cl, self.sparse_mask_cl, 
-                        self.rms_waveform_channel_cl, self.waveform_distance_cl)
-            pyopencl.enqueue_copy(self.queue,  self.waveform_distance, self.waveform_distance_cl)
-            cluster_idx = np.argmin(self.waveform_distance)
+        if label is None:
+            if self.use_opencl_with_sparse:
+                t1 = time.perf_counter()
+                rms_waveform_channel = np.sum(waveform**2, axis=0).astype('float32')
+                
+                pyopencl.enqueue_copy(self.queue,  self.one_waveform_cl, waveform)
+                pyopencl.enqueue_copy(self.queue,  self.rms_waveform_channel_cl, rms_waveform_channel)
+                event = self.kern_waveform_distance(self.queue,  self.cl_global_size, self.cl_local_size,
+                            self.one_waveform_cl, self.catalogue_center_cl, self.sparse_mask_cl, 
+                            self.rms_waveform_channel_cl, self.waveform_distance_cl)
+                pyopencl.enqueue_copy(self.queue,  self.waveform_distance, self.waveform_distance_cl)
+                cluster_idx = np.argmin(self.waveform_distance)
+                t2 = time.perf_counter()
+                print('       np.argmin opencl_with_sparse', (t2-t1)*1000., cluster_idx)
 
-        elif self.use_pythran_with_sparse:
-            s = pythran_tools.pythran_loop_sparse_dist(waveform, 
-                                catalogue['centers0'],  catalogue['sparse_mask'])
-            cluster_idx = np.argmin(s)
+
+            elif self.use_pythran_with_sparse:
+                s = pythran_tools.pythran_loop_sparse_dist(waveform, 
+                                    catalogue['centers0'],  catalogue['sparse_mask'])
+                cluster_idx = np.argmin(s)
+            else:
+                # replace by this (indentique but faster, a but)
+                
+                #~ t1 = time.perf_counter()
+                d = catalogue['centers0']-waveform[None, :, :]
+                d *= d
+                #s = d.sum(axis=1).sum(axis=1)  # intuitive
+                #s = d.reshape(d.shape[0], -1).sum(axis=1) # a bit faster
+                s = np.einsum('ijk->i', d) # a bit faster
+                cluster_idx = np.argmin(s)
+                #~ t2 = time.perf_counter()
+                #~ print('    np.argmin V2', (t2-t1)*1000., cluster_idx)
+            
+            k = catalogue['cluster_labels'][cluster_idx]
         else:
-            # replace by this (indentique but faster, a but)
-            
-            #~ t1 = time.perf_counter()
-            d = catalogue['centers0']-waveform[None, :, :]
-            d *= d
-            #s = d.sum(axis=1).sum(axis=1)  # intuitive
-            #s = d.reshape(d.shape[0], -1).sum(axis=1) # a bit faster
-            s = np.einsum('ijk->i', d) # a bit faster
-            cluster_idx = np.argmin(s)
-            #~ t2 = time.perf_counter()
-            #~ print('    np.argmin V2', (t2-t1)*1000., cluster_idx)
+            t1 = time.perf_counter()
+            cluster_idx = np.nonzero(catalogue['cluster_labels']==label)[0][0]
+            k = label
+            t2 = time.perf_counter()
+            print('       second argmin', (t2-t1)*1000., cluster_idx)
         
-
-        k = catalogue['cluster_labels'][cluster_idx]
+        
         chan = catalogue['max_on_channel'][cluster_idx]
         #~ print('cluster_idx', cluster_idx, 'k', k, 'chan', chan)
 

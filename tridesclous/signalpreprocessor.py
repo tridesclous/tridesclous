@@ -252,7 +252,9 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base, OpenCL_Helper):
         #forward filter
         event = pyopencl.enqueue_copy(self.queue,  self.input_cl, chunk)
         #~ event.wait()
-        
+
+        #~ print((self.nb_channel,), (self.max_wg_size,))
+        #~ event = self.kern_forward_filter(self.queue,  (self.nb_channel,), (self.max_wg_size,),
         event = self.kern_forward_filter(self.queue,  (self.nb_channel,), (self.nb_channel,),
                                 self.input_cl, self.output_forward_cl, self.coefficients_cl, self.zi1_cl)
         #~ event.wait()

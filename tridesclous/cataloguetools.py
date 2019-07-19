@@ -160,7 +160,7 @@ _default_catalogue_params = {
         'align_waveform': False,
     },
     'clean_waveforms': {
-        'alien_value_threshold': 100.,
+        'alien_value_threshold': None,
     },
     'feature_method': 'peak_max',
     'feature_kargs': {},
@@ -169,7 +169,6 @@ _default_catalogue_params = {
     
     'clean_cluster' : False,
     'clean_cluster_kargs' : {},
-    
 }
 
 
@@ -216,7 +215,15 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['feature_method'] = 'peak_max'
         params['feature_kargs'] = {}
         params['cluster_method'] = 'sawchaincut'
-        params['cluster_kargs'] = {'kde_bandwith': 1.}
+        params['cluster_kargs']['kde_bandwith'] = 1.
+        
+        if nb_chan>100:
+            params['cluster_kargs']['max_loop'] = 10000
+        elif nb_chan>1000:
+            params['cluster_kargs']['max_loop'] = 100000
+        #~ else:
+            #~ # default one already
+            #~ params['cluster_kargs']['max_loop'] = 1000
         
         if nb_chan >64 and HAVE_PYOPENCL:
             # force opencl : this limit depend on the platform of course

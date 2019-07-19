@@ -297,6 +297,7 @@ class SawChainCut:
             if iloop>=self.max_loop:
                 cluster_labels[sel] = -1
                 self.log('BREAK iloop', iloop)
+                print('Warning SawChainCut reach max_loop limit there are maybe more cluster')
                 break
             
             if iloop!=0 and nb_remain<self.break_nb_remain:
