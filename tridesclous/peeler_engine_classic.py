@@ -15,6 +15,16 @@ if hasattr(pythran_tools, '__pythran__'):
 else:
     HAVE_PYTHRAN = False
 
+try:
+    import numba
+    HAVE_NUMBA = True
+    from .numba_tools import numba_loop_sparse_dist
+except ImportError:
+    HAVE_NUMBA = False
+
+
+
+
 from .cltools import HAVE_PYOPENCL, OpenCL_Helper
 if HAVE_PYOPENCL:
     import pyopencl
@@ -31,8 +41,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                                         internal_dtype='float32', 
                                         use_sparse_template=False,
                                         sparse_threshold_mad=1.5,
-                                        use_opencl_with_sparse=False,
-                                        use_pythran_with_sparse=False,
+                                        argmin_method='numpy',
                                         
                                         cl_platform_index=None,
                                         cl_device_index=None,
@@ -58,11 +67,8 @@ class PeelerEngineClassic(OpenCL_Helper):
             The threshold level.
             Under this value if all sample on one channel for one centroid
             is considred as NaN
-        use_opencl_with_sparse: bool
-            When use_sparse_template is True, you can use this to accelerate
-            the labelling of each spike. Usefull for high channel count.
-        use_pythran_with_sparse: bool
-            experimental same as use_opencl_with_sparse but with pythran
+        argmin_method: 'numpy', 'opencl', 'pythran' or 'numba'
+            Method use to compute teh minial distance to template.
         """
         assert catalogue is not None
         self.catalogue = catalogue
@@ -70,19 +76,20 @@ class PeelerEngineClassic(OpenCL_Helper):
         self.internal_dtype= internal_dtype
         self.use_sparse_template = use_sparse_template
         self.sparse_threshold_mad = sparse_threshold_mad
-        self.use_opencl_with_sparse = use_opencl_with_sparse
-        self.use_pythran_with_sparse = use_pythran_with_sparse
+        
+        self.argmin_method = argmin_method
         
         # Some check
-        if self.use_opencl_with_sparse or self.use_pythran_with_sparse:
-            assert self.use_sparse_template, 'For that option you must use sparse template'
-        #~ if self.use_sparse_template:
-            #~ assert self.use_opencl_with_sparse or self.use_pythran_with_sparse, 'For that option you must use OpenCL or Pytran'
-        if self.use_opencl_with_sparse:
-            assert HAVE_PYOPENCL, 'OpenCL is not available'
-        if self.use_pythran_with_sparse:
-            assert HAVE_PYTHRAN, 'Pythran is not available'
-        
+        if self.use_sparse_template:
+            assert self.argmin_method != 'numpy', 'numpy methdo do not do sparse template acceleration'
+
+            if self.argmin_method == 'opencl':
+                assert HAVE_PYOPENCL, 'OpenCL is not available'
+            elif self.argmin_method == 'pythran':
+                assert HAVE_PYTHRAN, 'Pythran is not available'
+            elif self.argmin_method == 'numba':
+                assert HAVE_NUMBA, 'Numba is not available'
+            
         self.colors = make_color_dict(self.catalogue['clusters'])
         
         # precompute some value for jitter estimation
@@ -141,8 +148,8 @@ class PeelerEngineClassic(OpenCL_Helper):
         
         if self.use_sparse_template:
             
-        
-            if self.use_opencl_with_sparse and self.catalogue['centers0'].size>0:
+            if self.argmin_method == 'opencl'  and self.catalogue['centers0'].size>0:
+            #~ if self.use_opencl_with_sparse and self.catalogue['centers0'].size>0:
                 OpenCL_Helper.initialize_opencl(self, cl_platform_index=cl_platform_index, cl_device_index=cl_device_index)
                 
                 #~ self.ctx = pyopencl.create_some_context(interactive=False)
@@ -181,13 +188,13 @@ class PeelerEngineClassic(OpenCL_Helper):
 
     
     def process_one_chunk(self,  pos, sigs_chunk):
-        print('*'*5)
-        print('chunksize', self.chunksize, '=', self.chunksize/self.sample_rate*1000, 'ms')
+        #~ print('*'*5)
+        #~ print('chunksize', self.chunksize, '=', self.chunksize/self.sample_rate*1000, 'ms')
         
         t1 = time.perf_counter()
         abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
         t2 = time.perf_counter()
-        print('process_data', (t2-t1)*1000)
+        #~ print('process_data', (t2-t1)*1000)
         
         
         #note abs_head_index is smaller than pos because prepcorcessed chunk
@@ -216,7 +223,7 @@ class PeelerEngineClassic(OpenCL_Helper):
         mask_already_tested = np.ones(self.fifo_residuals.shape[0] - 2 * self.n_span, dtype='bool')
         
         local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
-        print('sum(local_peaks_mask)', np.sum(local_peaks_mask))
+        #~ print('sum(local_peaks_mask)', np.sum(local_peaks_mask))
         
         t1 = time.perf_counter()
         while True:
@@ -230,7 +237,7 @@ class PeelerEngineClassic(OpenCL_Helper):
             
             
             #~ t4 = time.perf_counter()
-            #~ print('  detect_peaks_in_chunk', (t4-t3)*1000.)
+            #~ print('  detect_peaks_in_chunk', (t4-t3)*1000.)pythran_loop_sparse_dist
             
             #~ if len(already_tested)>0:
                 #~ local_peaks_to_check = local_peaks_indexes[~np.in1d(local_peaks_indexes, already_tested)]
@@ -243,7 +250,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                 t3 = time.perf_counter()
                 spike = self.classify_and_align_one_spike(local_ind, self.fifo_residuals, self.catalogue)
                 t4 = time.perf_counter()
-                print('    classify_and_align_one_spike', (t4-t3)*1000., spike.cluster_label)
+                #~ print('    classify_and_align_one_spike', (t4-t3)*1000., spike.cluster_label)
                 
                 if spike.cluster_label>=0:
                     t3 = time.perf_counter()
@@ -266,7 +273,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                     spikes['index'] += shift
                     good_spikes.append(spikes)
                     n_ok += 1
-                    
+                                    
                     # recompute peak in neiborhood
                     # here indexing is tricky 
                     # sl1 : we need n_pan more in each side
@@ -283,7 +290,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                     mask_already_tested[local_ind - self.peak_width - self.n_span:local_ind + self.peak_width - self.n_span] = True
 
                     t4 = time.perf_counter()
-                    print('    make_prediction_signals and sub', (t4-t3)*1000.)
+                    #~ print('    make_prediction_signals and sub', (t4-t3)*1000.)
                     
                     #~ print('    already_tested new deal', already_tested)
                 else:
@@ -314,7 +321,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                 break
         
         t2 = time.perf_counter()
-        print('LOOP classify_and_align_one_spike', (t2-t1)*1000)
+        #~ print('LOOP classify_and_align_one_spike', (t2-t1)*1000)
         
         
         #concatenate, sort and count
@@ -468,7 +475,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                             #TODO: force to label anyway the spike if spike is at the left of FIFO
                         else:
                             waveform = residual[ind:ind+width,:]
-                            print('    second estimate jitter')
+                            #~ print('    second estimate jitter')
                             new_label, new_jitter = self.estimate_one_jitter(waveform, label=label)
                             #~ new_label, new_jitter = self.estimate_one_jitter(waveform, label=None)
                             if np.abs(new_jitter)<np.abs(prev_jitter):
@@ -519,7 +526,8 @@ class PeelerEngineClassic(OpenCL_Helper):
         catalogue = self.catalogue
         
         if label is None:
-            if self.use_opencl_with_sparse:
+            #~ if self.use_opencl_with_sparse:
+            if self.argmin_method == 'opencl':
                 t1 = time.perf_counter()
                 rms_waveform_channel = np.sum(waveform**2, axis=0).astype('float32')
                 
@@ -531,16 +539,20 @@ class PeelerEngineClassic(OpenCL_Helper):
                 pyopencl.enqueue_copy(self.queue,  self.waveform_distance, self.waveform_distance_cl)
                 cluster_idx = np.argmin(self.waveform_distance)
                 t2 = time.perf_counter()
-                print('       np.argmin opencl_with_sparse', (t2-t1)*1000., cluster_idx)
+                #~ print('       np.argmin opencl_with_sparse', (t2-t1)*1000., cluster_idx)
 
 
-            elif self.use_pythran_with_sparse:
+            #~ elif self.use_pythran_with_sparse:
+            elif self.argmin_method == 'pythran':
                 s = pythran_tools.pythran_loop_sparse_dist(waveform, 
                                     catalogue['centers0'],  catalogue['sparse_mask'])
                 cluster_idx = np.argmin(s)
-            else:
+            elif self.argmin_method == 'numba':
+                s = numba_loop_sparse_dist(waveform, catalogue['centers0'],  catalogue['sparse_mask'])
+                cluster_idx = np.argmin(s)
+            
+            elif self.argmin_method == 'numpy':
                 # replace by this (indentique but faster, a but)
-                
                 #~ t1 = time.perf_counter()
                 d = catalogue['centers0']-waveform[None, :, :]
                 d *= d
@@ -550,6 +562,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                 cluster_idx = np.argmin(s)
                 #~ t2 = time.perf_counter()
                 #~ print('    np.argmin V2', (t2-t1)*1000., cluster_idx)
+                
             
             k = catalogue['cluster_labels'][cluster_idx]
         else:
@@ -557,7 +570,7 @@ class PeelerEngineClassic(OpenCL_Helper):
             cluster_idx = np.nonzero(catalogue['cluster_labels']==label)[0][0]
             k = label
             t2 = time.perf_counter()
-            print('       second argmin', (t2-t1)*1000., cluster_idx)
+            #~ print('       second argmin', (t2-t1)*1000., cluster_idx)
         
         
         chan = catalogue['max_on_channel'][cluster_idx]

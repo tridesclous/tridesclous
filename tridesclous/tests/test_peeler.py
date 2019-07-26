@@ -55,26 +55,31 @@ def test_peeler():
 
 
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
-def test_peeler_sparse_opencl():
+def test_peeler_argmin_methods():
     dataio = DataIO(dirname='test_peeler')
     initial_catalogue = dataio.load_catalogue(chan_grp=0)
-
-    peeler = Peeler(dataio)
     
-    peeler.change_params(engine='classic',
-                                        catalogue=initial_catalogue,
-                                        chunksize=1024,
-                                        use_sparse_template=True,
-                                        sparse_threshold_mad=1.5,
-                                        use_opencl_with_sparse=True,
-                                        cl_platform_index=0,
-                                        cl_device_index=0,                                        
-                                        )
+    argmin_methods = ['opencl', 'pythran', 'numba']
+    #~ argmin_methods = ['opencl', 'pythran']
     
-    t1 = time.perf_counter()
-    peeler.run(progressbar=False)
-    t2 = time.perf_counter()
-    print('peeler.run_loop', t2-t1)
+    for argmin_method in argmin_methods:
+        
+        peeler = Peeler(dataio)
+        
+        peeler.change_params(engine='classic',
+                                            catalogue=initial_catalogue,
+                                            chunksize=1024,
+                                            use_sparse_template=True,
+                                            sparse_threshold_mad=1.5,
+                                            argmin_method=argmin_method,
+                                            cl_platform_index=0,
+                                            cl_device_index=0,                                        
+                                            )
+        
+        t1 = time.perf_counter()
+        peeler.run(progressbar=False)
+        t2 = time.perf_counter()
+        print(argmin_method ,'peeler.run_loop', t2-t1)
 
 
 
@@ -267,9 +272,9 @@ if __name__ =='__main__':
     
     #~ open_catalogue_window()
     
-    test_peeler()
+    #~ test_peeler()
     
-    #~ test_peeler_sparse_opencl()
+    test_peeler_argmin_methods()
     
     #~ test_peeler_empty_catalogue()
     
