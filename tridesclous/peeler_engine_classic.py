@@ -233,8 +233,9 @@ class PeelerEngineClassic(OpenCL_Helper):
             #~ local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
             
             local_peaks_indexes,  = np.nonzero(local_peaks_mask & mask_already_tested)
+            #~ print(local_peaks_indexes)
             local_peaks_indexes += self.n_span
-            
+            #~ exit()
             
             #~ t4 = time.perf_counter()
             #~ print('  detect_peaks_in_chunk', (t4-t3)*1000.)pythran_loop_sparse_dist

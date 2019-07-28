@@ -224,6 +224,25 @@ def test_export_spikes():
     dataio = DataIO(dirname='test_peeler')
     dataio.export_spikes()
 
+
+
+
+def test_peeler_cl():
+    dataio = DataIO(dirname='test_peeler')
+    initial_catalogue = dataio.load_catalogue(chan_grp=0)
+
+    peeler = Peeler(dataio)
+    
+    peeler.change_params(engine='classic_opencl', catalogue=initial_catalogue,chunksize=1024)
+    
+    t1 = time.perf_counter()
+    peeler.run(progressbar=False)
+    t2 = time.perf_counter()
+    print('peeler.run_loop', t2-t1)
+
+
+
+
 def debug_compare_peeler():
 
     dataio = DataIO(dirname='test_peeler')
@@ -268,13 +287,13 @@ def debug_compare_peeler():
     
     
 if __name__ =='__main__':
-    #~ setup_module()
+    setup_module()
     
     #~ open_catalogue_window()
     
-    #~ test_peeler()
+    test_peeler()
     
-    test_peeler_argmin_methods()
+    #~ test_peeler_argmin_methods()
     
     #~ test_peeler_empty_catalogue()
     
@@ -282,9 +301,9 @@ if __name__ =='__main__':
     
     #~ test_export_spikes()
     
-    
+    #~ test_peeler_cl()
     #~ debug_compare_peeler()
     
-    #~ open_PeelerWindow()
+    open_PeelerWindow()
     
     #~ teardown_module()

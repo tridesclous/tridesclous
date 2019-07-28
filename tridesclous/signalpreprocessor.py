@@ -253,7 +253,7 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base, OpenCL_Helper):
         event = pyopencl.enqueue_copy(self.queue,  self.input_cl, chunk)
         event = self.kern_forward_backward_filter(self.queue,  (self.nb_channel,), (self.nb_channel,),
                             self.input_cl, self.coefficients_cl, self.zi1_cl, self.zi2_cl,
-                            self.fifo_input_backward_cl, self.output_backward_cl)
+                            self.fifo_input_backward_cl, self.signals_medians_cl, self.signals_mads_cl,  self.output_backward_cl)
         event.wait()
         
         
@@ -267,30 +267,27 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base, OpenCL_Helper):
         
         pos2 = pos-self.lostfront_chunksize
         
-        
+
         event = pyopencl.enqueue_copy(self.queue,  self.output_backward, self.output_backward_cl)
-        
         if start>0:
             data2 = self.output_backward[:self.chunksize, :]
         else:
             data2 = self.output_backward[self.lostfront_chunksize:self.chunksize, :]
-        
         data2 = data2.copy()
         
-
-        #~ print('pos', pos, 'start', start, 'pos2', pos2, data2.shape)
-        
-        #TODO make OpenCL for this
-        # removal ref
         if self.common_ref_removal:
-            data2 -= np.median(data2, axis=1)[:, None]
-        
-        #TODO make OpenCL for this
-        #normalize
-        if self.normalize:
-            data2 -= self.signals_medians
-            data2 /= self.signals_mads
-        
+            #TODO make OpenCL for this
+            # removal ref
+            if self.common_ref_removal:
+                data2 -= np.median(data2, axis=1)[:, None]
+            
+            
+            #normalize
+            if self.normalize:
+                # OpenCL for this when no common_ref_removal
+                data2 -= self.signals_medians
+                data2 /= self.signals_mads
+            
         return pos2, data2        
         
         
@@ -298,7 +295,9 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base, OpenCL_Helper):
 
         cl_platform_index=kargs.pop('cl_platform_index', None)
         cl_device_index=kargs.pop('cl_device_index', None)
-        OpenCL_Helper.initialize_opencl(self,cl_platform_index=cl_platform_index, cl_device_index=cl_device_index)
+        ctx=kargs.pop('ctx', None)
+        queue=kargs.pop('queue', None)
+        OpenCL_Helper.initialize_opencl(self,cl_platform_index=cl_platform_index, cl_device_index=cl_device_index, ctx=ctx, queue=queue)
         
         SignalPreprocessor_base.change_params(self, **kargs)
         assert self.output_dtype=='float32', 'SignalPreprocessor_OpenCL support only float32 at the moment'
@@ -324,11 +323,20 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base, OpenCL_Helper):
         self.output_forward_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE, size=self.output_forward.nbytes)
         self.fifo_input_backward_cl = pyopencl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.fifo_input_backward)
         self.output_backward_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE, size=self.output_backward.nbytes)
+        if self.signals_medians is not None:
+            self.signals_medians_cl = pyopencl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.signals_medians)
+            self.signals_mads_cl = pyopencl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.signals_mads)
 
         #CL prog
+        if not self.common_ref_removal and  self.normalize:
+            extra_code_nomalize = _extra_code_nomalize
+        else:
+            extra_code_nomalize = ''
+        
         kernel_formated = processor_kernel%dict(forward_chunksize=self.chunksize, backward_chunksize=self.backward_chunksize,
-                        lostfront_chunksize=self.lostfront_chunksize, nb_section=self.nb_section, nb_channel=self.nb_channel)
-        #~ print(kernel)
+                        lostfront_chunksize=self.lostfront_chunksize, nb_section=self.nb_section, nb_channel=self.nb_channel, 
+                        extra_code_nomalize=extra_code_nomalize)
+        #~ print(kernel_formated)
         #~ exit()
         prg = pyopencl.Program(self.ctx, kernel_formated)
         self.opencl_prg = prg.build(options='-cl-mad-enable')
@@ -398,6 +406,8 @@ __kernel void forward_backward_filter(__global  float *input,
                                                             __global float * zi1,
                                                             __global float * zi2,
                                                             __global  float *fifo_input_backward,
+                                                            __global  float *signals_medians,
+                                                            __global  float *signals_mads,
                                                             __global  float *output_backward){
 
     
@@ -420,12 +430,22 @@ __kernel void forward_backward_filter(__global  float *input,
     
     //filter backward
     sos_filter(fifo_input_backward, output_backward, coefficients, zi2, backward_chunksize, -1, 0);
+    
+    // nomalize optional
+    %(extra_code_nomalize)s
 
 }
 
 """
 
+_extra_code_nomalize = """
+    float v;
+    for (int s=0; s<forward_chunksize;s++){
+        v = output_backward[(s)*nb_channel+chan];
+        output_backward[(s)*nb_channel+chan] = (v - signals_medians[chan]) / signals_mads[chan];
+    }
 
+"""
 
 
 
