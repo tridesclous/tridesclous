@@ -453,7 +453,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                 
                 #~ print('label, jitter', label, jitter)
                 
-                # if more than one sample of jitterFranky Zapata sur le Flyboard 
+                # if more than one sample of jitter
                 # then we try a peak shift
                 # take it if better
                 #TODO debug peak shift

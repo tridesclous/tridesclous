@@ -19,6 +19,8 @@ try:
 except ImportError:
     HAVE_PYOPENCL = False
 
+# this should be an attribute
+maximum_jitter_shift = 4
 
 
 class PeelerEngineClassicOpenCl(PeelerEngineClassic):
@@ -65,10 +67,13 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
         n = self.fifo_residuals.shape[0]-self.chunksize
         assert n<self.chunksize, 'opencl kernel for fifo add not work'
         
+        n_cluster = self.catalogue['centers0'].shape[0]
+        wf_size = self.catalogue['centers0'].shape[1]*self.catalogue['centers0'].shape[2]
         
-        kernel_formated = kernel_peeler_cl % dict(chunksize=self.chunksize, nb_channel=self.nb_channel, n_span=self.n_span,
+        kernel_formated = kernel_peeler_cl % dict(chunksize=self.chunksize,  n_span=self.n_span, nb_channel=self.nb_channel,
                     relative_threshold=self.relative_threshold, peak_sign={'+':1, '-':-1}[self.peak_sign],
-                    n_side=self.n_side, fifo_size=self.chunksize+self.n_side, peak_width=self.catalogue['peak_width'])
+                    n_side=self.n_side, fifo_size=self.chunksize+self.n_side, n_left=self.n_left, peak_width=self.catalogue['peak_width'],
+                    maximum_jitter_shift=maximum_jitter_shift, n_cluster=n_cluster, wf_size=wf_size)
         
         prg = pyopencl.Program(self.ctx, kernel_formated)
         self.opencl_prg = prg.build(options='-cl-mad-enable')
@@ -98,7 +103,7 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
         #~ self.nb_peak_index_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.nb_peak_index)
 
         self.peak_counter_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE, size=4) # int32
-        self.peak_index_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE, size=4) # int32
+        self.spike_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE, size=16) # int32/int32/float32 ind/label/jitter
         
         
         
@@ -117,6 +122,8 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
         self.kern_add_fifo_residuals = getattr(self.opencl_prg, 'add_fifo_residuals')
         self.kern_detect_boolean_peaks = getattr(self.opencl_prg, 'detect_boolean_peaks')
         self.kern_select_next_peak = getattr(self.opencl_prg, 'select_next_peak')
+        self.kern_classify_and_align_next_spike = getattr(self.opencl_prg, 'classify_and_align_next_spike')
+        
         
         ## self.kern_classify_and_align_one_spike = getattr(self.opencl_prg, 'classify_and_align_one_spike')
         ## self.kern_make_prediction_signals = getattr(self.opencl_prg, 'make_prediction_signals')
@@ -160,7 +167,7 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
 
         
      
-        good_spikes = []
+        
         #~ already_tested = []
         
         # negative mask 1: not tested 0: already tested
@@ -193,17 +200,46 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
         #~ print('sum(local_peaks_mask)', np.sum(local_peaks_mask))
         
         t1 = time.perf_counter()
+        good_spikes = []
         while True:
             
             global_size = (self.chunksize+self.n_side - 2*self.n_span,  )
             local_size = (min(self.max_wg_size, self.chunksize+self.n_side), )
             event = self.kern_select_next_peak(self.queue,  global_size, local_size,
-                                    self.local_peaks_mask_cl, self.mask_already_tested_cl, self.peak_counter_cl, self.peak_index_cl)
+                                    self.local_peaks_mask_cl, self.mask_already_tested_cl, self.peak_counter_cl, self.spike_cl)
             
+
+            global_size = (self.n_cluster, self.nb_channel)
+            local_size = (self.n_cluster, 1) # faster a GPU because of memory access ????? True argmin only ?????
+            self.kern_classify_and_align_next_spike(self.queue,  global_size, local_size,
+                                    self.fifo_residuals_cl, self.spike_cl, self.catalogue_center0_cl,
+                                    self.catalogue_center1_cl, self.catalogue_center2_cl,
+                                    self.sparse_mask_cl, self.rms_waveform_channel_cl,
+                                    self.waveform_distance_cl, self.max_on_channel_cl,
+                                    self.wf1_norm2_cl, self.wf2_norm2_cl, self.wf1_dot_wf2_cl,
+                                    self.weight_per_template_cl)
+            event = pyopencl.enqueue_copy(self.queue,  self.spike, self.spike_cl)
             
-            global_size = (self.chunksize+self.n_side - 2*self.n_span,  )
-            local_size = (min(self.max_wg_size, self.chunksize+self.n_side), )
-            #~ event = self.kern_classify_and_align_next_spike(self.queue,  global_size, local_size,
+            if self.spike[0]['peak_index'] == -1:
+                # no more peak
+                break
+            elif self.spike[0]['label'] >=0:
+                spike = np.zeros(1, dtype=_dtype_spike)
+                spike[0]['index'] = self.spike[0]['peak_index'] + shift
+                spike[0]['cluster_label'] = self.catalogue['cluster_labels'][self.spike[0]['label']] # label is the label_idx
+                spike[0]['jitter'] = self.spike[0]['jitter']
+                print(spike)
+                good_spikes.append(spike)
+                
+                exit()
+            
+            #########
+            ### ICI 
+            ## TODO :
+            ##   maj local_peaks_mask
+            ##   maj mask_already_tested
+            ##    fifo_residual (soustraire prediction)
+
                                     
             
             
@@ -332,93 +368,6 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
 
 
 
-    def _OLD_process_one_chunk(self,  pos, sigs_chunk):
-        
-        abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
-
-        if preprocessed_chunk.shape[0]!=self.chunksize:
-            self.preprocessed_chunk[:] =0
-            self.preprocessed_chunk[-preprocessed_chunk.shape[0]:, :] = preprocessed_chunk
-            pyopencl.enqueue_copy(self.queue,  self.preprocessed_chunk_cl, self.preprocessed_chunk)
-        else:
-            pyopencl.enqueue_copy(self.queue,  self.preprocessed_chunk_cl, preprocessed_chunk)
-        
-        
-        
-        #note abs_head_index is smaller than pos because prepcorcessed chunk
-        # is late because of local filfilt in signalpreprocessor
-        
-        #shift rsiruals buffer and put the new one on right side
-        fifo_roll_size = self.fifo_residuals.shape[0]-preprocessed_chunk.shape[0]
-        if fifo_roll_size>0 and fifo_roll_size!=self.fifo_residuals.shape[0]:
-            self.fifo_residuals[:fifo_roll_size,:] = self.fifo_residuals[-fifo_roll_size:,:]
-            self.fifo_residuals[fifo_roll_size:,:] = preprocessed_chunk
-
-        
-        # relation between inside chunk index and abs index
-        shift = abs_head_index - self.fifo_residuals.shape[0]
-        
-        # TODO remove from peak the very begining of the signal because of border filtering effects
-        
-        good_spikes = []
-        all_ready_tested = []
-        while True:
-            #detect peaks
-            t3 = time.perf_counter()
-            local_peaks = detect_peaks_in_chunk(self.fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign)
-            t4 = time.perf_counter()
-            
-            if len(all_ready_tested)>0:
-                local_peaks_to_check = local_peaks[~np.in1d(local_peaks, all_ready_tested)]
-            else:
-                local_peaks_to_check = local_peaks
-            
-            n_ok = 0
-            for i, local_peak in enumerate(local_peaks_to_check):
-                spike = self.classify_and_align_one_spike(local_peak, self.fifo_residuals, self.catalogue)
-                
-                if spike.cluster_label>=0:
-                    spikes = np.array([spike], dtype=_dtype_spike)
-                    prediction = make_prediction_signals(spikes, self.fifo_residuals.dtype, self.fifo_residuals.shape, self.catalogue, safe=False)
-                    self.fifo_residuals -= prediction
-                    spikes['index'] += shift
-                    good_spikes.append(spikes)
-                    n_ok += 1
-                    
-                    all_ready_tested = [ind for ind in all_ready_tested if classify_and_align_one_spikenp.abs(spike.index-ind)>self.peak_width]
-                else:
-                    all_ready_tested.append(local_peak)
-            
-            if n_ok==0:
-                # no peak can be labeled
-                # reserve bad spikes on the right limit for next time
-                local_peaks = local_peaks[local_peaks<(self.chunksize+self.n_span)]
-                bad_spikes = np.zeros(local_peaks.shape[0], dtype=_dtype_spike)
-                bad_spikes['index'] = local_peaks + shift
-                bad_spikes['cluster_label'] = LABEL_UNCLASSIFIED
-                break
-        
-        #concatenate, sort and count
-        # here the trick is to keep spikes at the right border
-        # and keep then until the next loop this avoid unordered spike
-        if len(good_spikes)>0:
-            good_spikes = np.concatenate(good_spikes)
-            near_border = (good_spikes['index'] - shift)>=(self.chunksize+self.n_span)
-            near_border_good_spikes = good_spikes[near_border].copy()
-            good_spikes = good_spikes[~near_border]
-
-            all_spikes = np.concatenate([good_spikes] + [bad_spikes] + self.near_border_good_spikes)
-            self.near_border_good_spikes = [near_border_good_spikes] # for next chunk
-        else:
-            all_spikes = np.concatenate([bad_spikes] + self.near_border_good_spikes)
-            self.near_border_good_spikes = []
-        
-        # all_spikes = all_spikes[np.argsort(all_spikes['index'])]
-        all_spikes = all_spikes.take(np.argsort(all_spikes['index']))
-        self.total_spike += all_spikes.size
-        
-        return abs_head_index, preprocessed_chunk, self.total_spike, all_spikes
-
 kernel_peeler_cl = """
 #define chunksize %(chunksize)d
 #define n_span %(n_span)d
@@ -427,22 +376,29 @@ kernel_peeler_cl = """
 #define peak_sign %(peak_sign)d
 #define n_side %(n_side)d
 #define fifo_size %(fifo_size)d
+#define n_left %(n_left)d
 #define peak_width %(peak_width)d
+#define maximum_jitter_shift %(maximum_jitter_shift)d
+#define n_cluster %(n_cluster)d
+#define wf_size %(wf_size)d
 
-maximum_jitter_shift
-n_left
-n_cluster
-wf_size
 
-#define LABEL_LEFT_LIMIT = -11
-#define LABEL_RIGHT_LIMIT = -12
-#define LABEL_MAXIMUM_SHIFT = -13
-#define LABEL_TRASH = -1
-#define LABEL_NOISE = -2
-#define LABEL_ALIEN = -9
-#define LABEL_UNCLASSIFIED = -10
-#define LABEL_NO_WAVEFORM = -11
-#define LABEL_NOT_YET = 0
+#define LABEL_LEFT_LIMIT -11
+#define LABEL_RIGHT_LIMIT -12
+#define LABEL_MAXIMUM_SHIFT -13
+#define LABEL_TRASH -1
+#define LABEL_NOISE -2
+#define LABEL_ALIEN -9
+#define LABEL_UNCLASSIFIED -10
+#define LABEL_NO_WAVEFORM -11
+#define LABEL_NOT_YET 0
+
+
+struct st_spike{
+    int peak_index;
+    int label;
+    float jitter;
+};
 
 
 __kernel void add_fifo_residuals(__global  float *fifo_residuals, __global  float *sigs_chunk, int n){
@@ -522,153 +478,31 @@ __kernel void detect_boolean_peaks(__global  float *fifo_residuals,
 
 
 __kernel void select_next_peak(__global  uchar *local_peaks_mask, __global uchar *mask_already_tested,
-                                                __global int *peak_counter, __global int *peak_index,){
+                                                __global int *peak_counter, __global st_spike *spike){
     int pos = get_global_id(0); //fifo_residuals.shape[0] - 2 * nspan
     
     if (pos == 0){
         peak_counter = 0;
-        peak_index[0] = -1;
-        kernel_peeler_cl
+        spike->peak_index = -1;
     }
     barrier(CLK_GLOBAL_MEM_FENCE);
     
+    int nb_peak;
     if (local_peaks_mask[pos+n_span] == 1) && (mask_already_tested[pos+n_span] == 1){
-        int n_peak = atomic_add(peak_counter, 1);
-        if n_peak ==1{ // the first one
-            peak_index[0] = pos + n_span;
+        n_peak = atomic_add(peak_counter, 1);
+        if (n_peak ==0){ // the first one
+            spike->peak_index = pos + n_span;
+            spike->label = LABEL_NOT_YET; // will be done in classify_and_align_next_spike
+            spike->jitter = 0;
         }
     }
 }
 
 
 
-__kernel void kern_classify_and_align_next_spike(__global  float *fifo_residuals,
-                                                                        __global int *peak_index,
-                                                                        __global  float *catalogue_center_cl, 
-                                                                        __global  float *catalogue_center,
-                                                                        __global  uchar  *sparse_mask,
-                                                                        __global  float *rms_waveform_channel,
-                                                                        __global  float *waveform_distance,
-                                                                        __global int *max_on_channel,
-                                                                        
-                                                                        ){
-
-    int cluster_idx = get_global_id(0);
-    int chan = get_global_id(1);
-    
-    int left_ind = peak_index + n_left;
-    int label;
-    int jitter;
-
-    
-    // non parralel code only for first worker
-    if (cluster_idx==0) && (chan==0){
-        
-        if ind+peak_width+maximum_jitter_shift+1>=fifo_size{
-            label = LABEL_RIGHT_LIMIT;
-            jitter = 0;
-        } elseif (ind<=maximum_jitter_shift){
-            label = LABEL_LEFT_LIMIT;
-            jitter = 0;
-        } elseif (n_cluster==0){
-            label  = LABEL_UNCLASSIFIED;
-            jitter = 0;
-        } else {
-            label = LABEL_NOT_YET;
-            jitter = 0;
-            if (alien_value_threshold>=0){
-                for (int s=1; s<=(wf_size); s++){
-                    if ((fifo_residuals[left_ind*nb_channel +s]>alien_value_threshold) || (fifo_residuals[left_ind*nb_channel +s]<-alien_value_threshold)){
-                        label = LABEL_ALIEN;
-                    }
-                }
-            }
-        }
-    }
 
 
-
-    // initialize sum by cluster if label>=0
-    if (label>=0){
-        if (chan==0){
-            //parallel reset by cluster
-            waveform_distance[cluster_idx] = 0;
-        }
-        if (cluster_idx==0){
-            //paralel waveform sum by chan
-            rms_waveform_channel[chan] = 0;
-            float v;
-            for (int s=1; s<=(peak_width); s++){
-                v = fifo_residuals[(left_ind+s)*nb_channel + chan]
-                rms_waveform_channel[chan] += (v*v);
-            }
-        }
-    }
-    
-    
-    barrier(CLK_GLOBAL_MEM_FENCE);
-    
-    if (peak_index[0] == -1){
-        // nothing to do because no more peak
-    } elif (label<0){
-        // bad label (nagtive)
-    }
-    else {
-        //argmin for cluster parralel clusterXchan
-        float sum = 0;
-        float d;
-        
-        if (sparse_mask[nb_channel*cluster_idx+chan]>0){
-            for (int s=0; s<peak_width; ++s){
-                d = fifo_residuals[(left_ind+s)*nb_channel + chan] - catalogue_center[wf_size*cluster_idx+nb_channel*s+chan];
-                sum += d*d;
-            }
-        }
-        else{
-            sum = rms_waveform_channel[c];
-        }
-        
-        AtomicAdd(&waveform_distance[cluster_idx], sum);
-        
-    }
-    
-    barrier(CLK_GLOBAL_MEM_FENCE);
-    
-    //cluster and jitter :  not paralel
-    if (label>=0) && (chan==0)&& (cluster_idx==0){
-        
-        float min_dist=MAXFLOAT;
-        int cluster = -1;
-        
-        for (int clus=0; clus<n_cluster; ++clus){
-            if (waveform_distance[clus]<min_dist){
-                cluster = clus;
-                min_dist = waveform_distance[clus];
-            }
-        
-        jitter = estimate_one_jitter(peak_index, cluster, *max_on_channel);
-        
-        int ok = accept_tempate(peak_index, cluster, jitter);
-        
-        
-        if (ok==1){
-            label = cluster; ///carrefull this is the index not the real label
-            //jitter = jitter;
-        }else{
-            label = LABEL_UNCLASSIFIED;
-            jitter = 0;
-        }
-        
-        
-    }
-    
-    barrier(CLK_GLOBAL_MEM_FENCE);
-    
-    
-}
-
-
-___kernel estimate_one_jitter(int left_ind, int cluster,
+__kernel void estimate_one_jitter(int left_ind, int cluster,
                                         __global int *max_on_channel,
                                         __global float *fifo_residuals,
                                         
@@ -679,19 +513,20 @@ ___kernel estimate_one_jitter(int left_ind, int cluster,
                                         
                                         __global float *wf1_norm2,
                                         __global float *wf2_norm2,
-                                        __global float *wf1_dot_wf2,
-                            ){
+                                        __global float *wf1_dot_wf2){
 
     int cluster_idx = get_global_id(0);
     int chan = get_global_id(1);
     
     float jitter0;
+    int chan_max;
     if (cluster_idx!=0) || (chan!=0){
         // nomally this is never call
         return 0;
     }
     
-    int chan_max = max_on_channel[cluster]
+    
+    chan_max= max_on_channel[cluster];
     
     
     float h, wf1, wf2;
@@ -708,6 +543,7 @@ ___kernel estimate_one_jitter(int left_ind, int cluster,
     
     jitter0 = h_dot_wf1/wf1_norm2[cluster];
     
+    float h1_norm2;
     h1_norm2 = 0;
     for (int s=0; s<peak_width; ++s){
         h = fifo_residuals[(left_ind+s)*nb_channel + chan_max] - catalogue_center0[wf_size*cluster+nb_channel*s+chan_max];
@@ -715,14 +551,11 @@ ___kernel estimate_one_jitter(int left_ind, int cluster,
         h1_norm2 += (h - jitter0 * wf1) * (h - jitter0 * wf1);
     }
     
-    
-    
-    
     if (h0_norm2 > h1_norm2){
         float h_dot_wf2 =0;
         float rss_first, rss_second;
         for (int s=0; s<peak_width; ++s){
-            h = fifo_residuals[(left_ind+s)*nb_channel + chan_max] - catalogue_center[wf_size*cluster+nb_channel*s+chan_max];
+            h = fifo_residuals[(left_ind+s)*nb_channel + chan_max] - catalogue_center0[wf_size*cluster+nb_channel*s+chan_max];
             wf2 = catalogue_center2[wf_size*cluster+nb_channel*s+chan_max];
             h_dot_wf2 += h * wf2;
         }
@@ -737,15 +570,13 @@ ___kernel estimate_one_jitter(int left_ind, int cluster,
 }
 
 
-___kernel accept_tempate(int left_ind, int cluster, float jitter,
+__kernel void accept_tempate(int left_ind, int cluster, float jitter,
                                         __global float *fifo_residuals,
                                         __global float *sparse_mask,
                                         __global float *catalogue_center0,
                                         __global float *catalogue_center1,
                                         __global float *catalogue_center2,
                                         __global float *weight_per_template,
-                                        
-                                        
                                         ){
 
 
@@ -794,100 +625,157 @@ ___kernel accept_tempate(int left_ind, int cluster, float jitter,
 
 }
 
+__kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
+                                                                        __global st_spike *spike,
+                                                                        __global  float *catalogue_center0,
+                                                                        __global  float *catalogue_center1,
+                                                                        __global  float *catalogue_center2,
+                                                                        __global  uchar  *sparse_mask,
+                                                                        __global  float *rms_waveform_channel,
+                                                                        __global  float *waveform_distance,
+                                                                        __global int *max_on_channel,
+                                                                        __global float *wf1_norm2,
+                                                                        __global float *wf2_norm2,
+                                                                        __global float *wf1_dot_wf2,
+                                                                        __global float *weight_per_template){
 
+    int cluster_idx = get_global_id(0);
+    int chan = get_global_id(1);
+    
+    int left_ind = spike->peak_index + n_left;
+
+    
+    // non parralel code only for first worker
+    if (cluster_idx==0) && (chan==0){
+        
+        if ind+peak_width+maximum_jitter_shift+1>=fifo_size{
+            spike->label = LABEL_RIGHT_LIMIT;
+        } elseif (ind<=maximum_jitter_shift){
+            spike->label = LABEL_LEFT_LIMIT;
+        } elseif (n_cluster==0){
+            spike->label  = LABEL_UNCLASSIFIED;
+        }else {
+            spike->label = LABEL_NOT_YET;
+            if (alien_value_threshold>0){
+                for (int s=1; s<=(wf_size); s++){
+                    if ((fifo_residuals[left_ind*nb_channel +s]>alien_value_threshold) || (fifo_residuals[left_ind*nb_channel +s]<-alien_value_threshold)){
+                        spike->label = LABEL_ALIEN;
+                    }
+                }
+            }
+        }
+        
+        if (spike->peak_index){
+            spike->label = 0;
+            spike->jitter = 0;
+        }elif{spike->label < 0){
+            spike->jitter = 0;
+        }
+        
+    }
+    
+    barrier(CLK_GLOBAL_MEM_FENCE);
+    
+    if (spike->label==LABEL_NOT_YET) {
+
+
+        // initialize sum waveform distance by cluster
+        if (chan==0){
+            //parallel reset by cluster
+            waveform_distance[cluster_idx] = 0;
+        }
+        barrier(CLK_GLOBAL_MEM_FENCE);
+        
+        // compute rms waveform
+        if (cluster_idx==0){
+            //paralel waveform sum by chan
+            rms_waveform_channel[chan] = 0;
+            float v;
+            for (int s=1; s<=(peak_width); s++){
+                v = fifo_residuals[(left_ind+s)*nb_channel + chan]
+                rms_waveform_channel[chan] += (v*v);
+            }
+        }
+        barrier(CLK_GLOBAL_MEM_FENCE);
+
+        // parralel distance for cluster  clusterXchan
+        float sum = 0;
+        float d;
+        if (sparse_mask[nb_channel*cluster_idx+chan]>0){
+            for (int s=0; s<peak_width; ++s){
+                d = fifo_residuals[(left_ind+s)*nb_channel + chan] - catalogue_center0[wf_size*cluster_idx+nb_channel*s+chan];
+                sum += d*d;
+            }
+        }
+        else{
+            sum = rms_waveform_channel[c];
+        }
+        AtomicAdd(&waveform_distance[cluster_idx], sum);
+        barrier(CLK_GLOBAL_MEM_FENCE);
+    
+        // not parralel zone only first worker
+        if (chan==0) && (cluster_idx==0){
+            //argmin  not paralel
+            float min_dist=MAXFLOAT;
+            spike->label = -1;
+            
+            for (int clus=0; clus<n_cluster; ++clus){
+                if (waveform_distance[clus]<min_dist){
+                    spike->label = clus;
+                    min_dist = waveform_distance[clus];
+                }
+            }
+            
+            int ok;
+            float jitter, new_jitter;
+            int shift;
+            
+            jitter = estimate_one_jitter(left_ind, spike->label,
+                                        max_on_channel, fifo_residuals,
+                                        catalogue_center0, catalogue_center1, catalogue_center2,
+                                        wf1_norm2, wf2_norm2, wf1_dot_wf2);
+            ok = accept_tempate(left_ind, spike->label, jitter,
+                                        fifo_residuals, sparse_mask,
+                                        catalogue_center0, catalogue_center1, catalogue_center2,
+                                        weight_per_template);
+
+            if (ok==0){
+                spike->label = LABEL_UNCLASSIFIED;
+                spike->jitter = 0;
+            }else{
+                if (abs(jitter) > 0.5){
+            
+                    shift = (int) round(jitter);
+                    if (abs(shift) >maximum_jitter_shift){
+                        spike->label = LABEL_MAXIMUM_SHIFT;
+                    }elseif (left_ind+width+shift>=fifo_size){
+                        spike->label = LABEL_RIGHT_LIMIT;
+                    }elseif(left_ind<0){
+                        spike->label = LABEL_LEFT_LIMIT;
+                    }else{
+                        new_jitter = estimate_one_jitter(left_ind+shift, cluster,
+                                                            max_on_channel, fifo_residuals,
+                                                            catalogue_center0, catalogue_center1, catalogue_center2,
+                                                            wf1_norm2, wf2_norm2, wf1_dot_wf2);
+                        
+                        ok = accept_tempate(left_ind+shift, cluster, jitter,
+                                                            fifo_residuals, sparse_mask,
+                                                            catalogue_center0, catalogue_center1, catalogue_center2,
+                                                            weight_per_template);
+                        
+                        if ((abs(new_jitter)<abs(prev_jitter)) && (ok)){
+                            jitter = new_jitter;
+                            left_index += shift;
+                        }
+                }
+                spike->jitter = jitter;
+                spike->peak_index = left_index - n_left;
+            }
+        }
+        barrier(CLK_GLOBAL_MEM_FENCE);
+    }
+}
 """
 
 
 
-
-
-'''
-catalogue_center_cl, self.sparse_mask_cl, 
-                            self.rms_waveform_channel_cl, self.waveform_distance_cl
-
-
-
-
-        if ind+width+maximum_jitter_shift+1>=residual.shape[0]:
-            # too near right limits no label
-            label = LABEL_RIGHT_LIMIT
-            jitter = 0
-        elif ind<=maximum_jitter_shift:
-            # too near left limits no label
-            #~ print('     LABEL_LEFT_LIMIT', ind)
-            label = LABEL_LEFT_LIMIT
-            jitter = 0
-        elif catalogue['centers0'].shape[0]==0:
-            # empty catalogue
-            label  = LABEL_UNCLASSIFIED
-            jitter = 0
-        else:
-            waveform = residual[ind:ind+width,:]
-            
-            if self.alien_value_threshold is not None and \
-                    np.any((waveform>self.alien_value_threshold) | (waveform<-self.alien_value_threshold)) :
-                label  = LABEL_ALIEN
-                jitter = 0
-            else:
-                
-                #~ t1 = time.perf_counter()
-                label, jitter = self.estimate_one_jitter(waveform)
-                #~ t2 = time.perf_counter()
-                #~ print('  estimate_one_jitter', (t2-t1)*1000.)
-
-                #~ jitter = -jitter
-                #TODO debug jitter sign is positive on right and negative to left
-                
-                #~ print('label, jitter', label, jitter)
-                
-                # if more than one sample of jitterFranky Zapata sur le Flyboard 
-                # then we try a peak shift
-                # take it if better
-                #TODO debug peak shift
-                if np.abs(jitter) > 0.5 and label >=0:
-                    prev_ind, prev_label, prev_jitter =ind, label, jitter
-                    
-                    
-                    
-                    #####################"
-                    ## ICI ICI
-                    ######################
-                    shift = -int(np.round(jitter))
-                    #~ print('classify and align shift', shift)
-                    
-                    if np.abs(shift) >maximum_jitter_shift:
-                        #~ print('     LABEL_MAXIMUM_SHIFT avec shift')
-                        label = LABEL_MAXIMUM_SHIFT
-                    else:
-                        ind = ind + shift
-                        if ind+width>=residual.shape[0]:
-                            #~ print('     LABEL_RIGHT_LIMIT avec shift')
-                            label = LABEL_RIGHT_LIMIT
-                        elif ind<0:
-                            #~ print('     LABEL_LEFT_LIMIT avec shift')
-                            label = LABEL_LEFT_LIMIT
-                            #TODO: force to label anyway the spike if spike is at the left of FIFO
-                        else:
-                            waveform = residual[ind:ind+width,:]
-                            #~ print('    second estimate jitter')
-                            new_label, new_jitter = self.estimate_one_jitter(waveform, label=label)
-                            #~ new_label, new_jitter = self.estimate_one_jitter(waveform, label=None)
-                            if np.abs(new_jitter)<np.abs(prev_jitter):
-                                #~ print('keep shift')
-                                label, jitter = new_label, new_jitter
-                                local_index += shift
-                            else:
-                                #~ print('no keep shift worst jitter')
-                                pass
-
-        #security if with jitter the index is out
-        if label>=0:
-            local_pos = local_index - np.round(jitter).astype('int64') + n_left
-            if local_pos<0:
-                label = LABEL_LEFT_LIMIT
-            elif (local_pos+width) >=residual.shape[0]:
-                label = LABEL_RIGHT_LIMIT
-        
-        return Spike(local_index, label, jitter)
-
-'''
