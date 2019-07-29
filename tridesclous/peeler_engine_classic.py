@@ -114,6 +114,7 @@ class PeelerEngineClassic(OpenCL_Helper):
         #~ print(centers.shape)
         if self.use_sparse_template:
             #~ print(centers.shape)
+            # TODO use less memory
             self.sparse_mask = np.any(np.abs(centers)>sparse_threshold_mad, axis=1)
         else:
             self.sparse_mask = np.ones((centers.shape[0], centers.shape[2]), dtype='bool')
@@ -160,7 +161,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                 peak_width = centers.shape[1]
                 nb_cluster = centers.shape[0]
                 kernel = kernel_opencl%{'nb_channel': nb_channel,'peak_width':peak_width,
-                                                        'total':peak_width*nb_channel,'nb_cluster' : nb_cluster}
+                                                        'wf_size':peak_width*nb_channel,'nb_cluster' : nb_cluster}
                 prg = pyopencl.Program(self.ctx, kernel)
                 opencl_prg = prg.build(options='-cl-mad-enable')
                 self.kern_waveform_distance = getattr(opencl_prg, 'waveform_distance')
@@ -574,16 +575,16 @@ class PeelerEngineClassic(OpenCL_Helper):
             #~ print('       second argmin', (t2-t1)*1000., cluster_idx)
         
         
-        chan = catalogue['max_on_channel'][cluster_idx]
+        chan_max = catalogue['max_on_channel'][cluster_idx]
         #~ print('cluster_idx', cluster_idx, 'k', k, 'chan', chan)
 
         
         #~ return k, 0.
 
-        wf0 = catalogue['centers0'][cluster_idx,: , chan]
-        wf1 = catalogue['centers1'][cluster_idx,: , chan]
-        wf2 = catalogue['centers2'][cluster_idx,: , chan]
-        wf = waveform[:, chan]
+        wf0 = catalogue['centers0'][cluster_idx,: , chan_max]
+        wf1 = catalogue['centers1'][cluster_idx,: , chan_max]
+        wf2 = catalogue['centers2'][cluster_idx,: , chan_max]
+        wf = waveform[:, chan_max]
         #~ print()
         #~ print(wf0.shape, wf.shape)
         
@@ -658,7 +659,7 @@ kernel_opencl = """
 #define nb_channel %(nb_channel)d
 #define peak_width %(peak_width)d
 #define nb_cluster %(nb_cluster)d
-#define total %(total)d
+#define wf_size %(wf_size)d
     
 inline void AtomicAdd(volatile __global float *source, const float operand) {
     union {
@@ -678,7 +679,7 @@ inline void AtomicAdd(volatile __global float *source, const float operand) {
 
 __kernel void waveform_distance(__global  float *one_waveform,
                                         __global  float *catalogue_center,
-                                        __global  uchar  *mask,
+                                        __global  uchar  *sparse_mask,
                                         __global  float *rms_waveform_channel,
                                         __global  float *waveform_distance){
     
@@ -699,9 +700,9 @@ __kernel void waveform_distance(__global  float *one_waveform,
     float d;
     
     
-    if (mask[nb_channel*cluster_idx+c]>0){
+    if (sparse_mask[nb_channel*cluster_idx+c]>0){
         for (int s=0; s<peak_width; ++s){
-            d = one_waveform[nb_channel*s+c] - catalogue_center[total*cluster_idx+nb_channel*s+c];
+            d = one_waveform[nb_channel*s+c] - catalogue_center[wf_size*cluster_idx+nb_channel*s+c];
             sum += d*d;
         }
     }

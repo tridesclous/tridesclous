@@ -326,7 +326,10 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base, OpenCL_Helper):
         if self.signals_medians is not None:
             self.signals_medians_cl = pyopencl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.signals_medians)
             self.signals_mads_cl = pyopencl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.signals_mads)
-
+        else:
+            self.signals_medians_cl = pyopencl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.zeros(self.nb_channel, dtype= self.output_dtype))
+            self.signals_mads_cl = pyopencl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.zeros(self.nb_channel, dtype= self.output_dtype))
+        
         #CL prog
         if not self.common_ref_removal and  self.normalize:
             extra_code_nomalize = _extra_code_nomalize
