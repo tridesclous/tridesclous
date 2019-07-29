@@ -51,6 +51,8 @@ class OpenCL_Helper:
             self.ctx = ctx
             self.queue = queue
         
+        self.max_wg_size = self.ctx.devices[0].get_info(pyopencl.device_info.MAX_WORK_GROUP_SIZE)
+        
 
 
 def get_cl_device_list():

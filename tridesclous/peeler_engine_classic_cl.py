@@ -24,7 +24,6 @@ except ImportError:
 class PeelerEngineClassicOpenCl(PeelerEngineClassic):
     
     def change_params(self, **kargs):
-        print('ici', kargs.keys())
         
         # TODO force open_cl use sparse ????
         kargs['use_sparse_template'] = True
@@ -38,12 +37,6 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
     def initialize_before_each_segment(self, *args, **kargs):
 
         PeelerEngineClassic.initialize_before_each_segment(self, *args, **kargs)
-        print(self.internal_dtype)
-        #~ self.ctx = 
-        
-        
-        self.max_wg_size = self.ctx.devices[0].get_info(pyopencl.device_info.MAX_WORK_GROUP_SIZE)
-        print('self.max_wg_size', self.max_wg_size)
         
         # kernel processor
         # TODO make compilation explicit here
@@ -103,6 +96,10 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
         
         #~ self.nb_peak_index = np.zeros((1), dtype='int32')
         #~ self.nb_peak_index_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.nb_peak_index)
+
+        self.peak_counter_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE, size=4) # int32
+        self.peak_index_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE, size=4) # int32
+        
         
         
         #
@@ -119,7 +116,7 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
         #kernels links
         self.kern_add_fifo_residuals = getattr(self.opencl_prg, 'add_fifo_residuals')
         self.kern_detect_boolean_peaks = getattr(self.opencl_prg, 'detect_boolean_peaks')
-        #~ self.kern_bool_to_index = getattr(self.opencl_prg, 'bool_to_index')
+        self.kern_select_next_peak = getattr(self.opencl_prg, 'select_next_peak')
         
         ## self.kern_classify_and_align_one_spike = getattr(self.opencl_prg, 'classify_and_align_one_spike')
         ## self.kern_make_prediction_signals = getattr(self.opencl_prg, 'make_prediction_signals')
@@ -197,23 +194,18 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
         
         t1 = time.perf_counter()
         while True:
-            #detect peaks
-            #~ t3 = time.perf_counter()
             
-            #~ local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+            global_size = (self.chunksize+self.n_side - 2*self.n_span,  )
+            local_size = (min(self.max_wg_size, self.chunksize+self.n_side), )
+            event = self.kern_select_next_peak(self.queue,  global_size, local_size,
+                                    self.local_peaks_mask_cl, self.mask_already_tested_cl, self.peak_counter_cl, self.peak_index_cl)
             
-            local_peaks_indexes,  = np.nonzero(local_peaks_mask & mask_already_tested)
-            #~ print(local_peaks_indexes)
-            local_peaks_indexes += self.n_span
-            #~ exit()
             
-            #~ t4 = time.perf_counter()
-            #~ print('  detect_peaks_in_chunk', (t4-t3)*1000.)pythran_loop_sparse_dist
+            global_size = (self.chunksize+self.n_side - 2*self.n_span,  )
+            local_size = (min(self.max_wg_size, self.chunksize+self.n_side), )
             
-            #~ if len(already_tested)>0:
-                #~ local_peaks_to_check = local_peaks_indexes[~np.in1d(local_peaks_indexes, already_tested)]
-            #~ else:
-                #~ local_peaks_to_check = local_peaks_indexes
+            self.kern_classify_and_align_one_spike(self.queue,  global_size, local_size,
+            
             
             n_ok = 0
             for local_ind in local_peaks_indexes:
@@ -506,7 +498,28 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
         }
     }
     
+    
+    __kernel void select_next_peak(__global  uchar *local_peaks_mask, __global uchar *mask_already_tested,
+                                                    __global int *peak_counter, __global int *peak_index,){
+        int pos = get_global_id(0); //fifo_residuals.shape[0] - 2 * nspan
+        
+        if (pos == 0){
+            peak_counter = 0;
+            peak_index[0] = -1;
+            
+        }
+        barrier(CLK_GLOBAL_MEM_FENCE);
+        
+        if (local_peaks_mask[pos+n_span] == 1) && (mask_already_tested[pos+n_span] == 1){
+            total = atomic_add(peak_counter); //TODO read doc
+            if total ==1{
+                peak_index[0] = pos + n_span;
+            }
+        }
+    }
+    
     __kernel void bool_to_index(__global  uchar *peak_bool, __global int *peak_index, __global int *nb_peak_index){
+        
         
         int n=0;
         
