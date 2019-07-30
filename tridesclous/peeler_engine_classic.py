@@ -413,21 +413,21 @@ class PeelerEngineClassic(OpenCL_Helper):
         # local_index is index of peaks inside residual and not
         # the absolute peak_pos. So time scaling must be done outside.
         
-        width = catalogue['peak_width']
+        peak_width = catalogue['peak_width']
         n_left = catalogue['n_left']
         #~ alien_value_threshold = catalogue['clean_waveforms_params']['alien_value_threshold']
         
         
         #ind is the windows border!!!!!
-        ind = local_index + n_left
+        ind_left = local_index + n_left
 
-        if ind+width+maximum_jitter_shift+1>=residual.shape[0]:
+        if ind_left+peak_width+maximum_jitter_shift+1>=residual.shape[0]:
             # too near right limits no label
             label = LABEL_RIGHT_LIMIT
             jitter = 0
-        elif ind<=maximum_jitter_shift:
+        elif ind_left<=maximum_jitter_shift:
             # too near left limits no label
-            #~ print('     LABEL_LEFT_LIMIT', ind)
+            #~ print('     LABEL_LEFT_LIMIT', ind_left)
             label = LABEL_LEFT_LIMIT
             jitter = 0
         elif catalogue['centers0'].shape[0]==0:
@@ -435,7 +435,7 @@ class PeelerEngineClassic(OpenCL_Helper):
             label  = LABEL_UNCLASSIFIED
             jitter = 0
         else:
-            waveform = residual[ind:ind+width,:]
+            waveform = residual[ind_left:ind_left+peak_width,:]
             
             if self.alien_value_threshold is not None and \
                     np.any((waveform>self.alien_value_threshold) | (waveform<-self.alien_value_threshold)) :
@@ -458,7 +458,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                 # take it if better
                 #TODO debug peak shift
                 if np.abs(jitter) > 0.5 and label >=0:
-                    prev_ind, prev_label, prev_jitter =ind, label, jitter
+                    prev_ind, prev_label, prev_jitter =ind_left, label, jitter
                     
                     shift = -int(np.round(jitter))
                     #~ print('classify and align shift', shift)
@@ -467,16 +467,16 @@ class PeelerEngineClassic(OpenCL_Helper):
                         #~ print('     LABEL_MAXIMUM_SHIFT avec shift')
                         label = LABEL_MAXIMUM_SHIFT
                     else:
-                        ind = ind + shift
-                        if ind+width>=residual.shape[0]:
+                        ind_left = ind_left + shift
+                        if ind_left+peak_width>=residual.shape[0]:
                             #~ print('     LABEL_RIGHT_LIMIT avec shift')
                             label = LABEL_RIGHT_LIMIT
-                        elif ind<0:
+                        elif ind_left < 0:
                             #~ print('     LABEL_LEFT_LIMIT avec shift')
                             label = LABEL_LEFT_LIMIT
                             #TODO: force to label anyway the spike if spike is at the left of FIFO
                         else:
-                            waveform = residual[ind:ind+width,:]
+                            waveform = residual[ind_left:ind_left+peak_width,:]
                             #~ print('    second estimate jitter')
                             new_label, new_jitter = self.estimate_one_jitter(waveform, label=label)
                             #~ new_label, new_jitter = self.estimate_one_jitter(waveform, label=None)
@@ -493,7 +493,7 @@ class PeelerEngineClassic(OpenCL_Helper):
             local_pos = local_index - np.round(jitter).astype('int64') + n_left
             if local_pos<0:
                 label = LABEL_LEFT_LIMIT
-            elif (local_pos+width) >=residual.shape[0]:
+            elif (local_pos+peak_width) >=residual.shape[0]:
                 label = LABEL_RIGHT_LIMIT
         
         return Spike(local_index, label, jitter)
@@ -564,7 +564,8 @@ class PeelerEngineClassic(OpenCL_Helper):
                 cluster_idx = np.argmin(s)
                 #~ t2 = time.perf_counter()
                 #~ print('    np.argmin V2', (t2-t1)*1000., cluster_idx)
-                
+            else:
+                raise(NotImplementedError())
             
             k = catalogue['cluster_labels'][cluster_idx]
         else:
@@ -661,7 +662,7 @@ kernel_opencl = """
 #define nb_cluster %(nb_cluster)d
 #define wf_size %(wf_size)d
     
-inline void AtomicAdd(volatile __global float *source, const float operand) {
+inline void atomic_add_float(volatile __global float *source, const float operand) {
     union {
         unsigned int intVal;
         float floatVal;
@@ -710,7 +711,7 @@ __kernel void waveform_distance(__global  float *one_waveform,
         sum = rms_waveform_channel[c];
     }
     
-    AtomicAdd(&waveform_distance[cluster_idx], sum);
+    atomic_add_float(&waveform_distance[cluster_idx], sum);
     
 }
 

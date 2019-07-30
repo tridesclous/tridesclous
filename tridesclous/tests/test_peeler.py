@@ -287,7 +287,7 @@ def debug_compare_peeler():
     
     
 if __name__ =='__main__':
-    #~ setup_module()
+    setup_module()
     
     #~ open_catalogue_window()
     
@@ -305,6 +305,6 @@ if __name__ =='__main__':
     
     #~ debug_compare_peeler()
     
-    #~ open_PeelerWindow()
+    open_PeelerWindow()
     
     #~ teardown_module()
