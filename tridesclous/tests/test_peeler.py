@@ -287,12 +287,12 @@ def debug_compare_peeler():
     
     
 if __name__ =='__main__':
-    setup_module()
+    #~ setup_module()
     
     #~ open_catalogue_window()
     
-    #~ test_peeler()
-    test_peeler_cl()
+    test_peeler()
+    #~ test_peeler_cl()
     
     #~ test_peeler_argmin_methods()
     
