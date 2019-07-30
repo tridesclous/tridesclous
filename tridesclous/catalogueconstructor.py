@@ -1453,6 +1453,7 @@ class CatalogueConstructor:
         
         
         n, full_width, nchan = self.some_waveforms.shape
+        
         centers0 = np.zeros((len(cluster_labels), full_width - 4, nchan), dtype=self.info['internal_dtype'])
         centers1 = np.zeros_like(centers0)
         centers2 = np.zeros_like(centers0)
