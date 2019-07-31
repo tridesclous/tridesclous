@@ -280,7 +280,7 @@ class PeelerEngineClassic(OpenCL_Helper):
             if local_ind == LABEL_NO_MORE_PEAK:
                 break
             
-            spike = self.classify_and_align_one_spike(local_ind)
+            spike = self.classify_and_align_next_spike(local_ind)
             #~ print('spike', spike)
             
             if spike.cluster_label == LABEL_NO_MORE_PEAK:
@@ -330,7 +330,7 @@ class PeelerEngineClassic(OpenCL_Helper):
             return LABEL_NO_MORE_PEAK
             
     
-    def classify_and_align_one_spike(self, local_ind):
+    def classify_and_align_next_spike(self, local_ind):
         #ind is the windows border!!!!!
         left_ind = local_ind + self.n_left
 
@@ -357,7 +357,7 @@ class PeelerEngineClassic(OpenCL_Helper):
             else:
                 
                 cluster_idx = self.get_best_template(left_ind)
-                jitter = self.estimate_one_jitter(left_ind, cluster_idx)
+                jitter = self.estimate_jitter(left_ind, cluster_idx)
                 ok = self.accept_tempate(left_ind, cluster_idx, jitter)
                 
                 if  not ok:
@@ -373,7 +373,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                         elif (left_ind + shift) < 0:
                             label = LABEL_LEFT_LIMIT
                         else:
-                            new_jitter = self.estimate_one_jitter(left_ind + shift, cluster_idx)
+                            new_jitter = self.estimate_jitter(left_ind + shift, cluster_idx)
                             ok = self.accept_tempate(left_ind+shift, cluster_idx, jitter)
                             if ok and np.abs(new_jitter)<np.abs(jitter):
                                 jitter = new_jitter
@@ -442,7 +442,7 @@ class PeelerEngineClassic(OpenCL_Helper):
 
     
     
-    def estimate_one_jitter(self, left_ind, cluster_idx):
+    def estimate_jitter(self, left_ind, cluster_idx):
         
         chan_max = self.catalogue['max_on_channel'][cluster_idx]
         
@@ -518,6 +518,15 @@ class PeelerEngineClassic(OpenCL_Helper):
             # set peak tested
             self.mask_already_tested[local_ind - self.n_span] = False
 
+
+
+    def get_remaining_spikes(self):
+        if len(self.near_border_good_spikes)>0:
+            # deal with extra remaining spikes
+            extra_spikes = self.near_border_good_spikes[0]
+            extra_spikes = extra_spikes.take(np.argsort(extra_spikes['index']))
+            self.total_spike += extra_spikes.size
+            return extra_spikes
 
 #########################################
 
@@ -681,19 +690,12 @@ class PeelerEngineClassic(OpenCL_Helper):
         return abs_head_index, preprocessed_chunk, self.total_spike, all_spikes
     
     
-    def get_remaining_spikes(self):
-        if len(self.near_border_good_spikes)>0:
-            # deal with extra remaining spikes
-            extra_spikes = self.near_border_good_spikes[0]
-            extra_spikes = extra_spikes.take(np.argsort(extra_spikes['index']))
-            self.total_spike += extra_spikes.size
-            return extra_spikes
         
     
     
 
     
-    def _OLD_classify_and_align_one_spike(self, local_index, residual, catalogue):
+    def classify_and_align_one_spike(self, local_index, residual, catalogue):
         # local_index is index of peaks inside residual and not
         # the absolute peak_pos. So time scaling must be done outside.
         
@@ -783,7 +785,7 @@ class PeelerEngineClassic(OpenCL_Helper):
         return Spike(local_index, label, jitter)
     
     
-    def _OLD_estimate_one_jitter(self, waveform, label=None):
+    def estimate_one_jitter(self, waveform, label=None):
         """
         Estimate the jitter for one peak given its waveform
         
