@@ -241,7 +241,7 @@ class PeelerEngineClassic(OpenCL_Helper):
 
     #~ def NEW_process_one_chunk(self,  pos, sigs_chunk):
     def process_one_chunk(self,  pos, sigs_chunk):
-        #~ print('*'*10)
+        print('*'*10)
         t1 = time.perf_counter()
         abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
         #~ t2 = time.perf_counter()
@@ -274,7 +274,7 @@ class PeelerEngineClassic(OpenCL_Helper):
         n_loop = 0
         t3 = time.perf_counter()
         while True:
-            
+            print('peeler level +1')
             nb_good_spike = 0
             local_ind = self.select_next_peak()
             #~ print('start inner loop')
@@ -311,23 +311,25 @@ class PeelerEngineClassic(OpenCL_Helper):
                 
                 #~ # debug
                 n_loop +=1 
-
-                #~ import matplotlib.pyplot as plt
-                #~ from .peakdetector import make_sum_rectified
-                #~ print('spike', spike)
-                #~ fig, ax = plt.subplots()
-                #~ ax.plot(self.fifo_residuals)
-                #~ ax.plot(np.arange(self.mask_already_tested.size) + self.n_span, self.mask_already_tested.astype(float)*10, color='k')
-                #~ local_peaks,  = np.nonzero(self.local_peaks_mask & self.mask_already_tested)
-                #~ local_peaks += self.n_span
-                #~ sum_rectified = make_sum_rectified(self.fifo_residuals, self.peakdetector.relative_threshold, self.peakdetector.peak_sign, self.peakdetector.spatial_matrix)
-                #~ ax.scatter(local_peaks, np.min(self.fifo_residuals[local_peaks, :], axis=1), color='k')
-                #~ # ax.plot(sum_rectified, color='k', lw=1.5)
-                #~ # ax.scatter(local_peaks, sum_rectified[local_peaks], color='k')
-                #~ for p in local_peaks:
-                    #~ ax.axvline(p, color='k', ls='--')
-                #~ ax.axvline(local_ind, color='r', ls='-')
-                #~ plt.show()
+                
+                
+                import matplotlib.pyplot as plt
+                from .peakdetector import make_sum_rectified
+                # print('spike', spike)
+                fig, ax = plt.subplots()
+                ax.plot(self.fifo_residuals)
+                ax.plot(np.arange(self.mask_already_tested.size) + self.n_span, self.mask_already_tested.astype(float)*10, color='k')
+                local_peaks,  = np.nonzero(self.local_peaks_mask & self.mask_already_tested)
+                local_peaks += self.n_span
+                sum_rectified = make_sum_rectified(self.fifo_residuals, self.peakdetector.relative_threshold, self.peakdetector.peak_sign, self.peakdetector.spatial_matrix)
+                ax.scatter(local_peaks, np.min(self.fifo_residuals[local_peaks, :], axis=1), color='k')
+                # ax.plot(sum_rectified, color='k', lw=1.5)
+                # ax.scatter(local_peaks, sum_rectified[local_peaks], color='k')
+                for p in local_peaks:
+                    ax.axvline(p, color='k', ls='--')
+                ax.axvline(local_ind, color='r', ls='-')
+                ax.set_ylim(-300, 100)
+                plt.show()
             
             if nb_good_spike == 0:
                 #~ print('break main loop')
@@ -385,7 +387,15 @@ class PeelerEngineClassic(OpenCL_Helper):
         #~ print('select_next_peak')
         #~ print(local_peaks_indexes + self.n_span )
         if local_peaks_indexes.size>0:
-            return local_peaks_indexes[0] + self.n_span
+            local_peaks_indexes += self.n_span
+            amplitudes = np.max(np.abs(self.fifo_residuals[local_peaks_indexes, :]), axis=1)
+            #~ print(self.fifo_residuals[local_peaks_indexes, :])
+            #~ print(amplitudes)
+            #~ print(amplitudes.shape)
+            ind = np.argmax(amplitudes)
+            #~ print(ind)
+            return local_peaks_indexes[ind]
+            #~ return local_peaks_indexes[0] + self.n_span
         else:
             return LABEL_NO_MORE_PEAK
             
