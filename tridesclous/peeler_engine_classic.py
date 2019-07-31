@@ -236,12 +236,15 @@ class PeelerEngineClassic(OpenCL_Helper):
         
         self.fifo_residuals = np.zeros((self.n_side+self.chunksize, nb_channel), 
                                                                 dtype=self.internal_dtype)
-
-    def process_one_chunk(self,  pos, sigs_chunk):
         
+        self.mask_already_tested = np.ones(self.fifo_residuals.shape[0] - 2 * self.n_span, dtype='bool')
+
+    #~ def NEW_process_one_chunk(self,  pos, sigs_chunk):
+    def process_one_chunk(self,  pos, sigs_chunk):
+        #~ print('*'*10)
         t1 = time.perf_counter()
         abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
-        t2 = time.perf_counter()
+        #~ t2 = time.perf_counter()
         #~ print('process_data', (t2-t1)*1000)
         
         
@@ -251,52 +254,103 @@ class PeelerEngineClassic(OpenCL_Helper):
         if fifo_roll_size>0 and fifo_roll_size!=self.fifo_residuals.shape[0]:
             self.fifo_residuals[:fifo_roll_size,:] = self.fifo_residuals[-fifo_roll_size:,:]
             self.fifo_residuals[fifo_roll_size:,:] = preprocessed_chunk
-        t2 = time.perf_counter()
+        #~ t2 = time.perf_counter()
         #~ print('fifo move', (t2-t1)*1000.)
 
         
         # relation between inside chunk index and abs index
         shift = abs_head_index - self.fifo_residuals.shape[0]
         
-        # TODO remove from peak the very begining of the signal because of border filtering effects
         
         
         # negative mask 1: not tested 0: already tested
-        self.mask_already_tested = np.ones(self.fifo_residuals.shape[0] - 2 * self.n_span, dtype='bool')
+        self.mask_already_tested[:] = True
         
         self.local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
-        #~ print('sum(local_peaks_mask)', np.sum(local_peaks_mask))
         
-        t1 = time.perf_counter()
-        # TODO # TODO # TODO # TODO # TODO
-        self.max_spike_per_chunk = self.fifo_residuals.shape[0]
         
-        good_spikes = np.zeros(self.max_spike_per_chunk, dtype=_dtype_spike)
-        nb_spike = 0
+        good_spikes = []
+        
+        n_loop = 0
+        t3 = time.perf_counter()
         while True:
             
+            nb_good_spike = 0
             local_ind = self.select_next_peak()
-            #~ print('local_ind', local_ind)
-            if local_ind == LABEL_NO_MORE_PEAK:
-                break
+            #~ print('start inner loop')
+            while local_ind != LABEL_NO_MORE_PEAK:
             
-            spike = self.classify_and_align_next_spike(local_ind)
-            #~ print('spike', spike)
-            
-            if spike.cluster_label == LABEL_NO_MORE_PEAK:
-                break
-            
-            if (spike.cluster_label >=0):
-                good_spikes[nb_spike]['index'] = spike.index + shift
-                good_spikes[nb_spike]['cluster_label'] = spike.cluster_label
-                good_spikes[nb_spike]['jitter'] = spike.jitter
-                nb_spike+=1
-        
-        good_spikes = good_spikes[:nb_spike].copy()
-        
-        #~ print(good_spikes)
-        #~ exit()
+                #~ print('  local_ind', local_ind)
+                #~ t2 = time.perf_counter()
+                #~ print('  select_next_peak', (t2-t1)*1000)
+                
+                #~ if local_ind == LABEL_NO_MORE_PEAK:
+                    #~ print('break inner loop 1')
+                    #~ break
+                
+                t1 = time.perf_counter()
+                spike = self.classify_and_align_next_spike(local_ind)
+                #~ t2 = time.perf_counter()
+                #~ print('  classify_and_align_next_spike', (t2-t1)*1000)
+                #~ print(spike.cluster_label)
 
+                #~ print('spike', spike)
+                
+                
+                
+                if spike.cluster_label == LABEL_NO_MORE_PEAK:
+                    #~ print('break inner loop 1')
+                    break
+                
+                if (spike.cluster_label >=0):
+                    #~ good_spikes.append(np.array([spike], dtype=_dtype_spike))
+                    good_spikes.append(spike)
+                    nb_good_spike+=1
+                
+                local_ind = self.select_next_peak()
+                
+                #~ # debug
+                n_loop +=1 
+
+                #~ import matplotlib.pyplot as plt
+                #~ from .peakdetector import make_sum_rectified
+                #~ print('spike', spike)
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(self.fifo_residuals)
+                #~ ax.plot(np.arange(self.mask_already_tested.size) + self.n_span, self.mask_already_tested.astype(float)*10, color='k')
+                #~ local_peaks,  = np.nonzero(self.local_peaks_mask & self.mask_already_tested)
+                #~ local_peaks += self.n_span
+                #~ sum_rectified = make_sum_rectified(self.fifo_residuals, self.peakdetector.relative_threshold, self.peakdetector.peak_sign, self.peakdetector.spatial_matrix)
+                #~ ax.scatter(local_peaks, np.min(self.fifo_residuals[local_peaks, :], axis=1), color='k')
+                #~ # ax.plot(sum_rectified, color='k', lw=1.5)
+                #~ # ax.scatter(local_peaks, sum_rectified[local_peaks], color='k')
+                #~ for p in local_peaks:
+                    #~ ax.axvline(p, color='k', ls='--')
+                #~ ax.axvline(local_ind, color='r', ls='-')
+                #~ plt.show()
+            
+            if nb_good_spike == 0:
+                #~ print('break main loop')
+                break
+            else:
+                
+                t1 = time.perf_counter()
+                for spike in good_spikes[-nb_good_spike:]:
+                    local_ind = spike.index
+                    sl1 = slice(local_ind + self.n_left - 1 - self.n_span, local_ind + self.n_right + 1 + self.n_span)
+                    sl2 = slice(local_ind + self.n_left - 1 - self.n_span, local_ind + self.n_right + 1- self.n_span)
+                    self.local_peaks_mask[sl2] = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals[sl1, :])
+                    
+                    # set neighboor untested
+                    self.mask_already_tested[local_ind - self.peak_width - self.n_span:local_ind + self.peak_width - self.n_span] = True
+                #~ t2 = time.perf_counter()
+                #~ print('  update mask', (t2-t1)*1000)
+
+
+        #~ t4 = time.perf_counter()
+        #~ print('LOOP classify_and_align_one_spike', (t4-t3)*1000)
+        #~ print('nb_good_spike', len(good_spikes), 'n_loop', n_loop)
+        
         nolabel_indexes, = np.nonzero(~self.mask_already_tested)
         nolabel_indexes += self.n_span
         nolabel_indexes = nolabel_indexes[nolabel_indexes<(self.chunksize+self.n_span)]
@@ -305,6 +359,10 @@ class PeelerEngineClassic(OpenCL_Helper):
         bad_spikes['cluster_label'] = LABEL_UNCLASSIFIED
         
         if len(good_spikes)>0:
+            # TODO remove from peak the very begining of the signal because of border filtering effects
+            
+            good_spikes = np.array(good_spikes, dtype=_dtype_spike)
+            good_spikes['index'] += shift
             near_border = (good_spikes['index'] - shift)>=(self.chunksize+self.n_span)
             near_border_good_spikes = good_spikes[near_border].copy()
             good_spikes = good_spikes[~near_border]
@@ -324,6 +382,8 @@ class PeelerEngineClassic(OpenCL_Helper):
     def select_next_peak(self):
         # TODO find faster
         local_peaks_indexes,  = np.nonzero(self.local_peaks_mask & self.mask_already_tested)
+        #~ print('select_next_peak')
+        #~ print(local_peaks_indexes + self.n_span )
         if local_peaks_indexes.size>0:
             return local_peaks_indexes[0] + self.n_span
         else:
@@ -356,35 +416,51 @@ class PeelerEngineClassic(OpenCL_Helper):
                 jitter = 0
             else:
                 
+                #~ t1 = time.perf_counter()
                 cluster_idx = self.get_best_template(left_ind)
-                jitter = self.estimate_jitter(left_ind, cluster_idx)
-                ok = self.accept_tempate(left_ind, cluster_idx, jitter)
+                #~ t2 = time.perf_counter()
+                #~ print('    get_best_template', (t2-t1)*1000)
                 
+                #~ t1 = time.perf_counter()
+                jitter = self.estimate_jitter(left_ind, cluster_idx)
+                #~ t2 = time.perf_counter()
+                #~ print('    estimate_jitter', (t2-t1)*1000)
+                
+                #~ t1 = time.perf_counter()
+                ok = self.accept_tempate(left_ind, cluster_idx, jitter)
+                #~ t2 = time.perf_counter()
+                #~ print('    accept_tempate', (t2-t1)*1000)
+
                 if  not ok:
                     label  = LABEL_UNCLASSIFIED
                     jitter = 0
                 else:
+                    #~ print('cluster_idx', cluster_idx, 'jitter', jitter)
                     if np.abs(jitter) > 0.5:
                         shift = -int(np.round(jitter))
-                        if np.abs(shift) >maximum_jitter_shift:
-                            label = LABEL_MAXIMUM_SHIFT
-                        elif left_ind+shift+self.peak_width>=self.fifo_residuals.shape[0]:
-                            label = LABEL_RIGHT_LIMIT
-                        elif (left_ind + shift) < 0:
-                            label = LABEL_LEFT_LIMIT
-                        else:
-                            new_jitter = self.estimate_jitter(left_ind + shift, cluster_idx)
-                            ok = self.accept_tempate(left_ind+shift, cluster_idx, jitter)
-                            if ok and np.abs(new_jitter)<np.abs(jitter):
-                                jitter = new_jitter
-                                left_ind += shift
+                        new_jitter = self.estimate_jitter(left_ind + shift, cluster_idx)
+                        ok = self.accept_tempate(left_ind+shift, cluster_idx, jitter)
+                        if ok and np.abs(new_jitter)<np.abs(jitter):
+                            jitter = new_jitter
+                            left_ind += shift
                     
-                    # one spike ok!!!!
-                    label = self.catalogue['cluster_labels'][cluster_idx]
-                    
-                    # remove form residual
-                    pos, pred = make_prediction_one_spike(left_ind - self.n_left, label, jitter, self.fifo_residuals.dtype, self.catalogue)
-                    self.fifo_residuals[pos:pos+self.peak_width, :] -= pred
+                    # security to not be outside the fifo
+                    shift = -int(np.round(jitter))
+                    if np.abs(shift) >maximum_jitter_shift:
+                        label = LABEL_MAXIMUM_SHIFT
+                    elif left_ind+shift+self.peak_width>=self.fifo_residuals.shape[0]:
+                        # normally this should be resolve in the next chunk
+                        label = LABEL_RIGHT_LIMIT
+                    elif (left_ind + shift) < 0:
+                        # TODO assign the previous label ???
+                        label = LABEL_LEFT_LIMIT
+                    else:
+                        label = self.catalogue['cluster_labels'][cluster_idx]
+
+                        pos, pred = make_prediction_one_spike(left_ind - self.n_left, label, jitter, self.fifo_residuals.dtype, self.catalogue)
+                        #~ print(pos, self.fifo_residuals.shape, pred.shape, 'left_ind', left_ind, self.peak_width, 'jitter', jitter, 'shift', -int(np.round(jitter)), 'label', label)
+                        #~ print()
+                        self.fifo_residuals[pos:pos+self.peak_width, :] -= pred
                     
         local_ind = left_ind - self.n_left
         #security if with jitter the index is out
@@ -395,7 +471,14 @@ class PeelerEngineClassic(OpenCL_Helper):
             elif (local_pos+self.peak_width) >=self.fifo_residuals.shape[0]:
                 label = LABEL_RIGHT_LIMIT
         
-        self.update_peak_mask(local_ind, label)
+        if label < 0:
+            # set peak tested to not test it again
+            self.mask_already_tested[local_ind - self.n_span] = False
+
+        #~ self.update_peak_mask(local_ind, label)
+        #~ t2 = time.perf_counter()
+        #~ print('    update_peak_mask', (t2-t1)*1000)
+        
         
         return Spike(local_ind, label, jitter)
 
@@ -502,22 +585,6 @@ class PeelerEngineClassic(OpenCL_Helper):
         accept_template = np.sum(crietria_weighted) >= 0.9 * np.sum(weight)
         
         return accept_template
-    
-    def update_peak_mask(self, local_ind, label):
-        
-        if label >= 0:
-            # recompute peak around
-            sl1 = slice(local_ind + self.n_left - 1 - self.n_span, local_ind + self.n_right + 1 + self.n_span)
-            sl2 = slice(local_ind + self.n_left - 1 - self.n_span, local_ind + self.n_right + 1- self.n_span)
-            self.local_peaks_mask[sl2] = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals[sl1, :])
-            
-            # set neighboor untested
-            self.mask_already_tested[local_ind - self.peak_width - self.n_span:local_ind + self.peak_width - self.n_span] = True
-
-        else:
-            # set peak tested
-            self.mask_already_tested[local_ind - self.n_span] = False
-
 
 
     def get_remaining_spikes(self):
@@ -531,12 +598,14 @@ class PeelerEngineClassic(OpenCL_Helper):
 #########################################
 
     def OLD_process_one_chunk(self,  pos, sigs_chunk):
+    #~ def process_one_chunk(self,  pos, sigs_chunk):
+    
         #~ print('*'*5)
         #~ print('chunksize', self.chunksize, '=', self.chunksize/self.sample_rate*1000, 'ms')
         
         t1 = time.perf_counter()
         abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
-        t2 = time.perf_counter()
+        #~ t2 = time.perf_counter()
         #~ print('process_data', (t2-t1)*1000)
         
         
@@ -544,7 +613,7 @@ class PeelerEngineClassic(OpenCL_Helper):
         # is late because of local filfilt in signalpreprocessor
         
         #shift rsiruals buffer and put the new one on right side
-        #~ t1 = time.perf_counter()
+        t1 = time.perf_counter()
         fifo_roll_size = self.fifo_residuals.shape[0]-preprocessed_chunk.shape[0]
         if fifo_roll_size>0 and fifo_roll_size!=self.fifo_residuals.shape[0]:
             self.fifo_residuals[:fifo_roll_size,:] = self.fifo_residuals[-fifo_roll_size:,:]
@@ -568,7 +637,8 @@ class PeelerEngineClassic(OpenCL_Helper):
         local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
         #~ print('sum(local_peaks_mask)', np.sum(local_peaks_mask))
         
-        t1 = time.perf_counter()
+        n_loop = 0
+        t3 = time.perf_counter()
         while True:
             #detect peaks
             #~ t3 = time.perf_counter()
@@ -591,13 +661,12 @@ class PeelerEngineClassic(OpenCL_Helper):
             n_ok = 0
             for local_ind in local_peaks_indexes:
                 #~ print('    local_peak', local_peak, 'i', i)
-                t3 = time.perf_counter()
+                t1 = time.perf_counter()
                 spike = self.classify_and_align_one_spike(local_ind, self.fifo_residuals, self.catalogue)
-                t4 = time.perf_counter()
-                #~ print('    classify_and_align_one_spike', (t4-t3)*1000., spike.cluster_label)
+                t2 = time.perf_counter()
+                #~ print('    classify_and_align_one_spike', (t2-t1)*1000., spike.cluster_label)
                 
                 if spike.cluster_label>=0:
-                    t3 = time.perf_counter()
                     #~ print('     >>spike.index', spike.index, spike.cluster_label, 'abs index', spike.index+shift)
                     
                     
@@ -633,8 +702,6 @@ class PeelerEngineClassic(OpenCL_Helper):
                     # set neighboor untested
                     mask_already_tested[local_ind - self.peak_width - self.n_span:local_ind + self.peak_width - self.n_span] = True
 
-                    t4 = time.perf_counter()
-                    #~ print('    make_prediction_signals and sub', (t4-t3)*1000.)
                     
                     #~ print('    already_tested new deal', already_tested)
                 else:
@@ -645,6 +712,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                     mask_already_tested[local_ind - self.n_span] = False
                     #~ print('already tested', local_ind)
                     #~ already_tested.append(local_peak)
+                n_loop += 1
             
             if n_ok==0:
                 # no peak can be labeled
@@ -664,8 +732,9 @@ class PeelerEngineClassic(OpenCL_Helper):
                 
                 break
         
-        t2 = time.perf_counter()
-        #~ print('LOOP classify_and_align_one_spike', (t2-t1)*1000)
+        #~ t4 = time.perf_counter()
+        #~ print('LOOP classify_and_align_one_spike', (t4-t3)*1000)
+        #~ print('n_good', len(good_spikes), 'n_loop', n_loop)
         
         
         #concatenate, sort and count

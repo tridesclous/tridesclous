@@ -42,16 +42,25 @@ def open_catalogue_window():
 @pytest.mark.first
 def test_peeler():
     dataio = DataIO(dirname='test_peeler')
-    initial_catalogue = dataio.load_catalogue(chan_grp=0)
+    catalogue = dataio.load_catalogue(chan_grp=0)
 
     peeler = Peeler(dataio)
     
-    peeler.change_params(engine='classic', catalogue=initial_catalogue,chunksize=1024)
+    peeler.change_params(engine='classic', catalogue=catalogue,chunksize=1024)
     
     t1 = time.perf_counter()
     peeler.run(progressbar=False)
     t2 = time.perf_counter()
     print('peeler.run_loop', t2-t1)
+
+    
+    spikes = dataio.get_spikes(chan_grp=0).copy()
+    labels = catalogue['clusters']['cluster_label']
+    count_by_label = [np.sum(spikes['cluster_label'] == label) for label in labels]
+    print(labels)
+    print(count_by_label)
+    
+    
 
 
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
@@ -238,48 +247,64 @@ def test_peeler_cl():
     t1 = time.perf_counter()
     peeler.run(progressbar=False)
     t2 = time.perf_counter()
-    print('peeler.run_loop', t2-t1)
+    print('peeler_cl.run_loop', t2-t1)
 
 
 
 
-def debug_compare_peeler():
+def debug_compare_peeler_engines():
 
     dataio = DataIO(dirname='test_peeler')
     print(dataio)
     
-    all_spikes = []
-    #~ for peeler_class in [Peeler,]:
-    #~ for peeler_class in [Peeler_OpenCl,]:
-    for peeler_class in [Peeler, Peeler_OpenCl]:
-        print()
-        print(peeler_class)
-        initial_catalogue = dataio.load_catalogue(chan_grp=0)
-        
-        peeler = peeler_class(dataio)
-        
-        peeler.change_params(catalogue=initial_catalogue,  chunksize=1024)
-        
+    
+    engine_list = [ ('numpy argmin cl', 'classic', {'argmin_method' : 'opencl', 'use_sparse_template':True}),
+                        ('full cl', 'classic_opencl', {}),
+                    ]
+    
+    all_spikes =  []
+    for name, engine, kargs in engine_list:
+        #~ print()
+        #~ print(name)
+        catalogue = dataio.load_catalogue(chan_grp=0)
+
+
+        peeler = Peeler(dataio)
+        peeler.change_params(engine=engine, catalogue=catalogue,chunksize=1024, **kargs)
+
         t1 = time.perf_counter()
-        #~ peeler.run_offline_loop_one_segment(duration=None, progressbar=False)
-        peeler.run_offline_loop_one_segment(duration=4., progressbar=False)
+        peeler.run(progressbar=False, duration=None)
         t2 = time.perf_counter()
-        print('peeler.run_loop', t2-t1)
+        print(name, 'run', t2-t1)
         
         
-        all_spikes.append(dataio.get_spikes(chan_grp=0).copy())
+        spikes = dataio.get_spikes(chan_grp=0).copy()
+        #~ print(spikes.size)
+        all_spikes.append(spikes)
+        
         
         #~ print(dataio.get_spikes(chan_grp=0).size)
     
+    print()
     #~ all_spikes[0] = all_spikes[0][88+80:88+81+10]
     #~ all_spikes[1] = all_spikes[1][88+80:88+81+10]
 
     #~ all_spikes[0] = all_spikes[0][:88+81]
     #~ all_spikes[1] = all_spikes[1][:88+81]
     
-    #~ for spikes in all_spikes:
-        #~ print(spikes)
-        #~ print(spikes.size)
+    labels = catalogue['clusters']['cluster_label']
+    
+    for i, spikes in enumerate(all_spikes):
+        name = engine_list[i][0]
+        print()
+        print(name)
+        print(spikes[:10])
+        print(spikes.size)
+        
+        count_by_label = [np.sum(spikes['cluster_label'] == label) for label in labels]
+        print(count_by_label)
+            
+        
         #~ assert all_spikes[0].size == spikes.size
         #~ assert np.all(all_spikes[0]['index'] == spikes['index'])
         #~ assert np.all(all_spikes[0]['cluster_label'] == spikes['cluster_label'])
@@ -291,7 +316,7 @@ if __name__ =='__main__':
     
     #~ open_catalogue_window()
     
-    test_peeler()
+    #~ test_peeler()
     #~ test_peeler_cl()
     
     #~ test_peeler_argmin_methods()
@@ -303,8 +328,8 @@ if __name__ =='__main__':
     #~ test_export_spikes()
     
     
-    #~ debug_compare_peeler()
+    debug_compare_peeler_engines()
     
-    open_PeelerWindow()
+    #~ open_PeelerWindow()
     
     #~ teardown_module()

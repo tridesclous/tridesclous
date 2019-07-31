@@ -3,6 +3,13 @@ import numpy as np
 
 from .cltools import HAVE_PYOPENCL
 
+try:
+    import numba
+    HAVE_NUMBA = True
+except ImportError:
+    HAVE_NUMBA = False
+
+
 from .labelcodes import (LABEL_TRASH, LABEL_UNCLASSIFIED, LABEL_ALIEN)
 
 LABEL_LEFT_LIMIT = -11
@@ -66,13 +73,20 @@ def get_auto_params_for_peelers(dataio, chan_grp=0):
     params = {}
     
     if nb_chan <=8:
+        params['engine'] = 'classic'
         params['use_sparse_template'] = False
         params['sparse_threshold_mad'] = 1.5
-        params['use_opencl_with_sparse'] = False
+        params['argmin_method'] = 'numpy'
     else:
+        params['engine'] = 'classic'
         params['use_sparse_template'] = True
         params['sparse_threshold_mad'] = 1.5
-        params['use_opencl_with_sparse'] = HAVE_PYOPENCL
+        if HAVE_PYOPENCL:
+            params['argmin_method'] = 'opencl'
+        elif HAVE_NUMBA:
+            params['argmin_method'] = 'numba'
+        else:
+            params['argmin_method'] = 'numpy'
 
     return params
     

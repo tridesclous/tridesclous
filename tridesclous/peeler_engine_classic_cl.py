@@ -140,7 +140,7 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
 
 
     def process_one_chunk(self,  pos, sigs_chunk):
-        print('*'*5)
+        #~ print('*'*5)
         #~ print('chunksize', self.chunksize, '=', self.chunksize/self.sample_rate*1000, 'ms')
 
 
@@ -231,23 +231,7 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
             event = self.kern_select_next_peak(self.queue,  global_size, local_size,
                                     self.local_peaks_mask_cl, self.mask_already_tested_cl, self.min_peak_index_cl, self.spike_cl)
             
-            # debug
-            event = pyopencl.enqueue_copy(self.queue,  self.local_peaks_mask, self.local_peaks_mask_cl)
-            event = pyopencl.enqueue_copy(self.queue,  self.mask_already_tested, self.mask_already_tested_cl)
-            local_peaks,  = np.nonzero(self.local_peaks_mask & self.mask_already_tested)
-            local_peaks = local_peaks + self.n_span
-            print()
-            print('debug local_peaks', local_peaks)
-            event = pyopencl.enqueue_copy(self.queue,  self.spike, self.spike_cl)
-            print(self.spike)
-            event = pyopencl.enqueue_copy(self.queue,  self.fifo_residuals, self.fifo_residuals_cl)
-            import matplotlib.pyplot as plt
-            fig, ax = plt.subplots()
-            ax.plot(self.fifo_residuals)
-            ax.plot(np.arange(self.mask_already_tested.size) + self.n_span, self.mask_already_tested.astype(float)*10, color='k')
-            ax.scatter(local_peaks, np.min(self.fifo_residuals[local_peaks, :], axis=1), color='k')
-            plt.show()
-            # end debug
+
 
             global_size = (self.n_cluster, self.nb_channel)
             local_size = (self.n_cluster, 1) # faster a GPU because of memory access ????? True argmin only ?????
@@ -260,8 +244,27 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
                                     self.wf1_norm2_cl, self.wf2_norm2_cl, self.wf1_dot_wf2_cl,
                                     self.weight_per_template_cl, np.float32(self.alien_value_threshold))
             event = pyopencl.enqueue_copy(self.queue,  self.spike, self.spike_cl)
+
+
+            # debug
+            #~ event = pyopencl.enqueue_copy(self.queue,  self.local_peaks_mask, self.local_peaks_mask_cl)
+            #~ event = pyopencl.enqueue_copy(self.queue,  self.mask_already_tested, self.mask_already_tested_cl)
+            #~ local_peaks,  = np.nonzero(self.local_peaks_mask & self.mask_already_tested)
+            #~ local_peaks = local_peaks + self.n_span
+            #~ print()
+            #~ print('debug local_peaks', local_peaks)
+            #~ event = pyopencl.enqueue_copy(self.queue,  self.spike, self.spike_cl)
+            #~ print(self.spike)
+            #~ event = pyopencl.enqueue_copy(self.queue,  self.fifo_residuals, self.fifo_residuals_cl)
+            #~ import matplotlib.pyplot as plt
+            #~ fig, ax = plt.subplots()
+            #~ ax.plot(self.fifo_residuals)
+            #~ ax.plot(np.arange(self.mask_already_tested.size) + self.n_span, self.mask_already_tested.astype(float)*10, color='k')
+            #~ ax.scatter(local_peaks, np.min(self.fifo_residuals[local_peaks, :], axis=1), color='k')
+            #~ plt.show()
+            # end debug
             
-            print(self.spike)
+            #~ print(self.spike)
             
             #~ print(self.spike[0])
             if self.spike[0]['label_index'] ==LABEL_NO_MORE_PEAK:
@@ -768,8 +771,8 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
                 
                 for (int s=0; s<peak_width; ++s){
                     for (int c=0; c<nb_channel; ++c){
-                        ///fifo_residuals[(left_ind+s+shift)*nb_channel + c] -= catalogue_inter_center0[subsample_ratio*wf_size*spike->label + nb_channel*(s*subsample_ratio+int_jitter) + c];
-                        fifo_residuals[(left_ind+s+shift)*nb_channel + c] -= catalogue_center0[wf_size*spike->label + nb_channel*s + c];
+                        fifo_residuals[(left_ind+s+shift)*nb_channel + c] -= catalogue_inter_center0[subsample_ratio*wf_size*spike->label + nb_channel*(s*subsample_ratio+int_jitter) + c];
+                        // fifo_residuals[(left_ind+s+shift)*nb_channel + c] -= catalogue_center0[wf_size*spike->label + nb_channel*s + c];
                         
                     }
                 }
