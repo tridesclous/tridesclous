@@ -241,7 +241,7 @@ class PeelerEngineClassic(OpenCL_Helper):
 
     #~ def NEW_process_one_chunk(self,  pos, sigs_chunk):
     def process_one_chunk(self,  pos, sigs_chunk):
-        print('*'*10)
+        #~ print('*'*10)
         t1 = time.perf_counter()
         abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
         #~ t2 = time.perf_counter()
@@ -274,7 +274,7 @@ class PeelerEngineClassic(OpenCL_Helper):
         n_loop = 0
         t3 = time.perf_counter()
         while True:
-            print('peeler level +1')
+            #~ print('peeler level +1')
             nb_good_spike = 0
             local_ind = self.select_next_peak()
             #~ print('start inner loop')
@@ -313,23 +313,23 @@ class PeelerEngineClassic(OpenCL_Helper):
                 n_loop +=1 
                 
                 
-                import matplotlib.pyplot as plt
-                from .peakdetector import make_sum_rectified
-                # print('spike', spike)
-                fig, ax = plt.subplots()
-                ax.plot(self.fifo_residuals)
-                ax.plot(np.arange(self.mask_already_tested.size) + self.n_span, self.mask_already_tested.astype(float)*10, color='k')
-                local_peaks,  = np.nonzero(self.local_peaks_mask & self.mask_already_tested)
-                local_peaks += self.n_span
-                sum_rectified = make_sum_rectified(self.fifo_residuals, self.peakdetector.relative_threshold, self.peakdetector.peak_sign, self.peakdetector.spatial_matrix)
-                ax.scatter(local_peaks, np.min(self.fifo_residuals[local_peaks, :], axis=1), color='k')
-                # ax.plot(sum_rectified, color='k', lw=1.5)
-                # ax.scatter(local_peaks, sum_rectified[local_peaks], color='k')
-                for p in local_peaks:
-                    ax.axvline(p, color='k', ls='--')
-                ax.axvline(local_ind, color='r', ls='-')
-                ax.set_ylim(-300, 100)
-                plt.show()
+                #~ import matplotlib.pyplot as plt
+                #~ from .peakdetector import make_sum_rectified
+                #~ # print('spike', spike)
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(self.fifo_residuals)
+                #~ ax.plot(np.arange(self.mask_already_tested.size) + self.n_span, self.mask_already_tested.astype(float)*10, color='k')
+                #~ local_peaks,  = np.nonzero(self.local_peaks_mask & self.mask_already_tested)
+                #~ local_peaks += self.n_span
+                #~ sum_rectified = make_sum_rectified(self.fifo_residuals, self.peakdetector.relative_threshold, self.peakdetector.peak_sign, self.peakdetector.spatial_matrix)
+                #~ ax.scatter(local_peaks, np.min(self.fifo_residuals[local_peaks, :], axis=1), color='k')
+                #~ # ax.plot(sum_rectified, color='k', lw=1.5)
+                #~ # ax.scatter(local_peaks, sum_rectified[local_peaks], color='k')
+                #~ for p in local_peaks:
+                    #~ ax.axvline(p, color='k', ls='--')
+                #~ ax.axvline(local_ind, color='r', ls='-')
+                #~ ax.set_ylim(-300, 100)
+                #~ plt.show()
             
             if nb_good_spike == 0:
                 #~ print('break main loop')
@@ -446,19 +446,22 @@ class PeelerEngineClassic(OpenCL_Helper):
                     jitter = 0
                 else:
                     #~ print('cluster_idx', cluster_idx, 'jitter', jitter)
-                    if np.abs(jitter) > 0.5:
+                    shift = -int(np.round(jitter))
+                    if (np.abs(jitter) > 0.5) and \
+                            (left_ind+shift+self.peak_width<self.fifo_residuals.shape[0]) and\
+                            ((left_ind + shift) >= 0):
                         shift = -int(np.round(jitter))
                         new_jitter = self.estimate_jitter(left_ind + shift, cluster_idx)
                         ok = self.accept_tempate(left_ind+shift, cluster_idx, jitter)
                         if ok and np.abs(new_jitter)<np.abs(jitter):
                             jitter = new_jitter
                             left_ind += shift
+                            shift = -int(np.round(jitter))
                     
                     # security to not be outside the fifo
-                    shift = -int(np.round(jitter))
                     if np.abs(shift) >maximum_jitter_shift:
                         label = LABEL_MAXIMUM_SHIFT
-                    elif left_ind+shift+self.peak_width>=self.fifo_residuals.shape[0]:
+                    elif (left_ind+shift+self.peak_width)>=self.fifo_residuals.shape[0]:
                         # normally this should be resolve in the next chunk
                         label = LABEL_RIGHT_LIMIT
                     elif (left_ind + shift) < 0:

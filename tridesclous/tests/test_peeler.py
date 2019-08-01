@@ -316,7 +316,7 @@ if __name__ =='__main__':
     
     #~ open_catalogue_window()
     
-    #~ test_peeler()
+    test_peeler()
     #~ test_peeler_cl()
     
     #~ test_peeler_argmin_methods()
@@ -328,8 +328,8 @@ if __name__ =='__main__':
     #~ test_export_spikes()
     
     
-    debug_compare_peeler_engines()
+    #~ debug_compare_peeler_engines()
     
-    #~ open_PeelerWindow()
+    open_PeelerWindow()
     
     #~ teardown_module()
