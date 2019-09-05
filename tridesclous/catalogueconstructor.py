@@ -1446,10 +1446,12 @@ class CatalogueConstructor:
         self.refresh_colors(reset=False)
         
         keep = self.cluster_labels>=0
-        cluster_labels = np.array(self.cluster_labels[keep], copy=True)
+        
         # TODO this is redundant with clusters, this shoudl be removed but imply some change in peeler.
-        self.catalogue['cluster_labels'] = cluster_labels 
-        self.catalogue['clusters'] = self.clusters[keep].copy()
+        order = np.argsort(self.clusters[keep]['waveform_rms'])[::-1]
+        cluster_labels = self.clusters[keep]['cluster_label'][order].copy()
+        self.catalogue['cluster_labels'] = cluster_labels
+        self.catalogue['clusters'] = self.clusters[keep][order].copy()
         
         
         n, full_width, nchan = self.some_waveforms.shape
