@@ -7,7 +7,7 @@ import numpy as np
 
 from .dataio import DataIO
 from . catalogueconstructor import CatalogueConstructor, _dtype_peak
-
+from .cataloguetools import get_auto_params_for_catalogue
 
 try:
     import h5py
@@ -198,27 +198,19 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=3
     dataio.set_probe_file(str(probe_file))
     
     
-    cc = CatalogueConstructor(dataio=dataio)
-
-    cc.set_preprocessor_params(chunksize=1024,
-            memory_mode='memmap',
-            
-            #signal preprocessor
-            signalpreprocessor_engine='numpy',
-            highpass_freq=highpass_freq, 
-            lowpass_freq=None,
-            common_ref_removal=False,
-            lostfront_chunksize=None,
-            
-            #peak detector
-            peakdetector_engine='numpy',
-            peak_sign='-',
-            relative_threshold=relative_threshold,
-            peak_span_ms=1000./sr,
-            )
+    params = get_auto_params_for_catalogue(dataio)
     
+    cc = CatalogueConstructor(dataio=dataio)
+    
+    p = {}
+    p.update(params['preprocessor'])
+    p.update(params['peak_detector'])
+    cc.set_preprocessor_params(**p)
+
     t1 = time.perf_counter()
-    cc.estimate_signals_noise(seg_num=0, duration=30.)
+    noise_duration = min(10., params['duration'], dataio.get_segment_length(seg_num=0)/dataio.sample_rate*.99)
+    t1 = time.perf_counter()
+    cc.estimate_signals_noise(seg_num=0, duration=noise_duration)
     t2 = time.perf_counter()
     print('estimate_signals_noise', t2-t1)
     
@@ -228,8 +220,10 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=3
     t2 = time.perf_counter()
     print('run_signalprocessor', t2-t1)
     
-    n_right = 60
-    n_left = - 45
+    wf_left_ms = params['extract_waveforms']['wf_left_ms']
+    wf_right_ms = params['extract_waveforms']['wf_right_ms']
+    n_left = int(wf_left_ms / 1000. * dataio.sample_rate)
+    n_right = int(wf_right_ms / 1000. * dataio.sample_rate)
     
     sig_size = dataio.get_segment_length(seg_num=0)
     all_peaks = []
@@ -257,7 +251,7 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=3
     
     t1 = time.perf_counter()
     cc.extract_some_waveforms(n_left=n_left, n_right=n_right,   mode='rand', nb_max=10000)
-    cc.clean_waveforms(alien_value_threshold=100.)
+    cc.clean_waveforms(**params['clean_waveforms'])
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
     
