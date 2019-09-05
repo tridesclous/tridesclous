@@ -20,12 +20,14 @@ from .peeler_tools import _dtype_spike
 from tqdm import tqdm
 
 from .peeler_engine_classic import PeelerEngineClassic
+from .peeler_engine_oldclassic import PeelerEngineOldClassic
 from .peeler_engine_classic_cl import PeelerEngineClassicOpenCl
 #~ from .peeler_engine_strict import PeelerEngineStrict
 
 peeler_engines = {
     'classic' : PeelerEngineClassic,
     'classic_opencl' : PeelerEngineClassicOpenCl,
+    'classic_old' : PeelerEngineOldClassic,
     #~ 'strict' : PeelerEngineStrict,
 }
 

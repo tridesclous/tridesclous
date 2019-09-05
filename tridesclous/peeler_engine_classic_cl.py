@@ -596,7 +596,7 @@ int accept_tempate(int left_ind, int cluster, float jitter,
         }
     }
     
-    if (chan_with_criteria>(chan_in_mask*0.9)){
+    if (chan_with_criteria>(chan_in_mask*0.9f)){
         return 1;
     }else{
         return 0;
@@ -728,7 +728,7 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
                 spike->label = LABEL_UNCLASSIFIED;
                 spike->jitter = 0.0f;
             }else{
-                if ((fabs(jitter) > 0.5)){
+                if ((fabs(jitter) > 0.5f)){
             
                     shift = - ((int) round(jitter));
                     if (abs(shift) >maximum_jitter_shift){
