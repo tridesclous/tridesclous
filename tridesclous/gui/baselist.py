@@ -108,7 +108,8 @@ class ClusterBaseList(WidgetBase):
             
             if k>=0:
                 clusters = self.controller.clusters
-                ind = np.searchsorted(clusters['cluster_label'], k)
+                ## ind = np.searchsorted(clusters['cluster_label'], k) ## wrong because searchsortedmust be ordered
+                ind = np.nonzero(clusters['cluster_label'] == k)[0][0]
                 
                 for c, attr in enumerate(['cell_label', 'tag', 'annotations']):
                     value = clusters[attr][ind]

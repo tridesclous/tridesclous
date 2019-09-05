@@ -356,7 +356,8 @@ class ClusterPeakList(ClusterBaseList):
         if n!=1: return
         k = labels[0]
         clusters = self.controller.clusters
-        ind = np.searchsorted(clusters['cluster_label'], k)
+        ## ind = np.searchsorted(clusters['cluster_label'], k)  ## wrong because searchsortedmust be ordered
+        ind = np.nonzero(clusters['cluster_label'] == k)[0][0]
         
         color = QT.QColor(self.controller.qcolors[k])
         annotations = str(clusters[ind]['annotations'])

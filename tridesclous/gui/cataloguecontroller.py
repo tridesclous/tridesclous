@@ -239,7 +239,8 @@ class CatalogueController(ControllerBase):
             return
         
         clusters = self.cc.clusters
-        ind = np.searchsorted(clusters['cluster_label'], label)
+        ## ind = np.searchsorted(clusters['cluster_label'], label)   ## wrong because searchsortedmust be ordered
+        ind = np.nonzero(clusters['cluster_label'] == label)[0][0]
         
         if color is not None:
             if type(color) == QT.QColor:

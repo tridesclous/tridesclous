@@ -56,8 +56,12 @@ class PeelerController(ControllerBase):
             spikes['cell_label'][mask] = spikes['cluster_label'][mask]
             
             mask = spikes['cluster_label']>=0
-            spike_cluster_index = np.searchsorted(cluster_labels, spikes['cluster_label'][mask])
-            spikes['cell_label'][mask] = cell_labels[spike_cluster_index]
+            # searchsorter wotk with ordered
+            clus = clusters[clusters['cluster_label']>=0]
+            order = np.argsort(clus['cluster_label'])
+            clus = clus[order].copy()
+            spike_cluster_index = np.searchsorted(clus['cluster_label'], spikes['cluster_label'][mask].copy())
+            spikes['cell_label'][mask] = clus['cell_label'][spike_cluster_index]
             
             self.spikes.append(spikes)
         self.spikes = np.concatenate(self.spikes)
