@@ -25,9 +25,6 @@ if HAVE_PYOPENCL:
 
 
 
-# this should be an attribute
-maximum_jitter_shift = 4
-
 class PeelerEngineOldClassic(PeelerEngineClassic):
     def process_one_chunk(self,  pos, sigs_chunk):
     
@@ -109,7 +106,7 @@ class PeelerEngineOldClassic(PeelerEngineClassic):
                     #~ n_ok += 1
                     
                     # substract one spike
-                    pos, pred = make_prediction_one_spike(spike.index, spike.cluster_label, spike.jitter, self.fifo_residuals.dtype, self.catalogue)
+                    pos, pred = make_prediction_on_spike_with_label(spike.index, spike.cluster_label, spike.jitter, self.fifo_residuals.dtype, self.catalogue)
                     self.fifo_residuals[pos:pos+self.peak_width, :] -= pred
                     
                     # append
@@ -202,11 +199,11 @@ class PeelerEngineOldClassic(PeelerEngineClassic):
         #ind is the windows border!!!!!
         left_ind = local_index + n_left
 
-        if left_ind+peak_width+maximum_jitter_shift+1>=residual.shape[0]:
+        if left_ind+peak_width+self.maximum_jitter_shift+1>=residual.shape[0]:
             # too near right limits no label
             label = LABEL_RIGHT_LIMIT
             jitter = 0
-        elif left_ind<=maximum_jitter_shift:
+        elif left_ind<=self.maximum_jitter_shift:
             # too near left limits no label
             #~ print('     LABEL_LEFT_LIMIT', left_ind)
             label = LABEL_LEFT_LIMIT
@@ -244,7 +241,7 @@ class PeelerEngineOldClassic(PeelerEngineClassic):
                     shift = -int(np.round(jitter))
                     #~ print('classify and align shift', shift)
                     
-                    if np.abs(shift) >maximum_jitter_shift:
+                    if np.abs(shift) >self.maximum_jitter_shift:
                         #~ print('     LABEL_MAXIMUM_SHIFT avec shift')
                         label = LABEL_MAXIMUM_SHIFT
                     else:

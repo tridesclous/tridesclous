@@ -19,10 +19,7 @@ try:
 except ImportError:
     HAVE_PYOPENCL = False
 
-# this should be an attribute
-maximum_jitter_shift = 4
 
-LABEL_NO_MORE_PEAK = -20
 
 
 class PeelerEngineClassicOpenCl(PeelerEngineClassic):
@@ -75,7 +72,7 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
         kernel_formated = kernel_peeler_cl % dict(chunksize=self.chunksize,  n_span=self.n_span, nb_channel=self.nb_channel,
                     relative_threshold=self.relative_threshold, peak_sign={'+':1, '-':-1}[self.peak_sign],
                     n_side=self.n_side, fifo_size=self.chunksize+self.n_side, n_left=self.n_left, peak_width=self.catalogue['peak_width'],
-                    maximum_jitter_shift=maximum_jitter_shift, n_cluster=self.n_cluster, wf_size=wf_size,
+                    maximum_jitter_shift=self.maximum_jitter_shift, n_cluster=self.n_cluster, wf_size=wf_size,
                     subsample_ratio=self.catalogue['subsample_ratio'])
         #~ print(kernel_formated)
         prg = pyopencl.Program(self.ctx, kernel_formated)

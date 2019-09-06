@@ -15,6 +15,9 @@ from .labelcodes import (LABEL_TRASH, LABEL_UNCLASSIFIED, LABEL_ALIEN)
 LABEL_LEFT_LIMIT = -11
 LABEL_RIGHT_LIMIT = -12
 LABEL_MAXIMUM_SHIFT = -13
+
+LABEL_NO_MORE_PEAK = -20
+
 # good label are >=0
 
 _dtype_spike = [('index', 'int64'), ('cluster_label', 'int64'), ('jitter', 'float64'),]
@@ -22,12 +25,16 @@ _dtype_spike = [('index', 'int64'), ('cluster_label', 'int64'), ('jitter', 'floa
 Spike = namedtuple('Spike', ('index', 'cluster_label', 'jitter'))
 
 
-def make_prediction_one_spike(spike_index, spike_label, spike_jitter, dtype, catalogue):
+def make_prediction_on_spike_with_label(spike_index, spike_label, spike_jitter, dtype, catalogue):
     assert spike_label >= 0
     cluster_idx = catalogue['label_to_index'][spike_label]
+    return make_prediction_one_spike(spike_index, cluster_idx, spike_jitter, dtype, catalogue)
+
+def make_prediction_one_spike(spike_index, cluster_idx, spike_jitter, dtype, catalogue):
+    
     r = catalogue['subsample_ratio']
     pos = spike_index + catalogue['n_left']
-    #TODO debug that sign
+    #TODO debug that sign   >>>> done this is correct
     shift = -int(np.round(spike_jitter))
     pos = pos + shift
     int_jitter = int((spike_jitter+shift)*r) + r//2
