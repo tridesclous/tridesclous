@@ -180,6 +180,7 @@ class ArrayCollection:
         
         if self.parent is not None:
             setattr(self.parent, name, None)
+        self.flush_json()
     
     def append_chunk(self, name, arr_chunk):
         assert self._array_attr[name]['state']=='a'
