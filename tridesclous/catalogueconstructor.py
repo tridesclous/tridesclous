@@ -1430,10 +1430,10 @@ class CatalogueConstructor:
         #~ self._reset_metrics()
         self._reset_arrays(_persistent_metrics)
 
-    def make_catalogue(self):
+    def make_catalogue(self, max_per_cluster=_default_max_per_cluster):
         #TODO: offer possibility to resample some waveforms or choose the number
         
-        #~ t1 = time.perf_counter()
+        t1 = time.perf_counter()
         self.catalogue = {}
         
         self.catalogue = {}
@@ -1474,11 +1474,15 @@ class CatalogueConstructor:
         for i, k in enumerate(cluster_labels):
             self.catalogue['label_to_index'][k] = i
             
-            #print('construct_catalogue', k)
-            # take peak of this cluster
-            # and reshaape (nb_peak, nb_channel, nb_csample)
-            #~ wf = self.some_waveforms[self.all_peaks['cluster_label']==k]
-            wf0 = self.some_waveforms[self.all_peaks['cluster_label'][self.some_peaks_index]==k]
+            selected, = np.nonzero(self.all_peaks['cluster_label'][self.some_peaks_index]==k)
+            if selected.size>max_per_cluster:
+                keep = np.random.choice(selected.size, max_per_cluster, replace=False)
+                selected = selected[keep]
+            #~ wf = self.some_waveforms[selected, :, :]
+            
+            #~ wf0 = self.some_waveforms[self.all_peaks['cluster_label'][self.some_peaks_index]==k]
+            wf0 = self.some_waveforms[selected]
+            
             #~ wf0 = wf0.copy()
             #~ print(wf0.shape, wf0.size)
             
@@ -1536,8 +1540,8 @@ class CatalogueConstructor:
         self.catalogue['signals_mads'] = np.array(self.signals_mads, copy=True)
         
         
-        #~ t2 = time.perf_counter()
-        #~ print('make_catalogue', t2-t1)
+        t2 = time.perf_counter()
+        print('make_catalogue', t2-t1)
         
         return self.catalogue
     
