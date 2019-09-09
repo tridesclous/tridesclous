@@ -29,13 +29,17 @@ class PeelerEngineTesting(PeelerEngineClassic):
     
     def accept_tempate(self, left_ind, cluster_idx, jitter):
 
-        if np.abs(jitter) > self.maximum_jitter_shift:
+        if np.abs(jitter) > (self.maximum_jitter_shift - 0.5):
             return False
         
         
         shift = -int(np.round(jitter))
         jitter = jitter + shift
         left_ind = left_ind + shift
+        
+        if left_ind<0:
+            return False
+        
         new_left, pred_wf = make_prediction_one_spike(left_ind - self.n_left, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
         
         mask = self.catalogue['sparse_mask'][cluster_idx]
@@ -46,6 +50,16 @@ class PeelerEngineTesting(PeelerEngineClassic):
         full_wf = waveform[:, :][:, mask]
         wf_nrj = np.sum(full_wf**2, axis=0)
         
+        if full_wf.shape[0] == 0:
+            print('OUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUPS')
+            print('left_ind', left_ind, 'jitter', jitter, 'shift', shift)
+            print('self.fifo_residuals.shape', self.fifo_residuals.shape)
+            print('waveform.shape', waveform.shape)
+            print('full_wf.shape', full_wf.shape)
+            print('np.sum(mask)', np.sum(mask))
+            
+            
+            exit()
         
         
         
@@ -68,8 +82,8 @@ class PeelerEngineTesting(PeelerEngineClassic):
         #DEBUG
         label = self.catalogue['cluster_labels'][cluster_idx]
         #~ if label in (0, ):
-        #~ if False:
-        if True:
+        if False:
+        #~ if True:
             
             #~ print('accept_tempate',accept_template, 'label', label)
             #~ print(wf_nrj>residual_nrj)
