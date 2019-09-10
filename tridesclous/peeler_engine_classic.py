@@ -1,6 +1,8 @@
 import time
 import numpy as np
 
+from concurrent.futures import ThreadPoolExecutor
+
 
 from .peeler_tools import *
 from .peeler_tools import _dtype_spike
@@ -298,7 +300,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                 #~ print('  classify_and_align_next_spike', (t2-t1)*1000)
                 #~ print(spike.cluster_label)
 
-                #~ print('spike', spike)
+                #~ print('spike', spike.index+shift)
                 
                 
                 
@@ -406,9 +408,9 @@ class PeelerEngineClassic(OpenCL_Helper):
             return LABEL_NO_MORE_PEAK
             
     
-    def classify_and_align_next_spike(self, peak_ind):
+    def classify_and_align_next_spike(self, proposed_peak_ind):
         # left_ind is the waveform left border
-        left_ind = peak_ind + self.n_left
+        left_ind = proposed_peak_ind + self.n_left
 
         if left_ind+self.peak_width+self.maximum_jitter_shift+1>=self.fifo_residuals.shape[0]:
             # TODO : remove this because maybe unecessry
@@ -502,18 +504,20 @@ class PeelerEngineClassic(OpenCL_Helper):
                         #~ print()
                         self.fifo_residuals[pos:pos+self.peak_width, :] -= pred
                     
-        peak_ind = left_ind - self.n_left
+        
+        
         #security if with jitter the index is out
         if label>=0:
-            local_pos = peak_ind - np.round(jitter).astype('int64') + self.n_left
-            if local_pos<0:
+            left_ind_check = left_ind - np.round(jitter).astype('int64')
+            if left_ind_check<0:
                 label = LABEL_LEFT_LIMIT
-            elif (local_pos+self.peak_width) >=self.fifo_residuals.shape[0]:
+            elif (left_ind_check+self.peak_width) >=self.fifo_residuals.shape[0]:
                 label = LABEL_RIGHT_LIMIT
         
         if label < 0:
             # set peak tested to not test it again
-            self.mask_not_already_tested[peak_ind - self.n_span] = False
+            self.mask_not_already_tested[proposed_peak_ind - self.n_span] = False
+            peak_ind = proposed_peak_ind
 
         #~ self.update_peak_mask(peak_ind, label)
         #~ t2 = time.perf_counter()
@@ -524,6 +528,8 @@ class PeelerEngineClassic(OpenCL_Helper):
             if shift !=0:
                 jitter = jitter + shift
                 left_ind = left_ind + shift
+            
+            peak_ind = left_ind - self.n_left
         
         return Spike(peak_ind, label, jitter)
 
@@ -610,6 +616,7 @@ class PeelerEngineClassic(OpenCL_Helper):
         return jitter1
 
     def accept_tempate(self, left_ind, cluster_idx, jitter):
+        #~ import matplotlib.pyplot as plt
         # criteria mono channel = old implementation
         #~ keep_template = np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2)
         
@@ -637,6 +644,23 @@ class PeelerEngineClassic(OpenCL_Helper):
         # criteria per channel
         crietria_weighted = (wf_nrj>residual_nrj).astype('float') * weight
         accept_template = np.sum(crietria_weighted) >= 0.9 * np.sum(weight)
+
+        #~ if True:
+            
+            #~ fig, axs = plt.subplots(nrows=2, sharex=True)
+            #~ axs[0].plot(full_wf.T.flatten(), color='b')
+            #~ if accept_template:
+                #~ axs[0].plot(pred_wf.T.flatten(), color='g')
+            #~ else:
+                #~ axs[0].plot(pred_wf.T.flatten(), color='r')
+            
+            #~ axs[0].plot((full_wf-pred_wf).T.flatten(), color='m')
+            
+            #~ plt.show()
+            
+
+
+
         
         #DEBUG
         #~ label = self.catalogue['cluster_labels'][cluster_idx]

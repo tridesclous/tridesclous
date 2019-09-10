@@ -32,36 +32,34 @@ class PeelerEngineTesting(PeelerEngineClassic):
         if np.abs(jitter) > (self.maximum_jitter_shift - 0.5):
             return False
         
+        mask = self.catalogue['sparse_mask'][cluster_idx]
         
         shift = -int(np.round(jitter))
         jitter = jitter + shift
         left_ind = left_ind + shift
-        
         if left_ind<0:
             return False
-        
         new_left, pred_wf = make_prediction_one_spike(left_ind - self.n_left, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
-        
-        mask = self.catalogue['sparse_mask'][cluster_idx]
         pred_wf = pred_wf[:, :][:, mask]
+        
+
+        
+        #~ full_wf0 = self.catalogue['centers0'][cluster_idx,: , :][:, mask]
+        #~ full_wf1 = self.catalogue['centers1'][cluster_idx,: , :][:, mask]
+        #~ full_wf2 = self.catalogue['centers2'][cluster_idx,: , :][:, mask]
+        #~ pred_wf = (full_wf0+jitter*full_wf1+jitter**2/2*full_wf2)
+        #~ new_left = left_ind
+
+        
 
         # waveform L2 on mask
         waveform = self.fifo_residuals[new_left:new_left+self.peak_width,:]
         full_wf = waveform[:, :][:, mask]
         wf_nrj = np.sum(full_wf**2, axis=0)
+
         
-        if full_wf.shape[0] == 0:
-            print('OUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUPS')
-            print('left_ind', left_ind, 'jitter', jitter, 'shift', shift)
-            print('self.fifo_residuals.shape', self.fifo_residuals.shape)
-            print('waveform.shape', waveform.shape)
-            print('full_wf.shape', full_wf.shape)
-            print('np.sum(mask)', np.sum(mask))
-            
-            
-            exit()
-        
-        
+        #~ thresh_ratio = 0.7
+        thresh_ratio = 0.8
         
         # criteria per channel
         #~ residual_nrj = np.sum((full_wf-pred_wf)**2, axis=0)
@@ -74,8 +72,8 @@ class PeelerEngineTesting(PeelerEngineClassic):
         residual = (full_wf-pred_wf)
         s = np.sum((full_wf**2>residual**2).astype(float) * weigth)
         #~ s = np.sum((pred_wf**2*weigth)>(residual*weigth))
-        accept_template = s >np.sum(weigth) * 0.8
-        #~ print(s, np.sum(weigth) , np.sum(weigth)  * 0.7)
+        accept_template = s >np.sum(weigth) * thresh_ratio
+        #~ print(s, np.sum(weigth) , np.sum(weigth)  * thresh_ratio)
         #~ exit()
         
         
@@ -97,7 +95,7 @@ class PeelerEngineTesting(PeelerEngineClassic):
                 #~ print(weight)
                 #~ print(crietria_weighted)
                 #~ print()
-            print(s, np.sum(weigth) , np.sum(weigth)  * 0.8)
+            print(s, np.sum(weigth) , np.sum(weigth)  * thresh_ratio)
             
             fig, axs = plt.subplots(nrows=3, sharex=True)
             axs[0].plot(full_wf.T.flatten(), color='b')
@@ -113,10 +111,6 @@ class PeelerEngineTesting(PeelerEngineClassic):
             
             criterium = (full_wf**2>residual**2).astype(float) * weigth
             axs[2].plot(criterium.T.flatten(), color='k')
-            
-            
-            
-            
             
             plt.show()
             
