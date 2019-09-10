@@ -1430,7 +1430,7 @@ class CatalogueConstructor:
         #~ self._reset_metrics()
         self._reset_arrays(_persistent_metrics)
 
-    def make_catalogue(self, max_per_cluster=_default_max_per_cluster):
+    def make_catalogue(self, max_per_cluster=_default_max_per_cluster, subsample_ratio='auto'):
         #TODO: offer possibility to resample some waveforms or choose the number
         
         t1 = time.perf_counter()
@@ -1463,8 +1463,13 @@ class CatalogueConstructor:
         self.catalogue['centers1'] = centers1 # median of first derivative of wavforms
         self.catalogue['centers2'] = centers2 # median of second derivative of wavforms
         
-        subsample = np.arange(1.5, full_width-2.5, 1/20.)
-        self.catalogue['subsample_ratio'] = 20
+        if subsample_ratio == 'auto':
+            # upsample to 200kHz
+            subsample_ratio = int(np.ceil(200000/self.dataio.sample_rate))
+            #~ print('subsample_ratio auto', subsample_ratio)
+        
+        subsample = np.arange(1.5, full_width-2.5, 1./subsample_ratio)
+        self.catalogue['subsample_ratio'] = subsample_ratio
         interp_centers0 = np.zeros((len(cluster_labels), subsample.size, nchan), dtype=self.info['internal_dtype'])
         self.catalogue['interp_centers0'] = interp_centers0
         
