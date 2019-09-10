@@ -1,8 +1,6 @@
 import time
 import numpy as np
 
-from concurrent.futures import ThreadPoolExecutor
-
 
 from .peeler_tools import *
 from .peeler_tools import _dtype_spike
@@ -151,8 +149,6 @@ class PeelerEngineClassic(OpenCL_Helper):
             #~ plt.show()
         
         
-        
-        
         #~ if self.use_sparse_template:
         if True:
             
@@ -245,6 +241,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                                                                 dtype=self.internal_dtype)
         
         self.mask_not_already_tested = np.ones(self.fifo_residuals.shape[0] - 2 * self.n_span, dtype='bool')
+        
 
     def process_one_chunk(self,  pos, sigs_chunk):
         #~ print('*'*10)
@@ -283,6 +280,7 @@ class PeelerEngineClassic(OpenCL_Helper):
             #~ print('peeler level +1')
             nb_good_spike = 0
             peak_ind = self.select_next_peak()
+            
             #~ print('start inner loop')
             while peak_ind != LABEL_NO_MORE_PEAK:
             
@@ -296,6 +294,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                 
                 t1 = time.perf_counter()
                 spike = self.classify_and_align_next_spike(peak_ind)
+                
                 #~ t2 = time.perf_counter()
                 #~ print('  classify_and_align_next_spike', (t2-t1)*1000)
                 #~ print(spike.cluster_label)
@@ -406,7 +405,6 @@ class PeelerEngineClassic(OpenCL_Helper):
             #~ return local_peaks_indexes[0] + self.n_span
         else:
             return LABEL_NO_MORE_PEAK
-            
     
     def classify_and_align_next_spike(self, proposed_peak_ind):
         # left_ind is the waveform left border
