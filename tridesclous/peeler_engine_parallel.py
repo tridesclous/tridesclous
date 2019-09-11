@@ -12,23 +12,26 @@ from concurrent.futures import ThreadPoolExecutor
 
 
 from .peeler_engine_classic import PeelerEngineClassic
+from .peeler_engine_testing import PeelerEngineTesting
 
 from .peeler_tools import *
 from .peeler_tools import _dtype_spike
 
 
-class PeelerEngineParallel(PeelerEngineClassic):
+#~ class PeelerEngineParallel(PeelerEngineClassic):
+class PeelerEngineParallel(PeelerEngineTesting):
+
 
     def initialize_before_each_segment(self, **kargs):
         PeelerEngineClassic.initialize_before_each_segment(self, **kargs)
 
         self.num_worker = 12 #  TODO move to set_params(...)
         
-        #~ self.executor = ThreadPoolExecutor(max_workers=self.num_worker)
+        self.executor = ThreadPoolExecutor(max_workers=self.num_worker)
         
         
         #~ self.joblib_pcall = joblib.Parallel(backend='loky', n_jobs=self.num_worker)
-        self.joblib_pcall = joblib.Parallel(backend='threading', n_jobs=self.num_worker)
+        #~ self.joblib_pcall = joblib.Parallel(backend='threading', n_jobs=self.num_worker)
         
 
         
@@ -87,20 +90,34 @@ class PeelerEngineParallel(PeelerEngineClassic):
                 
                 ## *** test with ThreadPoolExecutor *** bad benchmark on 4 cores
                 ## to be tested on more
-                #~ futures = [self.executor.submit(self.classify_and_align_next_spike, peak_ind) for peak_ind in peak_inds]
-                #~ for future in futures:
-                    #~ spike = future.result()
-                    #~ if (spike.cluster_label >=0):
-                        #~ good_spikes.append(spike)
-                        #~ nb_good_spike+=1
-                
-                
-                ## *** test with joblib.Parralel *** very bad benchmark on 4 cores
-                spikes = self.joblib_pcall(joblib.delayed(self.classify_and_align_next_spike)(peak_ind) for peak_ind in peak_inds)
-                for spike in spikes:
+                futures = [self.executor.submit(self.classify_and_align_next_spike, peak_ind) for peak_ind in peak_inds]
+                for i, future in enumerate(futures):
+                    spike = future.result()
                     if (spike.cluster_label >=0):
                         good_spikes.append(spike)
                         nb_good_spike+=1
+                        # remove from residulals
+                        self.on_accepted_spike(spike)
+                        self.mask_not_already_tested[peak_inds[i] - self.n_span] = False
+                    else:
+                        # set this peak_ind as already tested
+                        #~ print('unset', i, peak_inds[i])
+                        self.mask_not_already_tested[peak_inds[i] - self.n_span] = False
+                
+                
+                ## *** test with joblib.Parralel *** very bad benchmark on 4 cores
+                #~ spikes = self.joblib_pcall(joblib.delayed(self.classify_and_align_next_spike)(peak_ind) for peak_ind in peak_inds)
+                #~ for spike in spikes:
+                    #~ if (spike.cluster_label >=0):
+                        #~ good_spikes.append(spike)
+                        #~ nb_good_spike+=1
+                        #~ # remove from residulals
+                        #~ self.on_accepted_spike(spike)
+                    #~ else:
+                        #~ # set this peak_ind as already tested
+                        #~ self.mask_not_already_tested[peak_ind - self.n_span] = False
+
+
                     
                 
                 
@@ -176,7 +193,7 @@ class PeelerEngineParallel(PeelerEngineClassic):
                     next_peaks.append(local_peaks_indexes[np.nonzero(sel)[0][0]])
                 else:
                     break
-            print('next_peaks', next_peaks)
+            #~ print('next_peaks', next_peaks)
             return next_peaks
             
             
