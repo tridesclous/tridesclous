@@ -311,7 +311,15 @@ class PeelerEngineClassic(OpenCL_Helper):
                     #~ good_spikes.append(np.array([spike], dtype=_dtype_spike))
                     good_spikes.append(spike)
                     nb_good_spike+=1
-                
+                    
+                    # remove from residulals
+                    self.on_accepted_spike(spike)
+                    
+                    self.mask_not_already_tested[peak_ind - self.n_span] = False # this save ot of time
+                else:
+                    # set this peak_ind as already tested
+                    self.mask_not_already_tested[peak_ind - self.n_span] = False
+
                 peak_ind = self.select_next_peak()
                 
                 #~ # debug
@@ -497,13 +505,6 @@ class PeelerEngineClassic(OpenCL_Helper):
                     else:
                         label = self.catalogue['cluster_labels'][cluster_idx]
 
-                        pos, pred = make_prediction_one_spike(left_ind - self.n_left, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
-                        #~ print(pos, self.fifo_residuals.shape, pred.shape, 'left_ind', left_ind, self.peak_width, 'jitter', jitter, 'shift', -int(np.round(jitter)), 'label', label)
-                        #~ print()
-                        self.fifo_residuals[pos:pos+self.peak_width, :] -= pred
-                    
-        
-        
         #security if with jitter the index is out
         if label>=0:
             left_ind_check = left_ind - np.round(jitter).astype('int64')
@@ -514,7 +515,7 @@ class PeelerEngineClassic(OpenCL_Helper):
         
         if label < 0:
             # set peak tested to not test it again
-            self.mask_not_already_tested[proposed_peak_ind - self.n_span] = False
+            #~ self.mask_not_already_tested[proposed_peak_ind - self.n_span] = False
             peak_ind = proposed_peak_ind
 
         #~ self.update_peak_mask(peak_ind, label)
@@ -532,6 +533,15 @@ class PeelerEngineClassic(OpenCL_Helper):
         return Spike(peak_ind, label, jitter)
 
 
+
+    def on_accepted_spike(self, spike):
+        # remove spike prediction from fifo residuals
+        left_ind = spike.index + self.n_left
+        cluster_idx = self.catalogue['label_to_index'][spike.cluster_label]
+        pos, pred = make_prediction_one_spike(spike.index, cluster_idx, spike.jitter, self.fifo_residuals.dtype, self.catalogue)
+        self.fifo_residuals[pos:pos+self.peak_width, :] -= pred
+        
+        
 
 
 
