@@ -159,25 +159,63 @@ class PeelerEngineTesting(PeelerEngineClassic):
         #~ #ENDDEBUG
         
         
-        return accept_template
+        #~ return accept_template
+        return True
 
 
 
-    def get_best_template(self, left_ind):
+    def get_best_template_BAD_IDEA(self, left_ind):
+        waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
+        d = self.catalogue['centers0']-waveform[None, :, :]
+        d *= d
+        #s = d.sum(axis=1).sum(axis=1)  # intuitive
+        #s = d.reshape(d.shape[0], -1).sum(axis=1) # a bit faster
+        s = np.einsum('ijk->i', d) # a bit faster
+        cluster_idx_old = np.argmin(s)
+        print('old', s)
+        print('cluster_idx_old', cluster_idx_old)
+        
         
         
         #~ assert self.argmin_method == 'numpy'
         waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
         centers = self.catalogue['centers0']
-        d = centers - waveform[None, :, :]
-        d2 = d ** 2
-        w = centers ** 2 
-        s = (d2*w).sum(axis=1).sum(axis=1)  # intuitive
-        s = s / w.sum(axis=1).sum(axis=1)
+        residual = centers - waveform[None, :, :]
+        residual2 = residual ** 2
+        centers2 = centers ** 2 
+        weigth = centers2
+        #~ s = (residual2).sum(axis=1).sum(axis=1)  # intuitive
+        #~ s = s / centers2.sum(axis=1).sum(axis=1)
         # s = d.reshape(d.shape[0], -1).sum(axis=1) # a bit faster
         # s = np.einsum('ijk->i', d) # a bit faster
+        
+        s = ((centers2 >= residual2).astype(float) * weigth).sum(axis=1).sum(axis=1)
+        #~ print(s)
+        #~ print(s.shape)
+        #~ print(weigth.sum(axis=1).sum(axis=1).shape)
+        #~ exit()
+        s = s / weigth.sum(axis=1).sum(axis=1)
+        #~ s = 1 - s
         print(s)
-        cluster_idx = np.argmin(s)
+        
+        #~ exit()
+        #~ print(s)
+        cluster_idx = np.argmax(s)
+        print('cluster_idx', cluster_idx)
+        
+        fig, axs = plt.subplots(nrows=2, sharex=True)
+        axs[0].plot(waveform.T.flatten(), color='b')
+        temp = self.catalogue['centers0'][cluster_idx_old]
+        axs[0].plot(temp.T.flatten(), color='g')
+        axs[0].set_title(str(cluster_idx_old))
+        
+        temp = self.catalogue['centers0'][cluster_idx]
+        axs[1].plot(waveform.T.flatten(), color='b')
+        axs[1].plot(temp.T.flatten(), color='g')
+        axs[1].set_title(str(cluster_idx))
+        
+        plt.show()
+        #~ exit()
         
         
         #~ assert self.argmin_method == 'numba'
