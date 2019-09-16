@@ -177,13 +177,13 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=3
     
     # save prb file:
     probe_file = output_folder / 'probe.prb'
-    se.save_probe_file(recording, probe_file, format='spyking_circus')
+    se.save_to_probe_file(recording, probe_file, format='spyking_circus')
 
     # save binary file (chunk by hcunk) into a new file
     raw_filename = output_folder / 'raw_signals.raw'
     n_chan = recording.get_num_channels()
     chunksize = 2**24// n_chan
-    se.write_binary_dat_format(recording, raw_filename, time_axis=0, dtype='float32', chunksize=chunksize)
+    se.write_to_binary_dat_format(recording, raw_filename, time_axis=0, dtype='float32', chunksize=chunksize)
     dtype='float32'
     offset = 0
     sr = recording.get_sampling_frequency()
