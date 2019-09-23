@@ -172,7 +172,7 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
     return cc
     
 
-def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=300., relative_threshold=5.):
+def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=300., relative_threshold=5., align_peak=False):
     output_folder = Path(tdc_dirname)
     
     # save prb file:
@@ -226,12 +226,35 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=3
     n_right = int(wf_right_ms / 1000. * dataio.sample_rate)
     
     sig_size = dataio.get_segment_length(seg_num=0)
+    
+    peak_shift = {}
+    if align_peak:
+        max_per_cluster = 300
+        # compute the shift to have the true max at -n_left
+        for label in sorting.get_unit_ids():
+            indexes = sorting.get_unit_spike_train(label)
+            indexes = indexes[indexes<(sig_size-n_right-1)]
+            indexes = indexes[indexes>(-n_left+1)]
+            if indexes.size>max_per_cluster:
+                keep = np.random.choice(indexes.size, max_per_cluster, replace=False)
+                indexes = indexes[keep]
+            wfs = dataio.get_some_waveforms(seg_num=0, chan_grp=0, spike_indexes=indexes, n_left=n_left, n_right=n_right)
+            wf0 = np.median(wfs, axis=0)
+            sel_chan = np.max(np.abs(wf0), axis=0) > relative_threshold
+            sumed = np.sum(wf0[:, sel_chan], axis=1)
+            ind_max = np.argmax(np.abs(sumed))
+            shift = ind_max + n_left
+            peak_shift[label] = shift
+    
+    
     all_peaks = []
     for label in sorting.get_unit_ids():
         indexes = sorting.get_unit_spike_train(label)
         indexes = indexes[indexes<(sig_size-n_right-1)]
         indexes = indexes[indexes>(-n_left+1)]
         peaks = np.zeros(indexes.shape, dtype=_dtype_peak)
+        if align_peak:
+            indexes = indexes + peak_shift[label]
         peaks['index'][:] = indexes
         peaks['cluster_label'][:] = label
         peaks['segment'][:] = 0
