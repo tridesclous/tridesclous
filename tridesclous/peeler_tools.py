@@ -51,7 +51,7 @@ def make_prediction_signals(spikes, dtype, shape, catalogue, safe=True):
         k = spikes[i]['cluster_label']
         if k<0: continue
         
-        pos, pred = make_prediction_one_spike(spikes[i]['index'], spikes[i]['cluster_label'], spikes[i]['jitter'], dtype, catalogue)
+        pos, pred = make_prediction_on_spike_with_label(spikes[i]['index'], spikes[i]['cluster_label'], spikes[i]['jitter'], dtype, catalogue)
         
         if pos>=0 and  pos+catalogue['peak_width']<shape[0]:
             prediction[pos:pos+catalogue['peak_width'], :] += pred
