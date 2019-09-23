@@ -315,7 +315,7 @@ class PeelerEngineClassic(OpenCL_Helper):
                     # remove from residulals
                     self.on_accepted_spike(spike)
                     
-                    self.mask_not_already_tested[peak_ind - self.n_span] = False # this save ot of time
+                    self.mask_not_already_tested[peak_ind - self.n_span] = False # this save lot of time
                 else:
                     # set this peak_ind as already tested
                     self.mask_not_already_tested[peak_ind - self.n_span] = False
@@ -404,13 +404,9 @@ class PeelerEngineClassic(OpenCL_Helper):
         if local_peaks_indexes.size>0:
             local_peaks_indexes += self.n_span
             amplitudes = np.max(np.abs(self.fifo_residuals[local_peaks_indexes, :]), axis=1)
-            #~ print(self.fifo_residuals[local_peaks_indexes, :])
-            #~ print(amplitudes)
-            #~ print(amplitudes.shape)
             ind = np.argmax(amplitudes)
-            #~ print(ind)
             return local_peaks_indexes[ind]
-            #~ return local_peaks_indexes[0] + self.n_span
+            #~ return local_peaks_indexes[0]
         else:
             return LABEL_NO_MORE_PEAK
     
@@ -480,12 +476,25 @@ class PeelerEngineClassic(OpenCL_Helper):
                             (left_ind+shift+self.peak_width<self.fifo_residuals.shape[0]) and\
                             ((left_ind + shift) >= 0):
                         #~ shift = -int(np.round(jitter))
+                        
+                        # debug
+                        #~ new_cluster_idx = self.get_best_template(left_ind+shift)
+                        #~ new_jitter = self.estimate_jitter(left_ind + shift, new_cluster_idx)
+                        #~ ok = self.accept_tempate(left_ind+shift, new_cluster_idx, new_jitter)
+                        # end debug
                         new_jitter = self.estimate_jitter(left_ind + shift, cluster_idx)
-                        ok = self.accept_tempate(left_ind+shift, cluster_idx, jitter)
+                        ok = self.accept_tempate(left_ind+shift, cluster_idx, new_jitter)
                         if ok and np.abs(new_jitter)<np.abs(jitter):
                             jitter = new_jitter
                             left_ind += shift
                             shift = -int(np.round(jitter))
+                            
+                            # debug
+                            #~ if cluster_idx != new_cluster_idx:
+                                #~ print('cluster_idx != new_cluster_idx')
+                            #~ cluster_idx = new_cluster_idx
+                            
+                            
                     
                     # ensure jitter in range [-0.5, 0.5]
                     # WRONG IDEA because the mask_not_already_tested will not updated at the good place

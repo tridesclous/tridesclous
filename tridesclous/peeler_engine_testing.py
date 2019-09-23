@@ -87,6 +87,10 @@ class PeelerEngineTesting(PeelerEngineClassic):
         #~ pred_wf = (full_wf0+jitter*full_wf1+jitter**2/2*full_wf2)
         #~ new_left = left_ind
 
+
+        #debug
+        #~ waveform_no_shift = self.fifo_residuals[left_ind - shift:left_ind- shift +self.peak_width,:]
+        #~ full_wf_no_shift = waveform_no_shift[:, :][:, mask]
         
 
         # waveform L2 on mask
@@ -94,9 +98,9 @@ class PeelerEngineTesting(PeelerEngineClassic):
         full_wf = waveform[:, :][:, mask]
         wf_nrj = np.sum(full_wf**2, axis=0)
 
-        
-        #~ thresh_ratio = 0.7
-        thresh_ratio = 0.8
+        #~ thresh_ratio = 0.6
+        thresh_ratio = 0.7
+        #~ thresh_ratio = 0.8
         
         # criteria per channel
         #~ residual_nrj = np.sum((full_wf-pred_wf)**2, axis=0)
@@ -136,6 +140,9 @@ class PeelerEngineTesting(PeelerEngineClassic):
             
             fig, axs = plt.subplots(nrows=3, sharex=True)
             axs[0].plot(full_wf.T.flatten(), color='b')
+            #~ axs[0].plot(full_wf_no_shift.T.flatten(), color='c')
+            
+            
             if accept_template:
                 axs[0].plot(pred_wf.T.flatten(), color='g')
             else:
@@ -159,8 +166,8 @@ class PeelerEngineTesting(PeelerEngineClassic):
         #~ #ENDDEBUG
         
         
-        #~ return accept_template
-        return True
+        return accept_template
+        #~ return True
 
 
 
