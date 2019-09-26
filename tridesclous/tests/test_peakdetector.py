@@ -232,13 +232,26 @@ def test_detect_spatiotemporal_peaks():
 def benchmark_speed():
     chunksize=1024
     sigs, sample_rate, normed_sigs, geometry = get_normed_sigs(chunksize=chunksize)
+    
+    #~ sigs = np
+    
+    #***for testing large channels num***
+    #~ sigs = np.tile(sigs, (1, 20))
+    #~ normed_sigs = np.tile(normed_sigs, (1, 20))
+    #~ geometry = np.zeros((sigs.shape[1], 2), dtype='float64')
+    #~ geometry[:, 0] = np.arange(sigs.shape[1]) * 50.
+    #***
+    
+    
     nb_channel = sigs.shape[1]
+    print('nb_channel', nb_channel)
 
     args = (sample_rate, nb_channel, chunksize, 'float32', geometry)
     peak_detectors = {
-        #~ 'numpy' : peakdetector_engines['numpy'](*args),
-        #~ 'opencl' : peakdetector_engines['opencl'](*args),
+        'numpy' : peakdetector_engines['numpy'](*args),
+        'opencl' : peakdetector_engines['opencl'](*args),
         'spatiotemporal' : peakdetector_engines['spatiotemporal'](*args),
+        'spatiotemporal_opencl' : peakdetector_engines['spatiotemporal_opencl'](*args),
     }
     
     params = dict(peak_span_ms = 0.9,
@@ -253,7 +266,7 @@ def benchmark_speed():
         
         peakdetector.change_params(**params)
             
-        nloop = sigs.shape[0]//chunksize
+        nloop = normed_sigs.shape[0]//chunksize
         peaks = []
         t1 = time.perf_counter()
         for i in range(nloop):
@@ -272,15 +285,15 @@ def benchmark_speed():
         print(name, ':' , peak_inds.size)
         print(name, 'process time', t2-t1) 
 
-        fig, ax = plt.subplots()
-        plot_sigs = normed_sigs.copy()
-        for c in range(nb_channel):
-            plot_sigs[:, c] += c*30
-        ax.plot(plot_sigs, color='k')
-        ind_min = np.argmin(normed_sigs[peak_inds, :], axis=1)
-        ampl = plot_sigs[peak_inds, ind_min]
-        ax.scatter(peak_inds, ampl, color='r')
-        plt.show()        
+        #~ fig, ax = plt.subplots()
+        #~ plot_sigs = normed_sigs.copy()
+        #~ for c in range(nb_channel):
+            #~ plot_sigs[:, c] += c*30
+        #~ ax.plot(plot_sigs, color='k')
+        #~ ind_min = np.argmin(normed_sigs[peak_inds, :], axis=1)
+        #~ ampl = plot_sigs[peak_inds, ind_min]
+        #~ ax.scatter(peak_inds, ampl, color='r')
+        #~ plt.show()        
         
 
     
@@ -290,7 +303,7 @@ def benchmark_speed():
 if __name__ == '__main__':
     #~ test_compare_offline_online_engines()
     
-    test_detect_spatiotemporal_peaks()
+    #~ test_detect_spatiotemporal_peaks()
     
     
     benchmark_speed()

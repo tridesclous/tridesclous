@@ -29,7 +29,7 @@ def numba_loop_sparse_dist(waveform, centers,  mask):
     
     
 @jit(parallel=True)
-def numba_loop_sparse_dist2(waveform, centers,  mask, possibles_cluster_idx):
+def numba_loop_sparse_dist_with_geometry(waveform, centers,  mask, possibles_cluster_idx, channels):
     nb_total_clus, width, nb_chan = centers.shape
     nb_clus = possibles_cluster_idx.size
     
@@ -38,7 +38,8 @@ def numba_loop_sparse_dist2(waveform, centers,  mask, possibles_cluster_idx):
     
     for clus, cluster_idx in enumerate(possibles_cluster_idx):
         sum = 0
-        for c in range(nb_chan):
+        #~ for c in range(nb_chan):
+        for c in channels:
             if mask[cluster_idx, c]:
                 for s in range(width):
                     d = waveform[s, c] - centers[cluster_idx, s, c]
@@ -48,3 +49,5 @@ def numba_loop_sparse_dist2(waveform, centers,  mask, possibles_cluster_idx):
         waveform_distance[clus] = sum
     
     return waveform_distance
+
+

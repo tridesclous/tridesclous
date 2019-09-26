@@ -16,17 +16,19 @@ from .peeler_engine_classic import PeelerEngineClassic
 from .peeler_tools import *
 from .peeler_tools import _dtype_spike
 
+import sklearn.metrics.pairwise
+
 from .cltools import HAVE_PYOPENCL, OpenCL_Helper
 if HAVE_PYOPENCL:
     import pyopencl
     mf = pyopencl.mem_flags
 
-from .peakdetector import PeakDetectorSpatiotemporal
+from .peakdetector import PeakDetectorSpatiotemporal, PeakDetectorSpatiotemporal_OpenCL
 
 try:
     import numba
     HAVE_NUMBA = True
-    from .numba_tools import numba_loop_sparse_dist2
+    from .numba_tools import numba_loop_sparse_dist_with_geometry
 except ImportError:
     HAVE_NUMBA = False
 
@@ -38,22 +40,36 @@ import matplotlib.pyplot as plt
 
 class PeelerEngineGeometry(PeelerEngineClassic):
     pass
-    def change_params(self, **kargs):
+    def change_params(self, adjacency_radius_um=200, **kargs):
         PeelerEngineClassic.change_params(self, **kargs)
+        
+        self.adjacency_radius_um = adjacency_radius_um
         
         assert self.use_sparse_template
         
+        
+
     def initialize_before_each_segment(self, **kargs):
         PeelerEngineClassic.initialize_before_each_segment(self, **kargs)
 
         p = dict(self.catalogue['peak_detector_params'])
         _ = p.pop('peakdetector_engine', 'numpy')
-        self.peakdetector = PeakDetectorSpatiotemporal(self.sample_rate, self.nb_channel,
-                                                        self.chunksize, self.internal_dtype, self.geometry)
+        #~ self.peakdetector = PeakDetectorSpatiotemporal(self.sample_rate, self.nb_channel,
+                        #~ self.chunksize+self.n_side, self.internal_dtype, self.geometry)
+        self.peakdetector = PeakDetectorSpatiotemporal_OpenCL(self.sample_rate, self.nb_channel,
+                                                        self.fifo_residuals.shape[0]-2*self.n_span, self.internal_dtype, self.geometry)
         self.peakdetector.change_params(**p)
 
         
         self.mask_not_already_tested = np.ones((self.fifo_residuals.shape[0] - 2 * self.n_span,self.nb_channel),  dtype='bool')
+
+        d = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
+        self.channels_adjacency = {}
+        for c in range(self.nb_channel):
+            nearest, = np.nonzero(d[c, :]<self.adjacency_radius_um)
+            self.channels_adjacency[c] = nearest
+            #~ print(c, nearest)
+        
     
     
 #~ self.sparse_mask
@@ -129,9 +145,11 @@ class PeelerEngineGeometry(PeelerEngineClassic):
                 for spike in good_spikes[-nb_good_spike:]:
                     peak_ind = spike.index
                     # TODO here make enlarge a bit with maximum_jitter_shift
-                    sl1 = slice(peak_ind + self.n_left - 1 - self.n_span, peak_ind + self.n_right + 1 + self.n_span)
-                    sl2 = slice(peak_ind + self.n_left - 1 - self.n_span, peak_ind + self.n_right + 1- self.n_span)
-                    self.local_peaks_mask[sl2] = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals[sl1, :])
+                    #~ sl1 = slice(peak_ind + self.n_left - 1 - self.n_span, peak_ind + self.n_right + 1 + self.n_span)
+                    #~ sl2 = slice(peak_ind + self.n_left - 1 - self.n_span, peak_ind + self.n_right + 1- self.n_span)
+                    #~ self.local_peaks_mask[sl2] = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals[sl1, :])
+                    #TODO
+                    self.local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
                     
                     # set neighboor untested
                     # TODO more efficient !!!!!!!!!
@@ -388,7 +406,7 @@ class PeelerEngineGeometry(PeelerEngineClassic):
             cluster_idx = np.argmin(s)
         
         elif self.argmin_method == 'numba':
-            s = numba_loop_sparse_dist2(waveform, self.catalogue['centers0'],  self.catalogue['sparse_mask'], possibles_cluster_idx)
+            s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.catalogue['sparse_mask'], possibles_cluster_idx, self.channels_adjacency[chan_ind])
             cluster_idx = possibles_cluster_idx[np.argmin(s)]
         
         elif self.argmin_method == 'numpy':
@@ -404,27 +422,85 @@ class PeelerEngineGeometry(PeelerEngineClassic):
         
         
         #~ print('cluster_idx', cluster_idx)
-
+        
+        #~ plot_chan = self.channels_adjacency[chan_ind].tolist().index(chan_ind)
         #~ fig, ax = plt.subplots()
-        #~ mask = self.catalogue['sparse_mask'][cluster_idx, :]
-        #~ print(mask)
-        #~ print(mask.size)
-        #~ print(waveform.shape)
+        #~ ax.axvline(plot_chan * self.peak_width - self.n_left)
+        mask = self.catalogue['sparse_mask'][cluster_idx, :]
+        #~ mask = self.channels_adjacency[chan_ind]
         #~ wf = waveform[:, mask]
-        #~ print(wf.shape)
         #~ wf0 = self.catalogue['centers0'][cluster_idx, :, :][:, mask]
-        #~ print(wf0.shape)
         #~ ax.plot(wf.T.flatten(), color='k')
         #~ ax.plot(wf0.T.flatten(), color='m')
-        #~ ax.plot(waveform[:, :].T.flatten(), color='k')
-        #~ ax.plot(self.catalogue['centers0'][cluster_idx, :, :].T.flatten(), color='m')
-
         #~ plt.show()
 
         
         #~ label = self.catalogue['cluster_labels'][cluster_idx]
         return cluster_idx
 
+
+    def accept_tempate(self, left_ind, cluster_idx, jitter):
+        # criteria mono channel = old implementation
+        #~ keep_template = np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2)
+        
+        if np.abs(jitter) > (self.maximum_jitter_shift - 0.5):
+            return False
+        
+        # criteria multi channel
+        mask = self.catalogue['sparse_mask'][cluster_idx]
+        full_wf0 = self.catalogue['centers0'][cluster_idx,: , :][:, mask]
+        full_wf1 = self.catalogue['centers1'][cluster_idx,: , :][:, mask]
+        full_wf2 = self.catalogue['centers2'][cluster_idx,: , :][:, mask]
+        
+        # waveform L2 on mask
+        waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
+        full_wf = waveform[:, :][:, mask]
+        wf_nrj = np.sum(full_wf**2, axis=0)
+        
+        # prediction L2 on mask
+        label = self.catalogue['cluster_labels'][cluster_idx]
+        weight = self.weight_per_template[label]
+        pred_wf = (full_wf0+jitter*full_wf1+jitter**2/2*full_wf2)
+        
+        residual_nrj = np.sum((full_wf-pred_wf)**2, axis=0)
+        
+        # criteria per channel
+        crietria_weighted = (wf_nrj>residual_nrj).astype('float') * weight
+        #~ accept_template = np.sum(crietria_weighted) >= 0.9 * np.sum(weight)
+        accept_template = np.sum(crietria_weighted) >= 0.7 * np.sum(weight)
+
+        #~ if True:
+            
+            #~ fig, axs = plt.subplots(nrows=2, sharex=True)
+            #~ axs[0].plot(full_wf.T.flatten(), color='b')
+            #~ if accept_template:
+                #~ axs[0].plot(pred_wf.T.flatten(), color='g')
+            #~ else:
+                #~ axs[0].plot(pred_wf.T.flatten(), color='r')
+            
+            #~ axs[0].plot((full_wf-pred_wf).T.flatten(), color='m')
+            
+            #~ plt.show()
+            
+
+
+
+        
+        #DEBUG
+        #~ label = self.catalogue['cluster_labels'][cluster_idx]
+        #~ if label in (10, ):
+            
+            #~ print('accept_tempate',accept_template, 'label', label)
+            #~ print(wf_nrj>res_nrj)
+            #~ print(weight)
+            #~ print(crietria_weighted)
+            #~ print(np.sum(crietria_weighted), np.sum(weight), np.sum(crietria_weighted)/np.sum(weight))
+            
+            #~ print()
+        #~ #ENDDEBUG
+        
+        
+        return accept_template
 
 
 
