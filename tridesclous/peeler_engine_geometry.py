@@ -56,6 +56,8 @@ class PeelerEngineGeometry(PeelerEngineClassic):
         _ = p.pop('peakdetector_engine', 'numpy')
         #~ self.peakdetector = PeakDetectorSpatiotemporal(self.sample_rate, self.nb_channel,
                         #~ self.chunksize+self.n_side, self.internal_dtype, self.geometry)
+        
+        # TODO size fido
         self.peakdetector = PeakDetectorSpatiotemporal_OpenCL(self.sample_rate, self.nb_channel,
                                                         self.fifo_residuals.shape[0]-2*self.n_span, self.internal_dtype, self.geometry)
         self.peakdetector.change_params(**p)
