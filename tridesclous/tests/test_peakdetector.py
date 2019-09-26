@@ -12,8 +12,11 @@ from matplotlib import pyplot
 
 from tridesclous.tests.test_signalpreprocessor import offline_signal_preprocessor
 
-from tridesclous.peakdetector import make_sum_rectified, detect_peaks_in_rectified
+from tridesclous.peakdetector import make_sum_rectified, detect_peaks_in_rectified, get_mask_spatiotemporal_peaks
 from tridesclous.peakdetector import HAVE_PYOPENCL
+
+import matplotlib.pyplot as plt
+
 
 def offline_peak_detect(normed_sigs, sample_rate, geometry, 
                 peak_sign='-',relative_threshold = 5,  peak_span_ms=0.5, adjacency_radius_um=None):
@@ -36,7 +39,34 @@ def offline_peak_detect(normed_sigs, sample_rate, geometry,
     return ind_peaks, sum_rectified
 
 
+
+def get_normed_sigs(chunksize=None):
+    # get sigs
+    sigs, sample_rate = get_dataset(name='olfactory_bulb')
+    #~ sigs = np.tile(sigs, (1, 20)) #for testing large channels num
     
+    if sigs.shape[0] % chunksize >0:
+        sigs = sigs[:-(sigs.shape[0] % chunksize), :]
+    
+    nb_channel = sigs.shape[1]
+    print('nb_channel', nb_channel)
+    
+    geometry = np.zeros((nb_channel, 2))
+    geometry[:, 0] = np.arange(nb_channel) * 50 # um spacing
+
+    
+    
+    
+    # normalize sigs
+    highpass_freq = 300.
+    preprocess_params = dict(
+                highpass_freq=highpass_freq,
+                common_ref_removal=True,
+                backward_chunksize=chunksize+chunksize//4,
+                output_dtype='float32')
+    normed_sigs = offline_signal_preprocessor(sigs, sample_rate, **preprocess_params)    
+    
+    return sigs, sample_rate, normed_sigs, geometry
 
 def test_compare_offline_online_engines():
     #~ HAVE_PYOPENCL = True
@@ -49,40 +79,22 @@ def test_compare_offline_online_engines():
         
     engines = ['numpy']
 
-    # get sigs
-    sigs, sample_rate = get_dataset(name='olfactory_bulb')
-    #~ sigs = np.tile(sigs, (1, 20)) #for testing large channels num
-    
-    nb_channel = sigs.shape[1]
-    print('nb_channel', nb_channel)
-    
-    geometry = np.zeros((nb_channel, 2))
-    geometry[:, 0] = np.arange(nb_channel) * 50 # um spacing
-
-    
-    
     #params
-    chunksize = 1024
     peak_sign = '-'
     relative_threshold = 8
     peak_span_ms = 0.9
     adjacency_radius_um = None
+
+    chunksize=1024
+    sigs, sample_rate, normed_sigs, geometry = get_normed_sigs(chunksize=chunksize)
+    
+    nb_channel = sigs.shape[1]
     
     #~ print('n_span', n_span)
     nloop = sigs.shape[0]//chunksize
-    sigs = sigs[:chunksize*nloop]
+    
     
     print('sig duration', sigs.shape[0]/sample_rate)
-    
-    # normalize sigs
-    highpass_freq = 300.
-    preprocess_params = dict(
-                highpass_freq=highpass_freq,
-                common_ref_removal=True,
-                backward_chunksize=chunksize+chunksize//4,
-                output_dtype='float32')
-    normed_sigs = offline_signal_preprocessor(sigs, sample_rate, **preprocess_params)
-    
     
     
     #~ for peak_sign in ['-', '+', ]:
@@ -166,9 +178,120 @@ def test_compare_offline_online_engines():
             #~ ax.axvline(i*chunksize, color='k', alpha=0.4)
         
         #~ pyplot.show()
+
+
+
+def test_detect_spatiotemporal_peaks():
+    chunksize=1024
+    sigs, sample_rate, normed_sigs, geometry = get_normed_sigs(chunksize=chunksize)
+    nb_channel = sigs.shape[1]
+    
+    n_span = 4
+    thresh = 5
+    peak_sign = '-'
+
+    d = sklearn.metrics.pairwise.euclidean_distances(geometry)
+    nb_neighbour = 4
+    neighbours = np.zeros((nb_channel, nb_neighbour+1), dtype='int64')
+    for c in range(nb_channel):
+        nearest = np.argsort(d[c, :])
+        #~ print(c, nearest)
+        neighbours[c, :] = nearest[:nb_neighbour+1] # include itself
+    #~ print(neighbours)
+    
+    mask = get_mask_spatiotemporal_peaks(normed_sigs, n_span, thresh, peak_sign, neighbours)
+    
+    peak_inds, chan_inds = np.nonzero(mask)
+    peak_inds += n_span
+    
+    print(peak_inds.size)
+    
+    fig, ax = plt.subplots()
+    plot_sigs = normed_sigs.copy()
+    for c in range(nb_channel):
+        plot_sigs[:, c] += c*30
+    ax.plot(plot_sigs, color='k')
+    ampl = plot_sigs[peak_inds, chan_inds]
+    ax.scatter(peak_inds, ampl, color='r')
+    plt.show()
+    
+    
+    # test two way
+    mask_neg = get_mask_spatiotemporal_peaks(normed_sigs, n_span, thresh, '-', neighbours)
+    mask_pos = get_mask_spatiotemporal_peaks(-normed_sigs, n_span, thresh, '+', neighbours)
+    assert np.array_equal(mask_neg, mask_pos)
+    
+    
+    
+    #~ print(peak_inds)
+    #~ print(chan_inds)
+    
+
+
+
+def benchmark_speed():
+    chunksize=1024
+    sigs, sample_rate, normed_sigs, geometry = get_normed_sigs(chunksize=chunksize)
+    nb_channel = sigs.shape[1]
+
+    args = (sample_rate, nb_channel, chunksize, 'float32', geometry)
+    peak_detectors = {
+        #~ 'numpy' : peakdetector_engines['numpy'](*args),
+        #~ 'opencl' : peakdetector_engines['opencl'](*args),
+        'spatiotemporal' : peakdetector_engines['spatiotemporal'](*args),
+    }
+    
+    params = dict(peak_span_ms = 0.9,
+                    relative_threshold = 5,
+                    peak_sign = '-')
+    
+    online_peaks = {}
+    
+    
+    for name, peakdetector in peak_detectors.items():
+        
+        
+        peakdetector.change_params(**params)
+            
+        nloop = sigs.shape[0]//chunksize
+        peaks = []
+        t1 = time.perf_counter()
+        for i in range(nloop):
+            #~ print(i)
+            pos = (i+1)*chunksize
+            chunk = normed_sigs[pos-chunksize:pos,:]
+            n_peaks, chunk_peaks = peakdetector.process_data(pos, chunk)
+            #~ print(n_peaks)
+            #~ print(chunk_peaks)
+            if chunk_peaks is not None:
+                #~ all_online_peaks.append(chunk_peaks['index'])
+                peaks.append(chunk_peaks)
+        peak_inds = np.concatenate(peaks)
+        online_peaks[name] = peak_inds
+        t2 = time.perf_counter()
+        print(name, ':' , peak_inds.size)
+        print(name, 'process time', t2-t1) 
+
+        fig, ax = plt.subplots()
+        plot_sigs = normed_sigs.copy()
+        for c in range(nb_channel):
+            plot_sigs[:, c] += c*30
+        ax.plot(plot_sigs, color='k')
+        ind_min = np.argmin(normed_sigs[peak_inds, :], axis=1)
+        ampl = plot_sigs[peak_inds, ind_min]
+        ax.scatter(peak_inds, ampl, color='r')
+        plt.show()        
+        
+
     
     
 
     
 if __name__ == '__main__':
-    test_compare_offline_online_engines()
+    #~ test_compare_offline_online_engines()
+    
+    test_detect_spatiotemporal_peaks()
+    
+    
+    benchmark_speed()
+    

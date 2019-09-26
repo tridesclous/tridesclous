@@ -240,11 +240,17 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=3
                 indexes = indexes[keep]
             wfs = dataio.get_some_waveforms(seg_num=0, chan_grp=0, spike_indexes=indexes, n_left=n_left, n_right=n_right)
             wf0 = np.median(wfs, axis=0)
-            sel_chan = np.max(np.abs(wf0), axis=0) > relative_threshold
-            sumed = np.sum(wf0[:, sel_chan], axis=1)
-            ind_max = np.argmax(np.abs(sumed))
+            
+            #  with sum rectified
+            #~ sel_chan = np.max(np.abs(wf0), axis=0) > relative_threshold
+            #~ sumed = np.sum(wf0[:, sel_chan], axis=1)
+            #~ ind_max = np.argmax(np.abs(sumed))
+            chan_max = np.argmax(np.max(np.abs(wf0), axis=0))
+            ind_max = np.argmax(np.abs(wf0[:, chan_max]))
+            
             shift = ind_max + n_left
             peak_shift[label] = shift
+            #~ print(label,'>', shift)
     
     
     all_peaks = []

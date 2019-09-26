@@ -24,6 +24,7 @@ from .peeler_engine_oldclassic import PeelerEngineOldClassic
 from .peeler_engine_classic_cl import PeelerEngineClassicOpenCl
 from .peeler_engine_testing import PeelerEngineTesting
 from .peeler_engine_parallel import PeelerEngineParallel
+from .peeler_engine_geometry import PeelerEngineGeometry
 
 
 #~ from .peeler_engine_strict import PeelerEngineStrict
@@ -34,6 +35,7 @@ peeler_engines = {
     'classic_old' : PeelerEngineOldClassic,
     'testing' : PeelerEngineTesting,
     'classic_parallel' : PeelerEngineParallel,
+    'geometry' : PeelerEngineGeometry,
     
 }
 

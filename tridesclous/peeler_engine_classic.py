@@ -244,6 +244,8 @@ class PeelerEngineClassic(OpenCL_Helper):
         
 
     def process_one_chunk(self,  pos, sigs_chunk):
+        #~ print('process_one_chunk', pos)
+        
         #~ print('*'*10)
         t1 = time.perf_counter()
         abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
