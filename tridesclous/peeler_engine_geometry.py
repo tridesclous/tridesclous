@@ -73,6 +73,7 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         #~ print('select_next_peak')
         # TODO find faster
         local_peaks_indexes, chan_indexes  = np.nonzero(self.local_peaks_mask & self.mask_not_already_tested)
+        print(local_peaks_indexes.size)
         #~ print('select_next_peak')
         #~ print(local_peaks_indexes + self.n_span )
         if local_peaks_indexes.size>0:

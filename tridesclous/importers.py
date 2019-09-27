@@ -197,7 +197,7 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=3
                                dtype=dtype, sample_rate=sr,
                                total_channel=nb_chan, offset=offset)
     dataio.set_probe_file(str(probe_file))
-    
+    print(dataio)
     
     params = get_auto_params_for_catalogue(dataio)
     
@@ -300,8 +300,11 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=3
     
     # put back label 
     cc.all_peaks['cluster_label'][cc.some_peaks_index] = all_peaks[cc.some_peaks_index]['cluster_label']
+    t1 = time.perf_counter()
     cc.on_new_cluster()
     cc.compute_all_centroid()
+    t2 = time.perf_counter()
+    print('compute_all_centroid', t2-t1)
     cc.refresh_colors()
     print(cc)
     

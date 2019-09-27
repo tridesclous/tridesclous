@@ -527,6 +527,8 @@ class PeakDetectorSpatiotemporal_OpenCL(PeakDetectorSpatiotemporal, OpenCL_Helpe
     """
 
 
+# TODO atomic_inc for spatiotemporal_opencl
+# TODO rename engine propagate to GUI/examples/online
 
 
 

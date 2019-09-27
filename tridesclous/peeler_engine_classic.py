@@ -6,7 +6,7 @@ from .peeler_tools import *
 from .peeler_tools import _dtype_spike
 from .peeler_engine_base import PeelerEngineGeneric
 
-
+import matplotlib.pyplot as plt
 
 
 from . import pythran_tools
@@ -78,6 +78,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
     def select_next_peak(self):
         # TODO find faster
         local_peaks_indexes,  = np.nonzero(self.local_peaks_mask & self.mask_not_already_tested)
+        print(local_peaks_indexes.size)
         #~ print('select_next_peak')
         #~ print(local_peaks_indexes + self.n_span )
         if local_peaks_indexes.size>0:
@@ -211,6 +212,12 @@ class PeelerEngineClassic(PeelerEngineGeneric):
 
         #~ if True:
             
+            #~ max_chan_ind = self.catalogue['clusters'][cluster_idx]['max_on_channel']
+            #~ fig, ax = plt.subplots()
+            #~ ax.plot(self.fifo_residuals[:, max_chan_ind])
+            
+            #~ ax.scatter([left_ind-self.n_left], [self.fifo_residuals[left_ind-self.n_left, max_chan_ind]], color='r')
+            
             #~ fig, axs = plt.subplots(nrows=2, sharex=True)
             #~ axs[0].plot(full_wf.T.flatten(), color='b')
             #~ if accept_template:
@@ -221,6 +228,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
             #~ axs[0].plot((full_wf-pred_wf).T.flatten(), color='m')
             
             #~ plt.show()
+
             
 
 
