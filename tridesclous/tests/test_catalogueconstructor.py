@@ -88,6 +88,11 @@ def test_catalogue_constructor():
         print('find_good_limits', t2-t1)
         print(catalogueconstructor.some_waveforms.shape)
         
+        t1 = time.perf_counter()
+        catalogueconstructor.clean_waveforms()
+        t2 = time.perf_counter()
+        print('find_good_limits', t2-t1)
+        
 
         t1 = time.perf_counter()
         catalogueconstructor.extract_some_waveforms(n_left=None, n_right=None, mode='rand', nb_max=5000)

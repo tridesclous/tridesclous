@@ -459,11 +459,13 @@ class CatalogueConstructor:
                         i_start=pos2-preprocessed_chunk.shape[0], i_stop=pos2, signal_type='processed')
         
         if detect_peak:
-            n_peaks, chunk_peaks = self.peakdetector.process_data(pos2, preprocessed_chunk)
+            index_chunk_peaks, peak_chan_index = self.peakdetector.process_data(pos2, preprocessed_chunk)
             
-            if chunk_peaks is not None:
-                peaks = np.zeros(chunk_peaks.size, dtype=_dtype_peak)
-                peaks['index'] = chunk_peaks
+            # chan_index can be None for some method
+            
+            if index_chunk_peaks is not None:
+                peaks = np.zeros(index_chunk_peaks.size, dtype=_dtype_peak)
+                peaks['index'] = index_chunk_peaks
                 peaks['segment'][:] = seg_num
                 peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
                 self.arrays.append_chunk('all_peaks',  peaks)
@@ -581,11 +583,13 @@ class CatalogueConstructor:
             iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp,
                             chunksize=self.info['chunksize'], i_stop=None, signal_type='processed')
             for pos, preprocessed_chunk in iterator:
-                n_peaks, chunk_peaks = self.peakdetector.process_data(pos, preprocessed_chunk)
+                index_chunk_peaks, peak_chan_index = self.peakdetector.process_data(pos, preprocessed_chunk)
+                
+                # peak_chan_index can be None
             
-                if chunk_peaks is not None:
-                    peaks = np.zeros(chunk_peaks.size, dtype=_dtype_peak)
-                    peaks['index'] = chunk_peaks
+                if index_chunk_peaks is not None:
+                    peaks = np.zeros(index_chunk_peaks.size, dtype=_dtype_peak)
+                    peaks['index'] = index_chunk_peaks
                     peaks['segment'][:] = seg_num
                     peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
                     self.arrays.append_chunk('all_peaks',  peaks)

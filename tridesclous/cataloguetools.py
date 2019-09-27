@@ -217,10 +217,10 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['cluster_method'] = 'sawchaincut'
         params['cluster_kargs']['kde_bandwith'] = 1.
         
-        if nb_chan>100:
+        if nb_chan<50:
             params['cluster_kargs']['max_loop'] = 10000
-        elif nb_chan>1000:
-            params['cluster_kargs']['max_loop'] = 100000
+        elif nb_chan>=50:
+            params['cluster_kargs']['max_loop'] = nb_chan * 400
         #~ else:
             #~ # default one already
             #~ params['cluster_kargs']['max_loop'] = 1000

@@ -1,5 +1,17 @@
 """
-Here 2 version for peakdetector.
+Here several method and implementation for peakdetector.
+
+  * method = "threshold_and_sum"
+     very fast, no spatial information
+    2 implementations:
+      * numpy
+      * opencl
+  * method = "spatiotemporal_extrema"
+     detect local spatiotemporal extrema
+     quite slow
+     2 implementations:
+       * numpy
+       * opencl
 
 
 """
@@ -21,9 +33,59 @@ if HAVE_PYOPENCL:
 def detect_peaks_in_chunk(sig, n_span, thresh, peak_sign, spatial_matrix=None):
     sum_rectified = make_sum_rectified(sig, thresh, peak_sign, spatial_matrix)
     mask_peaks = detect_peaks_in_rectified(sum_rectified, n_span, thresh, peak_sign)
-    ind_peaks,  = np.nonzero(mask_peaks)
-    ind_peaks += n_span
-    return ind_peaks
+    time_ind_peaks,  = np.nonzero(mask_peaks)
+    time_ind_peaks += n_span
+    return time_ind_peaks
+
+
+
+class BasePeakDetector:
+    offline_function = None
+
+    def __init__(self, sample_rate, nb_channel, chunksize, dtype, geometry):
+        self.sample_rate = sample_rate
+        self.nb_channel = nb_channel
+        self.chunksize = chunksize
+        self.dtype = np.dtype(dtype)
+        self.geometry = geometry # 2D array (nb_channel, 2 or 3) 
+
+    def change_params(self, peak_sign=None, relative_threshold=None,
+                                            peak_span_ms=None, peak_span=None,
+                                            adjacency_radius_um=None,
+                                            cl_platform_index=None, # only for CL
+                                            cl_device_index=None):
+        self.peak_sign = peak_sign
+        self.relative_threshold = relative_threshold
+        
+        if peak_span_ms is None:
+            # kept for compatibility with previous version
+            assert peak_span is not None
+            peak_span_ms = peak_span * 1000.
+        
+        self.peak_span_ms = peak_span_ms
+        
+        self.n_span = int(self.sample_rate * self.peak_span_ms / 1000.)//2
+        #~ print('self.n_span', self.n_span)
+        self.n_span = max(1, self.n_span)
+        
+        self.adjacency_radius_um = adjacency_radius_um
+        if self.adjacency_radius_um is None or self.adjacency_radius_um <= 0.:
+            self.spatial_kernel = None
+        else:
+            d = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
+            self.spatial_kernel = np.exp(-d/self.adjacency_radius_um)
+            # make it sparse
+            self.spatial_kernel[self.spatial_kernel<0.01] = 0.
+        
+        self.cl_platform_index = cl_platform_index
+        self.cl_device_index = cl_device_index
+
+    def process_data(self, pos, newbuf):
+        raise(NotImplmentedError)
+    
+    def _after_params(self):
+        raise(NotImplmentedError)
+
 
 
 def make_sum_rectified(sig, thresh, peak_sign, spatial_matrix):
@@ -60,27 +122,18 @@ def detect_peaks_in_rectified(sig_rectified, n_span, thresh, peak_sign):
             mask_peaks &= sig_center<=sig_rectified[n_span+i+1:n_span+i+1+sig_center.size]
     return mask_peaks
     
-    #~ ind_peaks,  = np.nonzero(mask_peaks)
-    #~ ind_peaks += n_span
-    #~ return ind_peaks
+    #~ time_ind_peaks,  = np.nonzero(mask_peaks)
+    #~ time_ind_peaks += n_span
+    #~ return time_ind_peaks
 
 
 
-class PeakDetectorEngine_Numpy:
-    def __init__(self, sample_rate, nb_channel, chunksize, dtype, geometry):
-        self.sample_rate = sample_rate
-        self.nb_channel = nb_channel
-        self.chunksize = chunksize
-        self.dtype = dtype
-        self.geometry = geometry # 2D array (nb_channel, 2 or 3) 
-        
-        self.n_peak = 0
-        
+class PeakDetectorEngine_Numpy(BasePeakDetector):
     def process_data(self, pos, newbuf):
         # this is used by catalogue constructor
         # here the fifo is only the rectified sum
         
-        sum_rectified = make_sum_rectified(newbuf, self.relative_threshold, self.peak_sign, self.spatial_matrix)
+        sum_rectified = make_sum_rectified(newbuf, self.relative_threshold, self.peak_sign, self.spatial_kernel)
         self.fifo_sum_rectified.new_chunk(sum_rectified, pos)
         
         if pos-(newbuf.shape[0]+2*self.n_span)<0:
@@ -91,90 +144,32 @@ class PeakDetectorEngine_Numpy:
         sig_rectified = self.fifo_sum_rectified.get_data(pos-(newbuf.shape[0]+2*self.n_span), pos)
         
         mask_peaks = detect_peaks_in_rectified(sig_rectified, self.n_span, self.relative_threshold, self.peak_sign)
-        ind_peaks,  = np.nonzero(mask_peaks)
-        ind_peaks += self.n_span
+        time_ind_peaks,  = np.nonzero(mask_peaks)
+        time_ind_peaks += self.n_span
         
+        chan_ind_peaks = None # not in this method
         
-        if ind_peaks.size>0:
-            ind_peaks = ind_peaks + pos - newbuf.shape[0] -2*self.n_span
-            self.n_peak += ind_peaks.size
-            return self.n_peak, ind_peaks
+        if time_ind_peaks.size>0:
+            time_ind_peaks = time_ind_peaks + pos - newbuf.shape[0] -2*self.n_span
+            return time_ind_peaks, chan_ind_peaks
 
         return None, None
     
     def get_mask_peaks_in_chunk(self, fifo_residuals):
         # this is used by peeler which handle externaly
         # a fifo residual
-        sum_rectified = make_sum_rectified(fifo_residuals, self.relative_threshold, self.peak_sign, self.spatial_matrix)
+        sum_rectified = make_sum_rectified(fifo_residuals, self.relative_threshold, self.peak_sign, self.spatial_kernel)
         mask_peaks = detect_peaks_in_rectified(sum_rectified, self.n_span, self.relative_threshold, self.peak_sign)
         return mask_peaks        
     
-    
-    def change_params(self, peak_sign=None, relative_threshold=None,
-                                            peak_span_ms=None, peak_span=None,
-                                            adjacency_radius_um=None,
-                                            ):
-        self.peak_sign = peak_sign
-        self.relative_threshold = relative_threshold
+    def change_params(self, **kargs):
+        BasePeakDetector.change_params(self,  **kargs)
         
-        
-        if peak_span_ms is None:
-            # kept for compatibility with previous version
-            assert peak_span is not None
-            peak_span_ms = peak_span * 1000.
-        
-        self.peak_span_ms = peak_span_ms
-        
-        self.n_span = int(self.sample_rate * self.peak_span_ms / 1000.)//2
-        #~ print('self.n_span', self.n_span)
-        self.n_span = max(1, self.n_span)
-        
-        self.adjacency_radius_um = adjacency_radius_um
-        if self.adjacency_radius_um is None or self.adjacency_radius_um <= 0.:
-            self.spatial_matrix = None
-        else:
-            d = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
-            self.spatial_matrix = np.exp(-d/self.adjacency_radius_um)
-            
-            # make it sparse
-            self.spatial_matrix[self.spatial_matrix<0.01] = 0.
-            ## self.spatial_matrix = self.spatial_matrix / np.sum(self.spatial_matrix, axis=0)[None, :] ## BAD IDEA this is worst
-            
-            #~ print(np.sum(self.spatial_matrix, axis=0))
-                    
-        #~ self.ring_sum = RingBuffer((self.chunksize*2,), self.dtype, double=True)
         self.fifo_sum_rectified = FifoBuffer((self.chunksize*2,), self.dtype)
-        
-        
 
 
-class PeakDetectorEngine_OpenCL:
-    """
-    Same as PeakDetectorEngine but implemented with OpenCl.
-    With a strong GPU  perf a little bit better than on CPU.
-    For standard GPU PeakDetectorEngine implemented with numpy is faster.
-    I wasted my time here....
-    """
-    def __init__(self, sample_rate, nb_channel, chunksize, dtype, geometry):
-        assert HAVE_PYOPENCL
-        
-        self.sample_rate = sample_rate
-        self.nb_channel = nb_channel
-        self.chunksize = chunksize
-        self.dtype = np.dtype(dtype)
-        self.geometry = geometry
-        
-        self.n_peak = 0
-
-        self.ctx = pyopencl.create_some_context(interactive=False)
-        #~ print(self.ctx)
-        #TODO : add arguments gpu_platform_index/gpu_device_index
-        #self.devices =  [pyopencl.get_platforms()[self.gpu_platform_index].get_devices()[self.gpu_device_index] ]
-        #self.ctx = pyopencl.Context(self.devices)        
-        self.queue = pyopencl.CommandQueue(self.ctx)
-
+class PeakDetectorEngine_OpenCL(BasePeakDetector, OpenCL_Helper):
     def process_data(self, pos, newbuf):
-        #~ assert newbuf.shape[0] ==self.chunksize
         if newbuf.shape[0] <self.chunksize:
             newbuf2 = np.zeros((self.chunksize, self.nb_channel), dtype=self.dtype)
             newbuf2[-newbuf.shape[0]:, :] = newbuf
@@ -193,32 +188,19 @@ class PeakDetectorEngine_OpenCL:
             return None, None
         
         pyopencl.enqueue_copy(self.queue,  self.peaks, self.peaks_cl)
-        ind_peaks,  = np.nonzero(self.peaks)
+        time_ind_peaks,  = np.nonzero(self.peaks)
         
-        if ind_peaks.size>0:
-            #~ ind_peaks += pos - newbuf.shape[0] - self.n_span
-            ind_peaks += pos - self.chunksize - self.n_span
-            self.n_peak += ind_peaks.size
-            #~ peaks = np.zeros(ind_peaks.size, dtype = [('index', 'int64'), ('code', 'int64')])
-            #~ peaks['index'] = ind_peaks
-            #~ return self.n_peak, peaks
-            return self.n_peak, ind_peaks
+        if time_ind_peaks.size>0:
+            time_ind_peaks += pos - self.chunksize - self.n_span
+            chan_ind_peaks = None# not in this method
+            return time_ind_peaks, chan_ind_peaks
         
         return None, None
-        
-    def change_params(self, peak_sign=None, relative_threshold=None, peak_span_ms=None, peak_span=None):
-        self.peak_sign = peak_sign
-        self.relative_threshold = relative_threshold
 
-        if peak_span_ms is None:
-            # kept for compatibility with previous version
-            assert peak_span is not None
-            peak_span_ms = peak_span *1000.
-        
-        self.peak_span_ms = peak_span_ms
-        self.n_span = int(self.sample_rate * self.peak_span_ms / 1000.)//2
-        self.n_span = max(1, self.n_span)
-        
+    def change_params(self, cl_platform_index=None, cl_device_index=None, **kargs):
+        BasePeakDetector.change_params(self,  **kargs)
+        OpenCL_Helper.initialize_opencl(self, cl_platform_index=cl_platform_index, cl_device_index=cl_device_index)
+
         chunksize2=self.chunksize+2*self.n_span
         
         self.sum_rectified = np.zeros((self.chunksize), dtype=self.dtype)
@@ -232,14 +214,11 @@ class PeakDetectorEngine_OpenCL:
         self.peaks_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=self.peaks)
         
         kernel = self.kernel%dict(chunksize=self.chunksize, nb_channel=self.nb_channel, n_span=self.n_span,
-                    relative_threshold=relative_threshold, peak_sign={'+':1, '-':-1}[self.peak_sign])
+                    relative_threshold=self.relative_threshold, peak_sign={'+':1, '-':-1}[self.peak_sign])
         
         prg = pyopencl.Program(self.ctx, kernel)
         self.opencl_prg = prg.build(options='-cl-mad-enable')
         
-        self.max_wg_size = self.ctx.devices[0].get_info(pyopencl.device_info.MAX_WORK_GROUP_SIZE)
-
-
         self.kern_detect_peaks = getattr(self.opencl_prg, 'detect_peaks')
 
     kernel = """
@@ -343,16 +322,7 @@ def get_mask_spatiotemporal_peaks(sigs, n_span, thresh, peak_sign, neighbours):
 
 
 
-class PeakDetectorSpatiotemporal:
-    def __init__(self, sample_rate, nb_channel, chunksize, dtype, geometry):
-        self.sample_rate = sample_rate
-        self.nb_channel = nb_channel
-        self.chunksize = chunksize
-        self.dtype = dtype
-        self.geometry = geometry # 2D array (nb_channel, 2 or 3) 
-        
-        self.n_peak = 0
-        
+class PeakDetectorSpatiotemporal(BasePeakDetector):
     def process_data(self, pos, newbuf):
         # this is used by catalogue constructor
         # here the fifo is only the rectified sum
@@ -365,21 +335,12 @@ class PeakDetectorSpatiotemporal:
         
         
         sigs = self.fifo_sigs.get_data(pos-(newbuf.shape[0]+2*self.n_span), pos)
-        #~ t1 = time.perf_counter()
-        
         mask_peaks = self.get_mask_peaks_in_chunk(sigs)
-        
-        
-        #~ t2 = time.perf_counter()
-        ind_peaks, chan_inds = np.nonzero(mask_peaks)
-        #~ t3 = time.perf_counter()
-        #~ print(f'{t2-t1} {t3-t2}')
-        ind_peaks += self.n_span
+        time_ind_peaks, chan_ind_peaks = np.nonzero(mask_peaks)
 
-        if ind_peaks.size>0:
-            ind_peaks = ind_peaks + pos - newbuf.shape[0] -2*self.n_span
-            self.n_peak += ind_peaks.size
-            return self.n_peak, ind_peaks
+        if time_ind_peaks.size>0:
+            time_ind_peaks += (pos - newbuf.shape[0] - self.n_span)
+            return time_ind_peaks, chan_ind_peaks
 
         return None, None
     
@@ -390,22 +351,10 @@ class PeakDetectorSpatiotemporal:
         mask_peaks = get_mask_spatiotemporal_peaks(fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign, self.neighbours)
         return mask_peaks
     
-    
-    def change_params(self, peak_sign=None, relative_threshold=None,
-                                            peak_span_ms=None,
-                                            nb_neighbour=4,
-                                            adjacency_radius_um=None,
-                                            ):
-        self.peak_sign = peak_sign
-        self.relative_threshold = relative_threshold
+    def change_params(self, nb_neighbour=4, **kargs):
+        BasePeakDetector.change_params(self,  **kargs)
         
-        
-        if peak_span_ms is None:
-            peak_span_ms = peak_span * 1000.
-        
-        self.peak_span_ms = peak_span_ms
-        self.n_span = int(self.sample_rate * self.peak_span_ms / 1000.)//2
-        self.n_span = max(1, self.n_span)
+        assert self.adjacency_radius_um is None, 'Not implemented yet'
         
         d = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
         self.nb_neighbour = nb_neighbour
@@ -414,30 +363,16 @@ class PeakDetectorSpatiotemporal:
             nearest = np.argsort(d[c, :])
             self.neighbours[c, :] = nearest[:nb_neighbour+1] # include itself
         
-        assert adjacency_radius_um is None, 'Not implemented yet'
-        self.adjacency_radius_um = adjacency_radius_um
-        
-        
-        # TODO fifo size should be : chunksize+2*self.n_span
-        self.fifo_sigs = FifoBuffer((self.chunksize*2, self.nb_channel), self.dtype)
+        self.fifo_sigs = FifoBuffer((self.chunksize+2*self.n_span, self.nb_channel), self.dtype)
 
 
-class PeakDetectorSpatiotemporal_OpenCL(OpenCL_Helper):
-    def __init__(self, sample_rate, nb_channel, chunksize, dtype, geometry):
-        self.sample_rate = sample_rate
-        self.nb_channel = nb_channel
-        self.chunksize = chunksize
-        self.dtype = dtype
-        self.geometry = geometry # 2D array (nb_channel, 2 or 3) 
-        
-        self.n_peak = 0
+class PeakDetectorSpatiotemporal_OpenCL(PeakDetectorSpatiotemporal, OpenCL_Helper):
         
     def process_data(self, pos, newbuf):
         if newbuf.shape[0] <self.chunksize:
             newbuf2 = np.zeros((self.chunksize, self.nb_channel), dtype=self.dtype)
             newbuf2[-newbuf.shape[0]:, :] = newbuf
             newbuf = newbuf2
-        print(pos, newbuf.shape)
 
         self.fifo_sigs.new_chunk(newbuf, pos)
         
@@ -445,74 +380,53 @@ class PeakDetectorSpatiotemporal_OpenCL(OpenCL_Helper):
             # the very first buffer is sacrified because of peak span
             return None, None
         
-        
         sigs = self.fifo_sigs.get_data(pos-(newbuf.shape[0]+2*self.n_span), pos)
-        #~ t1 = time.perf_counter()
+        
         mask_peaks = self.get_mask_peaks_in_chunk(sigs)
-        #~ t2 = time.perf_counter()
-        ind_peaks, chan_inds = np.nonzero(mask_peaks)
-        #~ t3 = time.perf_counter()
-        #~ print(f'{t2-t1} {t3-t2}')
-        ind_peaks += self.n_span
+        #~ time_ind_peaks, chan_ind_peaks = np.nonzero(mask_peaks)
+        time_ind_peaks, = np.nonzero(np.sum(mask_peaks, axis=1))
+        chan_ind_peaks = None
+        
 
-        if ind_peaks.size>0:
-            ind_peaks = ind_peaks + pos - newbuf.shape[0] -2*self.n_span
-            self.n_peak += ind_peaks.size
-            return self.n_peak, ind_peaks
+        if time_ind_peaks.size>0:
+            time_ind_peaks += (pos - newbuf.shape[0] - self.n_span)
+            return time_ind_peaks, chan_ind_peaks
 
         return None, None
     
     def get_mask_peaks_in_chunk(self, fifo_residuals):
-
+        # TODO chunksize multiple of max_wg_size for nvidia
         pyopencl.enqueue_copy(self.queue,  self.fifo_sigs_cl, fifo_residuals)
-        event = self.kern_get_mask_spatiotemporal_peaks(self.queue,  (self.chunksize,), (self.max_wg_size,),
+        #~ print(self.chunksize, self.max_wg_size)
+        event = self.kern_get_mask_spatiotemporal_peaks(self.queue,  self.global_size, (self.max_wg_size,),
                                 self.fifo_sigs_cl, self.neighbours_cl, self.mask_peaks_cl)
         event.wait()
         pyopencl.enqueue_copy(self.queue,  self.mask_peaks, self.mask_peaks_cl)
         
         return self.mask_peaks
     
-    
-    def change_params(self, peak_sign=None, relative_threshold=None,
-                                            peak_span_ms=None,
-                                            nb_neighbour=4,
-                                            adjacency_radius_um=None,
-                                            cl_platform_index=None,
-                                            cl_device_index=None,
-                                            ):
+    def change_params(self, cl_platform_index=None, cl_device_index=None, **kargs):
+        PeakDetectorSpatiotemporal.change_params(self,  **kargs)
+        
         OpenCL_Helper.initialize_opencl(self, cl_platform_index=cl_platform_index, cl_device_index=cl_device_index)
-        print(self.ctx)
+        #~ print(self.ctx)
+        #~ print(self.chunksize)
         
-        self.peak_sign = peak_sign
-        self.relative_threshold = relative_threshold
+        n = int(np.ceil(self.chunksize / self.max_wg_size))
+        self.global_size =  (self.max_wg_size * n, )
+        #~ print('self.global_size', self.global_size, 'self.chunksize', self.chunksize)
         
-        
-        if peak_span_ms is None:
-            peak_span_ms = peak_span * 1000.
-        
-        self.peak_span_ms = peak_span_ms
-        self.n_span = int(self.sample_rate * self.peak_span_ms / 1000.)//2
-        self.n_span = max(1, self.n_span)
-        
-        d = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
-        self.nb_neighbour = nb_neighbour
-        self.neighbours = np.zeros((self.nb_channel, nb_neighbour+1), dtype='int32')
-        
-        for c in range(self.nb_channel):
-            nearest = np.argsort(d[c, :])
-            self.neighbours[c, :] = nearest[:nb_neighbour+1] # include itself
-        
-        assert adjacency_radius_um is None, 'Not implemented yet'
-        self.adjacency_radius_um = adjacency_radius_um
+        assert self.adjacency_radius_um is None, 'Not implemented yet'
         
         
         # TODO fifo size should be : chunksize+2*self.n_span
-        self.fifo_sigs = FifoBuffer((self.chunksize*2*self.n_span, self.nb_channel), self.dtype)
+        self.fifo_sigs = FifoBuffer((self.chunksize + 2*self.n_span, self.nb_channel), self.dtype)
+        #~ print('self.fifo size', self.fifo_sigs.buffer.shape, 'self.chunksize', self.chunksize)
         
-        self.mask_peaks = np.zeros((self.chunksize, self.nb_channel), dtype='bool')
+        self.mask_peaks = np.zeros((self.chunksize, self.nb_channel), dtype='uint8')  # bool
         
 
-        #~ #GPU buffers
+        #GPU buffers
         self.fifo_sigs_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.fifo_sigs.buffer)
         self.neighbours_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.neighbours)
         self.mask_peaks_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.mask_peaks)
@@ -523,8 +437,10 @@ class PeakDetectorSpatiotemporal_OpenCL(OpenCL_Helper):
         #~ self.peaks_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=self.peaks)
         
         kernel = self.kernel%dict(chunksize=self.chunksize, nb_channel=self.nb_channel, n_span=self.n_span,
-                    relative_threshold=relative_threshold, peak_sign={'+':1, '-':-1}[self.peak_sign], nb_neighbour=self.nb_neighbour)
-                    
+                    relative_threshold=self.relative_threshold, peak_sign={'+':1, '-':-1}[self.peak_sign], nb_neighbour=self.nb_neighbour)
+        #~ print(kernel)
+        #~ print(self.fifo_sigs.buffer.shape)
+        #~ exit()
         
         
         prg = pyopencl.Program(self.ctx, kernel)
@@ -545,6 +461,11 @@ class PeakDetectorSpatiotemporal_OpenCL(OpenCL_Helper):
                                                 __global  uchar *mask_peak){
     
         int pos = get_global_id(0);
+        
+        if (pos>=chunksize){
+            return;
+        }
+        
 
         float v;
         uchar peak;
@@ -567,7 +488,10 @@ class PeakDetectorSpatiotemporal_OpenCL(OpenCL_Helper):
             
             if (peak == 1){
                 for (int neighbour=0; neighbour<=nb_neighbour; neighbour++){
-                    chan_neigh = neighbours[chan * nb_neighbour +neighbour];
+                    // when neighbour then chan==chan_neigh (itself)
+                    chan_neigh = neighbours[chan * (nb_neighbour+1) +neighbour];
+                    
+                    if (chan_neigh<0){continue;}
                     
                     if (chan != chan_neigh){
                         if(peak_sign==1){
@@ -577,15 +501,19 @@ class PeakDetectorSpatiotemporal_OpenCL(OpenCL_Helper):
                             peak = peak && (v<=sigs[(pos + n_span)*nb_channel + chan_neigh]);
                         }
                     }
-
+                    
+                    if (peak==0){break;}
+                    
                     if(peak_sign==1){
                         for (int i=1; i<=n_span; i++){
                             peak = peak && (v>sigs[(pos + n_span - i)*nb_channel + chan_neigh]) && (v>=sigs[(pos + n_span + i)*nb_channel + chan_neigh]);
+                            if (peak==0){break;}
                         }
                     }
                     else if(peak_sign==-1){
                         for (int i=1; i<=n_span; i++){
                             peak = peak && (v<sigs[(pos + n_span - i)*nb_channel + chan_neigh]) && (v<=sigs[(pos + n_span + i)*nb_channel + chan_neigh]);
+                            if (peak==0){break;}
                         }
                     }
                 

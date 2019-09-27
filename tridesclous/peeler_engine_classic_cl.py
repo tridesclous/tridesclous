@@ -8,7 +8,7 @@ from .tools import make_color_dict
 from . import signalpreprocessor
 
 from .signalpreprocessor import signalpreprocessor_engines, processor_kernel
-from .peakdetector import  detect_peaks_in_chunk
+
 
 
 

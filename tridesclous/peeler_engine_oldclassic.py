@@ -79,7 +79,7 @@ class PeelerEngineOldClassic(PeelerEngineClassic):
             #~ exit()
             
             #~ t4 = time.perf_counter()
-            #~ print('  detect_peaks_in_chunk', (t4-t3)*1000.)pythran_loop_sparse_dist
+            #~ print('  detect peaks', (t4-t3)*1000.)pythran_loop_sparse_dist
             
             #~ if len(already_tested)>0:
                 #~ local_peaks_to_check = local_peaks_indexes[~np.in1d(local_peaks_indexes, already_tested)]
@@ -325,10 +325,10 @@ class PeelerEngineOldClassic(PeelerEngineClassic):
             #~ elif self.use_pythran_with_sparse:
             elif self.argmin_method == 'pythran':
                 s = pythran_tools.pythran_loop_sparse_dist(waveform, 
-                                    catalogue['centers0'],  catalogue['sparse_mask'])
+                                    catalogue['centers0'],  self.sparse_mask)
                 cluster_idx = np.argmin(s)
             elif self.argmin_method == 'numba':
-                s = numba_loop_sparse_dist(waveform, catalogue['centers0'],  catalogue['sparse_mask'])
+                s = numba_loop_sparse_dist(waveform, catalogue['centers0'],  self.sparse_mask)
                 cluster_idx = np.argmin(s)
             
             elif self.argmin_method == 'numpy':
@@ -412,7 +412,7 @@ class PeelerEngineOldClassic(PeelerEngineClassic):
         #~ keep_template = np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2)
         
         # criteria multi channel
-        mask = catalogue['sparse_mask'][cluster_idx]
+        mask = self.sparse_mask[cluster_idx]
         full_wf0 = catalogue['centers0'][cluster_idx,: , :][:, mask]
         full_wf1 = catalogue['centers1'][cluster_idx,: , :][:, mask]
         full_wf2 = catalogue['centers2'][cluster_idx,: , :][:, mask]

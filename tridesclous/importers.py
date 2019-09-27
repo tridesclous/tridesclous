@@ -172,7 +172,8 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
     return cc
     
 
-def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=300., relative_threshold=5., align_peak=False):
+def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=300., 
+                                relative_threshold=5., spike_per_cluster=300, align_peak=False):
     output_folder = Path(tdc_dirname)
     
     # save prb file:
@@ -229,14 +230,14 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=3
     
     peak_shift = {}
     if align_peak:
-        max_per_cluster = 300
+        t1 = time.perf_counter()
         # compute the shift to have the true max at -n_left
         for label in sorting.get_unit_ids():
             indexes = sorting.get_unit_spike_train(label)
             indexes = indexes[indexes<(sig_size-n_right-1)]
             indexes = indexes[indexes>(-n_left+1)]
-            if indexes.size>max_per_cluster:
-                keep = np.random.choice(indexes.size, max_per_cluster, replace=False)
+            if indexes.size>spike_per_cluster:
+                keep = np.random.choice(indexes.size, spike_per_cluster, replace=False)
                 indexes = indexes[keep]
             wfs = dataio.get_some_waveforms(seg_num=0, chan_grp=0, spike_indexes=indexes, n_left=n_left, n_right=n_right)
             wf0 = np.median(wfs, axis=0)
@@ -251,6 +252,8 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=3
             shift = ind_max + n_left
             peak_shift[label] = shift
             #~ print(label,'>', shift)
+        t2 = time.perf_counter()
+        print('align peaks', t2-t1)
     
     
     all_peaks = []
@@ -278,9 +281,18 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=3
     cc.on_new_cluster()
     #~ print(cc.clusters)
     
+    #  waveform per cluster selection
     t1 = time.perf_counter()
-    cc.extract_some_waveforms(n_left=n_left, n_right=n_right,   mode='rand', nb_max=10000)
-    cc.clean_waveforms(**params['clean_waveforms'])
+    global_keep = np.zeros(all_peaks.size, dtype='bool')
+    for label in sorting.get_unit_ids():
+        inds, = np.nonzero(all_peaks['cluster_label'] == label)
+        if inds.size>spike_per_cluster:
+            incluster_sel = np.random.choice(inds.size, spike_per_cluster, replace=False)
+            inds = inds[incluster_sel]
+        global_keep[inds] = True
+    index, = np.nonzero(global_keep)
+    cc.extract_some_waveforms(n_left=n_left, n_right=n_right, index=index, recompute_all_centroid=False)
+    cc.clean_waveforms(**params['clean_waveforms'], recompute_all_centroid=False)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
     

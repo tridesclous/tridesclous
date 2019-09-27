@@ -49,7 +49,7 @@ def get_normed_sigs(chunksize=None):
         sigs = sigs[:-(sigs.shape[0] % chunksize), :]
     
     nb_channel = sigs.shape[1]
-    print('nb_channel', nb_channel)
+    #~ print('nb_channel', nb_channel)
     
     geometry = np.zeros((nb_channel, 2))
     geometry[:, 0] = np.arange(nb_channel) * 50 # um spacing
@@ -231,15 +231,22 @@ def test_detect_spatiotemporal_peaks():
 
 def benchmark_speed():
     chunksize=1024
+    
+    #~ chunksize=1025
+    #~ chunksize= 1024 + 256
+    #~ chunksize=2048
+    #~ chunksize = 1024 * 10
+    #~ chunksize=950
+    
     sigs, sample_rate, normed_sigs, geometry = get_normed_sigs(chunksize=chunksize)
     
     #~ sigs = np
     
     #***for testing large channels num***
-    #~ sigs = np.tile(sigs, (1, 20))
-    #~ normed_sigs = np.tile(normed_sigs, (1, 20))
-    #~ geometry = np.zeros((sigs.shape[1], 2), dtype='float64')
-    #~ geometry[:, 0] = np.arange(sigs.shape[1]) * 50.
+    sigs = np.tile(sigs, (1, 20))
+    normed_sigs = np.tile(normed_sigs, (1, 20))
+    geometry = np.zeros((sigs.shape[1], 2), dtype='float64')
+    geometry[:, 0] = np.arange(sigs.shape[1]) * 50.
     #***
     
     
@@ -249,8 +256,8 @@ def benchmark_speed():
     args = (sample_rate, nb_channel, chunksize, 'float32', geometry)
     peak_detectors = {
         'numpy' : peakdetector_engines['numpy'](*args),
-        'opencl' : peakdetector_engines['opencl'](*args),
-        'spatiotemporal' : peakdetector_engines['spatiotemporal'](*args),
+        #~ 'opencl' : peakdetector_engines['opencl'](*args),
+        #~ 'spatiotemporal' : peakdetector_engines['spatiotemporal'](*args),
         'spatiotemporal_opencl' : peakdetector_engines['spatiotemporal_opencl'](*args),
     }
     
@@ -265,38 +272,113 @@ def benchmark_speed():
         
         
         peakdetector.change_params(**params)
+        #~ print(peakdetector.n_span, peakdetector.dtype)
             
         nloop = normed_sigs.shape[0]//chunksize
-        peaks = []
+        peak_inds = []
+        peak_chans = []
         t1 = time.perf_counter()
         for i in range(nloop):
-            #~ print(i)
             pos = (i+1)*chunksize
             chunk = normed_sigs[pos-chunksize:pos,:]
-            n_peaks, chunk_peaks = peakdetector.process_data(pos, chunk)
-            #~ print(n_peaks)
-            #~ print(chunk_peaks)
-            if chunk_peaks is not None:
-                #~ all_online_peaks.append(chunk_peaks['index'])
-                peaks.append(chunk_peaks)
-        peak_inds = np.concatenate(peaks)
-        online_peaks[name] = peak_inds
+            time_ind_peaks, chan_peak_index = peakdetector.process_data(pos, chunk)
+            if time_ind_peaks is not None:
+                peak_inds.append(time_ind_peaks)
+                if chan_peak_index is not None:
+                    peak_chans.append(chan_peak_index)
         t2 = time.perf_counter()
+        
+        peak_inds = np.concatenate(peak_inds)
+        
+        online_peaks[name] = peak_inds
+        
         print(name, ':' , peak_inds.size)
         print(name, 'process time', t2-t1) 
-
+        
+        
+        #~ peak_chans = np.concatenate(peak_chans)
         #~ fig, ax = plt.subplots()
         #~ plot_sigs = normed_sigs.copy()
         #~ for c in range(nb_channel):
             #~ plot_sigs[:, c] += c*30
         #~ ax.plot(plot_sigs, color='k')
         #~ ind_min = np.argmin(normed_sigs[peak_inds, :], axis=1)
-        #~ ampl = plot_sigs[peak_inds, ind_min]
+        #~ ampl = plot_sigs[peak_inds, peak_chans]
         #~ ax.scatter(peak_inds, ampl, color='r')
         #~ plt.show()        
         
 
+
+def test_peak_sign_symetry():
+    chunksize=1024
     
+    raw_sigs, sample_rate, normed_sigs, geometry = get_normed_sigs(chunksize=chunksize)
+    nb_channel = normed_sigs.shape[1]
+    #~ print('nb_channel', nb_channel)
+
+    args = (sample_rate, nb_channel, chunksize, 'float32', geometry)
+    peak_detectors = {
+        'numpy' : peakdetector_engines['numpy'](*args),
+        'opencl' : peakdetector_engines['opencl'](*args),
+        'spatiotemporal' : peakdetector_engines['spatiotemporal'](*args),
+        'spatiotemporal_opencl' : peakdetector_engines['spatiotemporal_opencl'](*args),
+    }
+    
+    params = dict(peak_span_ms = 0.9,
+                    relative_threshold = 5)
+                    #~ peak_sign = '-')
+    
+    
+    args = (sample_rate, nb_channel, chunksize, 'float32', geometry)
+    
+    engine_names = [
+        'numpy',
+        'opencl',
+        'spatiotemporal',
+        'spatiotemporal_opencl',
+    ]
+    
+    params = dict(peak_span_ms = 0.9, relative_threshold = 5)
+
+    online_peaks = {}
+    for name in engine_names:
+        peakdetector = peakdetector_engines[name](*args)
+        
+        for peak_sign in ['-', '+']:
+
+            if peak_sign=='-':
+                sigs = normed_sigs
+            elif peak_sign=='+':
+                sigs = -normed_sigs            
+        
+            peakdetector.change_params(peak_sign=peak_sign, **params)
+            
+            nloop = normed_sigs.shape[0]//chunksize
+            peaks = []
+            t1 = time.perf_counter()
+            for i in range(nloop):
+                #~ print(i)
+                pos = (i+1)*chunksize
+                chunk = sigs[pos-chunksize:pos,:]
+                time_ind_peaks, chan_peak_index = peakdetector.process_data(pos, chunk)
+                #~ print(n_peaks)
+                #~ print(chunk_peaks)
+                if time_ind_peaks is not None:
+                    #~ all_online_peaks.append(chunk_peaks['index'])
+                    peaks.append(time_ind_peaks)
+            peak_inds = np.concatenate(peaks)
+            online_peaks[name, peak_sign] = peak_inds
+            t2 = time.perf_counter()
+            print(name, 'peak_sign', peak_sign,':' , peak_inds.size, 'unique peak size', np.unique(peak_inds).size)
+            #~ print(name, 'process time', t2-t1) 
+
+        assert np.array_equal(online_peaks[name, '-'], online_peaks[name, '+'])
+    
+    assert np.array_equal(online_peaks['numpy', '-'], online_peaks['opencl', '-'])
+    assert np.array_equal(online_peaks['spatiotemporal', '-'], online_peaks['spatiotemporal_opencl', '-'])
+    
+    
+        
     
 
     
@@ -307,4 +389,6 @@ if __name__ == '__main__':
     
     
     benchmark_speed()
+    
+    #~ test_peak_sign_symetry()
     
