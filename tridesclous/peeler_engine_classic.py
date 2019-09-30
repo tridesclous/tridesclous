@@ -74,11 +74,42 @@ class PeelerEngineClassic(PeelerEngineGeneric):
             self.cl_local_size = (centers.shape[0], 1) # faster a GPU because of memory access
             #~ self.cl_local_size = (1, centers.shape[2])
 
+
+    def initialize_before_each_segment(self, **kargs):
+        PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
+        
+        self.mask_not_already_tested = np.ones(self.fifo_residuals.shape[0] - 2 * self.n_span, dtype='bool')
+        
+
+    def detect_local_peaks_before_peeling_loop(self):
+        # negative mask 1: not tested 0: already tested
+        self.mask_not_already_tested[:] = True
+        self.local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+        
+        
+        
+        #~ peak_inds,  =  np.nonzero(self.local_peaks_mask )
+        #~ peak_chans =  np.argmin(self.fifo_residuals[peak_inds, :], axis=1)
+        #~ peak_inds = peak_inds + self.n_span
+        #~ fig, ax = plt.subplots()
+        #~ plot_sigs = self.fifo_residuals.copy()
+        #~ for c in range(self.nb_channel):
+            #~ plot_sigs[:, c] += c*30
+        #~ ax.plot(plot_sigs, color='k')
+        #~ ampl = plot_sigs[peak_inds, peak_chans]
+        #~ ax.scatter(peak_inds, ampl, color='r')
+        #~ for peak_ind in peak_inds:
+            #~ ax.axvline(peak_ind)
+        
+        #~ plt.show()        
+
+
     
     def select_next_peak(self):
         # TODO find faster
         local_peaks_indexes,  = np.nonzero(self.local_peaks_mask & self.mask_not_already_tested)
-        print(local_peaks_indexes.size)
+        
+        #~ print(local_peaks_indexes.size)
         #~ print('select_next_peak')
         #~ print(local_peaks_indexes + self.n_span )
         if local_peaks_indexes.size>0:
@@ -123,7 +154,9 @@ class PeelerEngineClassic(PeelerEngineGeneric):
             self.mask_not_already_tested[peak_ind - self.peak_width - self.n_span:peak_ind + self.peak_width - self.n_span] = True
     
     def get_no_label_peaks(self):
-        nolabel_indexes, = np.nonzero(~self.mask_not_already_tested)
+        # nolabel_indexes, = np.nonzero(~self.mask_not_already_tested)
+        mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+        nolabel_indexes, = np.nonzero(mask)
         nolabel_indexes += self.n_span
         nolabel_indexes = nolabel_indexes[nolabel_indexes<(self.chunksize+self.n_span)]
         bad_spikes = np.zeros(nolabel_indexes.shape[0], dtype=_dtype_spike)
@@ -134,6 +167,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
 
 
     def get_best_template(self, left_ind, peak_chan):
+        
         assert peak_chan is None
         
         waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
@@ -169,6 +203,32 @@ class PeelerEngineClassic(PeelerEngineGeneric):
         else:
             raise(NotImplementedError())
         
+        #~ print('get_best_template', left_ind-self.n_left)
+        #~ if 16000 < (left_ind-self.n_left) <16400:
+        
+        #~ if self._plot_debug:
+            #~ fig, ax = plt.subplots()
+            #~ chan_order = np.argsort(self.distances[0, :])
+            #~ channels = self.channels_adjacency[chan_ind]
+            #~ channels = chan_order
+            #~ wf = waveform[:, channels]
+            #~ wf0 = self.catalogue['centers0'][cluster_idx, :, :][:, channels]
+            #~ wf = waveform
+            #~ wf0 = self.catalogue['centers0'][cluster_idx, :, :]
+            #~ wf= waveform
+            
+            #~ ax.plot(wf.T.flatten(), color='k')
+            #~ ax.plot(wf0.T.flatten(), color='m')
+            
+            #~ plot_chan = channels.tolist().index(chan_ind)
+            #~ plot_chan = chan_ind
+            #~ ax.axvline(plot_chan * self.peak_width - self.n_left)
+            #~ ax.set_title(f'cluster_idx {cluster_idx}')
+            
+            #~ plt.show()
+            
+        
+        
         #~ label = self.catalogue['cluster_labels'][cluster_idx]
         return cluster_idx
 
@@ -177,6 +237,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
 
 
     def accept_tempate(self, left_ind, cluster_idx, jitter):
+        #~ self._debug_nb_accept_tempate += 1
         #~ import matplotlib.pyplot as plt
         # criteria mono channel = old implementation
         #~ keep_template = np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2)
@@ -210,7 +271,12 @@ class PeelerEngineClassic(PeelerEngineGeneric):
         crietria_weighted = (wf_nrj>residual_nrj).astype('float') * weight
         accept_template = np.sum(crietria_weighted) >= thresh * np.sum(weight)
 
+        label = self.catalogue['clusters'][cluster_idx]['cluster_label']
         #~ if True:
+        #~ if np.random.rand()<0.05:
+        #~ if label == 151:
+        #~ if self._plot_debug:
+            #~ print('label == 151', 'cluster_idx', cluster_idx)
             
             #~ max_chan_ind = self.catalogue['clusters'][cluster_idx]['max_on_channel']
             #~ fig, ax = plt.subplots()

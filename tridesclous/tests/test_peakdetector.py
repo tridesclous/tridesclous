@@ -255,7 +255,7 @@ def benchmark_speed():
 
     args = (sample_rate, nb_channel, chunksize, 'float32', geometry)
     peak_detectors = {
-        'numpy' : peakdetector_engines['numpy'](*args),
+        #~ 'numpy' : peakdetector_engines['numpy'](*args),
         #~ 'opencl' : peakdetector_engines['opencl'](*args),
         #~ 'spatiotemporal' : peakdetector_engines['spatiotemporal'](*args),
         'spatiotemporal_opencl' : peakdetector_engines['spatiotemporal_opencl'](*args),
@@ -284,6 +284,7 @@ def benchmark_speed():
             time_ind_peaks, chan_peak_index = peakdetector.process_data(pos, chunk)
             if time_ind_peaks is not None:
                 peak_inds.append(time_ind_peaks)
+                
                 if chan_peak_index is not None:
                     peak_chans.append(chan_peak_index)
         t2 = time.perf_counter()
@@ -295,17 +296,17 @@ def benchmark_speed():
         print(name, ':' , peak_inds.size)
         print(name, 'process time', t2-t1) 
         
-        
-        #~ peak_chans = np.concatenate(peak_chans)
-        #~ fig, ax = plt.subplots()
-        #~ plot_sigs = normed_sigs.copy()
-        #~ for c in range(nb_channel):
-            #~ plot_sigs[:, c] += c*30
-        #~ ax.plot(plot_sigs, color='k')
-        #~ ind_min = np.argmin(normed_sigs[peak_inds, :], axis=1)
-        #~ ampl = plot_sigs[peak_inds, peak_chans]
-        #~ ax.scatter(peak_inds, ampl, color='r')
-        #~ plt.show()        
+
+        peak_chans = np.concatenate(peak_chans)
+        fig, ax = plt.subplots()
+        plot_sigs = normed_sigs.copy()
+        for c in range(nb_channel):
+            plot_sigs[:, c] += c*30
+        ax.plot(plot_sigs, color='k')
+        ##ind_min = np.argmin(normed_sigs[peak_inds, :], axis=1)
+        ampl = plot_sigs[peak_inds, peak_chans]
+        ax.scatter(peak_inds, ampl, color='r')
+        plt.show()        
         
 
 

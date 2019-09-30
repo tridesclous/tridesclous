@@ -27,6 +27,8 @@ except ImportError:
     HAVE_NUMBA = False
 
 
+import matplotlib.pyplot as plt
+
 
 class PeelerEngineBase(OpenCL_Helper):
     def change_params(self, catalogue=None, chunksize=1024, 
@@ -194,7 +196,7 @@ class PeelerEngineBase(OpenCL_Helper):
         self.fifo_residuals = np.zeros((self.n_side+self.chunksize, nb_channel), 
                                                                 dtype=self.internal_dtype)
         
-        self.mask_not_already_tested = np.ones(self.fifo_residuals.shape[0] - 2 * self.n_span, dtype='bool')
+        
 
     def get_remaining_spikes(self):
         if len(self.near_border_good_spikes)>0:
@@ -234,11 +236,8 @@ class PeelerEngineGeneric(PeelerEngineBase):
         
         
         
-        # negative mask 1: not tested 0: already tested
-        self.mask_not_already_tested[:] = True
-        
-        self.local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
-        
+        self.detect_local_peaks_before_peeling_loop()
+        #~ self._debug_nb_accept_tempate = 0
         
         good_spikes = []
         
@@ -259,6 +258,12 @@ class PeelerEngineGeneric(PeelerEngineBase):
                 #~ if peak_ind == LABEL_NO_MORE_PEAK:
                     #~ print('break inner loop 1')
                     #~ break
+                
+                
+                if 16000 <(peak_ind+to_local_shift)<16400:
+                    self._plot_debug = True
+                else:
+                    self._plot_debug = True
                 
                 t1 = time.perf_counter()
                 spike = self.classify_and_align_next_spike(peak_ind, peak_chan)
@@ -283,6 +288,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
                     # remove from residulals
                     self.on_accepted_spike(spike)
                 else:
+                    
                     self.set_already_tested(peak_ind, peak_chan)
                     
 
@@ -313,6 +319,29 @@ class PeelerEngineGeneric(PeelerEngineBase):
             
             if nb_good_spike == 0:
                 #~ print('break main loop')
+
+                
+                #~ fig, ax = plt.subplots()
+                #~ plot_sigs = self.fifo_residuals.copy()
+                #~ for c in range(self.nb_channel):
+                    #~ plot_sigs[:, c] += c*30
+                #~ ax.plot(plot_sigs, color='k')
+                #~ ax.axvline(self.fifo_residuals.shape[0] - self.n_right)
+                #~ ax.scatter([left_ind-self.n_left], [self.fifo_residuals[left_ind-self.n_left, max_chan_ind]], color='r')
+                
+                #~ bad_spikes = self.get_no_label_peaks()
+                #~ for s in self.get_no_label_peaks():
+                    #~ ax.axvline(s['index'], color='r')
+                #~ mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+                #~ nolabel_indexes, chan_indexes = np.nonzero(mask)
+                #~ nolabel_indexes = nolabel_indexes + self.n_span
+                #~ ax.scatter(nolabel_indexes, plot_sigs[nolabel_indexes, chan_indexes], color='r')
+                    
+
+                
+                
+                plt.show()                
+                
                 break
             else:
                 
@@ -320,8 +349,12 @@ class PeelerEngineGeneric(PeelerEngineBase):
                 
                 #~ t2 = time.perf_counter()
                 #~ print('  update mask', (t2-t1)*1000)
-
-
+        
+        
+        if self._plot_debug:
+            self._plot_empty_fifo()
+        
+        #~ print(self._debug_nb_accept_tempate)
         #~ t4 = time.perf_counter()
         #~ print('mainloop classify_and_align some spike', (t4-t3)*1000)
         #~ print('nb_good_spike', len(good_spikes), 'n_loop', n_loop, 'per spike', (t4-t3)*1000/len(good_spikes))
@@ -350,27 +383,39 @@ class PeelerEngineGeneric(PeelerEngineBase):
         all_spikes = all_spikes.take(np.argsort(all_spikes['index']))
         self.total_spike += all_spikes.size
         
+        #~ print(good_spikes.size, all_spikes.size)
+        #~ exit()
         return abs_head_index, preprocessed_chunk, self.total_spike, all_spikes
 
     def classify_and_align_next_spike(self, proposed_peak_ind, peak_chan):
+        #~ if self._plot_debug:
+            #~ print('classify_and_align_next_spike')
         # left_ind is the waveform left border
         left_ind = proposed_peak_ind + self.n_left
 
-        if left_ind+self.peak_width+self.maximum_jitter_shift+1>=self.fifo_residuals.shape[0]:
+        #~ if left_ind+self.peak_width+self.maximum_jitter_shift+1>=self.fifo_residuals.shape[0]:
+        if left_ind+self.peak_width + 1>=self.fifo_residuals.shape[0]:
             # TODO : remove this because maybe unecessry
             # too near right limits no label
             label = LABEL_RIGHT_LIMIT
             jitter = 0
-        elif left_ind<=self.maximum_jitter_shift:
+            #~ if self._plot_debug:
+                #~ print('LABEL_RIGHT_LIMIT', proposed_peak_ind, peak_chan)
+        #~ elif left_ind<=self.maximum_jitter_shift:
+        elif left_ind<0:
             # TODO : remove this because maybe unecessry
             # too near left limits no label
             #~ print('     LABEL_LEFT_LIMIT', left_ind)
             label = LABEL_LEFT_LIMIT
             jitter = 0
+            #~ if self._plot_debug:
+                #~ print('LABEL_LEFT_LIMIT', proposed_peak_ind, peak_chan)
         elif self.catalogue['centers0'].shape[0]==0:
             # empty catalogue
             label  = LABEL_UNCLASSIFIED
             jitter = 0
+            #~ if self._plot_debug:
+                #~ print('LABEL_UNCLASSIFIED', proposed_peak_ind, peak_chan)
         else:
             waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
             
@@ -378,6 +423,9 @@ class PeelerEngineGeneric(PeelerEngineBase):
                     np.any((waveform>self.alien_value_threshold) | (waveform<-self.alien_value_threshold)) :
                 label  = LABEL_ALIEN
                 jitter = 0
+                #~ if self._plot_debug:
+                    #~ print('LABEL_ALIEN', proposed_peak_ind, peak_chan)
+
             else:
                 
                 t1 = time.perf_counter()
@@ -392,6 +440,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
                 
                 
                 #~ t1 = time.perf_counter()
+                #~ print('left_ind', left_ind, 'proposed_peak_ind', proposed_peak_ind)
                 jitter = self.estimate_jitter(left_ind, cluster_idx)
                 #~ t2 = time.perf_counter()
                 #~ print('    estimate_jitter', (t2-t1)*1000)
@@ -447,6 +496,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
                     # security to not be outside the fifo
                     if np.abs(shift) >self.maximum_jitter_shift:
                         label = LABEL_MAXIMUM_SHIFT
+                        
                     elif (left_ind+shift+self.peak_width)>=self.fifo_residuals.shape[0]:
                         # normally this should be resolve in the next chunk
                         label = LABEL_RIGHT_LIMIT
@@ -461,8 +511,39 @@ class PeelerEngineGeneric(PeelerEngineBase):
             left_ind_check = left_ind - np.round(jitter).astype('int64')
             if left_ind_check<0:
                 label = LABEL_LEFT_LIMIT
+                if self._plot_debug:
+                    print('!!!!!!!ici LABEL_LEFT_LIMIT', label)
+
             elif (left_ind_check+self.peak_width) >=self.fifo_residuals.shape[0]:
                 label = LABEL_RIGHT_LIMIT
+                if self._plot_debug:
+                    print('!!!!!!!ici LABEL_RIGHT_LIMIT', label)
+                
+        
+        #~ if self._plot_debug:
+            #~ if label in (LABEL_LEFT_LIMIT, LABEL_RIGHT_LIMIT, LABEL_UNCLASSIFIED):
+                #~ fig, ax = plt.subplots()
+                #~ waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
+                #~ ax.plot(waveform.T.flatten())
+                
+                #~ if label == LABEL_LEFT_LIMIT:
+                    #~ ax.set_title('LABEL_LEFT_LIMIT')
+                #~ if label == LABEL_RIGHT_LIMIT:
+                    #~ ax.set_title('LABEL_RIGHT_LIMIT')
+                #~ if label == LABEL_UNCLASSIFIED:
+                    #~ ax.set_title('LABEL_UNCLASSIFIED')
+                    
+
+
+                #~ max_chan_ind = np.argmax(np.abs(waveform[-self.n_left, :]))
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(self.fifo_residuals[:, max_chan_ind])
+                
+                #~ ax.scatter([left_ind-self.n_left], [self.fifo_residuals[left_ind-self.n_left, max_chan_ind]], color='r')
+                
+                
+                #~ plt.show()
+        
         
         if label < 0:
             # set peak tested to not test it again

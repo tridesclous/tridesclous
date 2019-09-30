@@ -311,6 +311,7 @@ def get_mask_spatiotemporal_peaks(sigs, n_span, thresh, peak_sign, neighbours):
     elif peak_sign == '-':
         mask_peaks = sig_center<-thresh
         for chan in range(sigs.shape[1]):
+            #~ print('chan', chan, 'neigh', neighbours[chan, :])
             for neighbour in neighbours[chan, :]:
                 for i in range(n_span):
                     if chan != neighbour:
@@ -383,10 +384,8 @@ class PeakDetectorSpatiotemporal_OpenCL(PeakDetectorSpatiotemporal, OpenCL_Helpe
         sigs = self.fifo_sigs.get_data(pos-(newbuf.shape[0]+2*self.n_span), pos)
         
         mask_peaks = self.get_mask_peaks_in_chunk(sigs)
-        #~ time_ind_peaks, chan_ind_peaks = np.nonzero(mask_peaks)
-        time_ind_peaks, = np.nonzero(np.sum(mask_peaks, axis=1))
-        chan_ind_peaks = None
-        
+        time_ind_peaks, chan_ind_peaks = np.nonzero(mask_peaks)
+
 
         if time_ind_peaks.size>0:
             time_ind_peaks += (pos - newbuf.shape[0] - self.n_span)

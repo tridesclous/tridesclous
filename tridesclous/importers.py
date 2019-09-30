@@ -172,8 +172,7 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
     return cc
     
 
-def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=300., 
-                                relative_threshold=5., spike_per_cluster=300, align_peak=False):
+def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_cluster=300, align_peak=False, catalogue_params={}):
     output_folder = Path(tdc_dirname)
     
     # save prb file:
@@ -200,6 +199,10 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=3
     print(dataio)
     
     params = get_auto_params_for_catalogue(dataio)
+    for k in params:
+        if k in catalogue_params:
+            params[k].update(catalogue_params[k])
+    
     
     cc = CatalogueConstructor(dataio=dataio)
     
@@ -241,11 +244,6 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=3
                 indexes = indexes[keep]
             wfs = dataio.get_some_waveforms(seg_num=0, chan_grp=0, spike_indexes=indexes, n_left=n_left, n_right=n_right)
             wf0 = np.median(wfs, axis=0)
-            
-            #  with sum rectified
-            #~ sel_chan = np.max(np.abs(wf0), axis=0) > relative_threshold
-            #~ sumed = np.sum(wf0[:, sel_chan], axis=1)
-            #~ ind_max = np.argmax(np.abs(sumed))
             chan_max = np.argmax(np.max(np.abs(wf0), axis=0))
             ind_max = np.argmax(np.abs(wf0[:, chan_max]))
             

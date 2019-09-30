@@ -51,29 +51,67 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
 
         p = dict(self.catalogue['peak_detector_params'])
         _ = p.pop('peakdetector_engine', 'numpy')
-        #~ self.peakdetector = PeakDetectorSpatiotemporal(self.sample_rate, self.nb_channel,
-                        #~ self.chunksize+self.n_side, self.internal_dtype, self.geometry)
+        
+        # DEBUG
+        p['nb_neighbour'] = 4
+        
+        
+        self.peakdetector = PeakDetectorSpatiotemporal(self.sample_rate, self.nb_channel,
+                        self.fifo_residuals.shape[0]-2*self.n_span, self.internal_dtype, self.geometry)
         
         # TODO size fido
-        self.peakdetector = PeakDetectorSpatiotemporal_OpenCL(self.sample_rate, self.nb_channel,
-                                                        self.fifo_residuals.shape[0]-2*self.n_span, self.internal_dtype, self.geometry)
+        #~ self.peakdetector = PeakDetectorSpatiotemporal_OpenCL(self.sample_rate, self.nb_channel,
+                                                        #~ self.fifo_residuals.shape[0]-2*self.n_span, self.internal_dtype, self.geometry)
         self.peakdetector.change_params(**p)
 
         
         self.mask_not_already_tested = np.ones((self.fifo_residuals.shape[0] - 2 * self.n_span,self.nb_channel),  dtype='bool')
 
-        d = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
+        self.distances = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
         self.channels_adjacency = {}
         for c in range(self.nb_channel):
-            nearest, = np.nonzero(d[c, :]<self.adjacency_radius_um)
+            nearest, = np.nonzero(self.distances[c, :]<self.adjacency_radius_um)
             self.channels_adjacency[c] = nearest
             #~ print(c, nearest)
+
+    def detect_local_peaks_before_peeling_loop(self):
+        self.mask_not_already_tested[:] = True
+        self.local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+        
+    def NEW_detect_local_peaks_before_peeling_loop(self):
+        mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+        local_peaks_indexes, chan_indexes  = np.nonzero(mask)
+        local_peaks_indexes += self.n_span
+        amplitudes = np.abs(self.fifo_residuals[local_peaks_indexes, chan_indexes])
+        order = np.argsort(amplitudes)[::-1]
+        self.pending_peaks = list(zip(local_peaks_indexes[order], chan_indexes[order]))
+        self.already_tested = []
+    
 
     def select_next_peak(self):
         #~ print('select_next_peak')
         # TODO find faster
+        
+
+        #DEBUG
+        #~ peak_inds, peak_chans =  np.nonzero(self.local_peaks_mask & self.mask_not_already_tested )
+        #~ peak_inds = peak_inds + self.n_span
+        #~ fig, ax = plt.subplots()
+        #~ plot_sigs = self.fifo_residuals.copy()
+        #~ d = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
+        #~ chan_order = np.argsort(d[0, :])
+        #~ print(chan_order)
+        #~ for c in chan_order:
+            #~ plot_sigs[:, c] += c*30
+        #~ ax.plot(plot_sigs, color='k')
+        #~ ampl = plot_sigs[peak_inds, peak_chans]
+        #~ ax.scatter(peak_inds, ampl, color='r')
+        #~ ax.axhline(-self.peakdetector.relative_threshold, color='m')
+        #~ plt.show()        
+        # END DEBUG
+        
         local_peaks_indexes, chan_indexes  = np.nonzero(self.local_peaks_mask & self.mask_not_already_tested)
-        print(local_peaks_indexes.size)
+        
         #~ print('select_next_peak')
         #~ print(local_peaks_indexes + self.n_span )
         if local_peaks_indexes.size>0:
@@ -82,6 +120,15 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
             ind = np.argmax(amplitudes)
             peak_ind = local_peaks_indexes[ind]
             chan_ind = chan_indexes[ind]
+            return peak_ind, chan_ind
+        else:
+            return LABEL_NO_MORE_PEAK, None
+
+    def NEW_select_next_peak(self):
+        #~ print(len(self.pending_peaks))
+        if len(self.pending_peaks)>0:
+            peak_ind, chan_ind = self.pending_peaks[0]
+            self.pending_peaks = self.pending_peaks[1:]
             return peak_ind, chan_ind
         else:
             return LABEL_NO_MORE_PEAK, None
@@ -101,9 +148,26 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         mask = self.sparse_mask[cluster_idx, :]
         for c in np.nonzero(mask)[0]:
             self.mask_not_already_tested[peak_ind + self.n_left - self.n_span:peak_ind + self.n_right- self.n_span, c] = False
+
+    def NEW_set_already_tested_spike_zone(self, peak_ind, cluster_idx):
+        mask = self.sparse_mask[cluster_idx, :]
+        #~ keep = [not((ind == peak_ind) and (mask[chan_ind])) for ind, chan_ind in self.pending_peaks]
+        keep = [(ind != peak_ind) and not(mask[chan_ind]) for ind, chan_ind in self.pending_peaks]
+        
+        pending_peaks_ = []
+        for p, ok in zip(self.pending_peaks, keep):
+            if ok:
+                pending_peaks_.append(p)
+            else:
+                self.already_tested.append(p)
     
     def set_already_tested(self, peak_ind, peak_chan):
         self.mask_not_already_tested[peak_ind - self.n_span, peak_chan] = False
+
+    def NEW_set_already_tested(self, peak_ind, peak_chan):
+        self.mask_not_already_tested[peak_ind - self.n_span, peak_chan] = False
+        self.pending_peaks = [p for p in self.pending_peaks if (p[0]!=peak_ind) and (peak_chan!=p[1])]
+        self.already_tested.append((peak_ind, peak_chan))
 
 
     def reset_to_not_tested(self, good_spikes):
@@ -116,9 +180,32 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
             mask = self.sparse_mask[cluster_idx, :]
             for c in np.nonzero(mask)[0]:
                 self.mask_not_already_tested[peak_ind - self.peak_width - self.n_span:peak_ind + self.peak_width - self.n_span, c] = True
-    
+
+    def NEW_reset_to_not_tested(self, good_spikes):
+        #~ self.already_tested = []
+        for spike in good_spikes:
+            cluster_idx = self.catalogue['label_to_index'][spike.cluster_label]
+            mask = self.sparse_mask[cluster_idx, :]
+            self.already_tested = [ p for p in self.already_tested if not(((p[0]-spike.index)<self.peak_width)  and mask[p[1]] ) ]
+        
+        # BAD IDEA because all peak are tested again and again after loop
+        mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+        local_peaks_indexes, chan_indexes  = np.nonzero(mask)
+        local_peaks_indexes += self.n_span
+        amplitudes = np.abs(self.fifo_residuals[local_peaks_indexes, chan_indexes])
+        order = np.argsort(amplitudes)[::-1]
+        possible_pending_peaks = list(zip(local_peaks_indexes[order], chan_indexes[order]))
+        
+        self.pending_peaks = []
+        for peak in possible_pending_peaks:
+            ok = all((peak[0] != p[0]) and (peak[1] != p[1]) for p in self.already_tested)
+            self.pending_peaks.append(peak)
+
     def get_no_label_peaks(self):
-        nolabel_indexes, chan_indexes = np.nonzero(~self.mask_not_already_tested)
+        mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+        nolabel_indexes, chan_indexes = np.nonzero(mask)
+        #~ nolabel_indexes, chan_indexes = np.nonzero(~self.mask_not_already_tested)
+        
         nolabel_indexes += self.n_span
         nolabel_indexes = nolabel_indexes[nolabel_indexes<(self.chunksize+self.n_span)]
         bad_spikes = np.zeros(nolabel_indexes.shape[0], dtype=_dtype_spike)
@@ -127,7 +214,6 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         return bad_spikes
 
     def get_best_template(self, left_ind, chan_ind):
-        
         assert self.argmin_method == 'numba'
         
         waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
@@ -198,7 +284,9 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         
         
         #~ fig, ax = plt.subplots()
+        #~ chan_order = np.argsort(self.distances[0, :])
         #~ channels = self.channels_adjacency[chan_ind]
+        #~ channels = chan_order
         #~ wf = waveform[:, channels]
         #~ wf0 = self.catalogue['centers0'][cluster_idx, :, :][:, channels]
         #~ wf = waveform
@@ -219,6 +307,8 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
 
 
     def accept_tempate(self, left_ind, cluster_idx, jitter):
+        #~ self._debug_nb_accept_tempate += 1
+        
         # criteria mono channel = old implementation
         #~ keep_template = np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2)
         
@@ -288,5 +378,20 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         return accept_template
 
 
+    def _plot_empty_fifo(self):
+        fig, ax = plt.subplots()
+        plot_sigs = self.fifo_residuals.copy()
+        chan_order = np.argsort(self.distances[0, :])
+        #~ for c in range(self.nb_channel):
+        for c in chan_order:
+            plot_sigs[:, c] += c*30
+        ax.plot(plot_sigs, color='k')
+        ax.axvline(self.fifo_residuals.shape[0] - self.n_right)
+
+        mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+        nolabel_indexes, chan_indexes = np.nonzero(mask)
+        nolabel_indexes += self.n_span
+        
+        ax.scatter(nolabel_indexes, plot_sigs[nolabel_indexes, chan_indexes], color='r')
 
 
