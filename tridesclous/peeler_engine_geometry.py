@@ -56,12 +56,12 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         p['nb_neighbour'] = 4
         
         
-        self.peakdetector = PeakDetectorSpatiotemporal(self.sample_rate, self.nb_channel,
-                        self.fifo_residuals.shape[0]-2*self.n_span, self.internal_dtype, self.geometry)
+        #~ self.peakdetector = PeakDetectorSpatiotemporal(self.sample_rate, self.nb_channel,
+                        #~ self.fifo_residuals.shape[0]-2*self.n_span, self.internal_dtype, self.geometry)
         
         # TODO size fido
-        #~ self.peakdetector = PeakDetectorSpatiotemporal_OpenCL(self.sample_rate, self.nb_channel,
-                                                        #~ self.fifo_residuals.shape[0]-2*self.n_span, self.internal_dtype, self.geometry)
+        self.peakdetector = PeakDetectorSpatiotemporal_OpenCL(self.sample_rate, self.nb_channel,
+                                                        self.fifo_residuals.shape[0]-2*self.n_span, self.internal_dtype, self.geometry)
         self.peakdetector.change_params(**p)
 
         

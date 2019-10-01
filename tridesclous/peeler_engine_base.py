@@ -260,10 +260,11 @@ class PeelerEngineGeneric(PeelerEngineBase):
                     #~ break
                 
                 
-                if 16000 <(peak_ind+to_local_shift)<16400:
-                    self._plot_debug = True
-                else:
-                    self._plot_debug = True
+                #~ if 16000 <(peak_ind+to_local_shift)<16400:
+                    #~ self._plot_debug = True
+                #~ else:
+                    #~ self._plot_debug = True
+                self._plot_debug = False
                 
                 t1 = time.perf_counter()
                 spike = self.classify_and_align_next_spike(peak_ind, peak_chan)
