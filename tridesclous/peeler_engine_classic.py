@@ -78,7 +78,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
     def initialize_before_each_segment(self, **kargs):
         PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
         
-        self.mask_not_already_tested = np.ones(self.fifo_residuals.shape[0] - 2 * self.n_span, dtype='bool')
+        self.mask_not_already_tested = np.ones(self.fifo_size - 2 * self.n_span, dtype='bool')
         
 
     def detect_local_peaks_before_peeling_loop(self):
@@ -107,13 +107,18 @@ class PeelerEngineClassic(PeelerEngineGeneric):
     
     def select_next_peak(self):
         # TODO find faster
+        
         local_peaks_indexes,  = np.nonzero(self.local_peaks_mask & self.mask_not_already_tested)
+        if self._plot_debug:
+            print('select_next_peak', local_peaks_indexes + self.n_span)
         
         #~ print(local_peaks_indexes.size)
         #~ print('select_next_peak')
         #~ print(local_peaks_indexes + self.n_span )
         if local_peaks_indexes.size>0:
             local_peaks_indexes += self.n_span
+            #~ if self._plot_debug:
+                #~ print('select_next_peak', local_peaks_indexes)
             amplitudes = np.max(np.abs(self.fifo_residuals[local_peaks_indexes, :]), axis=1)
             ind = np.argmax(amplitudes)
             return local_peaks_indexes[ind], None
@@ -143,15 +148,21 @@ class PeelerEngineClassic(PeelerEngineGeneric):
         self.mask_not_already_tested[peak_ind + self.n_left - self.n_span:peak_ind + self.n_right- self.n_span] = False
         
     def reset_to_not_tested(self, good_spikes):
+        self.local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+        #~ self.mask_not_already_tested[:] = True
         for spike in good_spikes:
             peak_ind = spike.index
-            # TODO here make enlarge a bit with maximum_jitter_shift
-            sl1 = slice(peak_ind + self.n_left - 1 - self.n_span, peak_ind + self.n_right + 1 + self.n_span)
-            sl2 = slice(peak_ind + self.n_left - 1 - self.n_span, peak_ind + self.n_right + 1- self.n_span)
-            self.local_peaks_mask[sl2] = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals[sl1, :])
+            self.mask_not_already_tested[peak_ind + self.n_left - self.n_span:peak_ind + self.n_right- self.n_span] = True
             
-            # set neighboor untested
-            self.mask_not_already_tested[peak_ind - self.peak_width - self.n_span:peak_ind + self.peak_width - self.n_span] = True
+        #~ for spike in good_spikes:
+            #~ peak_ind = spike.index
+            #~ # TODO here make enlarge a bit with maximum_jitter_shift
+            #~ sl1 = slice(peak_ind + self.n_left - 1 - self.n_span, peak_ind + self.n_right + 1 + self.n_span)
+            #~ sl2 = slice(peak_ind + self.n_left - 1 - self.n_span, peak_ind + self.n_right + 1- self.n_span)
+            #~ self.local_peaks_mask[sl2] = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals[sl1, :])
+            
+            #~ # set neighboor untested
+            #~ self.mask_not_already_tested[peak_ind - self.peak_width - self.n_span:peak_ind + self.peak_width - self.n_span] = True
     
     def get_no_label_peaks(self):
         # nolabel_indexes, = np.nonzero(~self.mask_not_already_tested)
@@ -315,9 +326,85 @@ class PeelerEngineClassic(PeelerEngineGeneric):
         
         
         return accept_template
+    
+    
+    def _plot_before_peeling_loop(self):
+        fig, ax = plt.subplots()
+        plot_sigs = self.fifo_residuals.copy()
+        
+        self._plot_sigs_before = plot_sigs
+        #~ chan_order = np.argsort(self.distances[0, :])
+        
+        for c in range(self.nb_channel):
+        #~ for c in chan_order:
+            plot_sigs[:, c] += c*30
+        
+        ax.plot(plot_sigs, color='k')
 
+        ax.axvline(self.fifo_size - self.n_right, color='r')
+        ax.axvline(-self.n_left, color='r')
 
+        mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+        nolabel_indexes, = np.nonzero(mask)
+        nolabel_indexes += self.n_span
+        
+        for ind in nolabel_indexes:
+            ax.axvline(ind, ls='--')
+        
+        #~ plt.show()
+    
+    def _plot_label_unclassified(self, left_ind, peak_chan, cluster_idx, jitter):
+        fig, ax = plt.subplots()
+        
+        wf = self.fifo_residuals[left_ind:left_ind+self.peak_width, :]
+        wf0 = self.catalogue['centers0'][cluster_idx, :, :]
+        
+        ax.plot(wf.T.flatten(), color='b')
+        ax.plot(wf0.T.flatten(), color='g')
+        
+        ax.set_title(f'label_unclassified {left_ind-self.n_left} {cluster_idx}')
 
+    def _plot_after_peeling_loop(self, good_spikes):
+        fig, ax = plt.subplots()
+        plot_sigs = self.fifo_residuals.copy()
+        
+        
+        #~ chan_order = np.argsort(self.distances[0, :])
+        
+        for c in range(self.nb_channel):
+        #~ for c in chan_order:
+            plot_sigs[:, c] += c*30
+        ax.plot(plot_sigs, color='k')
+        
+        ax.plot(self._plot_sigs_before, color='b')
+        
+        ax.axvline(self.fifo_size - self.n_right, color='r')
+        ax.axvline(-self.n_left, color='r')
+
+        for ind in np.nonzero(~self.mask_not_already_tested)[0] + self.n_span:
+            ax.axvline(ind, ls='-', color='g')
+
+        mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+        nolabel_indexes, = np.nonzero(mask)
+        nolabel_indexes += self.n_span
+        
+        for ind in nolabel_indexes:
+            ax.axvline(ind, ls='--')
+        
+        
+        
+        #~ ax.scatter(nolabel_indexes, plot_sigs[nolabel_indexes, chan_indexes], color='r')
+        
+        good_spikes = np.array(good_spikes, dtype=_dtype_spike)
+        pred = make_prediction_signals(good_spikes, self.internal_dtype, plot_sigs.shape, self.catalogue, safe=True)
+        plot_pred = pred.copy()
+        for c in range(self.nb_channel):
+        #~ for c in chan_order:
+            plot_pred[:, c] += c*30
+        
+        ax.plot(plot_pred, color='m')
+        
+        plt.show()
 
 
 kernel_opencl = """

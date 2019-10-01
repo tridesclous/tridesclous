@@ -422,7 +422,7 @@ class PeakDetectorSpatiotemporal_OpenCL(PeakDetectorSpatiotemporal, OpenCL_Helpe
         self.fifo_sigs = FifoBuffer((self.chunksize + 2*self.n_span, self.nb_channel), self.dtype)
         #~ print('self.fifo size', self.fifo_sigs.buffer.shape, 'self.chunksize', self.chunksize)
         
-        self.mask_peaks = np.zeros((self.chunksize, self.nb_channel), dtype='uint8')  # bool
+        self.mask_peaks = np.zeros((self.chunksize, self.nb_channel), dtype='uint8')  # bool
         
 
         #GPU buffers

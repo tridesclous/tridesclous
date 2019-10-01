@@ -57,15 +57,15 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         
         
         #~ self.peakdetector = PeakDetectorSpatiotemporal(self.sample_rate, self.nb_channel,
-                        #~ self.fifo_residuals.shape[0]-2*self.n_span, self.internal_dtype, self.geometry)
+                        #~ self.fifo_size-2*self.n_span, self.internal_dtype, self.geometry)
         
         # TODO size fido
         self.peakdetector = PeakDetectorSpatiotemporal_OpenCL(self.sample_rate, self.nb_channel,
-                                                        self.fifo_residuals.shape[0]-2*self.n_span, self.internal_dtype, self.geometry)
+                                                        self.fifo_size-2*self.n_span, self.internal_dtype, self.geometry)
         self.peakdetector.change_params(**p)
 
         
-        self.mask_not_already_tested = np.ones((self.fifo_residuals.shape[0] - 2 * self.n_span,self.nb_channel),  dtype='bool')
+        self.mask_not_already_tested = np.ones((self.fifo_size - 2 * self.n_span,self.nb_channel),  dtype='bool')
 
         self.distances = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
         self.channels_adjacency = {}
@@ -179,7 +179,7 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
             cluster_idx = self.catalogue['label_to_index'][spike.cluster_label]
             mask = self.sparse_mask[cluster_idx, :]
             for c in np.nonzero(mask)[0]:
-                self.mask_not_already_tested[peak_ind - self.peak_width - self.n_span:peak_ind + self.peak_width - self.n_span, c] = True
+                self.mask_not_already_tested[peak_ind + self.n_left - self.n_span:peak_ind + self.n_right- self.n_span, c] = True
 
     def NEW_reset_to_not_tested(self, good_spikes):
         #~ self.already_tested = []
@@ -266,6 +266,12 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         elif self.argmin_method == 'numba':
             s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
             cluster_idx = possibles_cluster_idx[np.argmin(s)]
+            if self._plot_debug:
+                fig, ax = plt.subplots()
+                ax.plot(possibles_cluster_idx, s, marker='o')
+                ax.axvline(cluster_idx)
+                ax.set_title(f'{left_ind-self.n_left} {chan_ind}')
+
         
         elif self.argmin_method == 'numpy':
             # replace by this (indentique but faster, a but)
@@ -335,8 +341,8 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         
         # criteria per channel
         crietria_weighted = (wf_nrj>residual_nrj).astype('float') * weight
-        accept_template = np.sum(crietria_weighted) >= 0.9 * np.sum(weight)
-        #~ accept_template = np.sum(crietria_weighted) >= 0.7 * np.sum(weight)
+        #~ accept_template = np.sum(crietria_weighted) >= 0.9 * np.sum(weight)
+        accept_template = np.sum(crietria_weighted) >= 0.7 * np.sum(weight)
 
         #~ if True:
             
@@ -378,20 +384,80 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         return accept_template
 
 
-    def _plot_empty_fifo(self):
+    def _plot_before_peeling_loop(self):
         fig, ax = plt.subplots()
         plot_sigs = self.fifo_residuals.copy()
-        chan_order = np.argsort(self.distances[0, :])
-        #~ for c in range(self.nb_channel):
-        for c in chan_order:
+        self._plot_sigs_before = plot_sigs
+        #~ chan_order = np.argsort(self.distances[0, :])
+        
+        for c in range(self.nb_channel):
+        #~ for c in chan_order:
             plot_sigs[:, c] += c*30
+        
         ax.plot(plot_sigs, color='k')
-        ax.axvline(self.fifo_residuals.shape[0] - self.n_right)
+
+        ax.axvline(self.fifo_size - self.n_right, color='r')
+        ax.axvline(-self.n_left, color='r')
 
         mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
-        nolabel_indexes, chan_indexes = np.nonzero(mask)
-        nolabel_indexes += self.n_span
+        peak_inds, chan_inds= np.nonzero(mask)
+        peak_inds += self.n_span
         
-        ax.scatter(nolabel_indexes, plot_sigs[nolabel_indexes, chan_indexes], color='r')
+        ax.scatter(peak_inds, plot_sigs[peak_inds, chan_inds], color='r')
+        
+    
+    def _plot_label_unclassified(self, left_ind, peak_chan, cluster_idx, jitter):
+        print('LABEL UNCLASSIFIED', left_ind, cluster_idx)
+        fig, ax = plt.subplots()
+        
+        wf = self.fifo_residuals[left_ind:left_ind+self.peak_width, :]
+        wf0 = self.catalogue['centers0'][cluster_idx, :, :]
+        
+        ax.plot(wf.T.flatten(), color='b')
+        ax.plot(wf0.T.flatten(), color='g')
+        
+        ax.set_title(f'label_unclassified {left_ind-self.n_left} {cluster_idx}')
+
+    def _plot_after_peeling_loop(self, good_spikes):
+        fig, ax = plt.subplots()
+        plot_sigs = self.fifo_residuals.copy()
+        
+        
+        #~ chan_order = np.argsort(self.distances[0, :])
+        
+        for c in range(self.nb_channel):
+        #~ for c in chan_order:
+            plot_sigs[:, c] += c*30
+        ax.plot(plot_sigs, color='k')
+        
+        ax.plot(self._plot_sigs_before, color='b')
+        
+        ax.axvline(self.fifo_size - self.n_right, color='r')
+        ax.axvline(-self.n_left, color='r')
+
+        #~ for ind in np.nonzero(~self.mask_not_already_tested)[0] + self.n_span:
+            #~ ax.axvline(ind, ls='-', color='g')
+
+        mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+        peak_inds, chan_inds= np.nonzero(mask)
+        peak_inds += self.n_span
+        ax.scatter(peak_inds, plot_sigs[peak_inds, chan_inds], color='r')
+        
+        
+        
+        #~ ax.scatter(nolabel_indexes, plot_sigs[nolabel_indexes, chan_indexes], color='r')
+        
+        good_spikes = np.array(good_spikes, dtype=_dtype_spike)
+        pred = make_prediction_signals(good_spikes, self.internal_dtype, plot_sigs.shape, self.catalogue, safe=True)
+        plot_pred = pred.copy()
+        for c in range(self.nb_channel):
+        #~ for c in chan_order:
+            plot_pred[:, c] += c*30
+        
+        ax.plot(plot_pred, color='m')
+        
+        plt.show()
+    
+    
 
 

@@ -243,10 +243,10 @@ def benchmark_speed():
     #~ sigs = np
     
     #***for testing large channels num***
-    sigs = np.tile(sigs, (1, 20))
-    normed_sigs = np.tile(normed_sigs, (1, 20))
-    geometry = np.zeros((sigs.shape[1], 2), dtype='float64')
-    geometry[:, 0] = np.arange(sigs.shape[1]) * 50.
+    #~ sigs = np.tile(sigs, (1, 20))
+    #~ normed_sigs = np.tile(normed_sigs, (1, 20))
+    #~ geometry = np.zeros((sigs.shape[1], 2), dtype='float64')
+    #~ geometry[:, 0] = np.arange(sigs.shape[1]) * 50.
     #***
     
     
@@ -255,8 +255,8 @@ def benchmark_speed():
 
     args = (sample_rate, nb_channel, chunksize, 'float32', geometry)
     peak_detectors = {
-        #~ 'numpy' : peakdetector_engines['numpy'](*args),
-        #~ 'opencl' : peakdetector_engines['opencl'](*args),
+        'numpy' : peakdetector_engines['numpy'](*args),
+        'opencl' : peakdetector_engines['opencl'](*args),
         #~ 'spatiotemporal' : peakdetector_engines['spatiotemporal'](*args),
         'spatiotemporal_opencl' : peakdetector_engines['spatiotemporal_opencl'](*args),
     }
@@ -290,23 +290,26 @@ def benchmark_speed():
         t2 = time.perf_counter()
         
         peak_inds = np.concatenate(peak_inds)
-        
+        if len(peak_chans) > 0:
+            peak_chans = np.concatenate(peak_chans)
+        else:
+            peak_chans = np.argmin(normed_sigs[peak_inds, :], axis=1)
+            
         online_peaks[name] = peak_inds
         
         print(name, ':' , peak_inds.size)
         print(name, 'process time', t2-t1) 
         
-
-        peak_chans = np.concatenate(peak_chans)
-        fig, ax = plt.subplots()
-        plot_sigs = normed_sigs.copy()
-        for c in range(nb_channel):
-            plot_sigs[:, c] += c*30
-        ax.plot(plot_sigs, color='k')
-        ##ind_min = np.argmin(normed_sigs[peak_inds, :], axis=1)
-        ampl = plot_sigs[peak_inds, peak_chans]
-        ax.scatter(peak_inds, ampl, color='r')
-        plt.show()        
+            
+        
+        #~ fig, ax = plt.subplots()
+        #~ plot_sigs = normed_sigs.copy()
+        #~ for c in range(nb_channel):
+            #~ plot_sigs[:, c] += c*30
+        #~ ax.plot(plot_sigs, color='k')
+        #~ ampl = plot_sigs[peak_inds, peak_chans]
+        #~ ax.scatter(peak_inds, ampl, color='r')
+        #~ plt.show()
         
 
 
