@@ -218,11 +218,10 @@ class PeelerEngineClassic(PeelerEngineGeneric):
             #~ print(shift, cluster_idx)
             
             
-            if self._plot_debug:
-                fig, ax = plt.subplots()
-                ax.plot(shifts, all_s, marker='o')
-                #~ ax.axvline(cluster_idx)
-                ax.set_title(f'{left_ind-self.n_left} {shift}')
+            #~ if self._plot_debug:
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(shifts, all_s, marker='o')
+                #~ ax.set_title(f'{left_ind-self.n_left} {shift}')
             
 
             #~ s = numba_loop_sparse_dist(waveform, self.catalogue['centers0'],  self.sparse_mask)

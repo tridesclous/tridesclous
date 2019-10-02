@@ -283,7 +283,6 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
             
             if self._plot_debug:
                 fig, ax = plt.subplots()
-                fig, ax = plt.subplots()
                 ax.plot(shifts, all_s, marker='o')
                 ax.set_title(f'{left_ind-self.n_left} {chan_ind} {shift}')
         
@@ -326,7 +325,9 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         
         #~ label = self.catalogue['cluster_labels'][cluster_idx]
         return cluster_idx, shift
-
+    
+    #~ def estimate_jitter(self, left_ind, cluster_idx):
+        #~ return 0.
 
     def accept_tempate(self, left_ind, cluster_idx, jitter):
         #~ self._debug_nb_accept_tempate += 1

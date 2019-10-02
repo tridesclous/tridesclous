@@ -588,5 +588,6 @@ class PeelerEngineGeneric(PeelerEngineBase):
         else:
             jitter1 = 0.
         
+        #~ print(jitter1)
         return jitter1
 
