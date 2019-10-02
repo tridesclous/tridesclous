@@ -122,12 +122,12 @@ class PeelerEngineBase(OpenCL_Helper):
             #~ print(centers.shape)
             # TODO use less memory
             self.sparse_mask = np.any(np.abs(centers)>sparse_threshold_mad, axis=1)
-            print(self.sparse_mask.shape)
-            print(self.sparse_mask.sum(axis=0))
-            fig, ax = plt.subplots()
-            ax.matshow(self.sparse_mask, cmap='Greens')
-            plt.show()
-            exit()
+            #~ print(self.sparse_mask.shape)
+            #~ print(self.sparse_mask.sum(axis=0))
+            #~ fig, ax = plt.subplots()
+            #~ ax.matshow(self.sparse_mask, cmap='Greens')
+            #~ plt.show()
+
         else:
             self.sparse_mask = np.ones((centers.shape[0], centers.shape[2]), dtype='bool')
         
@@ -222,8 +222,8 @@ class PeelerEngineGeneric(PeelerEngineBase):
             #~ self._plot_debug = True
         #~ else:
             #~ self._plot_debug = False
-        #~ self._plot_debug = False
-        self._plot_debug = True
+        self._plot_debug = False
+        #~ self._plot_debug = True
         
         if self._plot_debug:
             print('*'*10)
@@ -364,16 +364,16 @@ class PeelerEngineGeneric(PeelerEngineBase):
         # left_ind is the waveform left border
         left_ind = proposed_peak_ind + self.n_left
 
-        #~ if left_ind+self.peak_width+self.maximum_jitter_shift+1>=self.fifo_size:
-        if left_ind+self.peak_width >=self.fifo_size:
+        if left_ind+self.peak_width+self.maximum_jitter_shift+1>=self.fifo_size:
+        #~ if left_ind+self.peak_width >=self.fifo_size:
             # TODO : remove this because maybe unecessry
             # too near right limits no label
             label = LABEL_RIGHT_LIMIT
             jitter = 0
             if self._plot_debug:
                 print('LABEL_RIGHT_LIMIT', proposed_peak_ind, peak_chan)
-        #~ elif left_ind<=self.maximum_jitter_shift:
-        elif left_ind<0:
+        elif left_ind<=self.maximum_jitter_shift:
+        #~ elif left_ind<0:
             # TODO : remove this because maybe unecessry
             # too near left limits no label
             #~ print('     LABEL_LEFT_LIMIT', left_ind)
@@ -402,7 +402,11 @@ class PeelerEngineGeneric(PeelerEngineBase):
                 t1 = time.perf_counter()
                 #TODO try usewaveform to avoid new buffer ????
                 
-                cluster_idx = self.get_best_template(left_ind, peak_chan)
+                cluster_idx, shift = self.get_best_template(left_ind, peak_chan)
+                if shift is not None:
+                    left_ind += shift
+                
+                
                 #~ t2 = time.perf_counter()
                 #~ print('    get_best_template', (t2-t1)*1000)
                 

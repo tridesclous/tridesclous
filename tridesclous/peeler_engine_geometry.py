@@ -257,21 +257,35 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
                         self.rms_waveform_channel_cl, self.waveform_distance_cl)
             pyopencl.enqueue_copy(self.queue,  self.waveform_distance, self.waveform_distance_cl)
             cluster_idx = np.argmin(self.waveform_distance)
+            shift = None
         
         elif self.argmin_method == 'pythran':
             s = pythran_tools.pythran_loop_sparse_dist(waveform, 
                                 self.catalogue['centers0'],  self.sparse_mask)
             cluster_idx = np.argmin(s)
+            shift = None
         
         elif self.argmin_method == 'numba':
-            s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
-            cluster_idx = possibles_cluster_idx[np.argmin(s)]
+            #~ s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
+            #~ cluster_idx = possibles_cluster_idx[np.argmin(s)]
+            #~ shift = None
+            
+            shifts = list(range(-self.maximum_jitter_shift, self.maximum_jitter_shift+1))
+            all_s = []
+            for shift in shifts:
+                waveform = self.fifo_residuals[left_ind+shift:left_ind+self.peak_width+shift,:]
+                s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
+                all_s.append(s)
+            all_s = np.array(all_s)
+            shift_ind, cluster_idx = np.unravel_index(np.argmin(all_s, axis=None), all_s.shape)
+            cluster_idx = possibles_cluster_idx[cluster_idx]
+            shift = shifts[shift_ind]
+            
             if self._plot_debug:
                 fig, ax = plt.subplots()
-                ax.plot(possibles_cluster_idx, s, marker='o')
-                ax.axvline(cluster_idx)
-                ax.set_title(f'{left_ind-self.n_left} {chan_ind}')
-
+                fig, ax = plt.subplots()
+                ax.plot(shifts, all_s, marker='o')
+                ax.set_title(f'{left_ind-self.n_left} {chan_ind} {shift}')
         
         elif self.argmin_method == 'numpy':
             # replace by this (indentique but faster, a but)
@@ -281,6 +295,8 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
             #s = d.reshape(d.shape[0], -1).sum(axis=1) # a bit faster
             s = np.einsum('ijk->i', d) # a bit faster
             cluster_idx = np.argmin(s)
+            shift = None
+            
         else:
             raise(NotImplementedError())
         
@@ -309,7 +325,7 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
 
         
         #~ label = self.catalogue['cluster_labels'][cluster_idx]
-        return cluster_idx
+        return cluster_idx, shift
 
 
     def accept_tempate(self, left_ind, cluster_idx, jitter):
