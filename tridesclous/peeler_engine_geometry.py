@@ -42,9 +42,55 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
     def change_params(self, adjacency_radius_um=200, **kargs):
         PeelerEngineGeneric.change_params(self, **kargs)
         
-        self.adjacency_radius_um = adjacency_radius_um
-        
         assert self.use_sparse_template
+        
+        self.adjacency_radius_um = adjacency_radius_um
+
+        
+
+        if self.argmin_method == 'opencl'  and self.catalogue['centers0'].size>0:
+        #~ if self.use_opencl_with_sparse and self.catalogue['centers0'].size>0:
+            OpenCL_Helper.initialize_opencl(self, cl_platform_index=self.cl_platform_index, cl_device_index=self.cl_device_index)
+            
+            #~ self.ctx = pyopencl.create_some_context(interactive=False)
+            #~ self.queue = pyopencl.CommandQueue(self.ctx)
+            
+            centers = self.catalogue['centers0']
+            nb_channel = centers.shape[2]
+            peak_width = centers.shape[1]
+            nb_cluster = centers.shape[0]
+            kernel = kernel_opencl%{'nb_channel': nb_channel,'peak_width':peak_width,
+                                                    'wf_size':peak_width*nb_channel,'nb_cluster' : nb_cluster}
+            #~ print(kernel)
+            prg = pyopencl.Program(self.ctx, kernel)
+            opencl_prg = prg.build(options='-cl-mad-enable')
+            self.kern_waveform_distance = getattr(opencl_prg, 'waveform_distance')
+
+            wf_shape = centers.shape[1:]
+            one_waveform = np.zeros(wf_shape, dtype='float32')
+            self.one_waveform_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=one_waveform)
+
+            self.catalogue_center_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=centers)
+
+            self.waveform_distance = np.zeros((nb_cluster), dtype='float32')
+            self.waveform_distance_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance)
+
+            #~ mask[:] = 0
+            self.sparse_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask.astype('u1'))
+
+            rms_waveform_channel = np.zeros(nb_channel, dtype='float32')
+            self.rms_waveform_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=rms_waveform_channel)
+            
+            
+            
+            self.adjacency_radius_um_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=np.array([self.adjacency_radius_um], dtype='float32'))
+            
+            
+            self.cl_global_size = (centers.shape[0], centers.shape[2])
+            #~ self.cl_local_size = None
+            self.cl_local_size = (centers.shape[0], 1) # faster a GPU because of memory access
+            #~ self.cl_local_size = (1, centers.shape[2])
+
 
     def initialize_before_each_segment(self, **kargs):
         PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
@@ -54,7 +100,15 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         
         # DEBUG
         p['nb_neighbour'] = 4
+
+        self.channel_distances = sklearn.metrics.pairwise.euclidean_distances(self.geometry).astype('float32')
+        self.channels_adjacency = {}
+        for c in range(self.nb_channel):
+            nearest, = np.nonzero(self.channel_distances[c, :]<self.adjacency_radius_um)
+            self.channels_adjacency[c] = nearest
         
+        if self.argmin_method == 'opencl'  and self.catalogue['centers0'].size>0:
+            self.channel_distances_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.channel_distances)
         
         #~ self.peakdetector = PeakDetectorSpatiotemporal(self.sample_rate, self.nb_channel,
                         #~ self.fifo_size-2*self.n_span, self.internal_dtype, self.geometry)
@@ -67,18 +121,14 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         
         self.mask_not_already_tested = np.ones((self.fifo_size - 2 * self.n_span,self.nb_channel),  dtype='bool')
 
-        self.distances = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
-        self.channels_adjacency = {}
-        for c in range(self.nb_channel):
-            nearest, = np.nonzero(self.distances[c, :]<self.adjacency_radius_um)
-            self.channels_adjacency[c] = nearest
-            #~ print(c, nearest)
 
-    def detect_local_peaks_before_peeling_loop(self):
+    def OLD_detect_local_peaks_before_peeling_loop(self):
+    #~ def detect_local_peaks_before_peeling_loop(self):
         self.mask_not_already_tested[:] = True
         self.local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
         
-    def NEW_detect_local_peaks_before_peeling_loop(self):
+    #~ def NEW_detect_local_peaks_before_peeling_loop(self):
+    def detect_local_peaks_before_peeling_loop(self):
         mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
         local_peaks_indexes, chan_indexes  = np.nonzero(mask)
         local_peaks_indexes += self.n_span
@@ -87,33 +137,10 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         self.pending_peaks = list(zip(local_peaks_indexes[order], chan_indexes[order]))
         self.already_tested = []
     
-
-    def select_next_peak(self):
-        #~ print('select_next_peak')
-        # TODO find faster
-        
-
-        #DEBUG
-        #~ peak_inds, peak_chans =  np.nonzero(self.local_peaks_mask & self.mask_not_already_tested )
-        #~ peak_inds = peak_inds + self.n_span
-        #~ fig, ax = plt.subplots()
-        #~ plot_sigs = self.fifo_residuals.copy()
-        #~ d = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
-        #~ chan_order = np.argsort(d[0, :])
-        #~ print(chan_order)
-        #~ for c in chan_order:
-            #~ plot_sigs[:, c] += c*30
-        #~ ax.plot(plot_sigs, color='k')
-        #~ ampl = plot_sigs[peak_inds, peak_chans]
-        #~ ax.scatter(peak_inds, ampl, color='r')
-        #~ ax.axhline(-self.peakdetector.relative_threshold, color='m')
-        #~ plt.show()        
-        # END DEBUG
-        
+    def OLD_select_next_peak(self):
+    #~ def select_next_peak(self):
         local_peaks_indexes, chan_indexes  = np.nonzero(self.local_peaks_mask & self.mask_not_already_tested)
         
-        #~ print('select_next_peak')
-        #~ print(local_peaks_indexes + self.n_span )
         if local_peaks_indexes.size>0:
             local_peaks_indexes += self.n_span
             amplitudes = np.abs(self.fifo_residuals[local_peaks_indexes, chan_indexes])
@@ -124,7 +151,8 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         else:
             return LABEL_NO_MORE_PEAK, None
 
-    def NEW_select_next_peak(self):
+    #~ def NEW_select_next_peak(self):
+    def select_next_peak(self):
         #~ print(len(self.pending_peaks))
         if len(self.pending_peaks)>0:
             peak_ind, chan_ind = self.pending_peaks[0]
@@ -134,7 +162,7 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
             return LABEL_NO_MORE_PEAK, None
 
     def on_accepted_spike(self, spike):
-        # remove spike prediction from fifo residuals
+        # remove spike prediction from fifo residuals
         left_ind = spike.index + self.n_left
         cluster_idx = self.catalogue['label_to_index'][spike.cluster_label]
         pos, pred = make_prediction_one_spike(spike.index, cluster_idx, spike.jitter, self.fifo_residuals.dtype, self.catalogue)
@@ -143,34 +171,41 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         # this prevent search peaks in the zone until next "reset_to_not_tested"
         self.set_already_tested_spike_zone(spike.index, cluster_idx)
 
-
-    def set_already_tested_spike_zone(self, peak_ind, cluster_idx):
+    def OLD_set_already_tested_spike_zone(self, peak_ind, cluster_idx):
+    #~ def set_already_tested_spike_zone(self, peak_ind, cluster_idx):
         mask = self.sparse_mask[cluster_idx, :]
         for c in np.nonzero(mask)[0]:
             self.mask_not_already_tested[peak_ind + self.n_left - self.n_span:peak_ind + self.n_right- self.n_span, c] = False
 
-    def NEW_set_already_tested_spike_zone(self, peak_ind, cluster_idx):
+    #~ def NEW_set_already_tested_spike_zone(self, peak_ind, cluster_idx):
+    def set_already_tested_spike_zone(self, peak_ind, cluster_idx):
         mask = self.sparse_mask[cluster_idx, :]
         #~ keep = [not((ind == peak_ind) and (mask[chan_ind])) for ind, chan_ind in self.pending_peaks]
-        keep = [(ind != peak_ind) and not(mask[chan_ind]) for ind, chan_ind in self.pending_peaks]
+        #~ keep = [(ind != peak_ind) and not(mask[chan_ind]) for ind, chan_ind in self.pending_peaks]
         
         pending_peaks_ = []
-        for p, ok in zip(self.pending_peaks, keep):
-            if ok:
-                pending_peaks_.append(p)
+        #~ for p, ok in zip(self.pending_peaks, keep):
+        for ind, chan_ind in self.pending_peaks:
+            #~ ok = (ind != peak_ind) and not(mask[chan_ind])
+            in_zone = mask[chan_ind] and (ind+self.n_left<peak_ind<ind+self.n_right)
+            if in_zone:
+                self.already_tested.append((ind, chan_ind))
             else:
-                self.already_tested.append(p)
+                pending_peaks_.append((ind, chan_ind))
+        self.pending_peaks = pending_peaks_
     
+    def OLD_set_already_tested(self, peak_ind, peak_chan):
+    #~ def set_already_tested(self, peak_ind, peak_chan):
+        self.mask_not_already_tested[peak_ind - self.n_span, peak_chan] = False
+    
+    #~ def NEW_set_already_tested(self, peak_ind, peak_chan):
     def set_already_tested(self, peak_ind, peak_chan):
-        self.mask_not_already_tested[peak_ind - self.n_span, peak_chan] = False
-
-    def NEW_set_already_tested(self, peak_ind, peak_chan):
-        self.mask_not_already_tested[peak_ind - self.n_span, peak_chan] = False
-        self.pending_peaks = [p for p in self.pending_peaks if (p[0]!=peak_ind) and (peak_chan!=p[1])]
+        #~ self.mask_not_already_tested[peak_ind - self.n_span, peak_chan] = False
+        #~ self.pending_peaks = [p for p in self.pending_peaks if (p[0]!=peak_ind) and (peak_chan!=p[1])]
         self.already_tested.append((peak_ind, peak_chan))
 
-
-    def reset_to_not_tested(self, good_spikes):
+    def OLDreset_to_not_tested(self, good_spikes):
+    #~ def reset_to_not_tested(self, good_spikes):
         #TODO : more efficient only local !!!!
         self.local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
 
@@ -181,7 +216,9 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
             for c in np.nonzero(mask)[0]:
                 self.mask_not_already_tested[peak_ind + self.n_left - self.n_span:peak_ind + self.n_right- self.n_span, c] = True
 
-    def NEW_reset_to_not_tested(self, good_spikes):
+    
+    #~ def NEW_reset_to_not_tested(self, good_spikes):
+    def reset_to_not_tested(self, good_spikes):
         #~ self.already_tested = []
         for spike in good_spikes:
             cluster_idx = self.catalogue['label_to_index'][spike.cluster_label]
@@ -195,11 +232,12 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         amplitudes = np.abs(self.fifo_residuals[local_peaks_indexes, chan_indexes])
         order = np.argsort(amplitudes)[::-1]
         possible_pending_peaks = list(zip(local_peaks_indexes[order], chan_indexes[order]))
-        
+       
         self.pending_peaks = []
         for peak in possible_pending_peaks:
-            ok = all((peak[0] != p[0]) and (peak[1] != p[1]) for p in self.already_tested)
-            self.pending_peaks.append(peak)
+            #~ ok = all((peak[0] != p[0]) and (peak[1] != p[1]) for p in self.already_tested)
+            if peak not in self.already_tested:
+                self.pending_peaks.append(peak)
 
     def get_no_label_peaks(self):
         mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
@@ -214,38 +252,10 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         return bad_spikes
 
     def get_best_template(self, left_ind, chan_ind):
-        assert self.argmin_method == 'numba'
+        assert self.argmin_method in ('numba', 'opencl')
         
         waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
 
-        #~ print('get_best_template')
-        #~ print('chan_ind', chan_ind)
-        
-        # TODO 
-        
-        possibles_cluster_idx, = np.nonzero(self.sparse_mask[:, chan_ind])
-        #~ print(possibles_cluster_idx)
-        #~ print('possibles_cluster_idx', possibles_cluster_idx.size)
-        
-        #~ print(self.sparse_mask.shape)
-        
-        #~ fig, ax = plt.subplots()
-        #~ ax.plot(self.fifo_residuals[:, chan_ind])
-        #~ ax.scatter([left_ind-self.n_left], [self.fifo_residuals[left_ind-self.n_left, chan_ind]], color='r')
-        #~ plt.show()
-        
-        
-        #~ for cluster_idx in possibles_cluster_idx:
-            #~ fig, ax = plt.subplots()
-            #~ ax.plot(waveform.T.flatten(), color='k')
-            #~ ax.plot(self.catalogue['centers0'][cluster_idx, :, :].T.flatten(), color='m')
-            #~ ax.set_title(str(cluster_idx))
-            #~ plt.show()
-            
-            
-        
-        
-        
         
         if self.argmin_method == 'opencl':
             rms_waveform_channel = np.sum(waveform**2, axis=0).astype('float32')
@@ -254,7 +264,8 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
             pyopencl.enqueue_copy(self.queue,  self.rms_waveform_channel_cl, rms_waveform_channel)
             event = self.kern_waveform_distance(self.queue,  self.cl_global_size, self.cl_local_size,
                         self.one_waveform_cl, self.catalogue_center_cl, self.sparse_mask_cl, 
-                        self.rms_waveform_channel_cl, self.waveform_distance_cl)
+                        self.rms_waveform_channel_cl, self.waveform_distance_cl,  self.channel_distances_cl, 
+                        self.adjacency_radius_um_cl, np.int32(chan_ind))
             pyopencl.enqueue_copy(self.queue,  self.waveform_distance, self.waveform_distance_cl)
             cluster_idx = np.argmin(self.waveform_distance)
             shift = None
@@ -266,25 +277,28 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
             shift = None
         
         elif self.argmin_method == 'numba':
-            #~ s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
-            #~ cluster_idx = possibles_cluster_idx[np.argmin(s)]
-            #~ shift = None
+            possibles_cluster_idx, = np.nonzero(self.sparse_mask[:, chan_ind])
             
-            shifts = list(range(-self.maximum_jitter_shift, self.maximum_jitter_shift+1))
-            all_s = []
-            for shift in shifts:
-                waveform = self.fifo_residuals[left_ind+shift:left_ind+self.peak_width+shift,:]
-                s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
-                all_s.append(s)
-            all_s = np.array(all_s)
-            shift_ind, cluster_idx = np.unravel_index(np.argmin(all_s, axis=None), all_s.shape)
-            cluster_idx = possibles_cluster_idx[cluster_idx]
-            shift = shifts[shift_ind]
             
-            if self._plot_debug:
-                fig, ax = plt.subplots()
-                ax.plot(shifts, all_s, marker='o')
-                ax.set_title(f'{left_ind-self.n_left} {chan_ind} {shift}')
+            s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
+            cluster_idx = possibles_cluster_idx[np.argmin(s)]
+            shift = None
+            
+            #~ shifts = list(range(-self.maximum_jitter_shift, self.maximum_jitter_shift+1))
+            #~ all_s = []
+            #~ for shift in shifts:
+                #~ waveform = self.fifo_residuals[left_ind+shift:left_ind+self.peak_width+shift,:]
+                #~ s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
+                #~ all_s.append(s)
+            #~ all_s = np.array(all_s)
+            #~ shift_ind, cluster_idx = np.unravel_index(np.argmin(all_s, axis=None), all_s.shape)
+            #~ cluster_idx = possibles_cluster_idx[cluster_idx]
+            #~ shift = shifts[shift_ind]
+            
+            #~ if self._plot_debug:
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(shifts, all_s, marker='o')
+                #~ ax.set_title(f'{left_ind-self.n_left} {chan_ind} {shift}')
         
         elif self.argmin_method == 'numpy':
             # replace by this (indentique but faster, a but)
@@ -305,7 +319,7 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         
         
         #~ fig, ax = plt.subplots()
-        #~ chan_order = np.argsort(self.distances[0, :])
+        #~ chan_order = np.argsort(self.channel_distances[0, :])
         #~ channels = self.channels_adjacency[chan_ind]
         #~ channels = chan_order
         #~ wf = waveform[:, channels]
@@ -405,7 +419,7 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         fig, ax = plt.subplots()
         plot_sigs = self.fifo_residuals.copy()
         self._plot_sigs_before = plot_sigs
-        #~ chan_order = np.argsort(self.distances[0, :])
+        #~ chan_order = np.argsort(self.channel_distances[0, :])
         
         for c in range(self.nb_channel):
         #~ for c in chan_order:
@@ -440,7 +454,7 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         plot_sigs = self.fifo_residuals.copy()
         
         
-        #~ chan_order = np.argsort(self.distances[0, :])
+        #~ chan_order = np.argsort(self.channel_distances[0, :])
         
         for c in range(self.nb_channel):
         #~ for c in chan_order:
@@ -474,7 +488,91 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         ax.plot(plot_pred, color='m')
         
         plt.show()
+
+
+
+
+
+kernel_opencl = """
+
+#define nb_channel %(nb_channel)d
+#define peak_width %(peak_width)d
+#define nb_cluster %(nb_cluster)d
+#define wf_size %(wf_size)d
     
+inline void atomic_add_float(volatile __global float *source, const float operand) {
+    union {
+        unsigned int intVal;
+        float floatVal;
+    } newVal;
+    union {
+        unsigned int intVal;
+        float floatVal;
+    } prevVal;
+    do {
+        prevVal.floatVal = *source;
+        newVal.floatVal = prevVal.floatVal + operand;
+    } while (atomic_cmpxchg((volatile __global unsigned int *)source, prevVal.intVal, newVal.intVal) != prevVal.intVal);
+}
+
+
+__kernel void waveform_distance(__global  float *one_waveform,
+                                        __global  float *catalogue_center,
+                                        __global  uchar  *sparse_mask,
+                                        __global  float *rms_waveform_channel,
+                                        __global  float *waveform_distance,
+                                        __global  float *channel_distances,
+                                        __global float * adjacency_radius_um,
+                                        int chan_ind
+                                        ){
+    
+    int cluster_idx = get_global_id(0);
+    int c = get_global_id(1);
+    
+    
+    // the chan_ind do not overlap spatialy this cluster
+    if (sparse_mask[nb_channel*cluster_idx+chan_ind] == 0){
+        if (c==0){
+            waveform_distance[cluster_idx] = FLT_MAX;
+        }
+    }
+    else {
+        // candidate initialize sum by cluster
+        if (c==0){
+            waveform_distance[cluster_idx] = 0;
+        }
+    }
+    
+    barrier(CLK_GLOBAL_MEM_FENCE);
+    
+    if (sparse_mask[nb_channel*cluster_idx+chan_ind] == 0){
+        return;
+    }
+    
+    
+    float sum = 0;
+    float d;
+    
+    if (channel_distances[c * nb_channel + chan_ind] < *adjacency_radius_um){
+        if (sparse_mask[nb_channel*cluster_idx+c]>0){
+            for (int s=0; s<peak_width; ++s){
+                d = one_waveform[nb_channel*s+c] - catalogue_center[wf_size*cluster_idx+nb_channel*s+c];
+                sum += d*d;
+            }
+        }
+        else{
+            sum = rms_waveform_channel[c];
+        }
+        atomic_add_float(&waveform_distance[cluster_idx], sum);
+    }
+
+
+}
+
+
+"""
+
+#~ possibles_cluster_idx, = np.nonzero(self.sparse_mask[:, chan_ind])
     
 
 
