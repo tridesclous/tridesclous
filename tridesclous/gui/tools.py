@@ -80,6 +80,20 @@ def get_dict_from_group_param(param, cascade = False):
             d[p.name()] = p.value()
     return d
 
+def set_group_param_from_dict(param, d, cascade=False):
+    assert param.type() == 'group'
+    for p in param.children():
+        k = p.name()
+        if p.type() == 'group':
+            if cascade:
+                set_group_param_from_dict(p, d[k], cascade=True)
+            continue
+        else:
+            if k in d:
+                param[k] = d[k]
+    return d
+    
+
 class ParamDialog(QT.QDialog):
     def __init__(self,   params, title = '', parent = None):
         QT.QDialog.__init__(self, parent = parent)
@@ -106,6 +120,9 @@ class ParamDialog(QT.QDialog):
 
     def get(self):
         return get_dict_from_group_param(self.params, cascade=True)
+    
+    def set(self, d):
+        set_group_param_from_dict(self.params, d, cascade=True)
 
 
 class MethodDialog(QT.QDialog):
@@ -121,6 +138,7 @@ class MethodDialog(QT.QDialog):
         methods = list(params_by_method.keys())
         if selected_method is not None:
             assert selected_method in methods
+        self.methods = methods
         
         params = [{'name' : 'method', 'type' : 'list', 'values' : methods}]
         self.param_method = pg.parametertree.Parameter.create( name=title, type='group', children = params)
@@ -163,7 +181,16 @@ class MethodDialog(QT.QDialog):
         method =  self.param_method['method']
         #~ print(method)
         self.all_tree_params[method].show()
-        
+    
+    def set_method(self, method, d):
+        self.param_method['method'] = method
+        set_group_param_from_dict(self.all_params[method], d, cascade=True)
+    
+    
+    def get(self):
+        method = self.param_method['method']
+        d = get_dict_from_group_param(self.all_params[method], cascade=True)
+        return method, d
 
 def open_dialog_methods(params_by_method, parent, title='Which method ?', selected_method=None):
         

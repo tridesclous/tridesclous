@@ -27,11 +27,11 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
             'smooth_size': 0,
             'chunksize': 1024,
             'lostfront_chunksize': -1,   # this auto
-            'signalpreprocessor_engine': 'numpy',
+            'engine': 'numpy',
             'common_ref_removal':False,
         },
         'peak_detector': {
-            'peakdetector_engine': 'numpy',
+            'engine': 'global_numpy',
             'peak_sign': '-',
             'relative_threshold': 5.,
             'peak_span_ms': .3,
@@ -63,9 +63,15 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     cc = catalogueconstructor
     
     p = {}
-    p.update(params['preprocessor'])
-    p.update(params['peak_detector'])
+    d = dict(params['preprocessor'])
+    d['signalpreprocessor_engine'] = d.pop('engine')
+    p.update(**d)
+    d = dict(params['peak_detector'])
+    d['peakdetector_engine'] = d.pop('engine')
+    p.update(**d)
     cc.set_preprocessor_params(**p)
+    
+    
     dataio = cc.dataio
     
     #TODO offer noise esatimation duration somewhere
@@ -139,11 +145,11 @@ _default_catalogue_params = {
         'smooth_size': 0,
         'chunksize': 1024,
         'lostfront_chunksize': -1,   # this auto
-        'signalpreprocessor_engine': 'numpy',
+        'engine': 'numpy',
         'common_ref_removal':False,
     },
     'peak_detector': {
-        'peakdetector_engine': 'numpy',
+        'engine': 'global_numpy',
         'peak_sign': '-',
         'relative_threshold': 5.,
         'peak_span_ms': .7,
@@ -210,6 +216,8 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             params['cluster_kargs'] = {'eps': 3,  'metric':'euclidean', 'algorithm':'brute'}
         params['clean_cluster'] = True
         params['clean_cluster_kargs'] = {'too_small' : 20 }
+        
+        params['peak_detector']['engine'] = 'global_numpy'
 
     else:
         params['feature_method'] = 'peak_max'
@@ -221,13 +229,24 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             params['cluster_kargs']['max_loop'] = 10000
         elif nb_chan>=50:
             params['cluster_kargs']['max_loop'] = nb_chan * 400
+            
+        
+        params['extract_waveforms']['nb_max'] = max(2000, nb_chan * 400)
+        
+        if HAVE_PYOPENCL:
+            params['peak_detector']['engine'] = 'geometrical_opencl'
+        else:
+            print('WARNING : peakdetector will be slow install opencl')
+            params['peak_detector']['engine'] = 'geometrical_numpy'
+        
+        
         #~ else:
             #~ # default one already
             #~ params['cluster_kargs']['max_loop'] = 1000
         
         if nb_chan >64 and HAVE_PYOPENCL:
             # force opencl : this limit depend on the platform of course
-            params['preprocessor']['signalpreprocessor_engine'] = 'opencl'
+            params['preprocessor']['engine'] = 'opencl'
     
     # auto chunsize of 100 ms
     params['preprocessor']['chunksize'] = int(dataio.sample_rate * 0.1)

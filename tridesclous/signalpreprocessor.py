@@ -131,7 +131,6 @@ class SignalPreprocessor_base:
             #this is the null filter
             self.coefficients = np.array([[1, 0, 0, 1,0,0]], dtype=self.output_dtype)
         
-        #~ self.filtfilt_engine = SosFiltfilt_Scipy(self.coefficients, self.nb_channel, output_dtype, self.chunksize, lostfront_chunksize)
         self.nb_section =self. coefficients.shape[0]
         self.forward_buffer = FifoBuffer((self.backward_chunksize, self.nb_channel), self.output_dtype)
         self.zi = np.zeros((self.nb_section, 2, self.nb_channel), dtype= self.output_dtype)

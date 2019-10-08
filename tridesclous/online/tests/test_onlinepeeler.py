@@ -12,7 +12,8 @@ from tridesclous.gui import QT
 import  pyqtgraph as pg
 
 
-
+from tridesclous.cataloguetools import _default_catalogue_params
+import copy
 
 
 import numpy as np
@@ -41,37 +42,9 @@ def setup_catalogue():
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
     
-    params = {
-        'duration' : 60.,
-        'preprocessor' : {
-            'highpass_freq' : 300.,
-            'chunksize' : 1024,
-            'lostfront_chunksize' : 100,
-        },
-        'peak_detector' : {
-            'peak_sign' : '-',
-            'relative_threshold' : 7.,
-            'peak_span' : 0.0005,
-            #~ 'peak_span' : 0.000,
-        },
-        'extract_waveforms' : {
-            'n_left' : -25,
-            'n_right' : 40,
-            'nb_max' : 10000,
-        },
-        'clean_waveforms' : {
-            'alien_value_threshold' : 60.,
-        },
-        'noise_snippet' : {
-            'nb_snippet' : 300,
-        },
-        'feature_method': 'global_pca', 
-        'feature_kargs':{'n_components': 12},
-        'cluster_method' : 'kmeans', 
-        'cluster_kargs' : {'n_clusters': 12},
-        'clean_cluster' : False,
-        'clean_cluster_kargs' : {},
-    }
+    params = copy.deepcopy(_default_catalogue_params)
+    
+
     
     apply_all_catalogue_steps(catalogueconstructor, params, verbose=True)
     catalogueconstructor.trash_small_cluster()
@@ -321,7 +294,7 @@ def test_OnlinePeeler_no_catalogue():
 if __name__ =='__main__':
     #~ setup_catalogue()
     
-    test_OnlinePeeler()
+    #~ test_OnlinePeeler()
     
-    #~ test_OnlinePeeler_no_catalogue()
+    test_OnlinePeeler_no_catalogue()
 

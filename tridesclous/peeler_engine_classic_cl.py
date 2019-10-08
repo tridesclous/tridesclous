@@ -44,7 +44,7 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
         SignalPreprocessor_class = signalpreprocessor_engines['opencl']
         self.signalpreprocessor = SignalPreprocessor_class(self.sample_rate, self.nb_channel, self.chunksize, self.source_dtype)
         p = dict(self.catalogue['signal_preprocessor_params'])
-        p.pop('signalpreprocessor_engine')
+        p.pop('engine')
         p['normalize'] = True
         p['signals_medians'] = self.catalogue['signals_medians']
         p['signals_mads'] = self.catalogue['signals_mads']

@@ -49,11 +49,13 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
             'highpass_freq' : 300.,
             'chunksize' : 1024,
             'lostfront_chunksize' : 100,
+            'engine' : 'numpy',
         },
         'peak_detector' : {
             'peak_sign' : '-',
             'relative_threshold' : 7.,
             'peak_span_ms' : 0.5,
+            'engine' : 'global_numpy',
         },
         'extract_waveforms' : {
             'wf_left_ms' : -2.5,

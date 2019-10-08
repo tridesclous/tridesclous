@@ -83,8 +83,8 @@ class BasePeakDetector:
     def process_data(self, pos, newbuf):
         raise(NotImplmentedError)
     
-    def _after_params(self):
-        raise(NotImplmentedError)
+    #~ def _after_params(self):
+        #~ raise(NotImplmentedError)
 
 
 
@@ -128,7 +128,7 @@ def detect_peaks_in_rectified(sig_rectified, n_span, thresh, peak_sign):
 
 
 
-class PeakDetectorEngine_Numpy(BasePeakDetector):
+class PeakDetectorGlobalNumpy(BasePeakDetector):
     def process_data(self, pos, newbuf):
         # this is used by catalogue constructor
         # here the fifo is only the rectified sum
@@ -168,7 +168,7 @@ class PeakDetectorEngine_Numpy(BasePeakDetector):
         self.fifo_sum_rectified = FifoBuffer((self.chunksize*2,), self.dtype)
 
 
-class PeakDetectorEngine_OpenCL(BasePeakDetector, OpenCL_Helper):
+class PeakDetectorGlobalOpenCL(BasePeakDetector, OpenCL_Helper):
     def process_data(self, pos, newbuf):
         if newbuf.shape[0] <self.chunksize:
             newbuf2 = np.zeros((self.chunksize, self.nb_channel), dtype=self.dtype)
@@ -179,16 +179,16 @@ class PeakDetectorEngine_OpenCL(BasePeakDetector, OpenCL_Helper):
             newbuf = newbuf.copy()
 
         pyopencl.enqueue_copy(self.queue,  self.sigs_cl, newbuf)
-        event = self.kern_detect_peaks(self.queue,  (self.chunksize,), (self.max_wg_size,),
-                                self.sigs_cl, self.ring_sum_cl, self.peaks_cl)
+        event = self.kern_detect_peaks(self.queue,  self.global_size, self.local_size,
+                                self.sigs_cl, self.ring_sum_cl, self.peak_mask_cl)
         event.wait()
         
-        if pos-(newbuf.shape[0]+2*self.n_span)<0:
+        #~ if pos-(newbuf.shape[0]+2*self.n_span)<0:
             # the very first buffer is sacrified because of peak span
-            return None, None
+            #~ return None, None
         
-        pyopencl.enqueue_copy(self.queue,  self.peaks, self.peaks_cl)
-        time_ind_peaks,  = np.nonzero(self.peaks)
+        pyopencl.enqueue_copy(self.queue,  self.peak_mask, self.peak_mask_cl)
+        time_ind_peaks,  = np.nonzero(self.peak_mask)
         
         if time_ind_peaks.size>0:
             time_ind_peaks += pos - self.chunksize - self.n_span
@@ -201,17 +201,26 @@ class PeakDetectorEngine_OpenCL(BasePeakDetector, OpenCL_Helper):
         BasePeakDetector.change_params(self,  **kargs)
         OpenCL_Helper.initialize_opencl(self, cl_platform_index=cl_platform_index, cl_device_index=cl_device_index)
 
+        if self.chunksize > self.max_wg_size:
+            n = int(np.ceil(self.chunksize / self.max_wg_size))
+            self.global_size =  (self.max_wg_size * n, )
+            self.local_size = (self.max_wg_size,)
+        else:
+            self.global_size = (self.chunksize, )
+            self.local_size = (self.chunksize, )
+
+
         chunksize2=self.chunksize+2*self.n_span
         
         self.sum_rectified = np.zeros((self.chunksize), dtype=self.dtype)
-        self.peaks = np.zeros((self.chunksize), dtype='uint8')
+        self.peak_mask = np.zeros((self.chunksize), dtype='uint8')
         ring_sum = np.zeros((chunksize2), dtype=self.dtype)
         
         #GPU buffers
         self.sigs_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE, size=self.nb_channel*self.chunksize*self.dtype.itemsize)
         
         self.ring_sum_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=ring_sum)
-        self.peaks_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=self.peaks)
+        self.peak_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=self.peak_mask)
         
         kernel = self.kernel%dict(chunksize=self.chunksize, nb_channel=self.nb_channel, n_span=self.n_span,
                     relative_threshold=self.relative_threshold, peak_sign={'+':1, '-':-1}[self.peak_sign])
@@ -233,6 +242,11 @@ class PeakDetectorEngine_OpenCL(BasePeakDetector, OpenCL_Helper):
                                                 __global  uchar *peaks){
     
         int pos = get_global_id(0);
+
+        if (pos>=chunksize){
+            return;
+        }
+        
         
         int idx;
         float v;
@@ -323,7 +337,7 @@ def get_mask_spatiotemporal_peaks(sigs, n_span, thresh, peak_sign, neighbours):
 
 
 
-class PeakDetectorSpatiotemporal(BasePeakDetector):
+class PeakDetectorGeometricalNumpy(BasePeakDetector):
     def process_data(self, pos, newbuf):
         # this is used by catalogue constructor
         # here the fifo is only the rectified sum
@@ -367,7 +381,7 @@ class PeakDetectorSpatiotemporal(BasePeakDetector):
         self.fifo_sigs = FifoBuffer((self.chunksize+2*self.n_span, self.nb_channel), self.dtype)
 
 
-class PeakDetectorSpatiotemporal_OpenCL(PeakDetectorSpatiotemporal, OpenCL_Helper):
+class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper):
         
     def process_data(self, pos, newbuf):
         if newbuf.shape[0] <self.chunksize:
@@ -377,9 +391,9 @@ class PeakDetectorSpatiotemporal_OpenCL(PeakDetectorSpatiotemporal, OpenCL_Helpe
 
         self.fifo_sigs.new_chunk(newbuf, pos)
         
-        if pos-(newbuf.shape[0]+2*self.n_span)<0:
-            # the very first buffer is sacrified because of peak span
-            return None, None
+        #~ if pos-(newbuf.shape[0]+2*self.n_span)<0:
+            #~ # the very first buffer is sacrified because of peak span
+            #~ return None, None
         
         sigs = self.fifo_sigs.get_data(pos-(newbuf.shape[0]+2*self.n_span), pos)
         
@@ -394,10 +408,10 @@ class PeakDetectorSpatiotemporal_OpenCL(PeakDetectorSpatiotemporal, OpenCL_Helpe
         return None, None
     
     def get_mask_peaks_in_chunk(self, fifo_residuals):
-        # TODO chunksize multiple of max_wg_size for nvidia
+
         pyopencl.enqueue_copy(self.queue,  self.fifo_sigs_cl, fifo_residuals)
         #~ print(self.chunksize, self.max_wg_size)
-        event = self.kern_get_mask_spatiotemporal_peaks(self.queue,  self.global_size, (self.max_wg_size,),
+        event = self.kern_get_mask_spatiotemporal_peaks(self.queue,  self.global_size, self.local_size,
                                 self.fifo_sigs_cl, self.neighbours_cl, self.mask_peaks_cl)
         event.wait()
         pyopencl.enqueue_copy(self.queue,  self.mask_peaks, self.mask_peaks_cl)
@@ -405,14 +419,20 @@ class PeakDetectorSpatiotemporal_OpenCL(PeakDetectorSpatiotemporal, OpenCL_Helpe
         return self.mask_peaks
     
     def change_params(self, cl_platform_index=None, cl_device_index=None, **kargs):
-        PeakDetectorSpatiotemporal.change_params(self,  **kargs)
+        PeakDetectorGeometricalNumpy.change_params(self,  **kargs)
         
         OpenCL_Helper.initialize_opencl(self, cl_platform_index=cl_platform_index, cl_device_index=cl_device_index)
         #~ print(self.ctx)
         #~ print(self.chunksize)
         
-        n = int(np.ceil(self.chunksize / self.max_wg_size))
-        self.global_size =  (self.max_wg_size * n, )
+        if self.chunksize > self.max_wg_size:
+            n = int(np.ceil(self.chunksize / self.max_wg_size))
+            self.global_size =  (self.max_wg_size * n, )
+            self.local_size = (self.max_wg_size,)
+        else:
+            self.global_size = (self.chunksize, )
+            self.local_size = (self.chunksize, )
+        
         #~ print('self.global_size', self.global_size, 'self.chunksize', self.chunksize)
         
         assert self.adjacency_radius_um is None, 'Not implemented yet'
@@ -430,10 +450,6 @@ class PeakDetectorSpatiotemporal_OpenCL(PeakDetectorSpatiotemporal, OpenCL_Helpe
         self.neighbours_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.neighbours)
         self.mask_peaks_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.mask_peaks)
         
-        
-        
-        #~ self.ring_sum_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=ring_sum)
-        #~ self.peaks_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE | mf.COPY_HOST_PTR, hostbuf=self.peaks)
         
         kernel = self.kernel%dict(chunksize=self.chunksize, nb_channel=self.nb_channel, n_span=self.n_span,
                     relative_threshold=self.relative_threshold, peak_sign={'+':1, '-':-1}[self.peak_sign], nb_neighbour=self.nb_neighbour)
@@ -531,7 +547,9 @@ class PeakDetectorSpatiotemporal_OpenCL(PeakDetectorSpatiotemporal, OpenCL_Helpe
 
 
 
-peakdetector_engines = { 'numpy' : PeakDetectorEngine_Numpy, 'opencl' : PeakDetectorEngine_OpenCL,
-        'spatiotemporal' : PeakDetectorSpatiotemporal, 'spatiotemporal_opencl': PeakDetectorSpatiotemporal_OpenCL}
+peakdetector_engines = { 'global_numpy' : PeakDetectorGlobalNumpy, 
+        'global_opencl' : PeakDetectorGlobalOpenCL,
+        'geometrical_numpy' : PeakDetectorGeometricalNumpy,
+        'geometrical_opencl': PeakDetectorGeometricalOpenCL}
 
 

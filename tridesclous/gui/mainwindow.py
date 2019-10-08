@@ -13,7 +13,7 @@ from .tools import get_dict_from_group_param, ParamDialog, MethodDialog #, open_
 from  ..datasets import datasets_info, download_dataset
 
 from ..catalogueconstructor import CatalogueConstructor
-from ..cataloguetools import apply_all_catalogue_steps
+from ..cataloguetools import apply_all_catalogue_steps, get_auto_params_for_catalogue
 from .cataloguewindow import CatalogueWindow
 from ..peeler import Peeler
 from .peelerwindow import PeelerWindow
@@ -81,7 +81,8 @@ class MainWindow(QT.QMainWindow):
         self.dialog_method_cluster = MethodDialog(gui_params.cluster_params_by_methods, parent=self,
                         title='Which cluster method ?', selected_method = 'sawchaincut')
         
-        self.dialog_peeler = ParamDialog(gui_params.peeler_params)
+        self.dialog_method_peeler = MethodDialog(gui_params.peeler_params_by_methods, parent=self,
+                    title='Peeler engine')
         
         if HAVE_PYOPENCL:
             self.dialog_gpuselector = GpuSelector(settings=self.settings)
@@ -299,6 +300,19 @@ class MainWindow(QT.QMainWindow):
         self.combo_chan_grp.addItems([str(k) for k in self.dataio.channel_groups.keys()] + ['ALL'])
         self.combo_chan_grp.blockSignals(False)
         self.on_chan_grp_change()
+        
+        # set auto params
+        params = get_auto_params_for_catalogue(self.dataio, chan_grp=self.chan_grps[0])
+        d = dict(params)
+        for k in ('feature_method', 'feature_kargs', 'cluster_method', 'cluster_kargs', 'clean_cluster', 'clean_cluster_kargs'):
+            d.pop(k)
+        self.dialog_fullchain_params.set(d)
+        
+        self.dialog_method_features.set_method(params['feature_method'], params['feature_kargs'])
+        self.dialog_method_cluster.set_method(params['cluster_method'], params['cluster_kargs'])
+        
+        # TODO clean_cluster
+
     
     def release_closed_windows(self):
         for win in list(self.open_windows):
@@ -372,11 +386,13 @@ class MainWindow(QT.QMainWindow):
         params = {}
         params.update(self.dialog_fullchain_params.get())
         
-        params['feature_method'] = self.dialog_method_features.param_method['method']
-        params['feature_kargs'] = get_dict_from_group_param(self.dialog_method_features.all_params[params['feature_method']], cascade=True)
-
-        params['cluster_method'] = self.dialog_method_cluster.param_method['method']
-        params['cluster_kargs'] = get_dict_from_group_param(self.dialog_method_cluster.all_params[params['cluster_method']], cascade=True)
+        method, d = self.dialog_method_features.get()
+        params['feature_method'] = method
+        params['feature_kargs'] = d
+        
+        method, d = self.dialog_method_cluster.get()
+        params['cluster_method'] = method
+        params['cluster_kargs'] = d
         
         #TODO dialog for that
         params['clean_cluster'] = False
@@ -417,11 +433,10 @@ class MainWindow(QT.QMainWindow):
         
         #TODO find something better when several segment
         lengths = [ self.dataio.datasource.get_segment_shape(i)[0] for i in range(self.dataio.nb_segment)]
-        duration = max(lengths)/self.dataio.sample_rate
+        max_duration = max(lengths)/self.dataio.sample_rate
         
-        #~ gui_params.peeler_params[1]['value'] = duration
-        
-        self.dialog_peeler.params['duration'] = duration
+        for m in self.dialog_method_peeler.methods:
+            self.dialog_method_peeler.all_params[m]['duration'] = max_duration
         
         
         #~ dia = ParamDialog(gui_params.peeler_params)
@@ -431,9 +446,12 @@ class MainWindow(QT.QMainWindow):
             #~ return
         #~ d = dia.get()
             
-        if not self.dialog_peeler.exec_():
+        if not self.dialog_method_peeler.exec_():
             return
-        d = self.dialog_peeler.get()
+        engine, d = self.dialog_method_peeler.get()
+        #~ print('run_peeler')
+        #~ print(engine)
+        #~ print(d)
 
         duration = d['duration'] if d['limit_duration'] else None
         d.pop('limit_duration')

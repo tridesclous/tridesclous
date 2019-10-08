@@ -159,11 +159,10 @@ class PeelerEngineBase(OpenCL_Helper):
         self.geometry = geometry
         
         # signal processor class
-        self.signalpreprocessor_engine = self.catalogue['signal_preprocessor_params']['signalpreprocessor_engine']
+        p = dict(self.catalogue['signal_preprocessor_params'])
+        self.signalpreprocessor_engine = p.pop('engine')
         SignalPreprocessor_class = signalpreprocessor_engines[self.signalpreprocessor_engine]
         self.signalpreprocessor = SignalPreprocessor_class(sample_rate, nb_channel, self.chunksize, source_dtype)
-        p = dict(self.catalogue['signal_preprocessor_params'])
-        p.pop('signalpreprocessor_engine')
         p['normalize'] = True
         p['signals_medians'] = self.catalogue['signals_medians']
         p['signals_mads'] = self.catalogue['signals_mads']
@@ -174,12 +173,12 @@ class PeelerEngineBase(OpenCL_Helper):
         assert self.chunksize>self.signalpreprocessor.lostfront_chunksize, 'lostfront_chunksize ({}) is greater than chunksize ({})!'.format(self.signalpreprocessor.lostfront_chunksize, self.chunksize)
 
         # peak detecetor class
-        p = dict(self.catalogue['peak_detector_params'])
-        peakdetector_engine = p.pop('peakdetector_engine', 'numpy') # TODO put engine in info json back
-        PeakDetector_class = peakdetector_engines[peakdetector_engine]
-        self.peakdetector = PeakDetector_class(self.sample_rate, self.nb_channel,
-                                                        self.chunksize, self.internal_dtype, self.geometry)
-        self.peakdetector.change_params(**p)
+        #~ p = dict(self.catalogue['peak_detector_params'])
+        #~ self.peakdetector_engine = p.pop('engine')
+        #~ PeakDetector_class = peakdetector_engines[self.peakdetector_engine]
+        #~ self.peakdetector = PeakDetector_class(self.sample_rate, self.nb_channel,
+                                                        #~ self.chunksize, self.internal_dtype, self.geometry)
+        #~ self.peakdetector.change_params(**p)
 
         self.peak_sign = self.catalogue['peak_detector_params']['peak_sign']
         self.relative_threshold = self.catalogue['peak_detector_params']['relative_threshold']

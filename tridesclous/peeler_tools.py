@@ -79,18 +79,22 @@ def get_auto_params_for_peelers(dataio, chan_grp=0):
     nb_chan = dataio.nb_channel(chan_grp=chan_grp)
     params = {}
     
-    #~ params['engine'] = 'classic'
-    params['engine'] = 'testing'
-    #~ params['engine'] = 'classic_old'
+
     
     if nb_chan <=8:
         
         params['use_sparse_template'] = False
         params['sparse_threshold_mad'] = 1.5
         params['argmin_method'] = 'numpy'
+        
+        
     else:
         params['use_sparse_template'] = True
         params['sparse_threshold_mad'] = 1.5
+        
+        params['engine'] = 'geometrical'
+        
+        
         if HAVE_PYOPENCL:
             params['argmin_method'] = 'opencl'
         elif HAVE_NUMBA:

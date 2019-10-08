@@ -144,7 +144,7 @@ def test_peeler_empty_catalogue():
         online_peaks = unlabeled_spike['index']
         engine = peeler.peeler_engine
         
-        i_stop = sig_length-catalogue['signal_preprocessor_params']['lostfront_chunksize']-engine.n_side+engine.n_span
+        i_stop = sig_length-catalogue['signal_preprocessor_params']['lostfront_chunksize']-engine.extra_size+engine.n_span
         sigs = dataio.get_signals_chunk(signal_type='processed', i_stop=i_stop)
         offline_peaks  = detect_peaks_in_chunk(sigs, engine.n_span, engine.relative_threshold, engine.peak_sign)
         
@@ -258,9 +258,11 @@ def debug_compare_peeler_engines():
     print(dataio)
     
     
-    engine_list = [ ('numpy argmin cl', 'classic', {'argmin_method' : 'opencl', 'use_sparse_template':True}),
-                        ('full cl', 'classic_opencl', {}),
-                    ]
+    engine_list = [ 
+            ('classic argmin numpy', 'classic', {'argmin_method' : 'numpy', 'use_sparse_template':False}),
+            ('classic argmin cl', 'classic', {'argmin_method' : 'opencl', 'use_sparse_template':True}),
+            ('geometrical argmin opencl', 'classic', {'argmin_method' : 'opencl', 'use_sparse_template':True}),
+        ]
     
     all_spikes =  []
     for name, engine, kargs in engine_list:
@@ -316,7 +318,7 @@ if __name__ =='__main__':
     
     #~ open_catalogue_window()
     
-    test_peeler()
+    #~ test_peeler()
     #~ test_peeler_cl()
     
     #~ test_peeler_argmin_methods()
@@ -328,8 +330,8 @@ if __name__ =='__main__':
     #~ test_export_spikes()
     
     
-    #~ debug_compare_peeler_engines()
+    debug_compare_peeler_engines()
     
-    open_PeelerWindow()
+    #~ open_PeelerWindow()
     
     #~ teardown_module()

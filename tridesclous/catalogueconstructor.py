@@ -348,7 +348,7 @@ class CatalogueConstructor:
             size in sample of the margin at the front edge for each chunk to avoid border effect in backward filter.
             In you don't known put None then lostfront_chunksize will be int(sample_rate/highpass_freq)*3 which is quite robust (<5% error)
             compared to a true offline filtfilt.
-        peakdetector_engine: 'numpy' or 'opencl'
+        peakdetector_engine: 'global_numpy' or 'global_opencl' 'geometrical_numpy', 'geometrical_opencl'
             Engine for peak detection.
         peak_sign: '-' or '+'
             Signa of peak.
@@ -376,12 +376,13 @@ class CatalogueConstructor:
         self.signal_preprocessor_params = dict(highpass_freq=highpass_freq, lowpass_freq=lowpass_freq, 
                         smooth_size=smooth_size, common_ref_removal=common_ref_removal,
                         lostfront_chunksize=lostfront_chunksize, output_dtype=internal_dtype,
-                        signalpreprocessor_engine=signalpreprocessor_engine)
+                        engine=signalpreprocessor_engine)
         SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[signalpreprocessor_engine]
         self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.nb_channel, chunksize, self.dataio.source_dtype)
         
         
-        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span_ms=peak_span_ms, adjacency_radius_um=adjacency_radius_um)
+        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span_ms=peak_span_ms,
+                    adjacency_radius_um=adjacency_radius_um, engine=peakdetector_engine)
         PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
         geometry = self.dataio.get_geometry(self.chan_grp)
         self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.nb_channel,
@@ -427,7 +428,7 @@ class CatalogueConstructor:
         filtered_sigs = self.arrays.create_array(name, self.info['internal_dtype'], shape, 'memmap')
         
         params2 = dict(self.signal_preprocessor_params)
-        params2.pop('signalpreprocessor_engine')
+        params2.pop('engine')
         params2['normalize'] = False
         self.signalpreprocessor.change_params(**params2)
         
@@ -486,13 +487,15 @@ class CatalogueConstructor:
         #initialize engines
         
         p = dict(self.signal_preprocessor_params)
-        p.pop('signalpreprocessor_engine')
+        p.pop('engine')
         p['normalize'] = True
         p['signals_medians'] = self.signals_medians
         p['signals_mads'] = self.signals_mads
         self.signalpreprocessor.change_params(**p)
         
-        self.peakdetector.change_params(**self.peak_detector_params)
+        p = dict(self.peak_detector_params)
+        p.pop('engine')
+        self.peakdetector.change_params(**p)
         
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp, chunksize=self.chunksize, i_stop=length,
                                                     signal_type='initial')
@@ -561,12 +564,15 @@ class CatalogueConstructor:
         
         """
         #TODO if not peak detector in class
-        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span_ms=peak_span_ms, adjacency_radius_um=adjacency_radius_um)
+        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span_ms=peak_span_ms,
+                        adjacency_radius_um=adjacency_radius_um, engine=peakdetector_engine)
         PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
         geometry = self.dataio.get_geometry(self.chan_grp)
         self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.nb_channel,
                                                         self.info['chunksize'], self.info['internal_dtype'], geometry)
-
+        
+        p = dict(self.peak_detector_params)
+        p.pop('engine')
         self.peakdetector.change_params(**self.peak_detector_params)
         
         self.info['peak_detector_params'] = self.peak_detector_params
@@ -585,7 +591,7 @@ class CatalogueConstructor:
             for pos, preprocessed_chunk in iterator:
                 index_chunk_peaks, peak_chan_index = self.peakdetector.process_data(pos, preprocessed_chunk)
                 
-                # peak_chan_index can be None
+                # peak_chan_index can be None
             
                 if index_chunk_peaks is not None:
                     peaks = np.zeros(index_chunk_peaks.size, dtype=_dtype_peak)

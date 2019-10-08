@@ -23,7 +23,7 @@ if HAVE_PYOPENCL:
     import pyopencl
     mf = pyopencl.mem_flags
 
-from .peakdetector import PeakDetectorSpatiotemporal, PeakDetectorSpatiotemporal_OpenCL
+from .peakdetector import peakdetector_engines
 
 try:
     import numba
@@ -38,7 +38,7 @@ except ImportError:
 import matplotlib.pyplot as plt
 
 
-class PeelerEngineGeometry(PeelerEngineGeneric):
+class PeelerEngineGeometrical(PeelerEngineGeneric):
     def change_params(self, adjacency_radius_um=200, **kargs):
         PeelerEngineGeneric.change_params(self, **kargs)
         
@@ -94,12 +94,27 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
 
     def initialize_before_each_segment(self, **kargs):
         PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
-
+        
         p = dict(self.catalogue['peak_detector_params'])
-        _ = p.pop('peakdetector_engine', 'numpy')
+        _ = p.pop('engine')
+        if HAVE_PYOPENCL:
+            self.peakdetector_engine = 'geometrical_opencl'
+        else:
+            print('WARNING peak detetcor will slow : install opencl')
+            self.peakdetector_engine = 'geometrical_numpy'
+        PeakDetector_class = peakdetector_engines[self.peakdetector_engine]
+        chunksize = self.fifo_size-2*self.n_span # not the real chunksize here
+        self.peakdetector = PeakDetector_class(self.sample_rate, self.nb_channel,
+                                                        chunksize, self.internal_dtype, self.geometry)
+        self.peakdetector.change_params(**p)
+        
+        #~ assert self.peakdetector_engine.startswith('geometrical')
+        
+        #~ p = dict(self.catalogue['peak_detector_params'])
+        #~ _ = p.pop('peakdetector_engine', 'numpy')
         
         # DEBUG
-        p['nb_neighbour'] = 4
+        #~ p['nb_neighbour'] = 4
 
         self.channel_distances = sklearn.metrics.pairwise.euclidean_distances(self.geometry).astype('float32')
         self.channels_adjacency = {}
@@ -110,13 +125,13 @@ class PeelerEngineGeometry(PeelerEngineGeneric):
         if self.argmin_method == 'opencl'  and self.catalogue['centers0'].size>0:
             self.channel_distances_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.channel_distances)
         
-        #~ self.peakdetector = PeakDetectorSpatiotemporal(self.sample_rate, self.nb_channel,
+        #~ self.peakdetector = PeakDetectorGeometricalNumpy(self.sample_rate, self.nb_channel,
                         #~ self.fifo_size-2*self.n_span, self.internal_dtype, self.geometry)
         
-        # TODO size fido
-        self.peakdetector = PeakDetectorSpatiotemporal_OpenCL(self.sample_rate, self.nb_channel,
-                                                        self.fifo_size-2*self.n_span, self.internal_dtype, self.geometry)
-        self.peakdetector.change_params(**p)
+        #~ # TODO size fido
+        #~ self.peakdetector = PeakDetectorGeometricalOpenCL(self.sample_rate, self.nb_channel,
+                                                        #~ self.fifo_size-2*self.n_span, self.internal_dtype, self.geometry)
+        #~ self.peakdetector.change_params(**p)
 
         
         self.mask_not_already_tested = np.ones((self.fifo_size - 2 * self.n_span,self.nb_channel),  dtype='bool')

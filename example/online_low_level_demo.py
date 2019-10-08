@@ -38,7 +38,7 @@ def setup_catalogue():
             lostfront_chunksize=64,
             
             #peak detector
-            peakdetector_engine='numpy',
+            peakdetector_engine='global_numpy',
             peak_sign='-', relative_threshold=7, peak_span_ms=0.5,
             )
     
@@ -124,13 +124,13 @@ def tridesclous_onlinepeeler():
     
     
     # Device node
-    #~ man = pyacq.create_manager(auto_close_at_exit=True)
-    #~ ng0 = man.create_nodegroup()
-    ng0 = None
-    #~ ng1 = man.create_nodegroup()
-    ng1 = None
-    #~ ng2 = man.create_nodegroup()
-    ng2 = None
+    man = pyacq.create_manager(auto_close_at_exit=True)
+    ng0 = man.create_nodegroup()
+    #~ ng0 = None
+    ng1 = man.create_nodegroup()
+    #~ ng1 = None
+    ng2 = man.create_nodegroup()
+    #~ ng2 = None
     
     
     dev = make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup=ng0, chunksize=chunksize)

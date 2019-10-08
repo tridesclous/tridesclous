@@ -4,7 +4,7 @@ from pyacq.devices import NumpyDeviceBuffer
 from tridesclous.gui.tools import get_dict_from_group_param
 from tridesclous.gui.gui_params import preprocessor_params, peak_detector_params, clean_waveforms_params
 
-
+from pprint import pprint
 
 
 preprocessor_params_default = get_dict_from_group_param(
@@ -88,6 +88,7 @@ def make_empty_catalogue(chan_grp=0,
     preprocessor_params_ = dict(preprocessor_params_default)
     preprocessor_params_.update(preprocessor_params)
     preprocessor_params_.pop('chunksize')
+    
 
 
     peak_detector_params_ = dict(peak_detector_params_default)
@@ -99,7 +100,7 @@ def make_empty_catalogue(chan_grp=0,
     if signals_medians is None:
         signals_medians = signals_medians = np.zeros(nchan, dtype=internal_dtype)
     if signals_mads is None:
-        signals_mads = signals_medians = np.ones(nchan, dtype=internal_dtype)
+        signals_mads = signals_mads = np.ones(nchan, dtype=internal_dtype)
     
     #params
     catalogue['signal_preprocessor_params'] = preprocessor_params_

@@ -86,21 +86,21 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
     else:
         raise(NotImlementedError)
     
-    engine = 'numpy'
-    #~ engine = 'opencl'
+    signalpreprocessor_engine = 'numpy'
+    peakdetector_engine = 'global_numpy'
 
     cc.set_preprocessor_params(chunksize=1024,
             memory_mode='memmap',
             
             #signal preprocessor
-            signalpreprocessor_engine=engine,
+            signalpreprocessor_engine=signalpreprocessor_engine,
             highpass_freq=highpass_freq, 
             lowpass_freq=None,
             common_ref_removal=common_ref_removal,
             lostfront_chunksize=128,
             
             #peak detector
-            peakdetector_engine=engine,
+            peakdetector_engine=peakdetector_engine,
             peak_sign=peak_sign, 
             relative_threshold=relative_threshold,
             peak_span=1./sample_rate,
@@ -207,8 +207,12 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_clust
     cc = CatalogueConstructor(dataio=dataio)
     
     p = {}
-    p.update(params['preprocessor'])
-    p.update(params['peak_detector'])
+    d = dict(params['preprocessor'])
+    d['signalpreprocessor_engine'] = d.pop('engine')
+    p.update(**d)
+    d = dict(params['peak_detector'])
+    d['peakdetector_engine'] = d.pop('engine')
+    p.update(**d)
     cc.set_preprocessor_params(**p)
 
     t1 = time.perf_counter()

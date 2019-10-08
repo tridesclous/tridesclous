@@ -19,7 +19,7 @@ Preprocessor
     * lostfront_chunksize (int): size in sample of the margin at the front edge for each chunk to avoid border effect in backward filter.
        In you don't known put None then lostfront_chunksize will be int(sample_rate/highpass_freq)*3 which is quite robust (<5% error)
        compared to a true offline filtfilt.
-    * signalpreprocessor_engine (str): 'numpy' or 'opencl'. There is a double implementation for signal preprocessor : With numpy/scipy
+    * engine (str): 'numpy' or 'opencl'. There is a double implementation for signal preprocessor : With numpy/scipy
       flavor (and so CPU) or opencl with home made CL kernel (and so use GPU computing). If you have big fat GPU and are able to install
       "opencl driver" (ICD) for your platform the opencl flavor should speedup the peeler because pre processing signal take a quite
       important amoung of time.
@@ -128,12 +128,12 @@ preprocessor_params = [
     {'name': 'smooth_size', 'type': 'int', 'value':0},
     {'name': 'common_ref_removal', 'type': 'bool', 'value':False},
     {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
-    {'name': 'lostfront_chunksize', 'type': 'int', 'value':0, 'decimals':10, 'limits': (0, np.inf),},
-    {'name': 'signalpreprocessor_engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl']},
+    {'name': 'lostfront_chunksize', 'type': 'int', 'value':-1, 'decimals':10, 'limits': (-1, np.inf),},
+    {'name': 'engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl']},
 ]
 
 peak_detector_params = [
-    {'name': 'peakdetector_engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl']},
+    {'name': 'engine', 'type': 'list', 'value' : 'numpy', 'values':['global_numpy', 'geometrical_numpy', 'geometrical_opencl']},   #'global_opencl'
     {'name': 'peak_sign', 'type': 'list',  'value':'-', 'values':['-', '+']},
     {'name': 'relative_threshold', 'type': 'float', 'value': 5., 'step': .1,},
     {'name': 'peak_span_ms', 'type': 'float', 'value':0.5, 'step': 0.05, 'suffix': 'ms', 'siPrefix': False},
@@ -218,15 +218,26 @@ metrics_params = [
 ]
 
 
-peeler_params = [
-    {'name':'limit_duration', 'type': 'bool', 'value':True},
+_common_peeler_params = [
+    {'name':'limit_duration', 'type': 'bool', 'value': False},
     {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
     {'name':'duration', 'type': 'float', 'value':60., 'suffix': 's', 'siPrefix': True},
+    
     {'name': 'use_sparse_template', 'type': 'bool', 'value':False},
     {'name':'sparse_threshold_mad', 'type': 'float', 'value': 1.5, },
-    {'name': 'use_opencl_with_sparse', 'type': 'bool', 'value':False},
+    
+    {'name': 'argmin_method', 'type': 'list', 'values' : [ 'numpy', 'opencl', 'numba',]},
+    
+    {'name': 'maximum_jitter_shift', 'type': 'int', 'value':4, 'decimals':10},
     
 ]
+
+
+peeler_params_by_methods = OrderedDict([
+    ('classic', _common_peeler_params),
+    ('geometrical', _common_peeler_params),
+    ('classic_old', _common_peeler_params),
+])
 
 
 

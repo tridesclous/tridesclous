@@ -6,6 +6,8 @@ from .peeler_tools import *
 from .peeler_tools import _dtype_spike
 from .peeler_engine_base import PeelerEngineGeneric
 
+from .peakdetector import peakdetector_engines
+
 import matplotlib.pyplot as plt
 
 
@@ -77,6 +79,16 @@ class PeelerEngineClassic(PeelerEngineGeneric):
 
     def initialize_before_each_segment(self, **kargs):
         PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
+        
+        # force engine to global
+        p = dict(self.catalogue['peak_detector_params'])
+        _ = p.pop('engine')
+        self.peakdetector_engine = 'global_numpy'
+        PeakDetector_class = peakdetector_engines[self.peakdetector_engine]
+        chunksize = self.fifo_size-2*self.n_span # not the real chunksize here
+        self.peakdetector = PeakDetector_class(self.sample_rate, self.nb_channel,
+                                                        chunksize, self.internal_dtype, self.geometry)
+        self.peakdetector.change_params(**p)
         
         self.mask_not_already_tested = np.ones(self.fifo_size - 2 * self.n_span, dtype='bool')
         
