@@ -285,30 +285,30 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             cluster_idx = np.argmin(self.waveform_distance)
             shift = None
         
-        elif self.argmin_method == 'pythran':
-            s = pythran_tools.pythran_loop_sparse_dist(waveform, 
-                                self.catalogue['centers0'],  self.sparse_mask)
-            cluster_idx = np.argmin(s)
-            shift = None
+        #~ elif self.argmin_method == 'pythran':
+            #~ s = pythran_tools.pythran_loop_sparse_dist(waveform, 
+                                #~ self.catalogue['centers0'],  self.sparse_mask)
+            #~ cluster_idx = np.argmin(s)
+            #~ shift = None
         
         elif self.argmin_method == 'numba':
             possibles_cluster_idx, = np.nonzero(self.sparse_mask[:, chan_ind])
             
             
-            s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
-            cluster_idx = possibles_cluster_idx[np.argmin(s)]
-            shift = None
+            #~ s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
+            #~ cluster_idx = possibles_cluster_idx[np.argmin(s)]
+            #~ shift = None
             
-            #~ shifts = list(range(-self.maximum_jitter_shift, self.maximum_jitter_shift+1))
-            #~ all_s = []
-            #~ for shift in shifts:
-                #~ waveform = self.fifo_residuals[left_ind+shift:left_ind+self.peak_width+shift,:]
-                #~ s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
-                #~ all_s.append(s)
-            #~ all_s = np.array(all_s)
-            #~ shift_ind, cluster_idx = np.unravel_index(np.argmin(all_s, axis=None), all_s.shape)
-            #~ cluster_idx = possibles_cluster_idx[cluster_idx]
-            #~ shift = shifts[shift_ind]
+            shifts = list(range(-self.maximum_jitter_shift, self.maximum_jitter_shift+1))
+            all_s = []
+            for shift in shifts:
+                waveform = self.fifo_residuals[left_ind+shift:left_ind+self.peak_width+shift,:]
+                s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
+                all_s.append(s)
+            all_s = np.array(all_s)
+            shift_ind, cluster_idx = np.unravel_index(np.argmin(all_s, axis=None), all_s.shape)
+            cluster_idx = possibles_cluster_idx[cluster_idx]
+            shift = shifts[shift_ind]
             
             #~ if self._plot_debug:
                 #~ fig, ax = plt.subplots()

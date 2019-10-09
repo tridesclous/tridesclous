@@ -231,8 +231,8 @@ class PeelerEngineGeneric(PeelerEngineBase):
         #~ print('*'*10)
         t1 = time.perf_counter()
         abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
-        #~ t2 = time.perf_counter()
-        #~ print('process_data', (t2-t1)*1000)
+        t2 = time.perf_counter()
+        print('process_data', (t2-t1)*1000)
         
         
         #shift rsiruals buffer and put the new one on right side
@@ -241,8 +241,8 @@ class PeelerEngineGeneric(PeelerEngineBase):
         if fifo_roll_size>0 and fifo_roll_size!=self.fifo_size:
             self.fifo_residuals[:fifo_roll_size,:] = self.fifo_residuals[-fifo_roll_size:,:]
             self.fifo_residuals[fifo_roll_size:,:] = preprocessed_chunk
-        #~ t2 = time.perf_counter()
-        #~ print('fifo move', (t2-t1)*1000.)
+        t2 = time.perf_counter()
+        print('fifo move', (t2-t1)*1000.)
 
         
         # relation between inside chunk index and abs index
@@ -275,8 +275,8 @@ class PeelerEngineGeneric(PeelerEngineBase):
                 
                 t1 = time.perf_counter()
                 spike = self.classify_and_align_next_spike(peak_ind, peak_chan)
-                #~ t2 = time.perf_counter()
-                #~ print('  classify_and_align_next_spike', (t2-t1)*1000)
+                t2 = time.perf_counter()
+                print('  classify_and_align_next_spike', (t2-t1)*1000)
                 #~ if spike.cluster_label <0:
                     #~ print('   spike.label', spike.cluster_label, 'peak_ind, peak_chan', peak_ind, peak_chan)
 
@@ -322,9 +322,10 @@ class PeelerEngineGeneric(PeelerEngineBase):
             self._plot_after_peeling_loop(good_spikes)
         
         #~ print(self._debug_nb_accept_tempate)
-        #~ t4 = time.perf_counter()
-        #~ print('mainloop classify_and_align some spike', (t4-t3)*1000)
-        #~ print('nb_good_spike', len(good_spikes), 'n_loop', n_loop, 'per spike', (t4-t3)*1000/len(good_spikes))
+        t4 = time.perf_counter()
+        print('mainloop classify_and_align some spike', (t4-t3)*1000)
+        #~ if  len(good_spikes)>0:
+            #~ print('nb_good_spike', len(good_spikes), 'n_loop', n_loop, 'per spike', (t4-t3)*1000/len(good_spikes))
         
         bad_spikes = self.get_no_label_peaks()
         bad_spikes['index'] += to_local_shift
@@ -387,7 +388,10 @@ class PeelerEngineGeneric(PeelerEngineBase):
             #~ if self._plot_debug:
                 #~ print('LABEL_UNCLASSIFIED', proposed_peak_ind, peak_chan)
         else:
+            #~ t1 = time.perf_counter()
             waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
+            #~ t2 = time.perf_counter()
+            #~ print('    get_waveform', (t2-t1)*1000)
             
             if self.alien_value_threshold is not None and \
                     np.any((waveform>self.alien_value_threshold) | (waveform<-self.alien_value_threshold)) :
@@ -406,23 +410,23 @@ class PeelerEngineGeneric(PeelerEngineBase):
                     left_ind += shift
                 
                 
-                #~ t2 = time.perf_counter()
-                #~ print('    get_best_template', (t2-t1)*1000)
+                t2 = time.perf_counter()
+                print('    get_best_template', (t2-t1)*1000)
                 
 
 
                 
                 
-                #~ t1 = time.perf_counter()
+                t1 = time.perf_counter()
                 #~ print('left_ind', left_ind, 'proposed_peak_ind', proposed_peak_ind)
                 jitter = self.estimate_jitter(left_ind, cluster_idx)
-                #~ t2 = time.perf_counter()
-                #~ print('    estimate_jitter', (t2-t1)*1000)
+                t2 = time.perf_counter()
+                print('    estimate_jitter', (t2-t1)*1000)
                 
                 t1 = time.perf_counter()
                 ok = self.accept_tempate(left_ind, cluster_idx, jitter)
-                #~ t2 = time.perf_counter()
-                #~ print('    accept_tempate', (t2-t1)*1000)
+                t2 = time.perf_counter()
+                print('    accept_tempate', (t2-t1)*1000)
 
                 # DEBUG
                 #~ label = self.catalogue['cluster_labels'][cluster_idx]
@@ -449,8 +453,15 @@ class PeelerEngineGeneric(PeelerEngineBase):
                         #~ new_jitter = self.estimate_jitter(left_ind + shift, new_cluster_idx)
                         #~ ok = self.accept_tempate(left_ind+shift, new_cluster_idx, new_jitter)
                         # end debug
+                        t1 = time.perf_counter()
                         new_jitter = self.estimate_jitter(left_ind + shift, cluster_idx)
+                        t2 = time.perf_counter()
+                        print('      estimate_jitter 2', (t2-t1)*1000)
+                        t1 = time.perf_counter()
                         ok = self.accept_tempate(left_ind+shift, cluster_idx, new_jitter)
+                        t2 = time.perf_counter()
+                        print('      accept_tempate 2', (t2-t1)*1000)
+                        
                         if ok and np.abs(new_jitter)<np.abs(jitter):
                             jitter = new_jitter
                             left_ind += shift
@@ -549,6 +560,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
             print('Spike', peak_ind, label, jitter)
         
         return Spike(peak_ind, label, jitter)
+
 
     def estimate_jitter(self, left_ind, cluster_idx):
         
