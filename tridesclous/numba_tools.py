@@ -51,3 +51,27 @@ def numba_loop_sparse_dist_with_geometry(waveform, centers,  mask, possibles_clu
     return waveform_distance
 
 
+@jit(parallel=True)
+def numba_explore_shifts(long_waveform, one_center,  one_mask, maximum_jitter_shift):
+    width, nb_chan = one_center.shape
+    n = maximum_jitter_shift*2 +1
+    
+    all_dist = np.zeros((n, ), dtype=np.float32)
+    
+    for shift in range(n):
+        # waveform = long_waveform[shift:shift+width]
+        sum = 0
+        for c in range(nb_chan):
+            if one_mask[c]:
+                for s in range(width):
+                    d = long_waveform[shift+s, c] - one_center[s, c]
+                    sum += d*d
+            #~ else:
+                #~ for pos in range(width):
+                    #~ d = long_waveform[shift+s, c]
+                    #~ sum += d*d
+        all_dist[shift] = sum
+    
+    return all_dist
+
+
