@@ -26,7 +26,9 @@ def extract_chunks(signals, indexes, width, chunks=None, n_jobs=0):
         chunks = np.empty((indexes.size, width, signals.shape[1]), dtype = signals.dtype)
     
     if n_jobs == 0:
-        for i, ind in enumerate(indexes):
+        keep = (indexes>=0) & (indexes<(signals.shape[0] - width))
+        indexes2 = indexes[keep]
+        for i, ind in enumerate(indexes2):
             chunks[i,:,:] = signals[ind:ind+width,:]
     else:
         assert n_jobs >=1 

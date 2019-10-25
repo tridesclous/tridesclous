@@ -230,8 +230,9 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         elif nb_chan>=50:
             params['cluster_kargs']['max_loop'] = nb_chan * 400
             
+            
         
-        params['extract_waveforms']['nb_max'] = max(2000, nb_chan * 400)
+        params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 400)
         
         if HAVE_PYOPENCL:
             params['peak_detector']['engine'] = 'geometrical_opencl'

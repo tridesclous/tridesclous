@@ -17,6 +17,7 @@ install_requires = [
                     'tqdm',
                     'PyQt5',
                     'pyqtgraph==0.10.0',
+                    'joblib',
                     ]
 extras_require={
                             'online' : ['pyacq',],

@@ -674,8 +674,22 @@ class CatalogueConstructor:
         # this is important to not take 2 times the sames, this leads to bad mad/median
         some_peaks_index = np.unique(some_peaks_index)
         
+        seg_nums = np.unique(self.all_peaks['segment'])
+        
+        # remove peak_index near border
+        print('AV some_peaks_index.size', some_peaks_index.size)
+        keep = np.zeros(some_peaks_index.size, dtype='bool')
+        for seg_num in seg_nums:
+            in_seg_mask = self.all_peaks[some_peaks_index]['segment'] == seg_num
+            indexes  = self.all_peaks[some_peaks_index]['index']
+            in_seg_keep = (indexes > peak_width) & (indexes < self.dataio.get_segment_length(seg_num) - peak_width)
+            keep |= in_seg_mask & in_seg_keep
+        some_peaks_index = some_peaks_index[keep]
+        print('AP some_peaks_index.size', some_peaks_index.size)
+        
         some_peak_mask = np.zeros(self.nb_peak, dtype='bool')
         some_peak_mask[some_peaks_index] = True
+        
         
         nb = some_peaks_index.size
         
@@ -687,8 +701,9 @@ class CatalogueConstructor:
         shape=(nb, peak_width, self.nb_channel)
         self.arrays.create_array('some_waveforms', self.info['internal_dtype'], shape, self.memory_mode)
 
-        seg_nums = np.unique(self.all_peaks['segment'])
+        
         n = 0
+        
 
         for seg_num in seg_nums:
             insegment_peaks  = self.all_peaks[some_peak_mask & (self.all_peaks['segment']==seg_num)]

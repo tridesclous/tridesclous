@@ -221,8 +221,8 @@ class PeelerEngineGeneric(PeelerEngineBase):
             #~ self._plot_debug = True
         #~ else:
             #~ self._plot_debug = False
-        #~ self._plot_debug = False
-        self._plot_debug = True
+        self._plot_debug = False
+        #~ self._plot_debug = True
         
         if self._plot_debug:
             print('*'*10)
