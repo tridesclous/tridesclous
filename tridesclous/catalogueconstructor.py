@@ -677,7 +677,6 @@ class CatalogueConstructor:
         seg_nums = np.unique(self.all_peaks['segment'])
         
         # remove peak_index near border
-        print('AV some_peaks_index.size', some_peaks_index.size)
         keep = np.zeros(some_peaks_index.size, dtype='bool')
         for seg_num in seg_nums:
             in_seg_mask = self.all_peaks[some_peaks_index]['segment'] == seg_num
@@ -685,7 +684,6 @@ class CatalogueConstructor:
             in_seg_keep = (indexes > peak_width) & (indexes < self.dataio.get_segment_length(seg_num) - peak_width)
             keep |= in_seg_mask & in_seg_keep
         some_peaks_index = some_peaks_index[keep]
-        print('AP some_peaks_index.size', some_peaks_index.size)
         
         some_peak_mask = np.zeros(self.nb_peak, dtype='bool')
         some_peak_mask[some_peaks_index] = True
