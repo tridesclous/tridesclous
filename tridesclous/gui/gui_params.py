@@ -48,9 +48,6 @@ Waveform extraction
     of cells) + the density (firing rate) fo each cluster. Since this can't be known in advance, the user must explore cluster and
     extract again while changing this number given dense enough clusters. This have a strong imptact of the CPU and RAM.
     So do not choose to big number.
-  * align_waveform (bool): experimental make an oversampling before extracting waveform. This slow down a lot the process
-     with few enhancement for centroids. Note that this is NOT the intersample true peak estimation done by the Peeler (which is
-     very important)
 
 Waveform clean
 -------------------------
@@ -145,8 +142,8 @@ waveforms_params = [
     {'name': 'wf_right_ms', 'type': 'float', 'value': 3.0,  'suffix': 'ms','step': .1,},
     {'name': 'mode', 'type': 'list', 'values':['rand', 'all']},
     {'name': 'nb_max', 'type': 'int', 'value':20000},
-    {'name': 'align_waveform', 'type': 'bool', 'value':False},
-    #~ {'name': 'subsample_ratio', 'type': 'int', 'value':20},
+    {'name': 'sparse', 'type': 'bool', 'value':False},
+    {'name': 'adjacency_radius_um', 'type': 'float', 'value': 200, 'step': 10., 'suffix': 'µm', 'siPrefix': False},
 ]
 
 clean_waveforms_params =[

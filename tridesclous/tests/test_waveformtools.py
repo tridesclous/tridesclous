@@ -54,7 +54,7 @@ def test_extract_chunks_n_jobs():
     
     
     
-    for n_jobs in [1, 4, 8, 16]:
+    for n_jobs in [0, 1, 4, 8, 16]:
         t0 = time.perf_counter()
         chunks = extract_chunks(signals, indexes, width, chunks=chunks, n_jobs=n_jobs)
         #~ chunks.flush()

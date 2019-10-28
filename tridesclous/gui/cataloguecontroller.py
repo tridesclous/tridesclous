@@ -109,6 +109,10 @@ class CatalogueController(ControllerBase):
     @property
     def spike_label(self):
         return self.cc.all_peaks['cluster_label']
+    
+    @property
+    def spike_channel(self):
+        return self.cc.all_peaks['channel']
 
     @property
     def spike_segment(self):

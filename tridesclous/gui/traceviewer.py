@@ -447,6 +447,7 @@ class BaseTraceViewer(WidgetBase):
                     else:
                         c = np.argmax(np.abs(sigs_chunk_in), axis=1)
                 else:
+                    # TODO use spikes['channel'] when !=-1
                     c = np.argmax(np.abs(sigs_chunk_in), axis=1)
                 keep = self.visible_channels[c]
                 if np.sum(keep)==0: continue

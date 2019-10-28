@@ -413,15 +413,15 @@ def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
             # take waveforms
             #~ spike_labels = spikes['cluster_label']
             spikes = spikes[spikes['cluster_label'] == label]
-            spike_indexes = spikes['index']
+            sample_indexes = spikes['index']
             
-            if spike_indexes.size>1000:
+            if sample_indexes.size>1000:
                 # limit to 1000 spike by segment
-                spike_indexes = np.random.choice(spike_indexes, size=1000)
-            spike_indexes = spike_indexes[(spike_indexes>-n_left)]
+                sample_indexes = np.random.choice(sample_indexes, size=1000)
+            sample_indexes = sample_indexes[(sample_indexes>-n_left)]
             
             wf_ = dataio.get_some_waveforms(seg_num=seg_num, chan_grp=chan_grp,
-                        spike_indexes=spike_indexes, n_left=n_left, n_right=n_right)
+                        sample_indexes=sample_indexes, n_left=n_left, n_right=n_right)
             wf_ = wf_[:, :, channels]
             all_wf.append(wf_)
         wf = np.concatenate(all_wf, axis=0)
@@ -530,9 +530,9 @@ def plot_isi(dataio, catalogue=None, chan_grp=None, label=None, ax=None, bin_min
     for seg_num in range(dataio.nb_segment):
         spikes = dataio.get_spikes(seg_num=seg_num, chan_grp=chan_grp,)
         spikes = spikes[spikes['cluster_label'] == label]
-        spike_indexes = spikes['index']
+        sample_indexes = spikes['index']
         
-        isi = np.diff(spike_indexes)/ (sr/1000.)
+        isi = np.diff(sample_indexes)/ (sr/1000.)
         
         count_, bins = np.histogram(isi, bins=bins)
         if count is None:

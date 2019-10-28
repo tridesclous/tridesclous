@@ -246,7 +246,7 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_clust
             if indexes.size>spike_per_cluster:
                 keep = np.random.choice(indexes.size, spike_per_cluster, replace=False)
                 indexes = indexes[keep]
-            wfs = dataio.get_some_waveforms(seg_num=0, chan_grp=0, spike_indexes=indexes, n_left=n_left, n_right=n_right)
+            wfs = dataio.get_some_waveforms(seg_num=0, chan_grp=0, sample_indexes=indexes, n_left=n_left, n_right=n_right)
             wf0 = np.median(wfs, axis=0)
             chan_max = np.argmax(np.max(np.abs(wf0), axis=0))
             ind_max = np.argmax(np.abs(wf0[:, chan_max]))

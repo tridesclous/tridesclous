@@ -16,7 +16,7 @@ spike_visible_modes = ['selected', 'all',  'collision']
 
 #~ _dtype_spike = [('index', 'int64'), ('cluster_label', 'int64'), ('jitter', 'float64'),]
 
-_dtype_complement = [('cell_label', 'int64'), ('segment', 'int64'), ('visible', 'bool'),
+_dtype_complement = [('cell_label', 'int64'), ('channel', 'int64'), ('segment', 'int64'), ('visible', 'bool'),
                 ('selected', 'bool')]
 
 
@@ -69,6 +69,12 @@ class PeelerController(ControllerBase):
         self.nb_spike = int(self.spikes.size)
         
         self.cluster_labels = self.catalogue['clusters']['cluster_label']
+        
+        # set channel for each cluster
+        for k in self.cluster_labels:
+            chan = self.catalogue['max_on_channel'][k]
+            self.spikes['channel'] = chan
+        
         #~ self.cluster_labels = np.unique(self.spikes['cluster_label'])#TODO take from catalogue
         
         
@@ -108,6 +114,10 @@ class PeelerController(ControllerBase):
 
     @property
     def spike_index(self):
+        return self.spikes['index']
+
+    @property
+    def spike_channel(self):
         return self.spikes['index']
 
     @property

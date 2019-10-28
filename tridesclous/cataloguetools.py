@@ -163,7 +163,8 @@ _default_catalogue_params = {
         'wf_right_ms': 2.5,
         'mode': 'rand',
         'nb_max': 20000,
-        'align_waveform': False,
+        'sparse':False,
+        'adjacency_radius_um': 200,
     },
     'clean_waveforms': {
         'alien_value_threshold': None,
@@ -225,12 +226,12 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['cluster_method'] = 'sawchaincut'
         params['cluster_kargs']['kde_bandwith'] = 1.
         
-        if nb_chan<50:
+        if nb_chan<32:
             params['cluster_kargs']['max_loop'] = 10000
-        elif nb_chan>=50:
+            params['extract_waveforms']['sparse'] = False
+        elif nb_chan>=32:
             params['cluster_kargs']['max_loop'] = nb_chan * 400
-            
-            
+            params['extract_waveforms']['sparse'] = True
         
         params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 400)
         
