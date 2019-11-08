@@ -938,7 +938,6 @@ class CatalogueConstructor:
             old_labels = np.unique(self.all_peaks['cluster_label'][selection])
             #~ print(old_labels)
         
-        
         labels = cluster.find_clusters(self, method=method, selection=selection, **kargs)
         
         if selection is None:

@@ -32,8 +32,14 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
     if selection is None:
         # this include trash but not allien
         sel = (cc.all_peaks['cluster_label']>=-1)[cc.some_peaks_index]
-        features = cc.some_features[sel]
-        waveforms = cc.some_waveforms[sel]
+        if np.all(sel):
+            features = cc.some_features[:]
+            waveforms = cc.some_waveforms[:]
+        else:
+            # this can be very long because copy!!!!!
+            # TODO fix this for high channel count
+            features = cc.some_features[sel]
+            waveforms = cc.some_waveforms[sel]
     else:
         sel = selection[cc.some_peaks_index]
         features = cc.some_features[sel]
@@ -81,10 +87,20 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         n_right = cc.info['waveform_extractor_params']['n_right']
         peak_sign = cc.info['peak_detector_params']['peak_sign']
         relative_threshold = cc.info['peak_detector_params']['relative_threshold']
-        #~ sawchaincut = SawChainCut_OLD(waveforms, n_left, n_right, peak_sign, relative_threshold)
         sawchaincut = SawChainCut(waveforms, n_left, n_right, peak_sign, relative_threshold, **kargs)
         labels = sawchaincut.do_the_job()
-        #~ print('ici trash nb', np.sum(labels==-1))
+    elif method == 'shearscut':
+        n_left = cc.info['waveform_extractor_params']['n_left']
+        n_right = cc.info['waveform_extractor_params']['n_right']
+        peak_sign = cc.info['peak_detector_params']['peak_sign']
+        relative_threshold = cc.info['peak_detector_params']['relative_threshold']
+        if 'adjacency_radius_um' not in kargs: # TODO make it global for catalogue
+            adjacency_radius_um = 200
+        channel_adjacency = cc.dataio.get_channel_adjacency(chan_grp=cc.chan_grp, adjacency_radius_um=adjacency_radius_um)
+        assert cc.info['peak_detector_params']['engine'].startswith('geometrical')
+        shearscut = ShearsCut(waveforms, features, n_left, n_right, peak_sign, relative_threshold, channel_adjacency, **kargs)
+        
+        labels = shearscut.do_the_job()
     elif method =='isosplit5':
         assert HAVE_ISOSPLIT5, 'isosplit5 is not installed'
         labels = isosplit5.isosplit5(features.T)
@@ -451,4 +467,221 @@ class SawChainCut:
         return cluster_labels2
 
 
+class ShearsCut:
+    def __init__(self, waveforms, 
+                        features,
+                        n_left, n_right,
+                        peak_sign, threshold,
+                        channel_adjacency,
+                        
+                        nb_min=20,
+                        max_loop=1000,
+                        break_nb_remain=30,
+                        print_debug=True):
+        self.waveforms = waveforms
+        self.features = features
+        self.n_left = n_left
+        self.n_right = n_right
+        self.width = n_right - n_left
+        self.peak_sign = peak_sign
+        self.threshold = threshold
+        self.channel_adjacency = channel_adjacency
+        
+        #user params
+        self.nb_min = nb_min
+        self.max_loop = max_loop
+        self.break_nb_remain = break_nb_remain
+        self.print_debug = print_debug
+
+    def log(self, *args, **kargs):
+        if self.print_debug:
+            print(*args, **kargs)
     
+    def do_the_job(self):
+        cluster_labels = self.split_loop()
+        
+        return cluster_labels
+    
+    def split_loop(self):
+        
+        from .matplotlibplot import plot_waveforms_density
+        
+        print('all_peak_max')
+        ind_peak = -self.n_left
+        all_peak_max = self.waveforms[:, ind_peak, : ].copy()
+        if self.peak_sign == '-' :
+            all_peak_max = -all_peak_max
+        print('all_peak_max done')
+        
+        nb_channel = self.waveforms.shape[2]
+        #~ self.bins = np.arange(self.threshold, np.max(all_peak_max),  self.binsize)
+        
+        cluster_labels = np.zeros(self.waveforms.shape[0], dtype='int64')
+        k = 0
+        chan_visited = []
+        #~ for iloop in range(self.max_loop):
+        iloop = -1
+        while True:
+            iloop += 1
+            
+            nb_remain = np.sum(cluster_labels>=k)
+            sel = cluster_labels == k
+            nb_working = np.sum(sel)
+            self.log()
+            self.log('iloop', iloop, 'k', k, 'nb_remain', nb_remain, 'nb_working', nb_working, {True:'full', False:'partial'}[nb_remain==nb_working])
+            
+            if iloop>=self.max_loop:
+                cluster_labels[sel] = -1
+                self.log('BREAK iloop', iloop)
+                print('Warning SawChainCut reach max_loop limit there are maybe more cluster')
+                break
+            
+            if iloop!=0 and nb_remain<self.break_nb_remain:
+                cluster_labels[sel] = -1
+                self.log('BREAK nb_remain', nb_remain, '<', self.break_nb_remain)
+                break
+            
+            #~ self.log(all_peak_max.shape)
+            peak_max = all_peak_max[sel, :]
+            
+            
+            if nb_working<self.nb_min:
+                self.log('TRASH: too few')
+                cluster_labels[sel] = -1
+                k += 1
+                chan_visited = []
+                continue
+            
+            print('percentiles')
+            percentiles = np.zeros(nb_channel)
+            for c in range(nb_channel):
+                x = peak_max[:, c]
+                x = x[x>self.threshold]
+                
+                if x.size>self.nb_min:
+                    per = np.nanpercentile(x, 90)
+                else:
+                    per = 0
+                percentiles[c] = per
+            order_visit = np.argsort(percentiles)[::-1]
+            print('percentiles', percentiles)
+            order_visit = order_visit[percentiles[order_visit]>0]
+            print('order_visit', order_visit)
+            
+            
+            #~ self.log(order_visit)
+            #~ self.log(percentiles[order_visit])
+            
+            
+            order_visit = order_visit[~np.in1d(order_visit, chan_visited)]
+            
+            if len(order_visit)==0:
+                self.log('len(order_visit)==0')
+                if np.sum(cluster_labels>k)>0:
+                    k+=1
+                    chan_visited = []
+                    continue
+                else:
+                    cluster_labels[sel] = -1
+                    self.log('BREAK no  more channel')
+                    break
+            
+            actual_chan = order_visit[0]
+            
+            self.log('actual_chan', actual_chan)
+            adjacency = self.channel_adjacency[actual_chan]
+            self.log('adjacency', adjacency)
+            
+            n_components_by_channel = self.features.shape[1] // nb_channel
+            print('n_components_by_channel', n_components_by_channel)
+            
+            chan_features = self.features[:, actual_chan*n_components_by_channel:(actual_chan+1)*n_components_by_channel]
+            
+            
+            keep = peak_max[:, actual_chan] > self.threshold
+            self.log('keep.size', keep.size, 'keep.sum', keep.sum())
+
+            sel = np.zeros(self.features.shape[1], dtype='bool')
+            for i in range(n_components_by_channel):
+                sel[adjacency+i] = True
+            adj_features = self.features[:, sel]
+            self.log('adj_features.shape', adj_features.shape)
+            
+            
+            pca =  sklearn.decomposition.IncrementalPCA(n_components=2)
+            reduced_features = pca.fit_transform(adj_features[keep, :])
+            self.log('reduced_features.shape',reduced_features.shape)
+            
+            # auto 
+            clustering = sklearn.cluster.KMeans(n_clusters=4)
+            local_labels = clustering.fit_predict(reduced_features)
+            print('local_labels.shape', local_labels.shape)
+            print('local_labels.shape', local_labels.shape)
+            
+
+            if True:
+                fig, axs = plt.subplots(ncols=3)
+                
+                feat0, feat1 = chan_features[keep, :][:, 0], chan_features[keep, :][:, 1]
+                ax = axs[0]
+                ax.scatter(feat0, feat1, s=1)
+                
+                
+                colors = plt.cm.get_cmap('jet', len(np.unique(local_labels)))
+                print(colors)
+                ax = axs[1]
+                #~ feat0, feat1 = chan_features[keep, :][:, 0], chan_features[keep, :][:, 1]
+                #~ ax.scatter(reduced_features[:, 0], reduced_features[:, 1], s=1)
+                for l, label in enumerate(np.unique(local_labels)):
+                    sel = label == local_labels
+                    ax.scatter(reduced_features[sel, :][:, 0], reduced_features[sel, :][:, 1], s=1, color=colors(l))
+                
+                
+                ax = axs[2]
+                wf_chan = self.waveforms[:,:, [actual_chan]][keep, :, :]
+                bin_min, bin_max, bin_size = -40, 20, 0.2
+                #~ bin_min, bin_max, bin_size = -340, 180, 1
+                im = plot_waveforms_density(wf_chan, bin_min, bin_max, bin_size, ax=ax)
+                #~ im.set_clim(0, 50)
+                #~ im.set_clim(0, 25)
+                #~ im.set_clim(0, 150)
+                im.set_clim(0, 250)
+                fig.colorbar(im)
+                
+                ind_keep,  = np.nonzero(keep)
+                for l, label in enumerate(np.unique(local_labels)):
+                    sel = label == local_labels
+                    ind = ind_keep[sel]
+                    wf = self.waveforms[:,:, actual_chan][ind, :].mean(axis=0)
+                    ax.plot(wf, color=colors(l))
+                    
+                
+
+                
+                plt.show()
+            
+            
+            
+            
+            #~ if lim0 is None:
+                #~ chan_visited.append(actual_chan)
+                #~ self.log('EXPLORE NEW DIM lim0 is None ',  len(chan_visited))
+                #~ continue
+            
+            
+            #~ ind, = np.nonzero(sel)
+            #~ self.log(ind.shape)
+            #~ not_in = ~((peak_max[:, actual_chan]>lim0) & (peak_max[:, actual_chan]<lim1))
+            #~ self.log(not_in.shape)
+            #~ cluster_labels[cluster_labels>k] += 1#TODO reflechir la dessus!!!
+            #~ cluster_labels[ind[not_in]] += 1
+
+            #~ if np.sum(not_in)==0:
+                #~ self.log('ACCEPT: not_in.sum()==0')
+                #~ k+=1
+                #~ chan_visited = []
+                #~ continue
+        
+        self.log('END loop', np.sum(cluster_labels==-1))
+        return cluster_labels
+        
