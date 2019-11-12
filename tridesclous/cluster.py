@@ -17,6 +17,10 @@ from .tools import median_mad
 
 import matplotlib.pyplot as plt
 
+#~ import pyclustering
+
+import hdbscan
+
 try:
     import isosplit5
     HAVE_ISOSPLIT5 = True
@@ -474,7 +478,7 @@ class ShearsCut:
                         peak_sign, threshold,
                         channel_adjacency,
                         
-                        nb_min=20,
+                        min_cluster_size=20,
                         max_loop=1000,
                         break_nb_remain=30,
                         print_debug=True):
@@ -488,7 +492,7 @@ class ShearsCut:
         self.channel_adjacency = channel_adjacency
         
         #user params
-        self.nb_min = nb_min
+        self.min_cluster_size = min_cluster_size
         self.max_loop = max_loop
         self.break_nb_remain = break_nb_remain
         self.print_debug = print_debug
@@ -498,13 +502,61 @@ class ShearsCut:
             print(*args, **kargs)
     
     def do_the_job(self):
-        cluster_labels = self.split_loop()
+        cluster_labels = self.explore_split_loop()
         
         return cluster_labels
     
-    def split_loop(self):
+    def one_sub_cluster(self, local_data):
+
+
+        # auto 
+        #~ clustering = sklearn.cluster.KMeans(n_clusters=4)
+        #~ local_labels = clustering.fit_predict(reduced_features)
+        #~ print('local_labels.shape', local_labels.shape)
+        #~ clustering = sklearn.cluster.DBSCAN(eps=15, metric='euclidean', algorithm='brute', min_samples=15)
+        #~ local_labels = clustering.fit_predict(reduced_features)
+
+        #~ clustering = sklearn.cluster.OPTICS(metric='euclidean', algorithm='brute', min_samples=15)
+        #~ clustering = sklearn.cluster.OPTICS(metric='euclidean', algorithm='auto', min_samples=30)
+        #~ local_labels = clustering.fit_predict(reduced_features)
         
-        from .matplotlibplot import plot_waveforms_density
+        
+        #~ from pyclustering.cluster.optics import optics
+        #~ from pyclustering.cluster.xmeans import xmeans
+        #~ from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
+
+        #~ optics_instance = xmeans(data)
+        #~ optics_instance.process()
+        #~ clusters = optics_instance.get_clusters()
+        
+        
+        #~ radius = 0.1
+        #~ neighbors = 15
+        #~ cluster_instance = pyclustering.cluster.optics.optics(reduced_features, radius, neighbors)
+        #~ cluster_instance.process()
+        #~ clusters = cluster_instance.get_clusters()
+
+        #~ amount_initial_centers = 2
+        #~ initial_centers = kmeans_plusplus_initializer(reduced_features, amount_initial_centers).initialize()
+        #~ cluster_instance = pyclustering.cluster.xmeans.xmeans(reduced_features)
+        #~ cluster_instance.process()
+        #~ clusters = cluster_instance.get_clusters()
+
+        #~ local_labels = np.ones(reduced_features.shape[0], dtype='int64') * -1
+        #~ for c, clus in enumerate(clusters):
+            #~ local_labels[clus] = c
+        
+        
+        
+        clusterer = hdbscan.HDBSCAN(min_cluster_size=self.min_cluster_size)
+        local_labels = clusterer.fit_predict(local_data)
+        
+        
+        return local_labels
+    
+    def explore_split_loop(self):
+        
+        
         
         print('all_peak_max')
         ind_peak = -self.n_left
@@ -525,29 +577,29 @@ class ShearsCut:
             iloop += 1
             
             nb_remain = np.sum(cluster_labels>=k)
-            sel = cluster_labels == k
-            nb_working = np.sum(sel)
+            mask_loop = cluster_labels == k
+            nb_working = np.sum(mask_loop)
             self.log()
             self.log('iloop', iloop, 'k', k, 'nb_remain', nb_remain, 'nb_working', nb_working, {True:'full', False:'partial'}[nb_remain==nb_working])
             
             if iloop>=self.max_loop:
-                cluster_labels[sel] = -1
+                cluster_labels[mask_loop] = -1
                 self.log('BREAK iloop', iloop)
                 print('Warning SawChainCut reach max_loop limit there are maybe more cluster')
                 break
             
             if iloop!=0 and nb_remain<self.break_nb_remain:
-                cluster_labels[sel] = -1
+                cluster_labels[mask_loop] = -1
                 self.log('BREAK nb_remain', nb_remain, '<', self.break_nb_remain)
                 break
             
             #~ self.log(all_peak_max.shape)
-            peak_max = all_peak_max[sel, :]
+            peak_max = all_peak_max[mask_loop, :]
             
             
-            if nb_working<self.nb_min:
+            if nb_working<self.min_cluster_size:
                 self.log('TRASH: too few')
-                cluster_labels[sel] = -1
+                cluster_labels[mask_loop] = -1
                 k += 1
                 chan_visited = []
                 continue
@@ -558,15 +610,15 @@ class ShearsCut:
                 x = peak_max[:, c]
                 x = x[x>self.threshold]
                 
-                if x.size>self.nb_min:
+                if x.size>self.min_cluster_size:
                     per = np.nanpercentile(x, 90)
                 else:
                     per = 0
                 percentiles[c] = per
             order_visit = np.argsort(percentiles)[::-1]
-            print('percentiles', percentiles)
+            #~ print('percentiles', percentiles)
             order_visit = order_visit[percentiles[order_visit]>0]
-            print('order_visit', order_visit)
+            #~ print('order_visit', order_visit)
             
             
             #~ self.log(order_visit)
@@ -582,7 +634,7 @@ class ShearsCut:
                     chan_visited = []
                     continue
                 else:
-                    cluster_labels[sel] = -1
+                    cluster_labels[mask_loop] = -1
                     self.log('BREAK no  more channel')
                     break
             
@@ -593,36 +645,76 @@ class ShearsCut:
             self.log('adjacency', adjacency)
             
             n_components_by_channel = self.features.shape[1] // nb_channel
-            print('n_components_by_channel', n_components_by_channel)
+            #~ print('n_components_by_channel', n_components_by_channel)
             
             chan_features = self.features[:, actual_chan*n_components_by_channel:(actual_chan+1)*n_components_by_channel]
             
             
-            keep = peak_max[:, actual_chan] > self.threshold
-            self.log('keep.size', keep.size, 'keep.sum', keep.sum())
+            mask_thresh = peak_max[:, actual_chan] > self.threshold
+            self.log('mask_thresh.size', mask_thresh.size, 'keep.sum', mask_thresh.sum())
 
-            sel = np.zeros(self.features.shape[1], dtype='bool')
+            mask_chan = np.zeros(self.features.shape[1], dtype='bool')
             for i in range(n_components_by_channel):
-                sel[adjacency+i] = True
-            adj_features = self.features[:, sel]
-            self.log('adj_features.shape', adj_features.shape)
+                mask_chan[adjacency+i] = True
+            local_features = self.features[mask_loop & mask_thresh, :][:, mask_chan]
+            self.log('local_features.shape', local_features.shape)
             
             
-            pca =  sklearn.decomposition.IncrementalPCA(n_components=2)
-            reduced_features = pca.fit_transform(adj_features[keep, :])
+            pca =  sklearn.decomposition.IncrementalPCA(n_components=2, whiten=True)
+            reduced_features = pca.fit_transform(local_features)
             self.log('reduced_features.shape',reduced_features.shape)
             
-            # auto 
-            clustering = sklearn.cluster.KMeans(n_clusters=4)
-            local_labels = clustering.fit_predict(reduced_features)
-            print('local_labels.shape', local_labels.shape)
-            print('local_labels.shape', local_labels.shape)
+            
+            local_labels = self.one_sub_cluster(reduced_features)
+            
+            
+            ind_keep,  = np.nonzero(mask_loop & mask_thresh)
+            
+            keep_labels = []
+            peak_values =  []
+            # keep only cluster when template peak is center on self.n_left
+            for l, label in enumerate(np.unique(local_labels)):
+                if label<0: 
+                    continue
+
+                ind = ind_keep[label == local_labels]
+                wf = np.median(self.waveforms[ind, :][:, :, actual_chan], axis=0)
+                
+                if self.peak_sign == '-' :
+                    ind_peak = np.argmin(wf)
+                elif self.peak_sign == '+' :
+                    ind_peak = np.argmax(wf)
+                
+                if np.abs(-self.n_left - ind_peak) <=1:
+                    # peak is 
+                    keep_labels.append(label)
+                    peak_values.append(np.abs(wf[ind_peak]))
+                
+                    #~ fig, ax = plt.subplots()
+                    #~ ax.plot(wf)
+                    #~ ax.axvline(-self.n_left)
+                    #~ plt.show()
+            
+            #~ print(keep_labels)
+            #~ print(peak_values)
+            
+            
+            # 2 piste:
+            #  * garder seulement tres grand peak avant DBSCAN
+            #  * garder seulement les template dont le peak est sur n_left
+            
+            
+            #~ print(np.unique(local_labels))
             
 
             if True:
+            #~ if False:
+                
+                from .matplotlibplot import plot_waveforms_density
+                
                 fig, axs = plt.subplots(ncols=3)
                 
-                feat0, feat1 = chan_features[keep, :][:, 0], chan_features[keep, :][:, 1]
+                feat0, feat1 = chan_features[mask_loop & mask_thresh, :][:, 0], chan_features[mask_loop & mask_thresh, :][:, 1]
                 ax = axs[0]
                 ax.scatter(feat0, feat1, s=1)
                 
@@ -630,15 +722,24 @@ class ShearsCut:
                 colors = plt.cm.get_cmap('jet', len(np.unique(local_labels)))
                 print(colors)
                 ax = axs[1]
-                #~ feat0, feat1 = chan_features[keep, :][:, 0], chan_features[keep, :][:, 1]
+                #~ feat0, feat1 = chan_features[keep_wf, :][:, 0], chan_features[keep, :][:, 1]
                 #~ ax.scatter(reduced_features[:, 0], reduced_features[:, 1], s=1)
                 for l, label in enumerate(np.unique(local_labels)):
+
+                    if label not in keep_labels:
+                        continue
+                    
+                    
                     sel = label == local_labels
-                    ax.scatter(reduced_features[sel, :][:, 0], reduced_features[sel, :][:, 1], s=1, color=colors(l))
+                    if label<0: 
+                        color = 'k'
+                    else:
+                        color=colors(l)
+                    ax.scatter(reduced_features[sel, :][:, 0], reduced_features[sel, :][:, 1], s=1, color=color)
                 
-                
+
                 ax = axs[2]
-                wf_chan = self.waveforms[:,:, [actual_chan]][keep, :, :]
+                wf_chan = self.waveforms[:,:, [actual_chan]][mask_loop & mask_thresh, :, :]
                 bin_min, bin_max, bin_size = -40, 20, 0.2
                 #~ bin_min, bin_max, bin_size = -340, 180, 1
                 im = plot_waveforms_density(wf_chan, bin_min, bin_max, bin_size, ax=ax)
@@ -648,39 +749,53 @@ class ShearsCut:
                 im.set_clim(0, 250)
                 fig.colorbar(im)
                 
-                ind_keep,  = np.nonzero(keep)
                 for l, label in enumerate(np.unique(local_labels)):
+                
+                    if label not in keep_labels:
+                        continue
+                    if label<0: 
+                        continue
                     sel = label == local_labels
                     ind = ind_keep[sel]
                     wf = self.waveforms[:,:, actual_chan][ind, :].mean(axis=0)
                     ax.plot(wf, color=colors(l))
-                    
+                
+                
+                ax.axvline(-self.n_left, color='w', lw=2)
                 
 
                 
                 plt.show()
             
+            print(keep_labels)
+            if len(keep_labels) == 0:
+                chan_visited.append(actual_chan)
+                self.log('EXPLORE NEW DIM lim0 is None ',  len(chan_visited))
+                continue
             
             
-            
-            #~ if lim0 is None:
-                #~ chan_visited.append(actual_chan)
-                #~ self.log('EXPLORE NEW DIM lim0 is None ',  len(chan_visited))
-                #~ continue
-            
-            
-            #~ ind, = np.nonzero(sel)
-            #~ self.log(ind.shape)
-            #~ not_in = ~((peak_max[:, actual_chan]>lim0) & (peak_max[:, actual_chan]<lim1))
-            #~ self.log(not_in.shape)
-            #~ cluster_labels[cluster_labels>k] += 1#TODO reflechir la dessus!!!
-            #~ cluster_labels[ind[not_in]] += 1
+            best_label = keep_labels[np.argmax(peak_values)]
+            self.log('best_label', best_label)
 
-            #~ if np.sum(not_in)==0:
-                #~ self.log('ACCEPT: not_in.sum()==0')
-                #~ k+=1
-                #~ chan_visited = []
-                #~ continue
+
+            ind_new_label = ind_keep[best_label == local_labels]
+
+            self.log('ind_new_label.shape', ind_new_label.shape)
+            
+            
+            ind_loop, = np.nonzero(mask_loop)
+            self.log('ind_loop.size', ind_loop.size)
+            
+            not_in = np.ones(ind_loop.size, dtype='bool')
+            not_in[ind_new_label] = False
+            cluster_labels[cluster_labels>k] += 1#TODO reflechir la dessus!!!
+            cluster_labels[ind_loop[not_in]] += 1
+
+            if np.sum(not_in)==0:
+                self.log('ACCEPT: not_in.sum()==0')
+                k+=1
+                chan_visited = []
+                continue
         
         self.log('END loop', np.sum(cluster_labels==-1))
         return cluster_labels
