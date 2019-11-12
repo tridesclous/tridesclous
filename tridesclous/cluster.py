@@ -506,6 +506,45 @@ class ShearsCut:
         
         return cluster_labels
     
+    def next_channel(self, peak_max, chan_visited):
+        self.log('next_channel percentiles')
+        nb_channel = self.waveforms.shape[2]
+        percentiles = np.zeros(nb_channel)
+        for c in range(nb_channel):
+            x = peak_max[:, c]
+            x = x[x>self.threshold]
+            
+            if x.size>self.min_cluster_size:
+                per = np.nanpercentile(x, 90)
+            else:
+                per = 0
+            percentiles[c] = per
+        order_visit = np.argsort(percentiles)[::-1]
+        #~ print('percentiles', percentiles)
+        order_visit = order_visit[percentiles[order_visit]>0]
+        #~ print('order_visit', order_visit)
+        
+        
+        #~ self.log(order_visit)
+        #~ self.log(percentiles[order_visit])
+        order_visit = order_visit[~np.in1d(order_visit, chan_visited)]
+        
+        if len(order_visit)==0:
+            self.log('len(order_visit)==0')
+            return None
+            #~ if np.sum(cluster_labels>k)>0:
+                #~ k+=1
+                #~ chan_visited = []
+                #~ continue
+            #~ else:
+                #~ cluster_labels[mask_loop] = -1
+                #~ self.log('BREAK no  more channel')
+                #~ break
+        
+        actual_chan = order_visit[0]        
+        
+        return actual_chan
+    
     def one_sub_cluster(self, local_data):
 
 
@@ -566,6 +605,7 @@ class ShearsCut:
         print('all_peak_max done')
         
         nb_channel = self.waveforms.shape[2]
+        n_components_by_channel = self.features.shape[1] // nb_channel
         #~ self.bins = np.arange(self.threshold, np.max(all_peak_max),  self.binsize)
         
         cluster_labels = np.zeros(self.waveforms.shape[0], dtype='int64')
@@ -585,7 +625,7 @@ class ShearsCut:
             if iloop>=self.max_loop:
                 cluster_labels[mask_loop] = -1
                 self.log('BREAK iloop', iloop)
-                print('Warning SawChainCut reach max_loop limit there are maybe more cluster')
+                print('Warning ShearsCut reach max_loop limit there are maybe more cluster')
                 break
             
             if iloop!=0 and nb_remain<self.break_nb_remain:
@@ -596,61 +636,41 @@ class ShearsCut:
             #~ self.log(all_peak_max.shape)
             peak_max = all_peak_max[mask_loop, :]
             
-            
             if nb_working<self.min_cluster_size:
                 self.log('TRASH: too few')
                 cluster_labels[mask_loop] = -1
                 k += 1
-                chan_visited = []
+                #~ chan_visited = []
                 continue
             
-            print('percentiles')
-            percentiles = np.zeros(nb_channel)
-            for c in range(nb_channel):
-                x = peak_max[:, c]
-                x = x[x>self.threshold]
-                
-                if x.size>self.min_cluster_size:
-                    per = np.nanpercentile(x, 90)
-                else:
-                    per = 0
-                percentiles[c] = per
-            order_visit = np.argsort(percentiles)[::-1]
-            #~ print('percentiles', percentiles)
-            order_visit = order_visit[percentiles[order_visit]>0]
-            #~ print('order_visit', order_visit)
             
-            
-            #~ self.log(order_visit)
-            #~ self.log(percentiles[order_visit])
-            
-            
-            order_visit = order_visit[~np.in1d(order_visit, chan_visited)]
-            
-            if len(order_visit)==0:
-                self.log('len(order_visit)==0')
+            actual_chan = self.next_channel(peak_max, chan_visited)
+            if actual_chan is None:
                 if np.sum(cluster_labels>k)>0:
                     k+=1
                     chan_visited = []
                     continue
                 else:
                     cluster_labels[mask_loop] = -1
-                    self.log('BREAK no  more channel')
+                    self.log('BREAK actual_chan None')
                     break
             
-            actual_chan = order_visit[0]
+            
             
             self.log('actual_chan', actual_chan)
             adjacency = self.channel_adjacency[actual_chan]
-            self.log('adjacency', adjacency)
-            
-            n_components_by_channel = self.features.shape[1] // nb_channel
-            #~ print('n_components_by_channel', n_components_by_channel)
-            
-            chan_features = self.features[:, actual_chan*n_components_by_channel:(actual_chan+1)*n_components_by_channel]
+            #~ self.log('adjacency', adjacency)
             
             
-            mask_thresh = peak_max[:, actual_chan] > self.threshold
+            #~ chan_features = self.features[:, actual_chan*n_components_by_channel:(actual_chan+1)*n_components_by_channel]
+            
+            mask_thresh = np.zeros(mask_loop.size, dtype='bool') # TODO before loop
+            mask_thresh[mask_loop] = peak_max[:, actual_chan] > self.threshold
+            
+            ind_keep,  = np.nonzero(mask_loop & mask_thresh)
+            # TODO avoid infinite loop
+            #~ if 
+            
             self.log('mask_thresh.size', mask_thresh.size, 'keep.sum', mask_thresh.sum())
 
             mask_chan = np.zeros(self.features.shape[1], dtype='bool')
@@ -659,16 +679,12 @@ class ShearsCut:
             local_features = self.features[mask_loop & mask_thresh, :][:, mask_chan]
             self.log('local_features.shape', local_features.shape)
             
-            
+            # TODO put n_components to parameters
             pca =  sklearn.decomposition.IncrementalPCA(n_components=2, whiten=True)
             reduced_features = pca.fit_transform(local_features)
             self.log('reduced_features.shape',reduced_features.shape)
             
-            
             local_labels = self.one_sub_cluster(reduced_features)
-            
-            
-            ind_keep,  = np.nonzero(mask_loop & mask_thresh)
             
             keep_labels = []
             peak_values =  []
@@ -707,10 +723,12 @@ class ShearsCut:
             #~ print(np.unique(local_labels))
             
 
-            if True:
-            #~ if False:
+            #~ if True:
+            if False:
                 
                 from .matplotlibplot import plot_waveforms_density
+                
+                chan_features = self.features[:, actual_chan*n_components_by_channel:(actual_chan+1)*n_components_by_channel]
                 
                 fig, axs = plt.subplots(ncols=3)
                 
@@ -767,10 +785,11 @@ class ShearsCut:
                 
                 plt.show()
             
-            print(keep_labels)
+            self.log('keep_labels', keep_labels)
             if len(keep_labels) == 0:
                 chan_visited.append(actual_chan)
-                self.log('EXPLORE NEW DIM lim0 is None ',  len(chan_visited))
+                #~ self.log('EXPLORE NEW DIM lim0 is None ',  len(chan_visited))
+                self.log('EXPLORE NEW DIM lim0 is None ')
                 continue
             
             
@@ -783,19 +802,24 @@ class ShearsCut:
             self.log('ind_new_label.shape', ind_new_label.shape)
             
             
-            ind_loop, = np.nonzero(mask_loop)
-            self.log('ind_loop.size', ind_loop.size)
+            #~ self.log('ind_loop.size', ind_loop.size)
             
-            not_in = np.ones(ind_loop.size, dtype='bool')
-            not_in[ind_new_label] = False
-            cluster_labels[cluster_labels>k] += 1#TODO reflechir la dessus!!!
-            cluster_labels[ind_loop[not_in]] += 1
+            #~ not_in = np.ones(ind_keep.size, dtype='bool')
+            #~ not_in[ind_new_label] = False
+            #~ cluster_labels[cluster_labels>k] += 1#TODO reflechir la dessus!!!
+            #~ cluster_labels[ind_keep[not_in]] += 1
+            cluster_labels[cluster_labels>=k] += 1
+            cluster_labels[ind_new_label] -= 1
+            
+            k += 1
+            chan_visited = []
 
-            if np.sum(not_in)==0:
-                self.log('ACCEPT: not_in.sum()==0')
-                k+=1
-                chan_visited = []
-                continue
+            #~ if np.sum(not_in)==0:
+            #~ if ind_new_label.size == ind_keep.size:
+                #~ self.log('ACCEPT: not_in.sum()==0')
+                #~ k+=1
+                #~ chan_visited = []
+                #~ continue
         
         self.log('END loop', np.sum(cluster_labels==-1))
         return cluster_labels

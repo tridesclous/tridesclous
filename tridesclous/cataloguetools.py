@@ -237,9 +237,11 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         
         if HAVE_PYOPENCL:
             params['peak_detector']['engine'] = 'geometrical_opencl'
+            #~ params['peak_detector']['adjacency_radius_um'] = 200.
         else:
             print('WARNING : peakdetector will be slow install opencl')
             params['peak_detector']['engine'] = 'geometrical_numpy'
+            #~ params['peak_detector']['adjacency_radius_um'] = 200.
         
         
         #~ else:
