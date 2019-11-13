@@ -35,7 +35,7 @@ def test_catalogue_constructor():
                 adjacency_radius_um = None
             elif mode == 'sparse':
                 peakdetector_engine = 'geometrical_numpy'
-                adjacency_radius_um = 200.
+                adjacency_radius_um = 450.
             
             cc.set_global_params(chunksize=1024,
                                             memory_mode=memory_mode,

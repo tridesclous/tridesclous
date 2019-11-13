@@ -189,7 +189,7 @@ def test_CatalogueWindow():
     
     
 if __name__ == '__main__':
-    #~ setup_module()
+    setup_module()
     
     #~ test_CatalogueController()
     
@@ -203,10 +203,10 @@ if __name__ == '__main__':
     #~ test_ClusterRatioSimilarityView()
     #~ test_PairList()
     #~ test_Silhouette()
-    #~ test_WaveformHistViewer()
+    test_WaveformHistViewer()
     #~ test_FeatureTimeViewer()
     
-    test_CatalogueWindow()
+    #~ test_CatalogueWindow()
 
 
 

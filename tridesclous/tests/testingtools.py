@@ -45,9 +45,12 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
     
     params = {
         'duration' : 60.,
+        'chunksize': 1024,
+        'mode': 'dense',
+        'adjacency_radius_um': None,
+        
         'preprocessor' : {
             'highpass_freq' : 300.,
-            'chunksize' : 1024,
             'lostfront_chunksize' : 100,
             'engine' : 'numpy',
         },

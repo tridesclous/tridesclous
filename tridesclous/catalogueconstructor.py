@@ -59,7 +59,7 @@ _reset_after_waveforms_arrays = ('some_features', 'channel_to_features', 'some_n
                         #~ 'some_noise_index', 'some_noise_snippet', 'some_noise_features',
                         #~ ) + _persistent_metrics + _centroids_arrays
 
-_reset_after_peak_arrays = ('some_peaks_index', 'some_waveforms',) + _reset_after_waveforms_arrays
+_reset_after_peak_arrays = ('some_peaks_index', 'some_waveforms', 'some_waveforms_sparse_mask') + _reset_after_waveforms_arrays
 
 
 
@@ -254,13 +254,23 @@ class CatalogueConstructor:
         t += '  nb_peak_by_segment: '+', '.join('{}'.format(n) for n in nb_peak_by_segment)+'\n'
 
         if self.some_waveforms is not None:
-            t += '  some_waveforms.shape: {}\n'.format(self.some_waveforms.shape)
+            if self.mode == 'sparse':
+                sparsity = self.some_waveforms_sparse_mask.sum() / self.some_waveforms_sparse_mask.size * 100
+                sparsity = '({:.1f}%)'.format(sparsity)
+            else:
+                sparsity = ''
+            t += '  some_waveforms.shape: {} {}\n'.format(self.some_waveforms.shape, sparsity)
             
         if self.some_features is not None:
             t += '  some_features.shape: {}\n'.format(self.some_features.shape)
         
         if hasattr(self, 'cluster_labels'):
-            t += '  cluster_labels {}\n'.format(self.cluster_labels)
+            if self.cluster_labels.size < 8:
+                labels = self.cluster_labels
+            else:
+                labels = '[' + ' '.join( str(l) for l in self.cluster_labels[:3]) + ' ... ' + ' '.join( str(l) for l in self.cluster_labels[-2:]) + ']'
+            n = self.positive_cluster_labels.size
+            t += '  cluster_labels {} {}\n'.format(n, labels)
         
         
         return t
@@ -615,20 +625,11 @@ class CatalogueConstructor:
             Peak span to avoid double detection. In second.
         
         """
-        pprint(self.info['peak_detector_params'])
-        print(self.peakdetector)
-        print(self.peakdetector.relative_threshold)
         self.set_peak_detector_params(**kargs)
-        print('ici')
-        pprint(self.info['peak_detector_params'])
-        print(self.peakdetector)
-        print(self.peakdetector.relative_threshold)
-        #~ exit()
         
         self.arrays.initialize_array('all_peaks', self.memory_mode,  _dtype_peak, (-1, ))
         
         #TODO clip i_stop with duration ???
-        
         for seg_num in range(self.dataio.nb_segment):
             
             self.peakdetector.reset_fifo_index()
@@ -750,10 +751,16 @@ class CatalogueConstructor:
         #~ self.some_peaks_index[:] = some_peaks_index
         self.arrays.add_array('some_peaks_index', some_peaks_index, self.memory_mode)
         
-        shape=(nb, peak_width, self.nb_channel)
+        shape = (nb, peak_width, self.nb_channel)
         self.arrays.create_array('some_waveforms', self.info['internal_dtype'], shape, self.memory_mode)
+        shape = (nb, self.nb_channel)
+        self.arrays.create_array('some_waveforms_sparse_mask', 'bool', shape, self.memory_mode)
+        
         if self.mode == 'sparse':
             self.some_waveforms[:] = 0
+            self.some_waveforms_sparse_mask[:] = False
+        elif self.mode == 'dense':
+            self.some_waveforms_sparse_mask[:] = True
         
         n = 0
         for seg_num in seg_nums:
@@ -764,8 +771,10 @@ class CatalogueConstructor:
                 continue
             
             if self.mode == 'sparse':
-                channel_indexes=insegment_peaks['channel']
-            
+                channel_indexes = insegment_peaks['channel']
+                for i, chan in enumerate(channel_indexes):
+                    adj_chans = channel_adjacency[chan]
+                    self.some_waveforms_sparse_mask[i+n, :][adj_chans] = True
             
             waveforms = self.some_waveforms[n:n+sample_indexes.size]
             self.dataio.get_some_waveforms(seg_num=seg_num, chan_grp=self.chan_grp,
