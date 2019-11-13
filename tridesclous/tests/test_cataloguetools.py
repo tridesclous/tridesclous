@@ -2,6 +2,7 @@ import numpy as np
 import time
 import os
 import shutil
+from pprint import pprint
 
 from tridesclous import download_dataset
 from tridesclous.dataio import DataIO
@@ -20,9 +21,9 @@ def test_get_auto_params_for_catalogue():
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
     
     params = get_auto_params_for_catalogue(dataio)
-    print(params)
-    print(params['cluster_method'])
-    print(params['cluster_kargs'])
+    pprint(params)
+    #~ print(params['cluster_method'])
+    #~ print(params['cluster_kargs'])
     
     
     
@@ -45,7 +46,7 @@ def test_apply_all_catalogue_steps():
     
     
 if __name__ == '__main__':
-    #~ test_get_auto_params_for_catalogue()
-    test_apply_all_catalogue_steps()
+    test_get_auto_params_for_catalogue()
+    #~ test_apply_all_catalogue_steps()
     
     

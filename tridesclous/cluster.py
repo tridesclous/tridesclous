@@ -641,8 +641,8 @@ class ShearsCut:
                 #~ chan_visited = []
                 continue
             
-            
             actual_chan = self.next_channel(peak_max, chan_visited)
+            
             if actual_chan is None:
                 if np.sum(cluster_labels>k)>0:
                     k+=1
@@ -840,8 +840,8 @@ class ShearsCut:
             self.log('ind_new_label.shape', ind_new_label.shape)
 
 
-            #~ if True:
-            if False:
+            if True:
+            #~ if False:
                 
                 from .matplotlibplot import plot_waveforms_density
                 
@@ -859,8 +859,8 @@ class ShearsCut:
                 ax.plot(m.T.flatten(), color='m')
                 
                 ax = axs[1]
-                #~ bin_min, bin_max, bin_size = -40, 20, 0.2
-                bin_min, bin_max, bin_size = -340, 180, 1
+                bin_min, bin_max, bin_size = -40, 20, 0.2
+                #~ bin_min, bin_max, bin_size = -340, 180, 1
                 im = plot_waveforms_density(wf_adj, bin_min, bin_max, bin_size, ax=ax)
                 #~ im.set_clim(0, 150)
                 #~ im.set_clim(0, 250)

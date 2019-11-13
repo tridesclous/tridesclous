@@ -12,7 +12,8 @@ from .cluster import HAVE_ISOSPLIT5
 def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     """
     Helper function to call seuquentialy all catalogue steps with dict of params as input.
-    Used by offline mainwinwod and OnlineWindow
+    Used by offline mainwinwod and OnlineWindow.
+    Also used by spikeinterface.sorters.
     
     
     Usage:
@@ -62,15 +63,19 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     
     cc = catalogueconstructor
     
-    p = {}
+    # global params
+    d = {k:params[k] for k in ('chunksize', 'mode', 'adjacency_radius_um')}
+    cc.set_global_params(**d)
+    
+    # params preprocessor
     d = dict(params['preprocessor'])
     d['signalpreprocessor_engine'] = d.pop('engine')
-    p.update(**d)
+    cc.set_preprocessor_params(**d)
+    
+    # params peak detector
     d = dict(params['peak_detector'])
     d['peakdetector_engine'] = d.pop('engine')
-    p.update(**d)
-    cc.set_preprocessor_params(**p)
-    
+    cc.set_peak_detector_params(**d)
     
     dataio = cc.dataio
     
@@ -139,11 +144,16 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
 
 _default_catalogue_params = {
     'duration': 300.,
+    
+    'chunksize': 1024,
+    'mode': 'dense', # 'sparse'
+    'adjacency_radius_um': None, # None when sparse
+    
     'preprocessor': {
         'highpass_freq': 300.,
         'lowpass_freq': 5000.,
         'smooth_size': 0,
-        'chunksize': 1024,
+        
         'lostfront_chunksize': -1,   # this auto
         'engine': 'numpy',
         'common_ref_removal':False,
@@ -153,7 +163,7 @@ _default_catalogue_params = {
         'peak_sign': '-',
         'relative_threshold': 5.,
         'peak_span_ms': .7,
-        'adjacency_radius_um' : None,
+        #~ 'adjacency_radius_um' : None,
     },
     'noise_snippet': {
         'nb_snippet': 300,
@@ -163,8 +173,6 @@ _default_catalogue_params = {
         'wf_right_ms': 2.5,
         'mode': 'rand',
         'nb_max': 20000,
-        'sparse':False,
-        'adjacency_radius_um': 200,
     },
     'clean_waveforms': {
         'alien_value_threshold': None,
@@ -196,10 +204,18 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
     # TODO make this more complicated
     #  * by detecting if dense array or not.
     #  * better method sleection
+
+    # auto chunsize of 100 ms
+    params['chunksize'] = int(dataio.sample_rate * 0.1)
     
     
     if nb_chan <=8:
+        params['mode'] = 'dense'
+        params['adjacency_radius_um'] = None
+        
         params['feature_method'] = 'global_pca'
+        
+        params['peak_detector']['engine'] = 'global_numpy'
         
         if nb_chan in (1,2):
             n_components = 3
@@ -218,9 +234,12 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['clean_cluster'] = True
         params['clean_cluster_kargs'] = {'too_small' : 20 }
         
-        params['peak_detector']['engine'] = 'global_numpy'
+        
 
     else:
+        params['mode'] = 'sparse'
+        params['adjacency_radius_um'] = 200.
+        
         params['feature_method'] = 'peak_max'
         params['feature_kargs'] = {}
         params['cluster_method'] = 'sawchaincut'
@@ -252,8 +271,6 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             # force opencl : this limit depend on the platform of course
             params['preprocessor']['engine'] = 'opencl'
     
-    # auto chunsize of 100 ms
-    params['preprocessor']['chunksize'] = int(dataio.sample_rate * 0.1)
     
     
     

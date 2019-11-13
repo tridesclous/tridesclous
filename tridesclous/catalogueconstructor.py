@@ -15,6 +15,7 @@ import pickle
 import itertools
 import datetime
 import shutil
+from pprint import pprint
 
 import numpy as np
 import scipy.signal
@@ -40,6 +41,9 @@ import matplotlib.pyplot as plt
 from . import labelcodes
 
 
+
+
+_global_params_attr = ('chunksize', 'memory_mode', 'internal_dtype', 'mode', 'adjacency_radius_um')
 
 _persistent_metrics = ('spike_waveforms_similarity', 'cluster_similarity',
                         'cluster_ratio_similarity', 'spike_silhouette')
@@ -208,14 +212,7 @@ class CatalogueConstructor:
         self.arrays = ArrayCollection(parent=self, dirname=self.catalogue_path)
         
         self.info_filename = os.path.join(self.catalogue_path, 'info.json')
-        if not os.path.exists(self.info_filename):
-            #first init
-            self.info = {}
-            self.flush_info()
-        else:
-            with open(self.info_filename, 'r', encoding='utf8') as f:
-                self.info = json.load(f)
-        
+        self.load_info()
         
         for name in _persitent_arrays:
             # this set attribute to class if exsits
@@ -224,8 +221,6 @@ class CatalogueConstructor:
         if self.all_peaks is not None:
             self.memory_mode='memmap'
         
-        
-        
         self.projector = None
     
     def flush_info(self):
@@ -233,6 +228,19 @@ class CatalogueConstructor:
         """
         with open(self.info_filename, 'w', encoding='utf8') as f:
             json.dump(self.info, f, indent=4)
+    
+    def load_info(self):
+        if not os.path.exists(self.info_filename):
+            #first init
+            self.info = {}
+            self.flush_info()
+        else:
+            with open(self.info_filename, 'r', encoding='utf8') as f:
+                self.info = json.load(f)
+    
+        for k in _global_params_attr:
+            if k in self.info:
+                setattr(self, k, self.info[k])
     
     def __repr__(self):
         t = "CatalogueConstructor\n"
@@ -291,31 +299,16 @@ class CatalogueConstructor:
         for name in list_arrays:
             self.arrays.detach_array(name)
             setattr(self, name, None)
-
-    def set_preprocessor_params(self, chunksize=1024,
     
-            memory_mode='memmap',
-            
-            internal_dtype = 'float32',
-            
-            #signal preprocessor
-            signalpreprocessor_engine='numpy',
-            highpass_freq=300., 
-            lowpass_freq=None,
-            smooth_size=0,
-            common_ref_removal=False,
-            
-            lostfront_chunksize=None,
-            
-            
-            #peak detector
-            peakdetector_engine='numpy',
-            peak_sign='-', relative_threshold=7, peak_span_ms=0.3,
+    def set_global_params(self, 
+            chunksize=1024,
+            memory_mode='memmap',   # 'memmap' or 'ram' 
+            internal_dtype = 'float32',  # TODO "int16"
+            mode='dense',
             adjacency_radius_um=None,
-            
             ):
         """
-        Set parameters for the preprocessor engine
+        
         
         Parameters
         ----------
@@ -329,6 +322,54 @@ class CatalogueConstructor:
             Internal dtype for signals/waveforms/features.
             Support of intteger signal and waveform is planned for one day and should
             boost the process!!
+        mode: str dense or sparse
+            Choose the global mode dense or sparse.
+        adjacency_radius_um: float or None
+            When mode='sparse' then this must not be None.
+        """
+
+        if mode == 'sparse':
+            assert adjacency_radius_um is not None
+            assert adjacency_radius_um > 0. 
+        
+        self.info['chunksize'] = chunksize
+        self.info['memory_mode'] = memory_mode
+        self.info['internal_dtype'] = internal_dtype
+        self.info['mode'] = mode
+        self.info['adjacency_radius_um'] = adjacency_radius_um
+
+        self.flush_info()
+        self.load_info() # this make attribute
+
+        #~ self.chunksize = chunksize
+        #~ self.memory_mode = memory_mode
+        #~ self.internal_dtype = internal_dtype
+        #~ self.mode = mode
+        #~ self.adjacency_radius_um = adjacency_radius_um
+        
+        self._reset_arrays(_persitent_arrays)
+
+
+    def set_preprocessor_params(self, 
+    
+            #signal preprocessor
+            signalpreprocessor_engine='numpy',
+            highpass_freq=300., 
+            lowpass_freq=None,
+            smooth_size=0,
+            common_ref_removal=False,
+            
+            lostfront_chunksize=None,
+            
+            
+            #peak detector
+            
+            ):
+        """
+        Set parameters for the preprocessor engine
+        
+        Parameters
+        ----------
         signalpreprocessor_engine='numpy' or 'opencl'
             If you have pyopencl installed and correct ICD installed you can try
             'opencl' for high channel count some critial part of the processing is done on
@@ -349,6 +390,39 @@ class CatalogueConstructor:
             size in sample of the margin at the front edge for each chunk to avoid border effect in backward filter.
             In you don't known put None then lostfront_chunksize will be int(sample_rate/highpass_freq)*3 which is quite robust (<5% error)
             compared to a true offline filtfilt.
+        """
+
+        
+        self._reset_arrays(_persitent_arrays)
+        
+        # set default lostfront_chunksize if none is provided
+        if lostfront_chunksize is None or lostfront_chunksize==0:
+            assert highpass_freq is not None, 'lostfront_chunksize=None needs a highpass_freq'
+            lostfront_chunksize = int(self.dataio.sample_rate/highpass_freq*3)
+        
+        self.signal_preprocessor_params = dict(highpass_freq=highpass_freq, lowpass_freq=lowpass_freq, 
+                        smooth_size=smooth_size, common_ref_removal=common_ref_removal,
+                        lostfront_chunksize=lostfront_chunksize, output_dtype=self.internal_dtype,
+                        engine=signalpreprocessor_engine)
+        SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[signalpreprocessor_engine]
+        self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.nb_channel, self.chunksize, self.dataio.source_dtype)
+        
+        for i in range(self.dataio.nb_segment):
+            self.dataio.reset_processed_signals(seg_num=i, chan_grp=self.chan_grp, dtype=self.internal_dtype)
+        
+        # put all params in info
+        self.info['signal_preprocessor_params'] = self.signal_preprocessor_params
+        self.flush_info()
+    
+    def set_peak_detector_params(self, 
+            peakdetector_engine='numpy',
+            peak_sign='-', relative_threshold=7, peak_span_ms=0.3):
+        """
+        Set parameters for the peak_detector engine
+        
+        Parameters
+        ----------
+
         peakdetector_engine: 'global_numpy' or 'global_opencl' 'geometrical_numpy', 'geometrical_opencl'
             Engine for peak detection.
         peak_sign: '-' or '+'
@@ -358,49 +432,25 @@ class CatalogueConstructor:
             expressed in MAD (robust STD). So 7 is MAD*7.
         peak_span_ms: float default 0.3
             Peak span to avoid double detection. In millisecond.
+        
         """
+        
+        if self.mode == 'sparse':
+            assert peakdetector_engine in ('geometrical_numpy', 'geometrical_opencl')
 
-        
-        self._reset_arrays(_persitent_arrays)
-            
-        
-        self.chunksize = chunksize
-        self.memory_mode = memory_mode
-        
-        # set default lostfront_chunksize if none is provided
-        if lostfront_chunksize is None or lostfront_chunksize==0:
-            assert highpass_freq is not None, 'lostfront_chunksize=None needs a highpass_freq'
-            lostfront_chunksize = int(self.dataio.sample_rate/highpass_freq*3)
-        
-        
-        self.signal_preprocessor_params = dict(highpass_freq=highpass_freq, lowpass_freq=lowpass_freq, 
-                        smooth_size=smooth_size, common_ref_removal=common_ref_removal,
-                        lostfront_chunksize=lostfront_chunksize, output_dtype=internal_dtype,
-                        engine=signalpreprocessor_engine)
-        SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[signalpreprocessor_engine]
-        self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.nb_channel, chunksize, self.dataio.source_dtype)
-        
-        
-        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span_ms=peak_span_ms,
-                    adjacency_radius_um=adjacency_radius_um, engine=peakdetector_engine)
+        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold,
+                    peak_span_ms=peak_span_ms, engine=peakdetector_engine)
         PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
         geometry = self.dataio.get_geometry(self.chan_grp)
         self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.nb_channel,
-                                                        self.chunksize, internal_dtype, geometry)
-        
-        #TODO make processed data as int32 ???
-        for i in range(self.dataio.nb_segment):
-            self.dataio.reset_processed_signals(seg_num=i, chan_grp=self.chan_grp, dtype=internal_dtype)
-        
-        #~ self.nb_peak = 0
-        
-        # put all params in info
-        self.info['internal_dtype'] = internal_dtype
-        self.info['chunksize'] = chunksize
-        self.info['signal_preprocessor_params'] = self.signal_preprocessor_params
+                                                        self.chunksize, self.internal_dtype, geometry)
+
+        p = dict(self.peak_detector_params)
+        p.pop('engine')
+        self.peakdetector.change_params(**p)
+
         self.info['peak_detector_params'] = self.peak_detector_params
         self.flush_info()
-    
     
     def estimate_signals_noise(self, seg_num=0, duration=10.):
         """
@@ -478,7 +528,9 @@ class CatalogueConstructor:
     
     def run_signalprocessor_loop_one_segment(self, seg_num=0, duration=60., detect_peak=True):
         
-
+        if detect_peak:
+            assert 'peak_detector_params' in self.info
+            assert len(self.info['peak_detector_params'])>0
         
         length = int(duration*self.dataio.sample_rate)
         length = min(length, self.dataio.get_segment_length(seg_num))
@@ -497,9 +549,8 @@ class CatalogueConstructor:
         p['signals_mads'] = self.signals_mads
         self.signalpreprocessor.change_params(**p)
         
-        p = dict(self.peak_detector_params)
-        p.pop('engine')
-        self.peakdetector.change_params(**p)
+        self.peakdetector.reset_fifo_index()
+        
         
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp, chunksize=self.chunksize, i_stop=length,
                                                     signal_type='initial')
@@ -546,7 +597,7 @@ class CatalogueConstructor:
             
         self.finalize_signalprocessor_loop()
     
-    def re_detect_peak(self, peakdetector_engine='numpy', peak_sign='-', relative_threshold=7, peak_span_ms=0.3, adjacency_radius_um=None):
+    def re_detect_peak(self, **kargs):
         """
         Peak are detected while **run_signalprocessor**.
         But in some case for testing other threshold we can **re-detect peak** without signal processing.
@@ -564,20 +615,15 @@ class CatalogueConstructor:
             Peak span to avoid double detection. In second.
         
         """
-        #TODO if not peak detector in class
-        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold, peak_span_ms=peak_span_ms,
-                        adjacency_radius_um=adjacency_radius_um, engine=peakdetector_engine)
-        PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
-        geometry = self.dataio.get_geometry(self.chan_grp)
-        self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.nb_channel,
-                                                        self.info['chunksize'], self.info['internal_dtype'], geometry)
-        
-        p = dict(self.peak_detector_params)
-        p.pop('engine')
-        self.peakdetector.change_params(**p)
-        
-        self.info['peak_detector_params'] = self.peak_detector_params
-        self.flush_info()
+        pprint(self.info['peak_detector_params'])
+        print(self.peakdetector)
+        print(self.peakdetector.relative_threshold)
+        self.set_peak_detector_params(**kargs)
+        print('ici')
+        pprint(self.info['peak_detector_params'])
+        print(self.peakdetector)
+        print(self.peakdetector.relative_threshold)
+        #~ exit()
         
         self.arrays.initialize_array('all_peaks', self.memory_mode,  _dtype_peak, (-1, ))
         
@@ -585,7 +631,7 @@ class CatalogueConstructor:
         
         for seg_num in range(self.dataio.nb_segment):
             
-            self.peakdetector.change_params(**p)#this reset the fifo index
+            self.peakdetector.reset_fifo_index()
             
             iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp,
                             chunksize=self.info['chunksize'], i_stop=None, signal_type='processed')
@@ -614,8 +660,6 @@ class CatalogueConstructor:
     def extract_some_waveforms(self, n_left=None, n_right=None,
                             wf_left_ms=None, wf_right_ms=None,
                             index=None, mode='rand', nb_max=10000,
-                            sparse=False, adjacency_radius_um=200,
-                            
                             recompute_all_centroid=True):
         """
         Extract waveform snippet for a subset of peaks (already detected).
@@ -643,10 +687,6 @@ class CatalogueConstructor:
            If None then index must not be None.
         nb_max: int 
             When rand then is this the number of selected waveform.
-        sparse : bool False by default
-            Do sparse extraction. Must provide adjacency_radius_um
-        adjacency_radius_um:
-            Adjency radius for sparsity.
         
         """
         if n_left is None or n_right is None:
@@ -695,12 +735,15 @@ class CatalogueConstructor:
         
         nb = some_peaks_index.size
         
-        if sparse:
-            channel_adjacency = self.dataio.get_channel_adjacency(chan_grp=self.chan_grp, adjacency_radius_um=adjacency_radius_um)
+        
+        if self.mode == 'sparse':
+            channel_adjacency = self.dataio.get_channel_adjacency(chan_grp=self.chan_grp, adjacency_radius_um=self.adjacency_radius_um)
             assert self.info['peak_detector_params']['engine'].startswith('geometrical')
-        else:
+        elif self.mode == 'dense':
             channel_adjacency = None
             channel_indexes = None
+        else:
+            raise(NotImplementedError)
         
         # make it persitent
         #~ self.arrays.create_array('some_peaks_index', 'int64', (nb,), self.memory_mode)
@@ -709,7 +752,7 @@ class CatalogueConstructor:
         
         shape=(nb, peak_width, self.nb_channel)
         self.arrays.create_array('some_waveforms', self.info['internal_dtype'], shape, self.memory_mode)
-        if sparse:
+        if self.mode == 'sparse':
             self.some_waveforms[:] = 0
         
         n = 0
@@ -720,7 +763,7 @@ class CatalogueConstructor:
             if sample_indexes.size == 0:
                 continue
             
-            if sparse:
+            if self.mode == 'sparse':
                 channel_indexes=insegment_peaks['channel']
             
             
@@ -732,7 +775,7 @@ class CatalogueConstructor:
             n += sample_indexes.size
             
         self.info['waveform_extractor_params'] = dict(n_left=n_left, n_right=n_right, 
-                                                nb_max=nb_max, sparse=sparse, adjacency_radius_um=adjacency_radius_um)
+                                                nb_max=nb_max)
 
         self.flush_info()
         
@@ -823,7 +866,7 @@ class CatalogueConstructor:
                     self.projector = None
                     self.extract_some_waveforms(n_left=n_left, n_right=n_right,
                                             index=self.some_peaks_index.copy(), # copy is to avoid reference loop
-                                            align_waveform=self.info['waveform_extractor_params']['align_waveform'])
+                                            )
                 
                 return n_left, n_right
 

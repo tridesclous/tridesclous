@@ -23,143 +23,148 @@ def test_catalogue_constructor():
     #~ channels=list(range(4))
     dataio.add_one_channel_group(channels=channels, chan_grp=0)
     
-    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    cc = CatalogueConstructor(dataio=dataio)
     
     for memory_mode in ['ram', 'memmap']:
-    #~ for memory_mode in ['memmap']:
-    
-        print()
-        print(memory_mode)
-        catalogueconstructor.set_preprocessor_params(chunksize=1024,
-                memory_mode=memory_mode,
-                
-                #signal preprocessor
-                highpass_freq=300,
-                lowpass_freq=5000.,
-                common_ref_removal=False,
-                smooth_size=0,
-                
-                lostfront_chunksize = 128,
-                
-                #peak detector
-                peakdetector_engine='numpy',
-                peak_sign='-', relative_threshold=7, peak_span_ms=0.5,
-                
-                #waveformextractor
-                #~ n_left=-20, n_right=30, 
-                
-                )
-        t1 = time.perf_counter()
-        catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
-        t2 = time.perf_counter()
-        print('estimate_signals_noise', t2-t1)
-        
-        #~ t1 = time.perf_counter()
-        #~ for seg_num in range(dataio.nb_segment):
-            #~ print('seg_num', seg_num)
-            #~ catalogueconstructor.run_signalprocessor_loop_one_segment(seg_num=seg_num, duration=10.)
-        catalogueconstructor.run_signalprocessor(duration=10., detect_peak=True)
-        t2 = time.perf_counter()
-        print('run_signalprocessor_loop', t2-t1)
+        for mode in ['dense', 'sparse']:
+            print('*'*5)
+            print('memory_mode', memory_mode, 'mode', mode)
 
-        for seg_num in range(dataio.nb_segment):
-            mask = catalogueconstructor.all_peaks['segment']==seg_num
-            print('seg_num', seg_num, 'nb peak',  np.sum(mask))
-        
-        #redetect peak
-        catalogueconstructor.re_detect_peak(peakdetector_engine='numpy',
-                                            peak_sign='-', relative_threshold=5, peak_span_ms=0.2)
-        for seg_num in range(dataio.nb_segment):
-            mask = catalogueconstructor.all_peaks['segment']==seg_num
-            print('seg_num', seg_num, 'nb peak',  np.sum(mask))
+            if mode == 'dense':
+                peakdetector_engine = 'global_numpy'
+                adjacency_radius_um = None
+            elif mode == 'sparse':
+                peakdetector_engine = 'geometrical_numpy'
+                adjacency_radius_um = 200.
+            
+            cc.set_global_params(chunksize=1024,
+                                            memory_mode=memory_mode,
+                                            mode=mode,
+                                            adjacency_radius_um=adjacency_radius_um,
+                                            )
+            
+            cc.set_preprocessor_params(
+                    #signal preprocessor
+                    highpass_freq=300,
+                    lowpass_freq=5000.,
+                    common_ref_removal=False,
+                    smooth_size=0,
+                    lostfront_chunksize = None)
+            
+            
+            cc.set_peak_detector_params(
+                    #peak detector
+                    peakdetector_engine=peakdetector_engine,
+                    peak_sign='-', relative_threshold=7, peak_span_ms=0.5,
+                    )
+            
+            t1 = time.perf_counter()
+            cc.estimate_signals_noise(seg_num=0, duration=10.)
+            t2 = time.perf_counter()
+            print('estimate_signals_noise', t2-t1)
+            
+            t1 = time.perf_counter()
+            cc.run_signalprocessor(duration=10., detect_peak=True)
+            t2 = time.perf_counter()
+            print('run_signalprocessor_loop', t2-t1)
 
-        
-        
-        t1 = time.perf_counter()
-        #~ catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=40, mode='rand', nb_max=5000)
-        catalogueconstructor.extract_some_waveforms(wf_left_ms=-2.5, wf_right_ms=4.0, mode='rand', nb_max=5000)
-        t2 = time.perf_counter()
-        print('extract_some_waveforms rand', t2-t1)
-        print(catalogueconstructor.some_waveforms.shape)
+            for seg_num in range(dataio.nb_segment):
+                mask = cc.all_peaks['segment']==seg_num
+                print('seg_num', seg_num, 'nb peak',  np.sum(mask))
+            
+            # redetect peak
+            cc.re_detect_peak(peakdetector_engine=peakdetector_engine,
+                                                peak_sign='-', relative_threshold=5, peak_span_ms=0.2)
+            for seg_num in range(dataio.nb_segment):
+                mask = cc.all_peaks['segment']==seg_num
+                print('seg_num', seg_num, 'nb peak',  np.sum(mask))
 
-        t1 = time.perf_counter()
-        catalogueconstructor.find_good_limits()
-        t2 = time.perf_counter()
-        print('find_good_limits', t2-t1)
-        print(catalogueconstructor.some_waveforms.shape)
-        
-        t1 = time.perf_counter()
-        catalogueconstructor.clean_waveforms()
-        t2 = time.perf_counter()
-        print('find_good_limits', t2-t1)
-        
+            
+            
+            t1 = time.perf_counter()
+            #~ cc.extract_some_waveforms(n_left=-25, n_right=40, mode='rand', nb_max=5000)
+            cc.extract_some_waveforms(wf_left_ms=-2.5, wf_right_ms=4.0, mode='rand', nb_max=5000)
+            t2 = time.perf_counter()
+            print('extract_some_waveforms rand', t2-t1)
+            print(cc.some_waveforms.shape)
 
-        t1 = time.perf_counter()
-        catalogueconstructor.extract_some_waveforms(n_left=None, n_right=None, mode='rand', nb_max=5000)
-        t2 = time.perf_counter()
-        print('extract_some_waveforms rand', t2-t1)
-        print(catalogueconstructor.some_waveforms.shape)
-        
-        t1 = time.perf_counter()
-        catalogueconstructor.clean_waveforms(alien_value_threshold=60.)
-        t2 = time.perf_counter()
-        print('clean_waveforms', t2-t1)
-        
-        print(catalogueconstructor)
-        
+            #~ t1 = time.perf_counter()
+            #~ cc.find_good_limits()
+            #~ t2 = time.perf_counter()
+            #~ print('find_good_limits', t2-t1)
+            #~ print(cc.some_waveforms.shape)
+            
+            t1 = time.perf_counter()
+            cc.clean_waveforms()
+            t2 = time.perf_counter()
+            print('find_good_limits', t2-t1)
+            
 
-        #extract_some_noise
-        t1 = time.perf_counter()
-        catalogueconstructor.extract_some_noise(nb_snippet=400)
-        t2 = time.perf_counter()
-        print('extract_some_noise', t2-t1)
-        
-        # PCA
-        t1 = time.perf_counter()
-        catalogueconstructor.project(method='global_pca', n_components=7, batch_size=16384)
-        t2 = time.perf_counter()
-        print('project pca', t2-t1)
+            t1 = time.perf_counter()
+            cc.extract_some_waveforms(n_left=None, n_right=None, mode='rand', nb_max=5000)
+            t2 = time.perf_counter()
+            print('extract_some_waveforms rand', t2-t1)
+            print(cc.some_waveforms.shape)
+            
+            t1 = time.perf_counter()
+            cc.clean_waveforms(alien_value_threshold=60.)
+            t2 = time.perf_counter()
+            print('clean_waveforms', t2-t1)
+            
+            print(cc)
+            
 
-        # peak_max
-        #~ t1 = time.perf_counter()
-        #~ catalogueconstructor.project(method='peak_max')
-        #~ t2 = time.perf_counter()
-        #~ print('project peak_max', t2-t1)
-        #~ print(catalogueconstructor.some_features.shape)
+            #extract_some_noise
+            t1 = time.perf_counter()
+            cc.extract_some_noise(nb_snippet=400)
+            t2 = time.perf_counter()
+            print('extract_some_noise', t2-t1)
+            
+            # PCA
+            t1 = time.perf_counter()
+            cc.project(method='global_pca', n_components=7, batch_size=16384)
+            t2 = time.perf_counter()
+            print('project pca', t2-t1)
 
-        #~ t1 = time.perf_counter()
-        #~ catalogueconstructor.extract_some_waveforms(index=np.arange(1000))
-        #~ t2 = time.perf_counter()
-        #~ print('extract_some_waveforms others', t2-t1)
-        #~ print(catalogueconstructor.some_waveforms.shape)
+            # peak_max
+            #~ t1 = time.perf_counter()
+            #~ cc.project(method='peak_max')
+            #~ t2 = time.perf_counter()
+            #~ print('project peak_max', t2-t1)
+            #~ print(cc.some_features.shape)
 
-        
-        # cluster
-        t1 = time.perf_counter()
-        catalogueconstructor.find_clusters(method='kmeans', n_clusters=11)
-        t2 = time.perf_counter()
-        print('find_clusters', t2-t1)
-        
-        print(catalogueconstructor)
-        
-        # similarity
-        #~ catalogueconstructor.compute_centroid()
-        #~ similarity, cluster_labels = catalogueconstructor.compute_similarity()
-        #~ print(cluster_labels)
-        #~ fig, ax = plt.subplots()
-        #~ ax.matshow(similarity)
-        #~ plt.show()
-        
-        #plot
-        #~ wf = catalogueconstructor.some_waveforms
-        #~ wf = wf.swapaxes(1,2).reshape(wf.shape[0], -1)
-        
-        #~ fig, ax = plt.subplots()
-        #~ ax.plot(np.median(wf, axis=0), color='b')
-        
-        #~ plt.show()
+            #~ t1 = time.perf_counter()
+            #~ cc.extract_some_waveforms(index=np.arange(1000))
+            #~ t2 = time.perf_counter()
+            #~ print('extract_some_waveforms others', t2-t1)
+            #~ print(cc.some_waveforms.shape)
 
-#~ def show_similarity():
+            
+            # cluster
+            t1 = time.perf_counter()
+            cc.find_clusters(method='kmeans', n_clusters=11)
+            t2 = time.perf_counter()
+            print('find_clusters', t2-t1)
+            
+            print(cc)
+            
+            # similarity
+            #~ cc.compute_centroid()
+            #~ similarity, cluster_labels = cc.compute_similarity()
+            #~ print(cluster_labels)
+            #~ fig, ax = plt.subplots()
+            #~ ax.matshow(similarity)
+            #~ plt.show()
+            
+            #plot
+            #~ wf = cc.some_waveforms
+            #~ wf = wf.swapaxes(1,2).reshape(wf.shape[0], -1)
+            
+            #~ fig, ax = plt.subplots()
+            #~ ax.plot(np.median(wf, axis=0), color='b')
+            
+            #~ plt.show()
+
     
     
     
@@ -268,7 +273,7 @@ def test_interp_centers0():
 
     
 if __name__ == '__main__':
-    #~ test_catalogue_constructor()
+    test_catalogue_constructor()
     
     #~ compare_nb_waveforms()
     
@@ -277,6 +282,6 @@ if __name__ == '__main__':
     
     #~ test_create_savepoint_catalogue_constructor()
     
-    test_interp_centers0()
+    #~ test_interp_centers0()
 
 

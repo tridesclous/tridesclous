@@ -83,6 +83,11 @@ class BasePeakDetector:
     def process_data(self, pos, newbuf):
         raise(NotImplmentedError)
     
+    def reset_fifo_index(self):
+        # must be for each new segment when index 
+        # start back
+        raise(NotImplmentedError)
+    
     #~ def _after_params(self):
         #~ raise(NotImplmentedError)
 
@@ -164,9 +169,10 @@ class PeakDetectorGlobalNumpy(BasePeakDetector):
     
     def change_params(self, **kargs):
         BasePeakDetector.change_params(self,  **kargs)
-        
         self.fifo_sum_rectified = FifoBuffer((self.chunksize*2,), self.dtype)
-
+    
+    def reset_fifo_index(self):
+        self.fifo_sum_rectified = FifoBuffer((self.chunksize*2,), self.dtype)
 
 class PeakDetectorGlobalOpenCL(BasePeakDetector, OpenCL_Helper):
     def process_data(self, pos, newbuf):
@@ -196,7 +202,10 @@ class PeakDetectorGlobalOpenCL(BasePeakDetector, OpenCL_Helper):
             return time_ind_peaks, chan_ind_peaks
         
         return None, None
-
+    
+    def reset_fifo_index(self):
+        pass
+    
     def change_params(self, cl_platform_index=None, cl_device_index=None, **kargs):
         BasePeakDetector.change_params(self,  **kargs)
         OpenCL_Helper.initialize_opencl(self, cl_platform_index=cl_platform_index, cl_device_index=cl_device_index)
@@ -379,6 +388,11 @@ class PeakDetectorGeometricalNumpy(BasePeakDetector):
             self.neighbours[c, :] = nearest[:nb_neighbour+1] # include itself
         
         self.fifo_sigs = FifoBuffer((self.chunksize+2*self.n_span, self.nb_channel), self.dtype)
+    
+    def reset_fifo_index(self):
+        self.fifo_sigs = FifoBuffer((self.chunksize+2*self.n_span, self.nb_channel), self.dtype)
+    
+    
 
 
 class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper):
@@ -418,6 +432,20 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
         
         return self.mask_peaks
     
+    def reset_fifo_index(self):
+        self._make_gpu_buffer()
+        
+    def _make_gpu_buffer(self):
+        # TODO fifo size should be : chunksize+2*self.n_span
+        self.fifo_sigs = FifoBuffer((self.chunksize + 2*self.n_span, self.nb_channel), self.dtype)
+        self.mask_peaks = np.zeros((self.chunksize, self.nb_channel), dtype='uint8')  # bool
+        
+        #GPU buffers
+        self.fifo_sigs_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.fifo_sigs.buffer)
+        self.neighbours_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.neighbours)
+        self.mask_peaks_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.mask_peaks)        
+        
+    
     def change_params(self, cl_platform_index=None, cl_device_index=None, **kargs):
         PeakDetectorGeometricalNumpy.change_params(self,  **kargs)
         
@@ -437,11 +465,10 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
         
         assert self.adjacency_radius_um is None, 'Not implemented yet'
         
+        self._make_gpu_buffer()
         
         # TODO fifo size should be : chunksize+2*self.n_span
         self.fifo_sigs = FifoBuffer((self.chunksize + 2*self.n_span, self.nb_channel), self.dtype)
-        #~ print('self.fifo size', self.fifo_sigs.buffer.shape, 'self.chunksize', self.chunksize)
-        
         self.mask_peaks = np.zeros((self.chunksize, self.nb_channel), dtype='uint8')  # bool
         
 
