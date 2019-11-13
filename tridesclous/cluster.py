@@ -723,23 +723,23 @@ class ShearsCut:
             #~ print(np.unique(local_labels))
             
 
-            #~ if True:
-            if False:
+            if True:
+            #~ if False:
                 
                 from .matplotlibplot import plot_waveforms_density
                 
                 chan_features = self.features[:, actual_chan*n_components_by_channel:(actual_chan+1)*n_components_by_channel]
                 
                 fig, axs = plt.subplots(ncols=3)
-                
                 feat0, feat1 = chan_features[mask_loop & mask_thresh, :][:, 0], chan_features[mask_loop & mask_thresh, :][:, 1]
                 ax = axs[0]
                 ax.scatter(feat0, feat1, s=1)
                 
                 
-                colors = plt.cm.get_cmap('jet', len(np.unique(local_labels)))
-                print(colors)
                 ax = axs[1]
+                ax.scatter(reduced_features[:, 0], reduced_features[:, 1], s=1, color='black')
+                colors = plt.cm.get_cmap('jet', len(np.unique(local_labels)))
+                
                 #~ feat0, feat1 = chan_features[keep_wf, :][:, 0], chan_features[keep, :][:, 1]
                 #~ ax.scatter(reduced_features[:, 0], reduced_features[:, 1], s=1)
                 for l, label in enumerate(np.unique(local_labels)):
@@ -762,9 +762,9 @@ class ShearsCut:
                 #~ bin_min, bin_max, bin_size = -340, 180, 1
                 im = plot_waveforms_density(wf_chan, bin_min, bin_max, bin_size, ax=ax)
                 #~ im.set_clim(0, 50)
-                #~ im.set_clim(0, 25)
+                im.set_clim(0, 25)
                 #~ im.set_clim(0, 150)
-                im.set_clim(0, 250)
+                #~ im.set_clim(0, 250)
                 fig.colorbar(im)
                 
                 for l, label in enumerate(np.unique(local_labels)):
@@ -795,8 +795,7 @@ class ShearsCut:
             
             best_label = keep_labels[np.argmax(peak_values)]
             self.log('best_label', best_label)
-
-
+            
             ind_new_label = ind_keep[best_label == local_labels]
 
             self.log('ind_new_label.shape', ind_new_label.shape)
@@ -813,6 +812,11 @@ class ShearsCut:
             
             k += 1
             chan_visited = []
+            
+            # remove trash
+            ind_trash_label = ind_keep[local_labels == -1]
+            self.log('ind_trash_label.shape', ind_trash_label.shape)
+            cluster_labels[ind_trash_label] = -1
 
             #~ if np.sum(not_in)==0:
             #~ if ind_new_label.size == ind_keep.size:
