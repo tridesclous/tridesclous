@@ -594,14 +594,12 @@ class ShearsCut:
         return local_labels
     
     def explore_split_loop(self):
-        
-        
-        
         print('all_peak_max')
         ind_peak = -self.n_left
         all_peak_max = self.waveforms[:, ind_peak, : ].copy()
         if self.peak_sign == '-' :
             all_peak_max = -all_peak_max
+        
         print('all_peak_max done')
         
         nb_channel = self.waveforms.shape[2]
@@ -660,6 +658,7 @@ class ShearsCut:
             self.log('actual_chan', actual_chan)
             adjacency = self.channel_adjacency[actual_chan]
             #~ self.log('adjacency', adjacency)
+            #~ exit()
             
             
             #~ chan_features = self.features[:, actual_chan*n_components_by_channel:(actual_chan+1)*n_components_by_channel]
@@ -673,10 +672,16 @@ class ShearsCut:
             
             self.log('mask_thresh.size', mask_thresh.size, 'keep.sum', mask_thresh.sum())
 
-            mask_chan = np.zeros(self.features.shape[1], dtype='bool')
+            mask_feat = np.zeros(self.features.shape[1], dtype='bool')
             for i in range(n_components_by_channel):
-                mask_chan[adjacency+i] = True
-            local_features = self.features[mask_loop & mask_thresh, :][:, mask_chan]
+                mask_feat[adjacency*n_components_by_channel+i] = True
+            
+            #~ local_features = self.features[mask_loop & mask_thresh, :][:, mask_feat]
+            
+            #~ local_features = self.features[ind_keep, :][:, mask_feat]
+            local_features = self.features.take(ind_keep, axis=0).compress(mask_feat, axis=1)
+
+            
             self.log('local_features.shape', local_features.shape)
             
             # TODO put n_components to parameters
@@ -684,6 +689,34 @@ class ShearsCut:
             reduced_features = pca.fit_transform(local_features)
             self.log('reduced_features.shape',reduced_features.shape)
             
+            if np.any(np.isnan(reduced_features)):
+                print('nan')
+                #~ print(mask_loop)
+                #~ print(mask_thresh)
+                #~ print(mask_loop & mask_thresh)
+                #~ print(mask_feat)
+                print('local_features.shape', local_features.shape)
+                print( ind_keep.size, mask_feat.sum())
+                print(ind_keep)
+                print(np.nonzero(mask_feat))
+                
+                
+                print('reduced_features nan', np.sum(np.isnan(reduced_features)))
+                #~ print(reduced_features)
+                print('local_features nan', np.sum(np.isnan(local_features)))
+                #~ print(local_features)
+
+                fig, ax = plt.subplots()
+                ax.plot(self.features.take(ind_keep, axis=0).T, alpha=0.1, color='k')
+                
+                fig, ax = plt.subplots()
+                ax.plot(local_features.T, alpha=0.1, color='k')
+                fig, ax = plt.subplots()
+                wf = self.waveforms[:, :, adjacency].swapaxes(1,2)[ind_keep,:,:].reshape(ind_keep.size, -1)
+                ax.plot(wf.T, alpha=0.1, color='k')
+                
+                plt.show()
+                exit()
             local_labels = self.one_sub_cluster(reduced_features)
             
             keep_labels = []
@@ -723,8 +756,8 @@ class ShearsCut:
             #~ print(np.unique(local_labels))
             
 
-            if True:
-            #~ if False:
+            #~ if True:
+            if False:
                 
                 from .matplotlibplot import plot_waveforms_density
                 
@@ -758,11 +791,11 @@ class ShearsCut:
 
                 ax = axs[2]
                 wf_chan = self.waveforms[:,:, [actual_chan]][mask_loop & mask_thresh, :, :]
-                bin_min, bin_max, bin_size = -40, 20, 0.2
-                #~ bin_min, bin_max, bin_size = -340, 180, 1
+                #~ bin_min, bin_max, bin_size = -40, 20, 0.2
+                bin_min, bin_max, bin_size = -340, 180, 1
                 im = plot_waveforms_density(wf_chan, bin_min, bin_max, bin_size, ax=ax)
                 #~ im.set_clim(0, 50)
-                im.set_clim(0, 25)
+                #~ im.set_clim(0, 25)
                 #~ im.set_clim(0, 150)
                 #~ im.set_clim(0, 250)
                 fig.colorbar(im)
@@ -784,6 +817,12 @@ class ShearsCut:
 
                 
                 plt.show()
+
+
+            # remove trash
+            ind_trash_label = ind_keep[local_labels == -1]
+            self.log('ind_trash_label.shape', ind_trash_label.shape)
+            cluster_labels[ind_trash_label] = -1
             
             self.log('keep_labels', keep_labels)
             if len(keep_labels) == 0:
@@ -791,7 +830,7 @@ class ShearsCut:
                 #~ self.log('EXPLORE NEW DIM lim0 is None ',  len(chan_visited))
                 self.log('EXPLORE NEW DIM lim0 is None ')
                 continue
-            
+
             
             best_label = keep_labels[np.argmax(peak_values)]
             self.log('best_label', best_label)
@@ -799,6 +838,38 @@ class ShearsCut:
             ind_new_label = ind_keep[best_label == local_labels]
 
             self.log('ind_new_label.shape', ind_new_label.shape)
+
+
+            #~ if True:
+            if False:
+                
+                from .matplotlibplot import plot_waveforms_density
+                
+                fig, axs = plt.subplots(ncols=2)
+
+                wf_adj = self.waveforms[:,:, adjacency][ind_new_label, :, :]
+                m = np.median(wf_adj, axis=0)
+
+                #~ print(wf_adj.shape)
+                #~ print(m.shape)
+                #~ print(wf_adj.swapaxes(1,2).reshape(wf_adj.shape[0], -1).shape)
+                
+                ax = axs[0]
+                ax.plot(wf_adj.swapaxes(1,2).reshape(wf_adj.shape[0], -1).T, color='k', alpha=0.1)
+                ax.plot(m.T.flatten(), color='m')
+                
+                ax = axs[1]
+                #~ bin_min, bin_max, bin_size = -40, 20, 0.2
+                bin_min, bin_max, bin_size = -340, 180, 1
+                im = plot_waveforms_density(wf_adj, bin_min, bin_max, bin_size, ax=ax)
+                #~ im.set_clim(0, 150)
+                #~ im.set_clim(0, 250)
+                fig.colorbar(im)
+                ax.plot(m.T.flatten(), color='m')
+
+                
+                plt.show()
+                
             
             
             #~ self.log('ind_loop.size', ind_loop.size)
@@ -813,10 +884,6 @@ class ShearsCut:
             k += 1
             chan_visited = []
             
-            # remove trash
-            ind_trash_label = ind_keep[local_labels == -1]
-            self.log('ind_trash_label.shape', ind_trash_label.shape)
-            cluster_labels[ind_trash_label] = -1
 
             #~ if np.sum(not_in)==0:
             #~ if ind_new_label.size == ind_keep.size:
@@ -827,4 +894,10 @@ class ShearsCut:
         
         self.log('END loop', np.sum(cluster_labels==-1))
         return cluster_labels
-        
+
+
+# TODO : 
+# pour aller vite prendre seulement le dernier percentile quand beaucoup de spike et grand percentile.
+# adjency à 2 niveau pour eviter les flat sur les bort
+# nettoyage quand le max n'est pas sur n_left
+

@@ -90,7 +90,7 @@ class PeakMaxOnChannel:
                                                       #~ i1, u1 in enumerate(unit1_ids))
 
 def get_pca_one_channel(waveforms, chan, thresh, n_left, n_components_by_channel, params):
-    #~ print(chan)
+    print(chan)
     pca = sklearn.decomposition.IncrementalPCA(n_components=n_components_by_channel, **params)
     wf_chan = waveforms[:,:,chan]
     #~ print(wf_chan.shape)
@@ -99,7 +99,7 @@ def get_pca_one_channel(waveforms, chan, thresh, n_left, n_components_by_channel
     keep = (wf_chan[:, -n_left]>thresh) | (wf_chan[:, -n_left]<-thresh)
     #~ print(keep.sum(), keep.size)
     pca.fit(wf_chan[keep,:])
-    return pca
+    #~ return pca
 
 
 class PcaByChannel:
