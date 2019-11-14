@@ -71,6 +71,8 @@ class WaveformHistViewer(WidgetBase):
                       {'name': 'bin_size', 'type': 'float', 'value' : .1 },
                       {'name': 'display_threshold', 'type': 'bool', 'value' : True },
                       {'name': 'max_label', 'type': 'int', 'value' : 2 },
+                      {'name': 'max_per_cluster', 'type': 'int', 'value' : 300 },
+                      {'name': 'sparse_display', 'type': 'bool', 'value' : True },
                       ]
     
     
@@ -195,8 +197,21 @@ class WaveformHistViewer(WidgetBase):
             self._y_range = tuple(self.viewBox.state['viewRange'][1])
         
         
+        
         cluster_visible = self.controller.cluster_visible
         visibles = [k for k, v in cluster_visible.items() if v and k>=-1 ]
+        
+        sparse = self.controller.have_sparse_template and self.params['sparse_display']
+        # get common visible channels
+        if sparse:
+            if len(visibles) > 0:
+                common_channels = self.controller.get_common_sparse_channels(visibles)
+            else:
+                common_channels = np.array([], dtype='int64')
+        else:
+            common_channels = self.controller.channels
+            
+        print('common_channels', common_channels)
 
         #remove old curves
         for curve in self.curves:
@@ -207,23 +222,32 @@ class WaveformHistViewer(WidgetBase):
             self.image.hide()
             return
         
+        if len(common_channels) ==0:
+            self.image.hide()
+            return
+        
         #~ if  len(visibles)==1:
             #~ self.curve2.hide()
         
         
         if self.controller.some_peaks_index is None:
-            self.plot.clear()
+            self.image.hide()
             return
 
         labels = self.controller.spike_label[self.controller.some_peaks_index]
         keep = np.in1d(labels, visibles)
+        ind_keep,  = np.nonzero(keep)
+        
+        if ind_keep.size > self.params['max_per_cluster']:
+            sub_sel = np.random.choice(ind_keep.size, self.params['max_per_cluster'], replace=False)
+            ind_keep = ind_keep[sub_sel]
         
         if self.params['data']=='waveforms':
             wf = self.controller.some_waveforms
             if wf is None:
                 self.plot.clear()
                 return
-            data_kept = wf[keep].copy()
+            data_kept = wf[ind_keep,:,:][:, :, common_channels].copy()
             if data_kept.size == 0:
                 self.plot.clear()
                 return
@@ -231,7 +255,13 @@ class WaveformHistViewer(WidgetBase):
         
         elif self.params['data']=='features':
             data = self.controller.some_features
-            data_kept = data[keep]
+            
+            nb_feature_by_channel = data.shape[1] // self.controller.nb_channel
+            mask_feat = np.zeros(data.shape[1], dtype='bool')
+            for i in range(nb_feature_by_channel):
+                mask_feat[common_channels*nb_feature_by_channel+i] = True
+            
+            data_kept = data[ind_keep, :][:, mask_feat]
             if data is None:
                 self.plot.clear()
                 return
@@ -239,7 +269,7 @@ class WaveformHistViewer(WidgetBase):
         #TODO change for PCA
         if self.params['data']=='waveforms':
             bin_min, bin_max = self.params['bin_min'], self.params['bin_max']
-            bin_size = self.params['bin_size']
+            bin_size = max(self.params['bin_size'], 0.01)
             bins = np.arange(bin_min, bin_max, self.params['bin_size'])
             
         elif self.params['data']=='features':
@@ -265,7 +295,7 @@ class WaveformHistViewer(WidgetBase):
         if self.controller.cluster_visible[labelcodes.LABEL_NOISE] and self.controller.some_noise_snippet is not None:
             #~ print('labelcodes.LABEL_NOISE in cluster_visible', labelcodes.LABEL_NOISE in cluster_visible, cluster_visible)
             if self.params['data']=='waveforms':
-                noise = self.controller.some_noise_snippet
+                noise = self.controller.some_noise_snippet[:, :, common_channels]
                 noise = noise.swapaxes(1,2).reshape(noise.shape[0], -1)
                 noise_bined = np.floor((noise-bin_min)/bin_size).astype('int32')
                 noise_bined = noise_bined.clip(0, bins.size-1)
@@ -280,15 +310,19 @@ class WaveformHistViewer(WidgetBase):
         
         
         #~ for k, curve in zip(visibles, [self.curve1, self.curve2]):
+        
         for k in visibles:
             
-            median = self.controller.get_waveform_centroid(k, 'median')
+            
+            median, chans = self.controller.get_waveform_centroid(k, 'median', channels=common_channels)
             if median is None:
                 continue
+            
             if self.params['data']=='waveforms':
                 y = median.T.flatten()
             else:
-                y = np.median(data[labels==k], axis=0)
+                sel = labels[ind_keep] == k
+                y = np.median(data_kept[sel, :], axis=0)
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
             
             curve = pg.PlotCurveItem(x=indexes0, y=y, pen=pg.mkPen(color, width=2))

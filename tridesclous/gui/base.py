@@ -80,6 +80,7 @@ class ControllerBase(QT.QObject):
     def channel_indexes_and_names(self):
         all_names = self.dataio.datasource.get_channel_names()
         return [ (c, all_names[c]) for c in self.channel_indexes]
+    
 
 
 class WidgetBase(QT.QWidget):

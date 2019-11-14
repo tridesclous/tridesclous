@@ -99,6 +99,7 @@ def test_catalogue_constructor():
             t2 = time.perf_counter()
             print('find_good_limits', t2-t1)
             
+            
 
             t1 = time.perf_counter()
             cc.extract_some_waveforms(n_left=None, n_right=None, mode='rand', nb_max=5000)
@@ -113,7 +114,6 @@ def test_catalogue_constructor():
             
             print(cc)
             
-
             #extract_some_noise
             t1 = time.perf_counter()
             cc.extract_some_noise(nb_snippet=400)

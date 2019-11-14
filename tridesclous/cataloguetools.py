@@ -148,6 +148,7 @@ _default_catalogue_params = {
     'chunksize': 1024,
     'mode': 'dense', # 'sparse'
     'adjacency_radius_um': None, # None when sparse
+    'sparse_threshold': None, # 1.5
     
     'preprocessor': {
         'highpass_freq': 300.,
@@ -212,6 +213,7 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
     if nb_chan <=8:
         params['mode'] = 'dense'
         params['adjacency_radius_um'] = None
+        params['sparse_threshold'] = None
         
         params['feature_method'] = 'global_pca'
         
@@ -239,6 +241,7 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
     else:
         params['mode'] = 'sparse'
         params['adjacency_radius_um'] = 200.
+        params['sparse_threshold'] = 1.5
         
         params['feature_method'] = 'peak_max'
         params['feature_kargs'] = {}
@@ -247,10 +250,10 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         
         if nb_chan<32:
             params['cluster_kargs']['max_loop'] = 10000
-            params['extract_waveforms']['sparse'] = False
+            
         elif nb_chan>=32:
             params['cluster_kargs']['max_loop'] = nb_chan * 400
-            params['extract_waveforms']['sparse'] = True
+            
         
         params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 400)
         

@@ -756,8 +756,8 @@ class ShearsCut:
             #~ print(np.unique(local_labels))
             
 
-            #~ if True:
-            if False:
+            if True:
+            #~ if False:
                 
                 from .matplotlibplot import plot_waveforms_density
                 
@@ -816,7 +816,7 @@ class ShearsCut:
                 
 
                 
-                plt.show()
+                #~ plt.show()
 
 
             # remove trash
@@ -859,8 +859,8 @@ class ShearsCut:
                 ax.plot(m.T.flatten(), color='m')
                 
                 ax = axs[1]
-                bin_min, bin_max, bin_size = -40, 20, 0.2
-                #~ bin_min, bin_max, bin_size = -340, 180, 1
+                #~ bin_min, bin_max, bin_size = -40, 20, 0.2
+                bin_min, bin_max, bin_size = -340, 180, 1
                 im = plot_waveforms_density(wf_adj, bin_min, bin_max, bin_size, ax=ax)
                 #~ im.set_clim(0, 150)
                 #~ im.set_clim(0, 250)

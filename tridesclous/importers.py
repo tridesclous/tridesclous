@@ -201,20 +201,27 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_clust
     params = get_auto_params_for_catalogue(dataio)
     for k in params:
         if k in catalogue_params:
-            params[k].update(catalogue_params[k])
-    
+            if isinstance(catalogue_params[k], dict):
+                params[k].update(catalogue_params[k])
+            else:
+                params[k] = catalogue_params[k]
     
     cc = CatalogueConstructor(dataio=dataio)
-    
-    p = {}
+
+    # global params
+    d = {k:params[k] for k in ('chunksize', 'mode', 'adjacency_radius_um')}
+    cc.set_global_params(**d)
+
+    # params preprocessor
     d = dict(params['preprocessor'])
     d['signalpreprocessor_engine'] = d.pop('engine')
-    p.update(**d)
+    cc.set_preprocessor_params(**d)
+    
+    # params peak detector
     d = dict(params['peak_detector'])
     d['peakdetector_engine'] = d.pop('engine')
-    p.update(**d)
-    cc.set_preprocessor_params(**p)
-
+    cc.set_peak_detector_params(**d)
+    
     t1 = time.perf_counter()
     noise_duration = min(10., params['duration'], dataio.get_segment_length(seg_num=0)/dataio.sample_rate*.99)
     t1 = time.perf_counter()

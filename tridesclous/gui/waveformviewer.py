@@ -286,9 +286,9 @@ class WaveformViewerBase(WidgetBase):
             
             #~ wf0 = self.controller.centroids[k][key1].T.flatten()
             #~ mad = self.controller.centroids[k][key2].T.flatten()
-            wf0 = self.controller.get_waveform_centroid(k, key1)
+            wf0, chans = self.controller.get_waveform_centroid(k, key1)
             if wf0 is None: continue
-            wf0 = wf0.T.flatten()
+            wf0, chans = wf0.T.flatten()
             mad = self.controller.get_waveform_centroid(k, key2)
             
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
@@ -366,8 +366,8 @@ class WaveformViewerBase(WidgetBase):
         for k in cluster_visible:
             if not cluster_visible[k]:
                 continue
-
-            wf = self.controller.get_waveform_centroid(k, key1)
+            
+            wf, chans = self.controller.get_waveform_centroid(k, key1)
             
             if wf is None: continue
             

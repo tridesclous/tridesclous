@@ -28,7 +28,7 @@ class PeelerController(ControllerBase):
         
         self.chan_grp = catalogue['chan_grp']
         self.nb_channel = self.dataio.nb_channel(self.chan_grp)
-        
+        self.channels = np.arange(self.nb_channel, dtype='int64')
         
         self.init_plot_attributes()
         self.update_visible_spikes()
@@ -105,6 +105,10 @@ class PeelerController(ControllerBase):
         #~ self.refresh_colors(reset=False)
     
     @property
+    def have_sparse_template(self):
+        raise(NotImplementedError)
+    
+    @property
     def spike_selection(self):
         return self.spikes['selected']
 
@@ -132,15 +136,32 @@ class PeelerController(ControllerBase):
     def get_waveforms_shape(self):
         shape = self.catalogue['centers0'].shape[1:]
         return shape
-
-    def get_waveform_centroid(self, label, metric):
+    
+    def get_sparse_channels(self, label):
+        raise(NotImplementedError)
+    
+    def get_common_sparse_channels(self, labels):
+        raise(NotImplementedError)
+    
+    def get_waveform_centroid(self, label, metric, sparse=False, channels=None):
         if metric in ('mean', 'std', 'mad'):
-            return None
+            return None, None
         
+        
+        if sparse:
+            assert channels is None
+            raise(NotImplementedError)
+        elif channels is not None:
+            raise(NotImplementedError)
+        else:
+            chans = self.channels
+
         if label in self.catalogue['label_to_index']:
             i = self.catalogue['label_to_index'][label]
             wf = self.catalogue['centers0'][i, :, :].copy()
-            return wf
+            return wf, chans
+        else:
+            return None, None
 
     def get_min_max_centroids(self):
         if self.catalogue['centers0'].shape[0]>0:

@@ -43,12 +43,12 @@ from . import labelcodes
 
 
 
-_global_params_attr = ('chunksize', 'memory_mode', 'internal_dtype', 'mode', 'adjacency_radius_um')
+_global_params_attr = ('chunksize', 'memory_mode', 'internal_dtype', 'mode', 'adjacency_radius_um', 'sparse_threshold')
 
 _persistent_metrics = ('spike_waveforms_similarity', 'cluster_similarity',
                         'cluster_ratio_similarity', 'spike_silhouette')
 
-_centroids_arrays = ('centroids_median', 'centroids_mad', 'centroids_mean', 'centroids_std',)
+_centroids_arrays = ('centroids_median', 'centroids_mad', 'centroids_mean', 'centroids_std', 'centroids_sparse_mask', )
 
 
 _reset_after_waveforms_arrays = ('some_features', 'channel_to_features', 'some_noise_snippet',
@@ -255,8 +255,8 @@ class CatalogueConstructor:
 
         if self.some_waveforms is not None:
             if self.mode == 'sparse':
-                sparsity = self.some_waveforms_sparse_mask.sum() / self.some_waveforms_sparse_mask.size * 100
-                sparsity = '({:.1f}%)'.format(sparsity)
+                sparsity = self.some_waveforms_sparse_mask.sum() / self.some_waveforms_sparse_mask.size
+                sparsity = '(sparse {:.2f})'.format(sparsity)
             else:
                 sparsity = ''
             t += '  some_waveforms.shape: {} {}\n'.format(self.some_waveforms.shape, sparsity)
@@ -316,6 +316,7 @@ class CatalogueConstructor:
             internal_dtype = 'float32',  # TODO "int16"
             mode='dense',
             adjacency_radius_um=None,
+            sparse_threshold=1.5,
             ):
         """
         
@@ -347,6 +348,7 @@ class CatalogueConstructor:
         self.info['internal_dtype'] = internal_dtype
         self.info['mode'] = mode
         self.info['adjacency_radius_um'] = adjacency_radius_um
+        self.info['sparse_threshold'] = sparse_threshold
 
         self.flush_info()
         self.load_info() # this make attribute
@@ -1140,7 +1142,9 @@ class CatalogueConstructor:
         #~ self.centroids_std[ind, :, :] = std
         self.centroids_mean[ind, :, :] = 0
         self.centroids_std[ind, :, :] = 0
-
+        
+        
+        self.centroids_sparse_mask[ind, :] = np.any(np.abs(median) > self.sparse_threshold, axis=0)
         
         self.clusters['max_on_channel'][ind] = max_on_channel
         self.clusters['max_peak_amplitude'][ind] = median[-n_left, max_on_channel]
@@ -1165,9 +1169,15 @@ class CatalogueConstructor:
         n_left = int(self.info['waveform_extractor_params']['n_left'])
         n_right = int(self.info['waveform_extractor_params']['n_right'])
         
-        for name in _centroids_arrays:
+
+        for name in ('centroids_median', 'centroids_mad', 'centroids_mean', 'centroids_std',):
             empty = np.zeros((self.cluster_labels.size, n_right - n_left, self.nb_channel), dtype=self.info['internal_dtype'])
             self.arrays.add_array(name, empty, self.memory_mode)
+        
+        mask = np.zeros((self.cluster_labels.size, self.nb_channel), dtype='bool')
+        self.arrays.add_array('centroids_sparse_mask', mask, self.memory_mode)
+        
+        
         
         #~ t1 = time.perf_counter()
         for k in self.cluster_labels:
@@ -1181,6 +1191,24 @@ class CatalogueConstructor:
         
         #~ t2 = time.perf_counter()
         #~ print('compute_all_centroid', t2-t1)
+    
+    def change_sparse_threshold(self, sparse_threshold=1.5):
+        self.info['sparse_threshold'] = sparse_threshold
+        self.flush_info()
+        self.load_info() # this make attribute
+        
+        for k in self.cluster_labels:
+            if k <0: continue
+            ind = self.index_of_label(k)
+            median = self.centroids_median[ind, :, :]
+            
+            self.centroids_sparse_mask[ind, :] = np.any(np.abs(median) > self.sparse_threshold, axis=0)            
+            
+        
+        self.centroids_sparse_mask[ind, :] = np.any(np.abs(median) > self.sparse_threshold, axis=0)
+        self.arrays.flush_array('centroids_sparse_mask')
+        
+        
     
     def refresh_colors(self, reset=True, palette='husl', interleaved=True):
         
@@ -1485,8 +1513,8 @@ class CatalogueConstructor:
         mask_pos= (self.clusters['cluster_label']>=0)
         for name in _centroids_arrays:
             arr = getattr(self, name)
-            arr_pos = arr[mask_pos, :, :].copy()
-            arr[mask_pos, :, :] = arr_pos[order, :, :]
+            arr_pos = arr[mask_pos, ].copy()
+            arr[mask_pos, ] = arr_pos[order, ]
         
         self.refresh_colors(reset=True)
         
