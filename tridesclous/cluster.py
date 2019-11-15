@@ -98,8 +98,8 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         n_right = cc.info['waveform_extractor_params']['n_right']
         peak_sign = cc.info['peak_detector_params']['peak_sign']
         relative_threshold = cc.info['peak_detector_params']['relative_threshold']
-        if 'adjacency_radius_um' not in kargs: # TODO make it global for catalogue
-            adjacency_radius_um = 200
+        
+        adjacency_radius_um = cc.adjacency_radius_um * 0.5 # TODO wokr on this
         channel_adjacency = cc.dataio.get_channel_adjacency(chan_grp=cc.chan_grp, adjacency_radius_um=adjacency_radius_um)
         assert cc.info['peak_detector_params']['engine'].startswith('geometrical')
         shearscut = ShearsCut(waveforms, features, n_left, n_right, peak_sign, relative_threshold, channel_adjacency, **kargs)
@@ -756,8 +756,8 @@ class ShearsCut:
             #~ print(np.unique(local_labels))
             
 
-            if True:
-            #~ if False:
+            #~ if True:
+            if False:
                 
                 from .matplotlibplot import plot_waveforms_density
                 
@@ -791,8 +791,8 @@ class ShearsCut:
 
                 ax = axs[2]
                 wf_chan = self.waveforms[:,:, [actual_chan]][mask_loop & mask_thresh, :, :]
-                #~ bin_min, bin_max, bin_size = -40, 20, 0.2
-                bin_min, bin_max, bin_size = -340, 180, 1
+                bin_min, bin_max, bin_size = -40, 20, 0.2
+                #~ bin_min, bin_max, bin_size = -340, 180, 1
                 im = plot_waveforms_density(wf_chan, bin_min, bin_max, bin_size, ax=ax)
                 #~ im.set_clim(0, 50)
                 #~ im.set_clim(0, 25)
@@ -840,8 +840,8 @@ class ShearsCut:
             self.log('ind_new_label.shape', ind_new_label.shape)
 
 
-            if True:
-            #~ if False:
+            #~ if True:
+            if False:
                 
                 from .matplotlibplot import plot_waveforms_density
                 
@@ -859,8 +859,8 @@ class ShearsCut:
                 ax.plot(m.T.flatten(), color='m')
                 
                 ax = axs[1]
-                #~ bin_min, bin_max, bin_size = -40, 20, 0.2
-                bin_min, bin_max, bin_size = -340, 180, 1
+                bin_min, bin_max, bin_size = -40, 20, 0.2
+                #~ bin_min, bin_max, bin_size = -340, 180, 1
                 im = plot_waveforms_density(wf_adj, bin_min, bin_max, bin_size, ax=ax)
                 #~ im.set_clim(0, 150)
                 #~ im.set_clim(0, 250)
@@ -898,6 +898,8 @@ class ShearsCut:
 
 # TODO : 
 # pour aller vite prendre seulement le dernier percentile quand beaucoup de spike et grand percentile.
-# adjency à 2 niveau pour eviter les flat sur les bort
+# adjency à 2 niveau pour eviter les flat sur les bort  >>>>>> adjency_radius * 0.5
 # nettoyage quand le max n'est pas sur n_left
+# over merge
+
 
