@@ -189,12 +189,10 @@ class WaveformHistViewer(WidgetBase):
         if not hasattr(self, 'viewBox'):
             return
         
-        if self._x_range is not None:
-            #~ self._x_range = self.plot.getXRange()
-            #~ self._y_range = self.plot.getYRange()
-            #this may change with pyqtgraph
-            self._x_range = tuple(self.viewBox.state['viewRange'][0])
-            self._y_range = tuple(self.viewBox.state['viewRange'][1])
+        #~ if self._x_range is not None:
+            #~ #this may change with pyqtgraph
+            #~ self._x_range = tuple(self.viewBox.state['viewRange'][0])
+            #~ self._y_range = tuple(self.viewBox.state['viewRange'][1])
         
         
         
@@ -211,8 +209,6 @@ class WaveformHistViewer(WidgetBase):
         else:
             common_channels = self.controller.channels
             
-        print('common_channels', common_channels)
-
         #remove old curves
         for curve in self.curves:
             self.plot.removeItem(curve)
@@ -338,7 +334,8 @@ class WaveformHistViewer(WidgetBase):
             self.thresh_line.hide()
         
         
-        if self._x_range is None:
+        #~ if self._x_range is None:
+        if True:
             self._x_range = 0, indexes0[-1] #hist2d.shape[1]
             self._y_range = bin_min, bin_max
         
