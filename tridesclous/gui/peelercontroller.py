@@ -73,7 +73,17 @@ class PeelerController(ControllerBase):
         # set channel for each cluster
         for k in self.cluster_labels:
             chan = self.catalogue['max_on_channel'][k]
-            self.spikes['channel'] = chan
+            sel = self.spikes['cluster_label'] == k
+            self.spikes['channel'][sel] = chan
+        
+        # compute sparse mask
+        # TODO : put this mask in catalogue directly
+        self.sparse_threshold = 1.5
+        self.centroids_sparse_mask = np.zeros((self.cluster_labels.size, self.nb_channel), dtype='bool')
+        for k in self.cluster_labels:
+            ind = self.catalogue['label_to_index'][k] 
+            median = self.catalogue['centers0'][ind, :, :]
+            self.centroids_sparse_mask[ind, :] = np.any(np.abs(median) > self.sparse_threshold, axis=0)
         
         #~ self.cluster_labels = np.unique(self.spikes['cluster_label'])#TODO take from catalogue
         
@@ -106,7 +116,7 @@ class PeelerController(ControllerBase):
     
     @property
     def have_sparse_template(self):
-        raise(NotImplementedError)
+        return True
     
     @property
     def spike_selection(self):
@@ -138,27 +148,35 @@ class PeelerController(ControllerBase):
         return shape
     
     def get_sparse_channels(self, label):
-        raise(NotImplementedError)
+        ind = self.catalogue['label_to_index'][label] 
+        chans,  = np.nonzero(self.centroids_sparse_mask[ind, :])
+        return chans
     
     def get_common_sparse_channels(self, labels):
-        raise(NotImplementedError)
+        inds = [self.catalogue['label_to_index'][label]  for label in labels]
+        chans,  = np.nonzero(np.any(self.centroids_sparse_mask[inds, :], axis=0))
+        return chans
     
     def get_waveform_centroid(self, label, metric, sparse=False, channels=None):
         if metric in ('mean', 'std', 'mad'):
             return None, None
         
-        
-        if sparse:
-            assert channels is None
-            raise(NotImplementedError)
-        elif channels is not None:
-            raise(NotImplementedError)
-        else:
-            chans = self.channels
 
         if label in self.catalogue['label_to_index']:
             i = self.catalogue['label_to_index'][label]
             wf = self.catalogue['centers0'][i, :, :].copy()
+
+            if sparse:
+                assert channels is None
+                chans = self.get_sparse_channels(label)
+                wf = wf[:, chans].copy()
+            elif channels is not None:
+                chans = channels
+                wf = wf[:, chans].copy()
+            else:
+                chans = self.channels
+                wf = wf.copy()
+            
             return wf, chans
         else:
             return None, None

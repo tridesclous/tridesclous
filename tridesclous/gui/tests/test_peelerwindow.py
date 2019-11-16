@@ -131,7 +131,7 @@ def test_PeelerWindow():
 if __name__ == '__main__':
     #~ setup_module()
     
-    test_Peelercontroller()
+    #~ test_Peelercontroller()
     
     #~ test_PeelerTraceViewer()
     #~ test_SpikeList()
