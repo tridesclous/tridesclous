@@ -434,7 +434,6 @@ class SawChainCut:
     def auto_merge_loop(self, cluster_labels):
         cluster_labels2 = cluster_labels.copy()
         
-        
         while True:
             self.log('')
             self.log('new loop')
@@ -445,9 +444,13 @@ class SawChainCut:
             centroids = np.zeros((labels.size, self.waveforms.shape[1], self.waveforms.shape[2]))
             
             
+            max_per_cluster = 300
             for ind, k in enumerate(labels):
-                keep = cluster_labels2 == k
-                centroids[ind,:,:] = np.median(self.waveforms[keep, :, :], axis=0)
+                ind_keep,  = np.nonzero(cluster_labels2 == k)
+                if ind_keep.size > max_per_cluster:
+                    sub_sel = np.random.choice(ind_keep.size, max_per_cluster, replace=False)
+                    ind_keep = ind_keep[sub_sel]
+                centroids[ind,:,:] = np.median(self.waveforms[ind_keep, :, :], axis=0)
             
             nb_merge = 0
             for i in range(n):
@@ -467,7 +470,6 @@ class SawChainCut:
             if nb_merge == 0:
                 break
         
-    
         return cluster_labels2
 
 
@@ -481,6 +483,7 @@ class ShearsCut:
                         min_cluster_size=20,
                         max_loop=1000,
                         break_nb_remain=30,
+                        auto_merge_threshold=2.,
                         print_debug=True):
         self.waveforms = waveforms
         self.features = features
@@ -495,6 +498,7 @@ class ShearsCut:
         self.min_cluster_size = min_cluster_size
         self.max_loop = max_loop
         self.break_nb_remain = break_nb_remain
+        self.auto_merge_threshold = auto_merge_threshold
         self.print_debug = print_debug
 
     def log(self, *args, **kargs):
@@ -503,7 +507,7 @@ class ShearsCut:
     
     def do_the_job(self):
         cluster_labels = self.explore_split_loop()
-        
+        cluster_labels = self.merge_and_clean(cluster_labels)
         return cluster_labels
     
     def next_channel(self, peak_max, chan_visited):
@@ -546,51 +550,9 @@ class ShearsCut:
         return actual_chan
     
     def one_sub_cluster(self, local_data):
-
-
-        # auto 
-        #~ clustering = sklearn.cluster.KMeans(n_clusters=4)
-        #~ local_labels = clustering.fit_predict(reduced_features)
-        #~ print('local_labels.shape', local_labels.shape)
-        #~ clustering = sklearn.cluster.DBSCAN(eps=15, metric='euclidean', algorithm='brute', min_samples=15)
-        #~ local_labels = clustering.fit_predict(reduced_features)
-
-        #~ clustering = sklearn.cluster.OPTICS(metric='euclidean', algorithm='brute', min_samples=15)
-        #~ clustering = sklearn.cluster.OPTICS(metric='euclidean', algorithm='auto', min_samples=30)
-        #~ local_labels = clustering.fit_predict(reduced_features)
-        
-        
-        #~ from pyclustering.cluster.optics import optics
-        #~ from pyclustering.cluster.xmeans import xmeans
-        #~ from pyclustering.cluster.center_initializer import kmeans_plusplus_initializer
-
-        #~ optics_instance = xmeans(data)
-        #~ optics_instance.process()
-        #~ clusters = optics_instance.get_clusters()
-        
-        
-        #~ radius = 0.1
-        #~ neighbors = 15
-        #~ cluster_instance = pyclustering.cluster.optics.optics(reduced_features, radius, neighbors)
-        #~ cluster_instance.process()
-        #~ clusters = cluster_instance.get_clusters()
-
-        #~ amount_initial_centers = 2
-        #~ initial_centers = kmeans_plusplus_initializer(reduced_features, amount_initial_centers).initialize()
-        #~ cluster_instance = pyclustering.cluster.xmeans.xmeans(reduced_features)
-        #~ cluster_instance.process()
-        #~ clusters = cluster_instance.get_clusters()
-
-        #~ local_labels = np.ones(reduced_features.shape[0], dtype='int64') * -1
-        #~ for c, clus in enumerate(clusters):
-            #~ local_labels[clus] = c
-        
-        
-        
+        # TODO try isosplit here
         clusterer = hdbscan.HDBSCAN(min_cluster_size=self.min_cluster_size)
         local_labels = clusterer.fit_predict(local_data)
-        
-        
         return local_labels
     
     def explore_split_loop(self):
@@ -895,6 +857,52 @@ class ShearsCut:
         self.log('END loop', np.sum(cluster_labels==-1))
         return cluster_labels
 
+    def merge_and_clean(self, cluster_labels):
+        # merge : 
+        #   * max distance < auto_merge_threshold
+        #   * 2 cluster have a shift
+        # delete:
+        #   * peak is not aligned
+        
+        cluster_labels2 = cluster_labels.copy()
+        
+        while True:
+            self.log('')
+            self.log('new loop')
+            labels = np.unique(cluster_labels2)
+            labels = labels[labels>=0]
+            n = labels.size
+            self.log(labels)
+            centroids = np.zeros((labels.size, self.waveforms.shape[1], self.waveforms.shape[2]))
+            
+            
+            max_per_cluster = 300
+            for ind, k in enumerate(labels):
+                ind_keep,  = np.nonzero(cluster_labels2 == k)
+                if ind_keep.size > max_per_cluster:
+                    sub_sel = np.random.choice(ind_keep.size, max_per_cluster, replace=False)
+                    ind_keep = ind_keep[sub_sel]
+                centroids[ind,:,:] = np.median(self.waveforms[ind_keep, :, :], axis=0)
+            
+            nb_merge = 0
+            for i in range(n):
+                for j in range(i+1, n):
+                    k1, k2 = labels[i], labels[j]
+                    wf1, wf2 = centroids[i, :, :], centroids[j, :, :]
+                    d = np.max(np.abs(wf1-wf2))
+                    if d<self.auto_merge_threshold:
+                        self.log('d', d)
+                        self.log('merge', k1, k2)
+                        
+                        cluster_labels2[cluster_labels2==k2] = k1
+                        
+                        nb_merge += 1
+            
+            self.log('nb_merge', nb_merge)
+            if nb_merge == 0:
+                break
+        
+        return cluster_labels2
 
 # TODO : 
 # pour aller vite prendre seulement le dernier percentile quand beaucoup de spike et grand percentile.
