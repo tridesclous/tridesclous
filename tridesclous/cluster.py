@@ -862,7 +862,7 @@ class ShearsCut:
         #   * max distance < auto_merge_threshold
         #   * 2 cluster have a shift
         # delete:
-        #   * peak is not aligned
+        #   * peak is not aligneds
         
         cluster_labels2 = cluster_labels.copy()
         
@@ -873,9 +873,8 @@ class ShearsCut:
             labels = labels[labels>=0]
             n = labels.size
             self.log(labels)
+            
             centroids = np.zeros((labels.size, self.waveforms.shape[1], self.waveforms.shape[2]))
-            
-            
             max_per_cluster = 300
             for ind, k in enumerate(labels):
                 ind_keep,  = np.nonzero(cluster_labels2 == k)
@@ -884,19 +883,55 @@ class ShearsCut:
                     ind_keep = ind_keep[sub_sel]
                 centroids[ind,:,:] = np.median(self.waveforms[ind_keep, :, :], axis=0)
             
+            #eliminate when best peak not aligned
+            for ind, k in enumerate(labels):
+                centroid = centroids[ind,:,:]
+                if self.peak_sign == '-':
+                    chan_peak = np.argmin(np.min(centroid, axis=0))
+                    pos_peak = np.argmin(centroid[:, chan_peak])
+                elif self.peak_sign == '+':
+                    chan_peak = np.argmax(np.max(centroid, axis=0))
+                    pos_peak = np.argmax(centroid[:, chan_peak])
+                
+                if np.abs(-self.n_left - pos_peak)>2:
+                    #delete
+                    cluster_labels2[cluster_labels2 == k] = -1
+                    labels[ind] = -1
+                    
+                    #~ fig, ax = plt.subplots()
+                    #~ ax.plot(centroid.T.flatten())
+                    #~ for i in range(centroids.shape[2]):
+                        #~ ax.axvline(i*self.width-self.n_left)
+                    #~ plt.show()
+                
+            
+            n_shift = 2
             nb_merge = 0
             for i in range(n):
+                k1 = labels[i]
+                if k1 == -1:
+                    continue
+                wf1 = centroids[i, n_shift:-n_shift, :]
                 for j in range(i+1, n):
-                    k1, k2 = labels[i], labels[j]
-                    wf1, wf2 = centroids[i, :, :], centroids[j, :, :]
-                    d = np.max(np.abs(wf1-wf2))
-                    if d<self.auto_merge_threshold:
-                        self.log('d', d)
-                        self.log('merge', k1, k2)
+                    k2 = labels[j]
+                    if k2 == -1:
+                        continue
                         
-                        cluster_labels2[cluster_labels2==k2] = k1
-                        
-                        nb_merge += 1
+                    for shift in range(n_shift*2+1):
+                        wf2 = centroids[j, shift:wf1.shape[0]+shift, :]
+                        d = np.max(np.abs(wf1-wf2))
+                        if d<self.auto_merge_threshold:
+                            self.log('d', d)
+                            self.log('merge', k1, k2)
+                            cluster_labels2[cluster_labels2==k2] = k1
+                            nb_merge += 1
+                            #~ fig, ax = plt.subplots()
+                            #~ ax.plot(wf1.T.flatten())
+                            #~ ax.plot(wf2.T.flatten())
+                            #~ plt.show()
+                            break
+                    
+                    
             
             self.log('nb_merge', nb_merge)
             if nb_merge == 0:
