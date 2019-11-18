@@ -80,6 +80,13 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         #~ print('DBSCAN', kargs)
         dbscan = sklearn.cluster.DBSCAN(**kargs)
         labels = dbscan.fit_predict(features)
+    elif method == 'hdbscan':
+        if 'min_cluster_size' not in kargs:
+            kargs['min_cluster_size'] = 20
+        clusterer = hdbscan.HDBSCAN(**kargs)
+        labels = clusterer.fit_predict(features)
+        print(labels)
+        print(features.shape, labels.shape)
     elif  method == 'optics':
         optic = sklearn.cluster.OPTICS(**kargs)
         labels = optic.fit_predict(features)
@@ -718,8 +725,8 @@ class ShearsCut:
             #~ print(np.unique(local_labels))
             
 
-            #~ if True:
-            if False:
+            if True:
+            #~ if False:
                 
                 from .matplotlibplot import plot_waveforms_density
                 
@@ -802,8 +809,8 @@ class ShearsCut:
             self.log('ind_new_label.shape', ind_new_label.shape)
 
 
-            #~ if True:
-            if False:
+            if True:
+            #~ if False:
                 
                 from .matplotlibplot import plot_waveforms_density
                 

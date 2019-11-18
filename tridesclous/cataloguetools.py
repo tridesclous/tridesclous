@@ -227,12 +227,18 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             n_components = int(nb_chan)
         
         params['feature_kargs'] = {'n_components' : n_components }
-        if HAVE_ISOSPLIT5:
-            params['cluster_method'] = 'isosplit5'
-            params['cluster_kargs'] = {}
-        else:
-            params['cluster_method'] = 'dbscan'
-            params['cluster_kargs'] = {'eps': 3,  'metric':'euclidean', 'algorithm':'brute'}
+        #~ if HAVE_ISOSPLIT5:
+            #~ params['cluster_method'] = 'isosplit5'
+            #~ params['cluster_kargs'] = {}
+        #~ else:
+            #~ params['cluster_method'] = 'dbscan'
+            #~ params['cluster_kargs'] = {'eps': 3,  'metric':'euclidean', 'algorithm':'brute'}
+
+        params['cluster_method'] = 'hdbscan'
+        params['cluster_kargs'] = {'min_cluster_size': 20}
+        
+        
+        
         params['clean_cluster'] = True
         params['clean_cluster_kargs'] = {'too_small' : 20 }
         
@@ -242,21 +248,7 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['mode'] = 'sparse'
         params['adjacency_radius_um'] = 400.
         params['sparse_threshold'] = 1.5
-        
-        params['feature_method'] = 'peak_max'
-        params['feature_kargs'] = {}
-        params['cluster_method'] = 'sawchaincut'
-        params['cluster_kargs']['kde_bandwith'] = 1.
-        
-        if nb_chan<32:
-            params['cluster_kargs']['max_loop'] = 10000
-            
-        elif nb_chan>=32:
-            params['cluster_kargs']['max_loop'] = nb_chan * 400
-            
-        
-        params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 400)
-        
+
         if HAVE_PYOPENCL:
             params['peak_detector']['engine'] = 'geometrical_opencl'
             #~ params['peak_detector']['adjacency_radius_um'] = 200.
@@ -265,6 +257,23 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             params['peak_detector']['engine'] = 'geometrical_numpy'
             #~ params['peak_detector']['adjacency_radius_um'] = 200.
         
+        params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 300)
+        
+        #~ params['feature_method'] = 'peak_max'
+        #~ params['feature_kargs'] = {}
+        #~ params['cluster_method'] = 'sawchaincut'
+        #~ params['cluster_kargs']['kde_bandwith'] = 1.
+        #~ if nb_chan<32:
+            #~ params['cluster_kargs']['max_loop'] = 10000
+        #~ elif nb_chan>=32:
+            #~ params['cluster_kargs']['max_loop'] = nb_chan * 400
+
+        params['feature_method'] = 'pca_by_channel'
+        params['feature_kargs'] = {'n_components_by_channel':3}
+        params['cluster_method'] = 'shearscut'
+        params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 10)
+        params['cluster_kargs']['min_cluster_size'] = 20
+
         
         #~ else:
             #~ # default one already

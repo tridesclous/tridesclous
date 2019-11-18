@@ -180,6 +180,7 @@ cluster_params_by_methods = OrderedDict([
                         {'name' : 'algorithm', 'type' : 'list', 'values' : ['brute', 'auto', 'ball_tree', 'kd_tree', 'brute']},
                     ]),
     ('optics', [{'name' : 'min_samples', 'type' : 'int', 'value' : 5}]),
+    ('hdbscan', [{'name' : 'min_cluster_size', 'type' : 'int', 'value' : 20}]),
     ('isosplit5', []),
     ('sawchaincut', [{'name' : 'max_loop', 'type' : 'int', 'value' : 1000},
                                 {'name' : 'nb_min', 'type' : 'int', 'value' : 20},
