@@ -1,0 +1,22 @@
+tridesclous release notes 1.2.0
+===============================
+
+**2019-06-11**
+
+Release mainly for parameters names change and make spikeforest wrapper more robust.
+
+
+tridesclous release notes 1.2.1
+===============================
+
+**2019-06-17**
+
+tridesclous release notes 1.2.2
+===============================
+
+**2019-07-11**
+
+Debug GUI catalogue when split trash
+Debug empty catalogue when OpenCl
+Some try with isosplit5 (optional dep)
+
