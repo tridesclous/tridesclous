@@ -1,22 +1,13 @@
-tridesclous release notes 1.2.0
+tridesclous release notes 1.3.0
 ===============================
 
-**2019-06-11**
+**2019-11-XX**
 
-Release mainly for parameters names change and make spikeforest wrapper more robust.
-
-
-tridesclous release notes 1.2.1
-===============================
-
-**2019-06-17**
-
-tridesclous release notes 1.2.2
-===============================
-
-**2019-07-11**
-
-Debug GUI catalogue when split trash
-Debug empty catalogue when OpenCl
-Some try with isosplit5 (optional dep)
+Major improvement:
+  
+  * new peak detector taking in account geometry
+  * CatalogueConstructor have a sparse mode to improve performence on high channel count (>64)
+  * Peeler have several implementation
+    * classic in the same idea as the previous one)
+    * geometrical (new) that better advantage of geometry and sparsity of template
 
