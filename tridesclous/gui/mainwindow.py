@@ -6,6 +6,7 @@ import os
 from collections import OrderedDict
 import pickle
 import webbrowser
+from pprint import pprint
 
 from ..dataio import DataIO
 from ..datasource import data_source_classes

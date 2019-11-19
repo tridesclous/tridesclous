@@ -181,7 +181,7 @@ _default_catalogue_params = {
     'feature_method': 'peak_max',
     'feature_kargs': {},
     'cluster_method': 'sawchaincut',
-    'cluster_kargs': {'kde_bandwith': 1.},
+    'cluster_kargs': {},
     
     'clean_cluster' : False,
     'clean_cluster_kargs' : {},
@@ -257,7 +257,7 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             params['peak_detector']['engine'] = 'geometrical_numpy'
             #~ params['peak_detector']['adjacency_radius_um'] = 200.
         
-        params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 300)
+        params['extract_waveforms']['nb_max'] = min(20000, nb_chan * 300)
         
         #~ params['feature_method'] = 'peak_max'
         #~ params['feature_kargs'] = {}

@@ -461,7 +461,7 @@ def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
     #~ im = ax.imshow(hist2d.T, interpolation='nearest', 
                     #~ origin='lower', aspect='auto', extent=(0, data.shape[1], bin_min, bin_max), cmap='hot')
                     
-    im = plot_waveforms_density(waveforms, bin_min, bin_max, bin_size, ax=ax)
+    im = plot_waveforms_density(wf, bin_min, bin_max, bin_size, ax=ax)
 
     peak_width = n_right - n_left
     for c, chan in enumerate(channels):

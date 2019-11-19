@@ -1105,7 +1105,7 @@ class CatalogueConstructor:
         self.arrays.add_array('clusters', clusters, self.memory_mode)
         
         for name in _centroids_arrays:
-            new_arr = getattr(self, name)[keep, :, :].copy()
+            new_arr = getattr(self, name)[keep].copy()  # first dim is cluster for all
             self.arrays.add_array(name, new_arr, self.memory_mode)
     
     def move_cluster_to_trash(self, labels):
@@ -1122,6 +1122,8 @@ class CatalogueConstructor:
         ind = self.index_of_label(k)
         
         n_left = int(self.info['waveform_extractor_params']['n_left'])
+        peak_sign = self.info['peak_detector_params']['peak_sign']
+        
         
         selected, = np.nonzero(self.all_peaks['cluster_label'][self.some_peaks_index]==k)
         if max_per_cluster is not None and selected.size>max_per_cluster:
@@ -1133,7 +1135,10 @@ class CatalogueConstructor:
         
         median, mad = median_mad(wf, axis = 0)
         # mean, std = np.mean(wf, axis=0), np.std(wf, axis=0) # TODO rome the mean/std
-        max_on_channel = np.argmax(np.abs(median[-n_left,:]), axis=0)
+        if peak_sign == '-':
+            max_on_channel = np.argmin(median[-n_left,:], axis=0)
+        elif peak_sign == '+':
+            max_on_channel = np.argmax(median[-n_left,:], axis=0)
         
         # to persistant arrays
         self.centroids_median[ind, :, :] = median

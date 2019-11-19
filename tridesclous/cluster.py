@@ -491,7 +491,7 @@ class ShearsCut:
                         max_loop=1000,
                         break_nb_remain=30,
                         auto_merge_threshold=2.,
-                        print_debug=True):
+                        print_debug=False):
         self.waveforms = waveforms
         self.features = features
         self.n_left = n_left
@@ -725,8 +725,8 @@ class ShearsCut:
             #~ print(np.unique(local_labels))
             
 
-            if True:
-            #~ if False:
+            #~ if True:
+            if False:
                 
                 from .matplotlibplot import plot_waveforms_density
                 
@@ -809,8 +809,8 @@ class ShearsCut:
             self.log('ind_new_label.shape', ind_new_label.shape)
 
 
-            if True:
-            #~ if False:
+            #~ if True:
+            if False:
                 
                 from .matplotlibplot import plot_waveforms_density
                 
