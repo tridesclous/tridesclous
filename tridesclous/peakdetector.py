@@ -141,9 +141,9 @@ class PeakDetectorGlobalNumpy(BasePeakDetector):
         sum_rectified = make_sum_rectified(newbuf, self.relative_threshold, self.peak_sign, self.spatial_kernel)
         self.fifo_sum_rectified.new_chunk(sum_rectified, pos)
         
-        if pos-(newbuf.shape[0]+2*self.n_span)<0:
+        #~ if pos-(newbuf.shape[0]+2*self.n_span)<0:
             # the very first buffer is sacrified because of peak span
-            return None, None
+            #~ return None, None
         
         #~ sig = self.ring_sum.get_data(pos-(newbuf.shape[0]+2*k), pos)
         sig_rectified = self.fifo_sum_rectified.get_data(pos-(newbuf.shape[0]+2*self.n_span), pos)
@@ -353,9 +353,9 @@ class PeakDetectorGeometricalNumpy(BasePeakDetector):
         
         self.fifo_sigs.new_chunk(newbuf, pos)
         
-        if pos-(newbuf.shape[0]+2*self.n_span)<0:
+        #~ if pos-(newbuf.shape[0]+2*self.n_span)<0:
             # the very first buffer is sacrified because of peak span
-            return None, None
+            #~ return None, None
         
         
         sigs = self.fifo_sigs.get_data(pos-(newbuf.shape[0]+2*self.n_span), pos)

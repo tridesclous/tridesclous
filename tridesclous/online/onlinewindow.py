@@ -430,7 +430,7 @@ class TdcOnlineWindow(MainWindowNode):
 
     def get_catalogue_params(self):
         p = self.dialog_fullchain_params.get()
-        p['preprocessor'].pop('chunksize')
+        #~ p['preprocessor'].pop('chunksize')
         
         if self.sample_rate is None:
             # before input connect need to make fake catalogue
@@ -615,7 +615,7 @@ class TdcOnlineWindow(MainWindowNode):
         
         params = {}
         params.update(self.dialog_fullchain_params.get())
-        params['preprocessor']['chunksize'] = self.chunksize
+        params['chunksize'] = self.chunksize
         
         params['feature_method'] = self.dialog_method_features.param_method['method']
         params['feature_kargs'] = get_dict_from_group_param(self.dialog_method_features.all_params[params['feature_method']], cascade=True)
@@ -822,16 +822,16 @@ class Worker(QT.QObject):
             print(catalogueconstructor)
             print('self.params duration', self.params['duration'])
             
-            try:
-            #~ if 1:
+            #~ try:
+            if 1:
                 apply_all_catalogue_steps(catalogueconstructor, self.params,  verbose=False)
                 
                 catalogueconstructor.make_catalogue_for_peeler()
                 print(catalogueconstructor)
                 self.done.emit(chan_grp)
                 
-            except Exception as e:
-                self.compute_catalogue_error.emit(e)
+            #~ except Exception as e:
+                #~ self.compute_catalogue_error.emit(e)
         
         # release cataloguecontrustors otherwise they cannot be deleted
         self.catalogueconstructors = {}

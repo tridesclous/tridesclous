@@ -398,12 +398,12 @@ def test_peak_sign_symetry():
 
     
 if __name__ == '__main__':
-    test_compare_offline_online_engines()
+    #~ test_compare_offline_online_engines()
     
     #~ test_detect_geometrical_peaks()
     
     
     #~ benchmark_speed()
     
-    #~ test_peak_sign_symetry()
+    test_peak_sign_symetry()
     

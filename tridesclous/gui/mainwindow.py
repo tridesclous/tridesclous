@@ -17,6 +17,7 @@ from ..catalogueconstructor import CatalogueConstructor
 from ..cataloguetools import apply_all_catalogue_steps, get_auto_params_for_catalogue
 from .cataloguewindow import CatalogueWindow
 from ..peeler import Peeler
+from ..peeler_tools import get_auto_params_for_peelers
 from .peelerwindow import PeelerWindow
 from .initializedatasetwindow import InitializeDatasetWindow
 from .probegeometryview import ProbeGeometryView
@@ -302,10 +303,12 @@ class MainWindow(QT.QMainWindow):
         self.combo_chan_grp.blockSignals(False)
         self.on_chan_grp_change()
         
-        # set auto params
+        # set auto params catalogue
         params = get_auto_params_for_catalogue(self.dataio, chan_grp=self.chan_grps[0])
         d = dict(params)
-        for k in ('feature_method', 'feature_kargs', 'cluster_method', 'cluster_kargs', 'clean_cluster', 'clean_cluster_kargs'):
+        pprint(d)
+        #~ for k in ('feature_method', 'feature_kargs', 'cluster_method', 'cluster_kargs', 'clean_cluster', 'clean_cluster_kargs'):
+        for k in ('feature_method', 'feature_kargs', 'cluster_method', 'cluster_kargs', 'clean_cluster'):
             d.pop(k)
         self.dialog_fullchain_params.set(d)
         
@@ -313,6 +316,14 @@ class MainWindow(QT.QMainWindow):
         self.dialog_method_cluster.set_method(params['cluster_method'], params['cluster_kargs'])
         
         # TODO clean_cluster
+        
+        # set auto params peeler
+        params = get_auto_params_for_peelers(self.dataio, chan_grp=self.chan_grps[0])
+        d = dict(params)
+        engine = d.pop('engine')
+        self.dialog_method_peeler.set_method(engine, d)
+        
+        
 
     
     def release_closed_windows(self):
@@ -395,9 +406,9 @@ class MainWindow(QT.QMainWindow):
         params['cluster_method'] = method
         params['cluster_kargs'] = d
         
-        #TODO dialog for that
-        params['clean_cluster'] = False
-        params['clean_cluster_kargs'] = {}
+        #~ #TODO dialog for that
+        #~ params['clean_cluster'] = False
+        #~ params['clean_cluster_kargs'] = {}
 
         for chan_grp in self.chan_grps:
             print('### chan_grp', chan_grp, ' ###')

@@ -11,7 +11,7 @@ from tridesclous.datasource import InMemoryDataSource, data_source_classes
 #~ print(data_source_classes)
 #~ exit()
 
-from neo.rawio.tests.tools import (can_use_network, make_all_directories,
+from neo.test.rawiotest.tools import (can_use_network, make_all_directories,
                                    download_test_file, create_local_temp_dir)
 
 

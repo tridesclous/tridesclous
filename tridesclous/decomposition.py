@@ -114,7 +114,7 @@ class PcaByChannel:
         
         self.pcas = []
         for chan in range(cc.nb_channel):
-            print(chan)
+            #~ print(chan)
             pca = get_pca_one_channel(waveforms, chan, thresh, n_left, n_components_by_channel, params)
             self.pcas.append(pca)
         #~ n_jobs = -1
@@ -131,7 +131,7 @@ class PcaByChannel:
         n = self.n_components_by_channel
         all = np.zeros((waveforms.shape[0], waveforms.shape[2]*n), dtype=waveforms.dtype)
         for c, pca in enumerate(self.pcas):
-            print(c)
+            #~ print(c)
             all[:, c*n:(c+1)*n] = pca.transform(waveforms[:, :, c])
         return all
     

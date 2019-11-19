@@ -183,13 +183,14 @@ def test_peeler_several_chunksize():
         t1 = time.perf_counter()
         peeler.run_offline_loop_one_segment(seg_num=0, progressbar=False)
         t2 = time.perf_counter()
-        print('n_side', peeler.peeler_engine.n_side, 'n_span', peeler.peeler_engine.n_span,
+        print('extra_size', peeler.peeler_engine.extra_size, 'n_span', peeler.peeler_engine.n_span,
                         'peak_width', peeler.peeler_engine.peak_width)
         print('peeler.run_loop', t2-t1)
         
         # copy is need because the memmap is reset at each loop
         spikes = dataio.get_spikes(seg_num=0, chan_grp=0).copy()
         all_spikes.append(spikes)
+        print(spikes.size)
     
     
     # clip to last spike
@@ -236,18 +237,18 @@ def test_export_spikes():
 
 
 
-def test_peeler_cl():
-    dataio = DataIO(dirname='test_peeler')
-    initial_catalogue = dataio.load_catalogue(chan_grp=0)
+#~ def test_peeler_cl():
+    #~ dataio = DataIO(dirname='test_peeler')
+    #~ initial_catalogue = dataio.load_catalogue(chan_grp=0)
 
-    peeler = Peeler(dataio)
+    #~ peeler = Peeler(dataio)
     
-    peeler.change_params(engine='classic_opencl', catalogue=initial_catalogue,chunksize=1024)
+    #~ peeler.change_params(engine='classic_opencl', catalogue=initial_catalogue,chunksize=1024)
     
-    t1 = time.perf_counter()
-    peeler.run(progressbar=False)
-    t2 = time.perf_counter()
-    print('peeler_cl.run_loop', t2-t1)
+    #~ t1 = time.perf_counter()
+    #~ peeler.run(progressbar=False)
+    #~ t2 = time.perf_counter()
+    #~ print('peeler_cl.run_loop', t2-t1)
 
 
 
@@ -325,12 +326,12 @@ if __name__ =='__main__':
     
     #~ test_peeler_empty_catalogue()
     
-    #~ test_peeler_several_chunksize()
+    test_peeler_several_chunksize()
     
     #~ test_export_spikes()
     
     
-    debug_compare_peeler_engines()
+    #~ debug_compare_peeler_engines()
     
     #~ open_PeelerWindow()
     

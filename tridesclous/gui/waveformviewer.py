@@ -435,7 +435,7 @@ class WaveformViewerBase(WidgetBase):
         #~ if self._x_range is None:
         if self._x_range is None or not keep_range :
             self._x_range = np.min(self.xvect), np.max(self.xvect)
-            self._y1_range = np.min(ypos)-self.delta_y*2, np.max(ypos)+self.delta_y*2
+            self._y1_range = np.min(self.arr_geometry[:,1])-self.delta_y*2, np.max(self.arr_geometry[:,1])+self.delta_y*2
         
         self.plot1.setXRange(*self._x_range, padding = 0.0)
         self.plot1.setYRange(*self._y1_range, padding = 0.0)

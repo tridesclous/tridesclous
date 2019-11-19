@@ -20,6 +20,7 @@ import numpy as np
 import time
 import os
 import shutil
+from pprint import pprint
 
 
 import pytest
@@ -95,14 +96,14 @@ def test_OnlinePeeler():
     dev.start()
     
     # Node QOscilloscope
-    #~ oscope = QOscilloscope()
-    #~ oscope.configure(with_user_dialog=True)
-    #~ oscope.input.connect(dev.output)
-    #~ oscope.initialize()
-    #~ oscope.show()
-    #~ oscope.start()
-    #~ oscope.params['decimation_method'] = 'min_max'
-    #~ oscope.params['mode'] = 'scan'    
+    oscope = QOscilloscope()
+    oscope.configure(with_user_dialog=True)
+    oscope.input.connect(dev.output)
+    oscope.initialize()
+    oscope.show()
+    oscope.start()
+    oscope.params['decimation_method'] = 'min_max'
+    oscope.params['mode'] = 'scan'    
 
     # Node Peeler
     peeler = OnlinePeeler()
@@ -115,16 +116,16 @@ def test_OnlinePeeler():
     peeler.start()
     
     # Node traceviewer
-    #~ tviewer = OnlineTraceViewer()
-    #~ tviewer.configure(peak_buffer_size = 1000, catalogue=lighter_catalogue(catalogue))
-    #~ tviewer.inputs['signals'].connect(peeler.outputs['signals'])
-    #~ tviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
-    #~ tviewer.initialize()
-    #~ tviewer.show()
-    #~ tviewer.start()
-    #~ tviewer.params['xsize'] = 3.
-    #~ tviewer.params['decimation_method'] = 'min_max'
-    #~ tviewer.params['mode'] = 'scan'
+    tviewer = OnlineTraceViewer()
+    tviewer.configure(peak_buffer_size = 1000, catalogue=lighter_catalogue(catalogue))
+    tviewer.inputs['signals'].connect(peeler.outputs['signals'])
+    tviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
+    tviewer.initialize()
+    tviewer.show()
+    tviewer.start()
+    tviewer.params['xsize'] = 3.
+    tviewer.params['decimation_method'] = 'min_max'
+    tviewer.params['mode'] = 'scan'
 
     
     # waveform histogram viewer
@@ -198,7 +199,7 @@ def test_OnlinePeeler_no_catalogue():
         )
     
     
-    print(empty_catalogue)
+    pprint(empty_catalogue)
     #~ print(empty_catalogue['signal_preprocessor_params'])
     #~ exit()
     
@@ -294,7 +295,7 @@ def test_OnlinePeeler_no_catalogue():
 if __name__ =='__main__':
     #~ setup_catalogue()
     
-    #~ test_OnlinePeeler()
+    test_OnlinePeeler()
     
-    test_OnlinePeeler_no_catalogue()
+    #~ test_OnlinePeeler_no_catalogue()
 

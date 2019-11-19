@@ -124,7 +124,7 @@ preprocessor_params = [
     {'name': 'lowpass_freq', 'type': 'float', 'value':5000., 'step': 10., 'suffix': 'Hz', 'siPrefix': True},
     {'name': 'smooth_size', 'type': 'int', 'value':0},
     {'name': 'common_ref_removal', 'type': 'bool', 'value':False},
-    {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
+    #~ {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
     {'name': 'lostfront_chunksize', 'type': 'int', 'value':-1, 'decimals':10, 'limits': (-1, np.inf),},
     {'name': 'engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl']},
 ]
@@ -134,7 +134,6 @@ peak_detector_params = [
     {'name': 'peak_sign', 'type': 'list',  'value':'-', 'values':['-', '+']},
     {'name': 'relative_threshold', 'type': 'float', 'value': 5., 'step': .1,},
     {'name': 'peak_span_ms', 'type': 'float', 'value':0.5, 'step': 0.05, 'suffix': 'ms', 'siPrefix': False},
-    {'name': 'adjacency_radius_um', 'type': 'float', 'value': 0, 'step': 10., 'suffix': 'µm', 'siPrefix': False},
 ]
 
 waveforms_params = [
@@ -142,8 +141,7 @@ waveforms_params = [
     {'name': 'wf_right_ms', 'type': 'float', 'value': 3.0,  'suffix': 'ms','step': .1,},
     {'name': 'mode', 'type': 'list', 'values':['rand', 'all']},
     {'name': 'nb_max', 'type': 'int', 'value':20000},
-    {'name': 'sparse', 'type': 'bool', 'value':False},
-    {'name': 'adjacency_radius_um', 'type': 'float', 'value': 200, 'step': 10., 'suffix': 'µm', 'siPrefix': False},
+    #~ {'name': 'sparse', 'type': 'bool', 'value':False},
 ]
 
 clean_waveforms_params =[
@@ -156,6 +154,10 @@ noise_snippet_params = [
     {'name': 'nb_snippet', 'type': 'int', 'value':300},
 ]
 
+
+clean_cluster_params = [
+    {'name': 'too_small', 'type': 'int', 'value':20},
+]
 
 
 features_params_by_methods = OrderedDict([
@@ -202,11 +204,23 @@ cluster_params_by_methods = OrderedDict([
 
 fullchain_params = [
     {'name':'duration', 'type': 'float', 'value':300., 'suffix': 's', 'siPrefix': True},
+    
+    {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
+    
+    {'name' : 'mode', 'type' : 'list', 'values' : ['dense', 'sparse']},
+    {'name':'adjacency_radius_um', 'type': 'float', 'value':300., 'suffix': 'µm', 'siPrefix': False},
+    {'name':'sparse_threshold', 'type': 'float', 'value':1.5},
+    
+    
     {'name':'preprocessor', 'type':'group', 'children': preprocessor_params},
     {'name':'peak_detector', 'type':'group', 'children': peak_detector_params},
     {'name':'noise_snippet', 'type':'group', 'children': noise_snippet_params},
     {'name':'extract_waveforms', 'type':'group', 'children' : waveforms_params},
     {'name':'clean_waveforms', 'type':'group', 'children' : clean_waveforms_params},
+    
+    {'name':'clean_cluster', 'type': 'bool', 'value':True},
+    {'name':'clean_cluster_kargs', 'type':'group', 'children' : clean_cluster_params},
+    
 ]
 
 metrics_params = [

@@ -57,8 +57,8 @@ def make_empty_catalogue(chan_grp=0,
     catalogue = {}
     
     catalogue['chan_grp'] = chan_grp
-    catalogue['n_left'] = n_left
-    catalogue['n_right'] = n_right
+    catalogue['n_left'] = n_left + 2
+    catalogue['n_right'] = n_right - 2
     catalogue['peak_width'] = catalogue['n_right'] - catalogue['n_left']
     
     catalogue['cluster_labels'] = np.array([], dtype='int64')
@@ -87,7 +87,7 @@ def make_empty_catalogue(chan_grp=0,
     
     preprocessor_params_ = dict(preprocessor_params_default)
     preprocessor_params_.update(preprocessor_params)
-    preprocessor_params_.pop('chunksize')
+    #~ preprocessor_params_.pop('chunksize')
     
 
 
