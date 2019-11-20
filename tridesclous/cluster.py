@@ -56,8 +56,10 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
     if method == 'kmeans':
         km = sklearn.cluster.KMeans(n_clusters=kargs.pop('n_clusters'), **kargs)
         labels = km.fit_predict(features)
+        
     elif method == 'onecluster':
         labels = np.zeros(features.shape[0], dtype='int64')
+        
     elif method == 'gmm':
         gmm = sklearn.mixture.GaussianMixture(n_components=kargs.pop('n_clusters'), **kargs)
         #~ labels =gmm.fit_predict(features)
@@ -85,14 +87,15 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
             kargs['min_cluster_size'] = 20
         clusterer = hdbscan.HDBSCAN(**kargs)
         labels = clusterer.fit_predict(features)
-        print(labels)
-        print(features.shape, labels.shape)
+        
     elif  method == 'optics':
         optic = sklearn.cluster.OPTICS(**kargs)
         labels = optic.fit_predict(features)
+        
     elif  method == 'meanshift':
         ms = sklearn.cluster.MeanShift()
         labels = ms.fit_predict(features)
+        
     elif method == 'sawchaincut':
         n_left = cc.info['waveform_extractor_params']['n_left']
         n_right = cc.info['waveform_extractor_params']['n_right']
@@ -100,6 +103,7 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         relative_threshold = cc.info['peak_detector_params']['relative_threshold']
         sawchaincut = SawChainCut(waveforms, n_left, n_right, peak_sign, relative_threshold, **kargs)
         labels = sawchaincut.do_the_job()
+        
     elif method == 'shearscut':
         n_left = cc.info['waveform_extractor_params']['n_left']
         n_right = cc.info['waveform_extractor_params']['n_right']
@@ -112,6 +116,7 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         shearscut = ShearsCut(waveforms, features, n_left, n_right, peak_sign, relative_threshold, channel_adjacency, **kargs)
         
         labels = shearscut.do_the_job()
+        
     elif method =='isosplit5':
         assert HAVE_ISOSPLIT5, 'isosplit5 is not installed'
         labels = isosplit5.isosplit5(features.T)
@@ -122,6 +127,7 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         #~ cc.all_peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
         #~ cc.all_peaks['cluster_label'][cc.some_peaks_index] = labels
         cc.all_peaks['cluster_label'][cc.some_peaks_index[sel]] = labels
+        
     else:
         labels[labels>=0] += max(max(cc.cluster_labels), -1) + 1
         cc.all_peaks['cluster_label'][cc.some_peaks_index[sel]] = labels
@@ -563,13 +569,13 @@ class ShearsCut:
         return local_labels
     
     def explore_split_loop(self):
-        print('all_peak_max')
+        #~ print('all_peak_max')
         ind_peak = -self.n_left
         all_peak_max = self.waveforms[:, ind_peak, : ].copy()
         if self.peak_sign == '-' :
             all_peak_max = -all_peak_max
         
-        print('all_peak_max done')
+        #~ print('all_peak_max done')
         
         nb_channel = self.waveforms.shape[2]
         n_components_by_channel = self.features.shape[1] // nb_channel
@@ -658,34 +664,7 @@ class ShearsCut:
             reduced_features = pca.fit_transform(local_features)
             self.log('reduced_features.shape',reduced_features.shape)
             
-            if np.any(np.isnan(reduced_features)):
-                print('nan')
-                #~ print(mask_loop)
-                #~ print(mask_thresh)
-                #~ print(mask_loop & mask_thresh)
-                #~ print(mask_feat)
-                print('local_features.shape', local_features.shape)
-                print( ind_keep.size, mask_feat.sum())
-                print(ind_keep)
-                print(np.nonzero(mask_feat))
-                
-                
-                print('reduced_features nan', np.sum(np.isnan(reduced_features)))
-                #~ print(reduced_features)
-                print('local_features nan', np.sum(np.isnan(local_features)))
-                #~ print(local_features)
-
-                fig, ax = plt.subplots()
-                ax.plot(self.features.take(ind_keep, axis=0).T, alpha=0.1, color='k')
-                
-                fig, ax = plt.subplots()
-                ax.plot(local_features.T, alpha=0.1, color='k')
-                fig, ax = plt.subplots()
-                wf = self.waveforms[:, :, adjacency].swapaxes(1,2)[ind_keep,:,:].reshape(ind_keep.size, -1)
-                ax.plot(wf.T, alpha=0.1, color='k')
-                
-                plt.show()
-                exit()
+           
             local_labels = self.one_sub_cluster(reduced_features)
             
             keep_labels = []

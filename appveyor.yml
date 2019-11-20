@@ -9,7 +9,7 @@ environment:
 
   matrix:
     - PYTHON_VERSION: "3.7"
-      CONDA_DEPENDENCIES: "numpy scipy pandas scikit-learn scikit-learn matplotlib seaborn tqdm openpyxl numba hdbscan pyqt"
+      CONDA_DEPENDENCIES: "numpy scipy pandas scikit-learn scikit-learn matplotlib seaborn tqdm openpyxl numba pyqt"
       PIP_DEPENDENCIES: "pyqtgraph neo"
 
 platform:
