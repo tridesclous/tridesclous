@@ -267,7 +267,8 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             print('WARNING : peakdetector will be slow install opencl')
             params['peak_detector']['engine'] = 'numpy'
         
-        params['extract_waveforms']['nb_max'] = min(20000, nb_chan * 300)
+        params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 300)
+        
         
         #~ params['feature_method'] = 'peak_max'
         #~ params['feature_kargs'] = {}
@@ -292,8 +293,6 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         if nb_chan >64 and HAVE_PYOPENCL:
             # force opencl : this limit depend on the platform of course
             params['preprocessor']['engine'] = 'opencl'
-    
-    
     
     
     return params

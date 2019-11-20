@@ -274,7 +274,7 @@ def benchmark_speed():
         ('global', 'numpy'),
         ('global', 'opencl'),
         ('geometrical', 'numpy'),
-        ('geometrical', 'numba'),
+        #~ ('geometrical', 'numba'),
         ('geometrical', 'opencl'),
     ]
     args = (sample_rate, nb_channel, chunksize, 'float32', geometry)
@@ -346,7 +346,7 @@ def test_peak_sign_symetry():
         ('global', 'numpy'),
         ('global', 'opencl'),
         ('geometrical', 'numpy'),
-        ('geometrical', 'numba'),
+        #~ ('geometrical', 'numba'),
         ('geometrical', 'opencl'),
     ]
     
@@ -386,7 +386,7 @@ def test_peak_sign_symetry():
         assert np.array_equal(online_peaks[method, engine, '-'], online_peaks[method, engine, '+'])
     
     assert np.array_equal(online_peaks['global', 'numpy', '-'], online_peaks['global', 'opencl', '-'])
-    assert np.array_equal(online_peaks['geometrical', 'numpy', '-'], online_peaks['geometrical', 'numba', '-'])
+    #~ assert np.array_equal(online_peaks['geometrical', 'numpy', '-'], online_peaks['geometrical', 'numba', '-'])
     assert np.array_equal(online_peaks['geometrical', 'numpy', '-'], online_peaks['geometrical', 'opencl', '-'])
     
     

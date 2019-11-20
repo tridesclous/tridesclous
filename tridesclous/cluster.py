@@ -108,7 +108,7 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         
         adjacency_radius_um = cc.adjacency_radius_um * 0.5 # TODO wokr on this
         channel_adjacency = cc.dataio.get_channel_adjacency(chan_grp=cc.chan_grp, adjacency_radius_um=adjacency_radius_um)
-        assert cc.info['peak_detector_params']['engine'].startswith('geometrical')
+        assert cc.info['peak_detector_params']['method'] == 'geometrical'
         shearscut = ShearsCut(waveforms, features, n_left, n_right, peak_sign, relative_threshold, channel_adjacency, **kargs)
         
         labels = shearscut.do_the_job()
