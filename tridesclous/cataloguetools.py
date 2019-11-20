@@ -8,6 +8,13 @@ import copy
 from .cltools import HAVE_PYOPENCL
 from .cluster import HAVE_ISOSPLIT5
 
+try:
+    import numba
+    HAVE_NUMBA = True
+except ImportError:
+    HAVE_NUMBA = False
+    
+
 #TODO debug this when no peak at all
 def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     """
@@ -32,7 +39,8 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
             'common_ref_removal':False,
         },
         'peak_detector': {
-            'engine': 'global_numpy',
+            'method' : 'global',
+            'engine': 'numpy',
             'peak_sign': '-',
             'relative_threshold': 5.,
             'peak_span_ms': .3,
@@ -69,12 +77,10 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     
     # params preprocessor
     d = dict(params['preprocessor'])
-    d['signalpreprocessor_engine'] = d.pop('engine')
     cc.set_preprocessor_params(**d)
     
     # params peak detector
     d = dict(params['peak_detector'])
-    d['peakdetector_engine'] = d.pop('engine')
     cc.set_peak_detector_params(**d)
     
     dataio = cc.dataio
@@ -160,7 +166,8 @@ _default_catalogue_params = {
         'common_ref_removal':False,
     },
     'peak_detector': {
-        'engine': 'global_numpy',
+        'method' : 'global',
+        'engine': 'numpy',
         'peak_sign': '-',
         'relative_threshold': 5.,
         'peak_span_ms': .7,
@@ -217,7 +224,8 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         
         params['feature_method'] = 'global_pca'
         
-        params['peak_detector']['engine'] = 'global_numpy'
+        params['peak_detector']['method'] = 'global'
+        params['peak_detector']['engine'] = 'numpy'
         
         if nb_chan in (1,2):
             n_components = 3
@@ -247,13 +255,17 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['adjacency_radius_um'] = 400.
         params['sparse_threshold'] = 1.5
 
+
+        params['peak_detector']['method'] = 'geometrical'
+        
+
         if HAVE_PYOPENCL:
-            params['peak_detector']['engine'] = 'geometrical_opencl'
-            #~ params['peak_detector']['adjacency_radius_um'] = 200.
+            params['peak_detector']['engine'] = 'opencl'
+        elif HAVE_NUMBA:
+            params['peak_detector']['engine'] = 'numba'
         else:
             print('WARNING : peakdetector will be slow install opencl')
-            params['peak_detector']['engine'] = 'geometrical_numpy'
-            #~ params['peak_detector']['adjacency_radius_um'] = 200.
+            params['peak_detector']['engine'] = 'numpy'
         
         params['extract_waveforms']['nb_max'] = min(20000, nb_chan * 300)
         

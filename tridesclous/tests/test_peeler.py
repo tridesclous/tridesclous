@@ -315,23 +315,24 @@ def debug_compare_peeler_engines():
     
     
 if __name__ =='__main__':
-    #~ setup_module()
+    setup_module()
     
     #~ open_catalogue_window()
     
     #~ test_peeler()
+    
     #~ test_peeler_cl()
     
     #~ test_peeler_argmin_methods()
     
     #~ test_peeler_empty_catalogue()
     
-    test_peeler_several_chunksize()
+    #~ test_peeler_several_chunksize()
     
     #~ test_export_spikes()
     
     
-    #~ debug_compare_peeler_engines()
+    debug_compare_peeler_engines()
     
     #~ open_PeelerWindow()
     

@@ -29,6 +29,16 @@ if HAVE_PYOPENCL:
     import pyopencl
     mf = pyopencl.mem_flags
 
+try:
+    import numba
+    HAVE_NUMBA = True
+    from .numba_tools import numba_get_mask_spatiotemporal_peaks
+except ImportError:
+    HAVE_NUMBA = False
+
+
+
+
 
 def detect_peaks_in_chunk(sig, n_span, thresh, peak_sign, spatial_matrix=None):
     sum_rectified = make_sum_rectified(sig, thresh, peak_sign, spatial_matrix)
@@ -574,12 +584,30 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
 # TODO atomic_inc for spatiotemporal_opencl
 # TODO rename engine propagate to GUI/examples/online
 
+def get_peak_detector_class(method, engine):
+    if engine == 'numba':
+        assert HAVE_NUMBA, 'You must install numba'
+    if engine == 'opencl':
+        assert HAVE_PYOPENCL, 'You must install opencl'
+    
+    
+    
+    if method == 'global' and engine =='numba':
+        print('WARNING : no peak detector global + numba use numpy instead')
+        engine ='numpy'
+    
+    class_ = peakdetector_classes.get((method, engine))
+    
+    return class_
+    
 
 
-peakdetector_engines = { 'global_numpy' : PeakDetectorGlobalNumpy, 
-        'global_opencl' : PeakDetectorGlobalOpenCL,
-        'geometrical_numpy' : PeakDetectorGeometricalNumpy,
-        'geometrical_numba' : PeakDetectorGeometricalNumba,
-        'geometrical_opencl': PeakDetectorGeometricalOpenCL}
+peakdetector_classes = { 
+    ('global', 'numpy') : PeakDetectorGlobalNumpy, 
+    ('global', 'opencl') : PeakDetectorGlobalOpenCL,
+    ('geometrical', 'numpy') : PeakDetectorGeometricalNumpy,
+    ('geometrical', 'numba') : PeakDetectorGeometricalNumba,
+    ('geometrical', 'opencl'): PeakDetectorGeometricalOpenCL,
+}
 
 

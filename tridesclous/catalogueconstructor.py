@@ -365,7 +365,7 @@ class CatalogueConstructor:
     def set_preprocessor_params(self, 
     
             #signal preprocessor
-            signalpreprocessor_engine='numpy',
+            engine='numpy',
             highpass_freq=300., 
             lowpass_freq=None,
             smooth_size=0,
@@ -382,7 +382,7 @@ class CatalogueConstructor:
         
         Parameters
         ----------
-        signalpreprocessor_engine='numpy' or 'opencl'
+        engine='numpy' or 'opencl'
             If you have pyopencl installed and correct ICD installed you can try
             'opencl' for high channel count some critial part of the processing is done on
             the GPU.
@@ -415,8 +415,8 @@ class CatalogueConstructor:
         self.signal_preprocessor_params = dict(highpass_freq=highpass_freq, lowpass_freq=lowpass_freq, 
                         smooth_size=smooth_size, common_ref_removal=common_ref_removal,
                         lostfront_chunksize=lostfront_chunksize, output_dtype=self.internal_dtype,
-                        engine=signalpreprocessor_engine)
-        SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[signalpreprocessor_engine]
+                        engine=engine)
+        SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[engine]
         self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.nb_channel, self.chunksize, self.dataio.source_dtype)
         
         for i in range(self.dataio.nb_segment):
@@ -427,15 +427,16 @@ class CatalogueConstructor:
         self.flush_info()
     
     def set_peak_detector_params(self, 
-            peakdetector_engine='numpy',
+            method='global', engine='numpy',
             peak_sign='-', relative_threshold=7, peak_span_ms=0.3):
         """
         Set parameters for the peak_detector engine
         
         Parameters
         ----------
-
-        peakdetector_engine: 'global_numpy' or 'global_opencl' 'geometrical_numpy', 'geometrical_opencl'
+        method : 'global' or 'geometrical'
+            Method for detection.
+        engine: 'numpy' or 'opencl' or 'numba'
             Engine for peak detection.
         peak_sign: '-' or '+'
             Signa of peak.
@@ -448,17 +449,20 @@ class CatalogueConstructor:
         """
         
         if self.mode == 'sparse':
-            assert peakdetector_engine in ('geometrical_numpy', 'geometrical_opencl')
+            assert method in ('geometrical', )
 
         self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold,
-                    peak_span_ms=peak_span_ms, engine=peakdetector_engine)
-        PeakDetector_class = peakdetector.peakdetector_engines[peakdetector_engine]
+                    peak_span_ms=peak_span_ms, engine=engine, method=method)
+        
+        PeakDetector_class = peakdetector.get_peak_detector_class(method, engine)
+        
         geometry = self.dataio.get_geometry(self.chan_grp)
         self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.nb_channel,
                                                         self.chunksize, self.internal_dtype, geometry)
 
         p = dict(self.peak_detector_params)
         p.pop('engine')
+        p.pop('method')
         self.peakdetector.change_params(**p)
 
         self.info['peak_detector_params'] = self.peak_detector_params
@@ -616,7 +620,9 @@ class CatalogueConstructor:
         
         Parameters
         ----------
-        peakdetector_engine: 'numpy' or 'opencl'
+        method : 'global' or 'geometrical'
+            Method for detection.
+        engine: 'numpy' or 'opencl' or 'numba'
             Engine for peak detection.
         peak_sign: '-' or '+'
             Signa of peak.
@@ -741,7 +747,7 @@ class CatalogueConstructor:
         
         if self.mode == 'sparse':
             channel_adjacency = self.dataio.get_channel_adjacency(chan_grp=self.chan_grp, adjacency_radius_um=self.adjacency_radius_um)
-            assert self.info['peak_detector_params']['engine'].startswith('geometrical')
+            assert self.info['peak_detector_params']['method'] == 'geometrical'
         elif self.mode == 'dense':
             channel_adjacency = None
             channel_indexes = None

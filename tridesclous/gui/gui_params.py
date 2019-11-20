@@ -130,7 +130,8 @@ preprocessor_params = [
 ]
 
 peak_detector_params = [
-    {'name': 'engine', 'type': 'list', 'value' : 'numpy', 'values':['global_numpy', 'geometrical_numpy', 'geometrical_opencl']},   #'global_opencl'
+    {'name': 'method', 'type': 'list', 'value' : 'global', 'values':['global', 'geometrical']},
+    {'name': 'engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl', 'numba']},
     {'name': 'peak_sign', 'type': 'list',  'value':'-', 'values':['-', '+']},
     {'name': 'relative_threshold', 'type': 'float', 'value': 5., 'step': .1,},
     {'name': 'peak_span_ms', 'type': 'float', 'value':0.5, 'step': 0.05, 'suffix': 'ms', 'siPrefix': False},

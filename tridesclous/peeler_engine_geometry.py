@@ -23,7 +23,7 @@ if HAVE_PYOPENCL:
     import pyopencl
     mf = pyopencl.mem_flags
 
-from .peakdetector import peakdetector_engines
+from .peakdetector import get_peak_detector_class
 
 try:
     import numba
@@ -111,22 +111,25 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
         
         p = dict(self.catalogue['peak_detector_params'])
-        _ = p.pop('engine')
+        p.pop('engine')
+        p.pop('method')
+        
+        self.peakdetector_method = 'geometrical'
+        
         if HAVE_PYOPENCL:
-            self.peakdetector_engine = 'geometrical_opencl'
+            self.peakdetector_engine = 'opencl'
+        elif HAVE_NUMBA:
+            self.peakdetector_engine = 'numba'
         else:
+            self.peakdetector_engine = 'numpy'
             print('WARNING peak detetcor will slow : install opencl')
-            self.peakdetector_engine = 'geometrical_numpy'
-        PeakDetector_class = peakdetector_engines[self.peakdetector_engine]
+        
+        PeakDetector_class = get_peak_detector_class(self.peakdetector_method, self.peakdetector_engine)
+        
         chunksize = self.fifo_size-2*self.n_span # not the real chunksize here
         self.peakdetector = PeakDetector_class(self.sample_rate, self.nb_channel,
                                                         chunksize, self.internal_dtype, self.geometry)
         self.peakdetector.change_params(**p)
-        
-        #~ assert self.peakdetector_engine.startswith('geometrical')
-        
-        #~ p = dict(self.catalogue['peak_detector_params'])
-        #~ _ = p.pop('peakdetector_engine', 'numpy')
         
         # DEBUG
         #~ p['nb_neighbour'] = 4

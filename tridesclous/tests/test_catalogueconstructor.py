@@ -31,10 +31,12 @@ def test_catalogue_constructor():
             print('memory_mode', memory_mode, 'mode', mode)
 
             if mode == 'dense':
-                peakdetector_engine = 'global_numpy'
+                peak_engine = 'numpy'
+                peak_method = 'global'
                 adjacency_radius_um = None
             elif mode == 'sparse':
-                peakdetector_engine = 'geometrical_numpy'
+                peak_engine = 'numpy'
+                peak_method = 'geometrical'
                 adjacency_radius_um = 450.
             
             cc.set_global_params(chunksize=1024,
@@ -54,7 +56,7 @@ def test_catalogue_constructor():
             
             cc.set_peak_detector_params(
                     #peak detector
-                    peakdetector_engine=peakdetector_engine,
+                    method=peak_method, engine=peak_engine,
                     peak_sign='-', relative_threshold=7, peak_span_ms=0.5,
                     )
             
@@ -73,7 +75,7 @@ def test_catalogue_constructor():
                 print('seg_num', seg_num, 'nb peak',  np.sum(mask))
             
             # redetect peak
-            cc.re_detect_peak(peakdetector_engine=peakdetector_engine,
+            cc.re_detect_peak(method=peak_method, engine=peak_engine,
                                                 peak_sign='-', relative_threshold=5, peak_span_ms=0.2)
             for seg_num in range(dataio.nb_segment):
                 mask = cc.all_peaks['segment']==seg_num
@@ -269,7 +271,7 @@ def test_interp_centers0():
     ax.plot(centers[0])
     ax.plot(np.arange(interp_centers[0].shape[0])/20. - 0.5, interp_centers[0])
     
-    plt.show()
+    #~ plt.show()
 
     
 if __name__ == '__main__':

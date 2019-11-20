@@ -5,7 +5,7 @@ from .peeler_tools import _dtype_spike
 from .tools import make_color_dict
 
 from .signalpreprocessor import signalpreprocessor_engines
-from .peakdetector import peakdetector_engines
+from .peakdetector import get_peak_detector_class
 
 
 from .cltools import HAVE_PYOPENCL, OpenCL_Helper
@@ -171,14 +171,6 @@ class PeelerEngineBase(OpenCL_Helper):
         self.internal_dtype = self.signalpreprocessor.output_dtype
         
         assert self.chunksize>self.signalpreprocessor.lostfront_chunksize, 'lostfront_chunksize ({}) is greater than chunksize ({})!'.format(self.signalpreprocessor.lostfront_chunksize, self.chunksize)
-
-        # peak detecetor class
-        #~ p = dict(self.catalogue['peak_detector_params'])
-        #~ self.peakdetector_engine = p.pop('engine')
-        #~ PeakDetector_class = peakdetector_engines[self.peakdetector_engine]
-        #~ self.peakdetector = PeakDetector_class(self.sample_rate, self.nb_channel,
-                                                        #~ self.chunksize, self.internal_dtype, self.geometry)
-        #~ self.peakdetector.change_params(**p)
 
         self.peak_sign = self.catalogue['peak_detector_params']['peak_sign']
         self.relative_threshold = self.catalogue['peak_detector_params']['relative_threshold']

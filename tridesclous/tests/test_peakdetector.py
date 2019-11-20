@@ -1,5 +1,5 @@
 from tridesclous import get_dataset
-from tridesclous.peakdetector import peakdetector_engines
+from tridesclous.peakdetector import get_peak_detector_class
 
 import time
 import itertools
@@ -100,12 +100,16 @@ def offline_peak_detect_geometrical(normed_sigs, sample_rate, geometry,
 
 def test_compare_offline_online_engines():
     #~ HAVE_PYOPENCL = True
-    if HAVE_PYOPENCL:
-        #~ engines = ['global_numpy', 'global_opencl', 'geometrical_numpy', 'geometrical_opencl',]
-        engines = ['global_numpy', 'geometrical_numpy', 'geometrical_opencl',]
-    else:
-        engines = ['global_numpy', 'geometrical_numpy',]
+
+    engine_names = [
+        ('global', 'numpy'),
+        ('geometrical', 'numpy'),
+        #~ ('geometrical', 'numba'),
+    ]
     
+    if HAVE_PYOPENCL:
+        engine_names += [('global', 'opencl'),
+                            ('geometrical', 'opencl')]
 
     chunksize=1024
     sigs, sample_rate, normed_sigs, geometry = get_normed_sigs(chunksize=chunksize)
@@ -133,8 +137,8 @@ def test_compare_offline_online_engines():
                                     adjacency_radius_um=adjacency_radius_um)
     t2 = time.perf_counter()
     print('offline global', 'process time', t2-t1)
-    offline_peaks['global_numpy'] = peaks
-    offline_peaks['global_opencl'] = peaks
+    offline_peaks['global', 'numpy'] = peaks
+    offline_peaks['global', 'opencl'] = peaks
 
     t1 = time.perf_counter()
     peaks = offline_peak_detect_geometrical(sigs, sample_rate, geometry, 
@@ -143,17 +147,19 @@ def test_compare_offline_online_engines():
     t2 = time.perf_counter()
     print('offline geometrical', 'process time', t2-t1)
 
-    offline_peaks['geometrical_numpy'] = peaks
-    offline_peaks['geometrical_opencl'] = peaks
+    offline_peaks['geometrical', 'numpy'] = peaks
+    offline_peaks['geometrical', 'numba'] = peaks
+    offline_peaks['geometrical', 'opencl'] = peaks
 
     online_peaks = {}
-    for engine in engines:
+    for method, engine in engine_names:
         print(engine)
-        EngineClass = peakdetector_engines[engine]
-        #~ buffer_size = chunksize*4
-        peakdetector_engine = EngineClass(sample_rate, nb_channel, chunksize, 'float32', geometry)
+        EngineClass = get_peak_detector_class(method, engine)
         
-        peakdetector_engine.change_params(peak_sign=peak_sign, relative_threshold=relative_threshold,
+        #~ buffer_size = chunksize*4
+        peakdetector = EngineClass(sample_rate, nb_channel, chunksize, 'float32', geometry)
+        
+        peakdetector.change_params(peak_sign=peak_sign, relative_threshold=relative_threshold,
                         peak_span_ms=peak_span_ms, adjacency_radius_um=adjacency_radius_um)
         
         all_online_peaks = []
@@ -162,30 +168,30 @@ def test_compare_offline_online_engines():
             #~ print(i)
             pos = (i+1)*chunksize
             chunk = sigs[pos-chunksize:pos,:]
-            time_ind_peaks, chan_peak_index = peakdetector_engine.process_data(pos, chunk)
+            time_ind_peaks, chan_peak_index = peakdetector.process_data(pos, chunk)
             #~ print(n_peaks)
             if time_ind_peaks is not None:
                 #~ all_online_peaks.append(chunk_peaks['index'])
                 all_online_peaks.append(time_ind_peaks)
-        online_peaks[engine] = np.concatenate(all_online_peaks)
+        online_peaks[method, engine] = np.concatenate(all_online_peaks)
         t2 = time.perf_counter()
-        print(engine, 'process time', t2-t1, 'size', online_peaks[engine].size)
+        print(engine, 'process time', t2-t1, 'size', online_peaks[method, engine].size)
     
     # remove peaks on border for comparison
-    for engine in engines:
-        peaks = online_peaks[engine]
+    for method, engine in engine_names:
+        peaks = online_peaks[method, engine]
         peaks = peaks[(peaks>chunksize) & (peaks<sigs.shape[0]-chunksize)]
-        online_peaks[engine] = peaks
+        online_peaks[method, engine] = peaks
 
-        peaks = offline_peaks[engine]
+        peaks = offline_peaks[method, engine]
         peaks = peaks[(peaks>chunksize) & (peaks<sigs.shape[0]-chunksize)]
-        offline_peaks[engine] = peaks
+        offline_peaks[method, engine] = peaks
         
     # compare
-    for engine in engines:
-        print('compare', engine)
-        onlinepeaks = online_peaks[engine]
-        offlinepeaks = offline_peaks[engine]
+    for method, engine in engine_names:
+        print('compare', method, engine)
+        onlinepeaks = online_peaks[method, engine]
+        offlinepeaks = offline_peaks[method, engine]
         print(onlinepeaks.size, offlinepeaks.size)
         # TODO
         #~ assert offlinepeaks.size==onlinepeaks.size, '{} nb_peak {} instead {}'.format(engine,  offlinepeaks.size, onlinepeaks.size)
@@ -264,14 +270,14 @@ def benchmark_speed():
     nb_channel = sigs.shape[1]
     print('nb_channel', nb_channel)
 
+    engine_names = [
+        ('global', 'numpy'),
+        ('global', 'opencl'),
+        ('geometrical', 'numpy'),
+        ('geometrical', 'numba'),
+        ('geometrical', 'opencl'),
+    ]
     args = (sample_rate, nb_channel, chunksize, 'float32', geometry)
-    peak_detectors = {
-        'global_numpy' : peakdetector_engines['global_numpy'](*args),
-        'global_opencl' : peakdetector_engines['global_opencl'](*args),
-        'geometrical_numpy' : peakdetector_engines['geometrical_numpy'](*args),
-        'geometrical_opencl' : peakdetector_engines['geometrical_opencl'](*args),
-    }
-    
     params = dict(peak_span_ms = 0.9,
                     relative_threshold = 5,
                     peak_sign = '-')
@@ -279,10 +285,11 @@ def benchmark_speed():
     online_peaks = {}
     
     
-    for name, peakdetector in peak_detectors.items():
-        
-        
+
+    for method, engine in engine_names:
+        peakdetector = get_peak_detector_class(method, engine)(*args)
         peakdetector.change_params(**params)
+        
         #~ print(peakdetector.n_span, peakdetector.dtype)
             
         nloop = normed_sigs.shape[0]//chunksize
@@ -306,10 +313,10 @@ def benchmark_speed():
         else:
             peak_chans = np.argmin(normed_sigs[peak_inds, :], axis=1)
             
-        online_peaks[name] = peak_inds
+        online_peaks[method, engine] = peak_inds
         
-        print(name, ':' , peak_inds.size)
-        print(name, 'process time', t2-t1) 
+        print(method, engine, ':' , peak_inds.size)
+        print(method, engine, 'process time', t2-t1) 
         
             
         
@@ -332,32 +339,21 @@ def test_peak_sign_symetry():
     #~ print('nb_channel', nb_channel)
 
     args = (sample_rate, nb_channel, chunksize, 'float32', geometry)
-    peak_detectors = {
-        'global_numpy' : peakdetector_engines['global_numpy'](*args),
-        'global_opencl' : peakdetector_engines['global_opencl'](*args),
-        'geometrical_numpy' : peakdetector_engines['geometrical_numpy'](*args),
-        'geometrical_opencl' : peakdetector_engines['geometrical_opencl'](*args),
-    }
-    
     params = dict(peak_span_ms = 0.9,
                     relative_threshold = 5)
-                    #~ peak_sign = '-')
-    
-    
-    args = (sample_rate, nb_channel, chunksize, 'float32', geometry)
     
     engine_names = [
-        'global_numpy',
-        'global_opencl',
-        'geometrical_numpy',
-        'geometrical_opencl',
+        ('global', 'numpy'),
+        ('global', 'opencl'),
+        ('geometrical', 'numpy'),
+        ('geometrical', 'numba'),
+        ('geometrical', 'opencl'),
     ]
     
-    params = dict(peak_span_ms = 0.9, relative_threshold = 5)
 
     online_peaks = {}
-    for name in engine_names:
-        peakdetector = peakdetector_engines[name](*args)
+    for method, engine in engine_names:
+        peakdetector = get_peak_detector_class(method, engine)(*args)
         
         for peak_sign in ['-', '+']:
 
@@ -382,15 +378,16 @@ def test_peak_sign_symetry():
                     #~ all_online_peaks.append(chunk_peaks['index'])
                     peaks.append(time_ind_peaks)
             peak_inds = np.concatenate(peaks)
-            online_peaks[name, peak_sign] = peak_inds
+            online_peaks[method, engine, peak_sign] = peak_inds
             t2 = time.perf_counter()
-            print(name, 'peak_sign', peak_sign,':' , peak_inds.size, 'unique peak size', np.unique(peak_inds).size)
+            print(method, engine, 'peak_sign', peak_sign,':' , peak_inds.size, 'unique peak size', np.unique(peak_inds).size)
             #~ print(name, 'process time', t2-t1) 
 
-        assert np.array_equal(online_peaks[name, '-'], online_peaks[name, '+'])
+        assert np.array_equal(online_peaks[method, engine, '-'], online_peaks[method, engine, '+'])
     
-    assert np.array_equal(online_peaks['global_numpy', '-'], online_peaks['global_opencl', '-'])
-    assert np.array_equal(online_peaks['geometrical_numpy', '-'], online_peaks['geometrical_opencl', '-'])
+    assert np.array_equal(online_peaks['global', 'numpy', '-'], online_peaks['global', 'opencl', '-'])
+    assert np.array_equal(online_peaks['geometrical', 'numpy', '-'], online_peaks['geometrical', 'numba', '-'])
+    assert np.array_equal(online_peaks['geometrical', 'numpy', '-'], online_peaks['geometrical', 'opencl', '-'])
     
     
         
@@ -398,12 +395,12 @@ def test_peak_sign_symetry():
 
     
 if __name__ == '__main__':
-    #~ test_compare_offline_online_engines()
+    test_compare_offline_online_engines()
     
     #~ test_detect_geometrical_peaks()
     
     
     #~ benchmark_speed()
     
-    test_peak_sign_symetry()
+    #~ test_peak_sign_symetry()
     

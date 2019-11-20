@@ -86,25 +86,32 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
     else:
         raise(NotImlementedError)
     
-    signalpreprocessor_engine = 'numpy'
-    peakdetector_engine = 'global_numpy'
-
-    cc.set_preprocessor_params(chunksize=1024,
+    
+    cc.set_global_params(
+            chunksize=1024,
             memory_mode='memmap',
-            
-            #signal preprocessor
-            signalpreprocessor_engine=signalpreprocessor_engine,
+            mode='sparse',
+            adjacency_radius_um=400,
+            sparse_threshold=1.5)
+    
+    # params preprocessor
+    cc.set_preprocessor_params(
+            engine='numpy',
             highpass_freq=highpass_freq, 
             lowpass_freq=None,
             common_ref_removal=common_ref_removal,
-            lostfront_chunksize=128,
-            
-            #peak detector
-            peakdetector_engine=peakdetector_engine,
+            lostfront_chunksize=-1,
+        )
+    
+    # params peak detector
+    cc.set_peak_detector_params(
+            method='global',
+            engine='numpy',
             peak_sign=peak_sign, 
             relative_threshold=relative_threshold,
             peak_span=1./sample_rate,
             )
+
     
     t1 = time.perf_counter()
     duration=30.
@@ -214,12 +221,10 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_clust
 
     # params preprocessor
     d = dict(params['preprocessor'])
-    d['signalpreprocessor_engine'] = d.pop('engine')
     cc.set_preprocessor_params(**d)
     
     # params peak detector
     d = dict(params['peak_detector'])
-    d['peakdetector_engine'] = d.pop('engine')
     cc.set_peak_detector_params(**d)
     
     t1 = time.perf_counter()

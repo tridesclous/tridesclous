@@ -37,12 +37,15 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
         channels = [5, 6, 7, 8, 9]
         mode = 'sparse'
         adjacency_radius_um = 350
-        peak_detector_engine = 'geometrical_numpy'
+        peak_method = 'geometrical'
+        peak_engine = 'numpy'
+        
     else:
         channels = [0,1,2,3]
         mode = 'dense'
         adjacency_radius_um = None
-        peak_detector_engine = 'global_numpy'
+        peak_method = 'global'
+        peak_engine = 'numpy'
     dataio.add_one_channel_group(channels=channels)
     
     
@@ -64,7 +67,8 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
             'peak_sign' : '-',
             'relative_threshold' : 7.,
             'peak_span_ms' : 0.5,
-            'engine' : peak_detector_engine,
+            'method' : peak_method,
+            'engine' : peak_engine,
         },
         'extract_waveforms' : {
             'wf_left_ms' : -2.5,
