@@ -449,7 +449,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
 
         #~ if True:
             
-            #~ max_chan_ind = self.catalogue['clusters'][cluster_idx]['max_on_channel']
+            #~ max_chan_ind = self.catalogue['clusters'][cluster_idx]['extremum_channel']
             #~ fig, ax = plt.subplots()
             #~ ax.plot(self.fifo_residuals[:, max_chan_ind])
             

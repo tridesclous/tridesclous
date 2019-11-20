@@ -107,7 +107,7 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
         self.catalogue_inter_center0_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['interp_centers0'])
         
         
-        self.max_on_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['max_on_channel'].astype('int32'))
+        self.extremum_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['extremum_channel'].astype('int32'))
         self.wf1_norm2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['wf1_norm2'].astype('float32'))
         self.wf2_norm2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['wf2_norm2'].astype('float32'))
         self.wf1_dot_wf2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['wf1_dot_wf2'].astype('float32'))
@@ -237,7 +237,7 @@ class PeelerEngineClassicOpenCl(PeelerEngineClassic):
                                     self.catalogue_center0_cl, self.catalogue_center1_cl, self.catalogue_center2_cl,
                                     self.catalogue_inter_center0_cl,
                                     self.sparse_mask_cl, self.rms_waveform_channel_cl,
-                                    self.waveform_distance_cl, self.max_on_channel_cl,
+                                    self.waveform_distance_cl, self.extremum_channel_cl,
                                     self.wf1_norm2_cl, self.wf2_norm2_cl, self.wf1_dot_wf2_cl,
                                     self.weight_per_template_cl, np.float32(self.alien_value_threshold))
             event = pyopencl.enqueue_copy(self.queue,  self.spike, self.spike_cl)
@@ -483,7 +483,7 @@ inline void atomic_add_float(volatile __global float *source, const float operan
 
 
 __kernel void estimate_one_jitter(int left_ind, int cluster, __local float *jitter,
-                                        __global int *max_on_channel,
+                                        __global int *extremum_channel,
                                         __global float *fifo_residuals,
                                         
                                         __global float *catalogue_center0,
@@ -504,7 +504,7 @@ __kernel void estimate_one_jitter(int left_ind, int cluster, __local float *jitt
     } else {
     
         
-        chan_max= max_on_channel[cluster];
+        chan_max= extremum_channel[cluster];
         
         
         float h, wf1, wf2;
@@ -611,7 +611,7 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
                                                                         __global  uchar  *sparse_mask,
                                                                         __global  float *rms_waveform_channel,
                                                                         __global  float *waveform_distance,
-                                                                        __global int *max_on_channel,
+                                                                        __global int *extremum_channel,
                                                                         __global float *wf1_norm2,
                                                                         __global float *wf2_norm2,
                                                                         __global float *wf1_dot_wf2,
@@ -713,7 +713,7 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
             int int_jitter;
             
             estimate_one_jitter(left_ind, spike->label, &jitter,
-                                        max_on_channel, fifo_residuals,
+                                        extremum_channel, fifo_residuals,
                                         catalogue_center0, catalogue_center1, catalogue_center2,
                                         wf1_norm2, wf2_norm2, wf1_dot_wf2);
             ok = accept_tempate(left_ind, spike->label, jitter,
@@ -736,7 +736,7 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
                         spike->label = LABEL_LEFT_LIMIT;
                     }else{
                         estimate_one_jitter(left_ind+shift, spike->label, &new_jitter,
-                                                            max_on_channel, fifo_residuals,
+                                                            extremum_channel, fifo_residuals,
                                                             catalogue_center0, catalogue_center1, catalogue_center2,
                                                             wf1_norm2, wf2_norm2, wf1_dot_wf2);
                         

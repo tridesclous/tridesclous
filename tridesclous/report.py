@@ -11,10 +11,10 @@ from .tools import get_neighborhood
 
 _summary_catalogue_clusters_template = """
 Cluster {label}
-Max on channel (abs): {max_on_channel_abs}
-Max on channel (local to group): {max_on_channel}
-Peak amplitude MAD: {max_peak_amplitude}
-Peak amplitude (µV): {max_peak_amplitude_uV}
+Peak channel (abs): {extremum_channel_abs}
+Peak channel (local to group): {extremum_channel}
+Peak amplitude MAD: {extremum_amplitude}
+Peak amplitude (µV): {extremum_amplitude_uV}
 
 """
 def summary_catalogue_clusters(dataio, chan_grp=None, labels=None, label=None,
@@ -45,26 +45,26 @@ def summary_catalogue_clusters(dataio, chan_grp=None, labels=None, label=None,
         ind = cc.index_of_label(label)
         cluster = cc.clusters[ind]
 
-        max_on_channel = cluster['max_on_channel']
+        extremum_channel = cluster['extremum_channel']
         
-        if max_on_channel>=0:
-            max_on_channel_abs = channel_abs[max_on_channel]
+        if extremum_channel>=0:
+            extremum_channel_abs = channel_abs[extremum_channel]
         else:
-            max_on_channel = None
-            max_on_channel_abs = None
+            extremum_channel = None
+            extremum_channel_abs = None
         
-        max_peak_amplitude = cluster['max_peak_amplitude']
-        max_peak_amplitude_uV = np.nan
-        if cc.dataio.datasource.bit_to_microVolt is not None and max_on_channel is not None:
-            max_peak_amplitude_uV = max_peak_amplitude * cc.signals_mads[max_on_channel] * cc.dataio.datasource.bit_to_microVolt
+        extremum_amplitude = cluster['extremum_amplitude']
+        extremum_amplitude_uV = np.nan
+        if cc.dataio.datasource.bit_to_microVolt is not None and extremum_channel is not None:
+            extremum_amplitude_uV = extremum_amplitude * cc.signals_mads[extremum_channel] * cc.dataio.datasource.bit_to_microVolt
             
             
         
         d = dict(label=label,
-                    max_on_channel=max_on_channel,
-                    max_on_channel_abs=max_on_channel_abs,
-                    max_peak_amplitude=max_peak_amplitude,
-                    max_peak_amplitude_uV=max_peak_amplitude_uV,
+                    extremum_channel=extremum_channel,
+                    extremum_channel_abs=extremum_channel_abs,
+                    extremum_amplitude=extremum_amplitude,
+                    extremum_amplitude_uV=extremum_amplitude_uV,
                     )
         text = _summary_catalogue_clusters_template.format(**d)
         
@@ -81,8 +81,8 @@ def summary_catalogue_clusters(dataio, chan_grp=None, labels=None, label=None,
             units = 'uV'
             title = 'Amplitude μV'
         
-        plot_waveforms_histogram(cc, label=label, ax=axs[1], channels=[max_on_channel], units=units)
-        axs[1].set_title('Hist on channel {}'.format(max_on_channel_abs))
+        plot_waveforms_histogram(cc, label=label, ax=axs[1], channels=[extremum_channel], units=units)
+        axs[1].set_title('Hist on channel {}'.format(extremum_channel_abs))
         axs[1].set_ylabel(title)
 
 
@@ -136,10 +136,10 @@ def summary_noise(dataio, chan_grp=None):
 
 _summary_after_peeler_clusters_template = """
 Cluster {label}
-Max on channel (abs): {max_on_channel_abs}
-Max on channel (local to group): {max_on_channel}
-Peak amplitude MAD: {max_peak_amplitude:.1f}
-Peak amplitude (µV): {max_peak_amplitude_uV:.1f}
+Max on channel (abs): {extremum_channel_abs}
+Max on channel (local to group): {extremum_channel}
+Peak amplitude MAD: {extremum_amplitude:.1f}
+Peak amplitude (µV): {extremum_amplitude_uV:.1f}
 Nb spikes : {nb_spike}
 
 """
@@ -178,17 +178,17 @@ def summary_after_peeler_clusters(dataio, catalogue=None, chan_grp=None, labels=
         
         cluster = clusters[ind]
         
-        max_on_channel = cluster['max_on_channel']
-        if max_on_channel>=0:
-            max_on_channel_abs = channel_abs[max_on_channel]
+        extremum_channel = cluster['extremum_channel']
+        if extremum_channel>=0:
+            extremum_channel_abs = channel_abs[extremum_channel]
         else:
-            max_on_channel = None
-            max_on_channel_abs = None
+            extremum_channel = None
+            extremum_channel_abs = None
 
-        max_peak_amplitude = cluster['max_peak_amplitude']
-        max_peak_amplitude_uV = np.nan
-        if dataio.datasource.bit_to_microVolt is not None and max_on_channel is not None:
-            max_peak_amplitude_uV = max_peak_amplitude * catalogue['signals_mads'][max_on_channel] * dataio.datasource.bit_to_microVolt
+        extremum_amplitude = cluster['extremum_amplitude']
+        extremum_amplitude_uV = np.nan
+        if dataio.datasource.bit_to_microVolt is not None and extremum_channel is not None:
+            extremum_amplitude_uV = extremum_amplitude * catalogue['signals_mads'][extremum_channel] * dataio.datasource.bit_to_microVolt
 
         
         nb_spike = 0
@@ -218,10 +218,10 @@ def summary_after_peeler_clusters(dataio, catalogue=None, chan_grp=None, labels=
         
             
         if neighborhood_radius is None:
-            plot_channels_hist = [max_on_channel]
+            plot_channels_hist = [extremum_channel]
         else:
             neihb = get_neighborhood(dataio.get_geometry(chan_grp=chan_grp) , neighborhood_radius)
-            plot_channels_hist,  = np.nonzero(neihb[max_on_channel])    # local index (to group)
+            plot_channels_hist,  = np.nonzero(neihb[extremum_channel])    # local index (to group)
             
         plot_waveforms_histogram(catalogue, dataio=dataio, label=label, ax=ax, channels=plot_channels_hist,
                         units=units)
@@ -234,10 +234,10 @@ def summary_after_peeler_clusters(dataio, catalogue=None, chan_grp=None, labels=
 
         d =dict(chan_grp=chan_grp,
                     label=label,
-                    max_on_channel=max_on_channel,
-                    max_on_channel_abs=max_on_channel_abs,
-                    max_peak_amplitude=max_peak_amplitude,
-                    max_peak_amplitude_uV=max_peak_amplitude_uV,
+                    extremum_channel=extremum_channel,
+                    extremum_channel_abs=extremum_channel_abs,
+                    extremum_amplitude=extremum_amplitude,
+                    extremum_amplitude_uV=extremum_amplitude_uV,
                     nb_spike=nb_spike,
             
         )

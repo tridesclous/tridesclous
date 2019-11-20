@@ -70,7 +70,7 @@ _persitent_arrays = ('all_peaks', 'signals_medians','signals_mads', 'clusters') 
 _dtype_peak = [('index', 'int64'), ('cluster_label', 'int64'), ('channel', 'int64'), ('segment', 'int64'),]
 
 _dtype_cluster = [('cluster_label', 'int64'), ('cell_label', 'int64'), 
-            ('max_on_channel', 'int64'), ('max_peak_amplitude', 'float64'),
+            ('extremum_channel', 'int64'), ('extremum_amplitude', 'float64'),
             ('waveform_rms', 'float64'), ('nb_peak', 'int64'), 
             ('tag', 'U16'), ('annotations', 'U32'), ('color', 'uint32')]
 
@@ -750,7 +750,6 @@ class CatalogueConstructor:
             assert self.info['peak_detector_params']['method'] == 'geometrical'
         elif self.mode == 'dense':
             channel_adjacency = None
-            channel_indexes = None
         else:
             raise(NotImplementedError)
         
@@ -783,6 +782,8 @@ class CatalogueConstructor:
                 for i, chan in enumerate(channel_indexes):
                     adj_chans = channel_adjacency[chan]
                     self.some_waveforms_sparse_mask[i+n, :][adj_chans] = True
+            else:
+                channel_indexes = None
             
             waveforms = self.some_waveforms[n:n+sample_indexes.size]
             self.dataio.get_some_waveforms(seg_num=seg_num, chan_grp=self.chan_grp,
@@ -1030,8 +1031,8 @@ class CatalogueConstructor:
         clusters = np.zeros(cluster_labels.shape, dtype=_dtype_cluster)
         clusters['cluster_label'][:] = cluster_labels
         clusters['cell_label'][:] = cluster_labels
-        clusters['max_on_channel'][:] = -1
-        clusters['max_peak_amplitude'][:] = np.nan
+        clusters['extremum_channel'][:] = -1
+        clusters['extremum_amplitude'][:] = np.nan
         clusters['waveform_rms'][:] = np.nan
         for i, k in enumerate(cluster_labels):
             clusters['nb_peak'][i] = np.sum(self.all_peaks['cluster_label']==k)
@@ -1066,8 +1067,8 @@ class CatalogueConstructor:
         
         clusters['cluster_label'][pos_insert] = label
         clusters['cell_label'][pos_insert] = label
-        clusters['max_on_channel'][pos_insert] = -1
-        clusters['max_peak_amplitude'][pos_insert] = np.nan
+        clusters['extremum_channel'][pos_insert] = -1
+        clusters['extremum_amplitude'][pos_insert] = np.nan
         clusters['waveform_rms'][pos_insert] = np.nan
         clusters['nb_peak'][pos_insert] = np.sum(self.all_peaks['cluster_label']==label)
         
@@ -1142,9 +1143,9 @@ class CatalogueConstructor:
         median, mad = median_mad(wf, axis = 0)
         # mean, std = np.mean(wf, axis=0), np.std(wf, axis=0) # TODO rome the mean/std
         if peak_sign == '-':
-            max_on_channel = np.argmin(median[-n_left,:], axis=0)
+            extremum_channel = np.argmin(median[-n_left,:], axis=0)
         elif peak_sign == '+':
-            max_on_channel = np.argmax(median[-n_left,:], axis=0)
+            extremum_channel = np.argmax(median[-n_left,:], axis=0)
         
         # to persistant arrays
         self.centroids_median[ind, :, :] = median
@@ -1157,8 +1158,8 @@ class CatalogueConstructor:
         
         self.centroids_sparse_mask[ind, :] = np.any(np.abs(median) > self.sparse_threshold, axis=0)
         
-        self.clusters['max_on_channel'][ind] = max_on_channel
-        self.clusters['max_peak_amplitude'][ind] = median[-n_left, max_on_channel]
+        self.clusters['extremum_channel'][ind] = extremum_channel
+        self.clusters['extremum_amplitude'][ind] = median[-n_left, extremum_channel]
         self.clusters['waveform_rms'][ind] = np.sqrt(np.mean(median**2))
 
         if flush:
@@ -1386,8 +1387,8 @@ class CatalogueConstructor:
         wf_normed = []
         for ind, k in enumerate(self.clusters['cluster_label']):
             if k<0: continue
-            #~ chan = self.centroids[k]['max_on_channel']
-            chan = self.clusters['max_on_channel'][ind]
+            #~ chan = self.centroids[k]['extremum_channel']
+            chan = self.clusters['extremum_channel'][ind]
             #~ median = self.centroids[k]['median']
             median = self.centroids_median[ind, :, :]
             n_left = int(self.info['waveform_extractor_params']['n_left'])
@@ -1488,8 +1489,8 @@ class CatalogueConstructor:
         #~ print('order_clusters', by)
         if by=='waveforms_rms':
             order = np.argsort(pos_clusters['waveform_rms'])[::-1]
-        elif by=='max_peak_amplitude':
-            order = np.argsort(np.abs(pos_clusters['max_peak_amplitude']))[::-1]
+        elif by=='extremum_amplitude':
+            order = np.argsort(np.abs(pos_clusters['extremum_amplitude']))[::-1]
         else:
             raise(NotImplementedError)
         
@@ -1628,10 +1629,10 @@ class CatalogueConstructor:
             #~ plt.show()
             
         #find max  channel for each cluster for peak alignement
-        self.catalogue['max_on_channel'] = np.zeros_like(self.catalogue['cluster_labels'])
+        self.catalogue['extremum_channel'] = np.zeros_like(self.catalogue['cluster_labels'])
         for i, k in enumerate(cluster_labels):
             center = self.catalogue['centers0'][i,:,:]
-            self.catalogue['max_on_channel'][i] = np.argmax(np.abs(center[-n_left,:]), axis=0)
+            self.catalogue['extremum_channel'][i] = np.argmax(np.abs(center[-n_left,:]), axis=0)
         
         #colors
         

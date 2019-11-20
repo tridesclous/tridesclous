@@ -333,7 +333,7 @@ class BaseTraceViewer(WidgetBase):
             self.spinbox_xsize.sigValueChanged.connect(self.on_xsize_changed)
             
             label = self.controller.spikes[ind]['cluster_label']
-            c = self.controller.get_max_on_channel(label)
+            c = self.controller.get_extremum_channel(label)
             
             if c  is None:
                 wf = self.controller.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.controller.chan_grp,
@@ -440,7 +440,7 @@ class BaseTraceViewer(WidgetBase):
                 
                 sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
                 if k >=0:
-                    c = self.controller.get_max_on_channel(k)
+                    c = self.controller.get_extremum_channel(k)
                     if c is not None:
                         #~ print('k', k, 'c', c)
                         c = np.array([c]*np.sum(mask), dtype='int64')

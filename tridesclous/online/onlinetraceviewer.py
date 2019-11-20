@@ -160,7 +160,7 @@ class OnlineTraceViewer(QOscilloscope):
                 keep = k==spikes['cluster_label']
                 if np.sum(keep)>0:
                     if k>=0:
-                        chan = self.catalogue['max_on_channel'][i]
+                        chan = self.catalogue['extremum_channel'][i]
                         if visibles[chan]:
                             times, amps = peak_times[keep], spikes_amplitude[keep, chan]
                         else:

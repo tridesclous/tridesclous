@@ -86,7 +86,7 @@ class NDScatter(WidgetBase):
     For very high dimention, ND Scatter is not enough, for so ND scatter is guided in feature
     selection with the probe geometry. In short when you set visible some label with the
     **Cluster list** this automatically activated the dimenssions that must but 
-    visible (and rodomized) and hidden. This is based on **max_on_channel**
+    visible (and rodomized) and hidden. This is based on **extremum_channel**
     property of clusters. This is the **auto_select_component** in settings. Note 
     that you can define a radius in  micometers arround the channel of the max so
     that all component in a neighborhood of thsi channel will be also displayed.
@@ -469,7 +469,7 @@ class NDScatter(WidgetBase):
         self.selected_comp = np.zeros( (ndim), dtype='bool')
         for k, v in self.controller.cluster_visible.items():
             if not v: continue
-            c = self.controller.get_max_on_channel(k)
+            c = self.controller.get_extremum_channel(k)
             if c is not None:
                 chan_mask = neighborhood[c,:]
                 #~ print('c', c, chan_mask)

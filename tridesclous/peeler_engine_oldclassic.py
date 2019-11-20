@@ -354,7 +354,7 @@ class PeelerEngineOldClassic(PeelerEngineClassic):
             #~ print('       second argmin', (t2-t1)*1000., cluster_idx)
         
         
-        chan_max = catalogue['max_on_channel'][cluster_idx]
+        chan_max = catalogue['extremum_channel'][cluster_idx]
         #~ print('cluster_idx', cluster_idx, 'k', k, 'chan', chan)
 
         

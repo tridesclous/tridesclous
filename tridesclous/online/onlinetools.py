@@ -82,7 +82,7 @@ def make_empty_catalogue(chan_grp=0,
     catalogue['label_to_index'] = {}
 
     #find max  channel for each cluster for peak alignement
-    catalogue['max_on_channel'] = np.zeros_like(catalogue['cluster_labels'])
+    catalogue['extremum_channel'] = np.zeros_like(catalogue['cluster_labels'])
     
     
     preprocessor_params_ = dict(preprocessor_params_default)
@@ -122,7 +122,7 @@ def lighter_catalogue(catalogue):
     make the catalogue lightened with only needed keys
     """
     lightened_catalogue = {}
-    keys = ['clusters', 'cluster_labels', 'max_on_channel']
+    keys = ['clusters', 'cluster_labels', 'extremum_channel']
     for k in keys:
         lightened_catalogue[k] = catalogue[k]
     

@@ -72,7 +72,7 @@ class PeelerController(ControllerBase):
         
         # set channel for each cluster
         for k in self.cluster_labels:
-            chan = self.catalogue['max_on_channel'][k]
+            chan = self.catalogue['extremum_channel'][k]
             sel = self.spikes['cluster_label'] == k
             self.spikes['channel'][sel] = chan
         
@@ -199,10 +199,10 @@ class PeelerController(ControllerBase):
             threshold = -threshold
         return threshold
 
-    def get_max_on_channel(self, label):
+    def get_extremum_channel(self, label):
         if label in self.catalogue['label_to_index']:
             cluster_idx = self.catalogue['label_to_index'][label]
-            c = self.catalogue['max_on_channel'][cluster_idx]
+            c = self.catalogue['extremum_channel'][cluster_idx]
             return c
 
     def change_spike_visible_mode(self, mode):

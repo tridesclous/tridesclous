@@ -366,7 +366,7 @@ class Peeler_OpenCl(Peeler):
         
 
         k = catalogue['cluster_labels'][cluster_idx]
-        chan = catalogue['max_on_channel'][cluster_idx]
+        chan = catalogue['extremum_channel'][cluster_idx]
         #~ print('cluster_idx', cluster_idx, 'k', k, 'chan', chan)
 
         

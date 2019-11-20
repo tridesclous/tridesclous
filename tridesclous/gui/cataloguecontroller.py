@@ -218,7 +218,7 @@ class CatalogueController(ControllerBase):
             threshold = -threshold
         return threshold
     
-    def get_max_on_channel(self, label):
+    def get_extremum_channel(self, label):
         if label<0:
             return None
         
@@ -227,14 +227,14 @@ class CatalogueController(ControllerBase):
             return None
         ind = ind[0]
         
-        max_on_channel = self.cc.clusters['max_on_channel'][ind]
-        if max_on_channel>=0:
-            return max_on_channel
+        extremum_channel = self.cc.clusters['extremum_channel'][ind]
+        if extremum_channel>=0:
+            return extremum_channel
         else:
             return None
         
         #~ if label in self.centroids:
-            #~ c = self.centroids[label]['max_on_channel']
+            #~ c = self.centroids[label]['extremum_channel']
             #~ return c
     
     def on_new_cluster(self, label_changed=None):

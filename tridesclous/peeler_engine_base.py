@@ -104,7 +104,7 @@ class PeelerEngineBase(OpenCL_Helper):
         self.catalogue['wf2_norm2'] = np.zeros(n)
         self.catalogue['wf1_dot_wf2'] = np.zeros(n)
         for i, k in enumerate(self.catalogue['cluster_labels']):
-            chan = self.catalogue['max_on_channel'][i]
+            chan = self.catalogue['extremum_channel'][i]
             wf0 = self.catalogue['centers0'][i,: , chan]
             wf1 = self.catalogue['centers1'][i,: , chan]
             wf2 = self.catalogue['centers2'][i,: , chan]
@@ -560,7 +560,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
 
     def estimate_jitter(self, left_ind, cluster_idx):
         
-        chan_max = self.catalogue['max_on_channel'][cluster_idx]
+        chan_max = self.catalogue['extremum_channel'][cluster_idx]
         
         wf0 = self.catalogue['centers0'][cluster_idx,: , chan_max]
         wf1 = self.catalogue['centers1'][cluster_idx,: , chan_max]

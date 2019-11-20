@@ -323,8 +323,8 @@ def plot_centroids(arg0, labels=[], alpha=1, neighborhood_radius=None, **kargs):
     if neighborhood_radius is not None:
         assert len(labels) == 1
         neighborhood = get_neighborhood(geometry, neighborhood_radius)
-        max_on_channel = clusters[label_inds[0]]['max_on_channel']
-        keep = neighborhood[max_on_channel, :]
+        extremum_channel = clusters[label_inds[0]]['extremum_channel']
+        keep = neighborhood[extremum_channel, :]
         centroids_wfs = centroids_wfs[:,  :, keep]
         channels = np.array(channels)[keep]
         geometry = geometry[keep, :]
