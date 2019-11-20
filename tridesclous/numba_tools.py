@@ -75,3 +75,33 @@ def numba_explore_shifts(long_waveform, one_center,  one_mask, maximum_jitter_sh
     return all_dist
 
 
+@jit(parallel=True)
+def numba_get_mask_spatiotemporal_peaks(sigs, n_span, thresh, peak_sign, neighbours):
+    sig_center = sigs[n_span:-n_span, :]
+
+    if peak_sign == '+':
+        mask_peaks = sig_center>thresh
+        for chan in range(sigs.shape[1]):
+            for neighbour in neighbours[chan, :]:
+                for i in range(n_span):
+                    if chan != neighbour:
+                        mask_peaks[:, chan] &= sig_center[:, chan] >= sig_center[:, neighbour]
+                    mask_peaks[:, chan] &= sig_center[:, chan] > sigs[i:i+sig_center.shape[0], neighbour]
+                    mask_peaks[:, chan] &= sig_center[:, chan]>=sigs[n_span+i+1:n_span+i+1+sig_center.shape[0], neighbour]
+        
+    elif peak_sign == '-':
+        mask_peaks = sig_center<-thresh
+        for chan in range(sigs.shape[1]):
+            #~ print('chan', chan, 'neigh', neighbours[chan, :])
+            for neighbour in neighbours[chan, :]:
+                for i in range(n_span):
+                    if chan != neighbour:
+                        mask_peaks[:, chan] &= sig_center[:, chan] <= sig_center[:, neighbour]
+                    mask_peaks[:, chan] &= sig_center[:, chan] < sigs[i:i+sig_center.shape[0], neighbour]
+                    mask_peaks[:, chan] &= sig_center[:, chan]<=sigs[n_span+i+1:n_span+i+1+sig_center.shape[0], neighbour]
+    
+    return mask_peaks
+
+
+
+

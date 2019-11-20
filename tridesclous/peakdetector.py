@@ -348,9 +348,6 @@ def get_mask_spatiotemporal_peaks(sigs, n_span, thresh, peak_sign, neighbours):
 
 class PeakDetectorGeometricalNumpy(BasePeakDetector):
     def process_data(self, pos, newbuf):
-        # this is used by catalogue constructor
-        # here the fifo is only the rectified sum
-        
         self.fifo_sigs.new_chunk(newbuf, pos)
         
         #~ if pos-(newbuf.shape[0]+2*self.n_span)<0:
@@ -392,6 +389,11 @@ class PeakDetectorGeometricalNumpy(BasePeakDetector):
     def reset_fifo_index(self):
         self.fifo_sigs = FifoBuffer((self.chunksize+2*self.n_span, self.nb_channel), self.dtype)
     
+
+class PeakDetectorGeometricalNumba(PeakDetectorGeometricalNumpy):    
+    def get_mask_peaks_in_chunk(self, fifo_residuals):
+        mask_peaks = numba_get_mask_spatiotemporal_peaks(fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign, self.neighbours)
+        return mask_peaks
     
 
 
@@ -577,6 +579,7 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
 peakdetector_engines = { 'global_numpy' : PeakDetectorGlobalNumpy, 
         'global_opencl' : PeakDetectorGlobalOpenCL,
         'geometrical_numpy' : PeakDetectorGeometricalNumpy,
+        'geometrical_numba' : PeakDetectorGeometricalNumba,
         'geometrical_opencl': PeakDetectorGeometricalOpenCL}
 
 
