@@ -7,6 +7,8 @@ matplotlib
 seaborn
 neo>=0.6.1
 tqdm
+numba
+hdbscan
 
 PyQt5  
 pyqtgraph
