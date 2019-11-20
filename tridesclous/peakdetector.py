@@ -401,9 +401,11 @@ class PeakDetectorGeometricalNumpy(BasePeakDetector):
     
 
 class PeakDetectorGeometricalNumba(PeakDetectorGeometricalNumpy):    
-    def get_mask_peaks_in_chunk(self, fifo_residuals):
-        mask_peaks = numba_get_mask_spatiotemporal_peaks(fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign, self.neighbours)
-        return mask_peaks
+    pass
+    # TODO
+    #~ def get_mask_peaks_in_chunk(self, fifo_residuals):
+        #~ mask_peaks = numba_get_mask_spatiotemporal_peaks(fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign, self.neighbours)
+        #~ return mask_peaks
     
 
 
