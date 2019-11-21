@@ -46,7 +46,7 @@ def test_apply_all_catalogue_steps():
     
     
 if __name__ == '__main__':
-    test_get_auto_params_for_catalogue()
-    #~ test_apply_all_catalogue_steps()
+    #~ test_get_auto_params_for_catalogue()
+    test_apply_all_catalogue_steps()
     
     

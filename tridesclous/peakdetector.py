@@ -494,16 +494,13 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
         
         kernel = self.kernel%dict(chunksize=self.chunksize, nb_channel=self.nb_channel, n_span=self.n_span,
                     relative_threshold=self.relative_threshold, peak_sign={'+':1, '-':-1}[self.peak_sign], nb_neighbour=self.nb_neighbour)
-        #~ print(kernel)
-        #~ print(self.fifo_sigs.buffer.shape)
-        #~ exit()
-        
         
         prg = pyopencl.Program(self.ctx, kernel)
+
         self.opencl_prg = prg.build(options='-cl-mad-enable')
         
         self.kern_get_mask_spatiotemporal_peaks = getattr(self.opencl_prg, 'get_mask_spatiotemporal_peaks')
-        
+
     kernel = """
     #define chunksize %(chunksize)d
     #define n_span %(n_span)d

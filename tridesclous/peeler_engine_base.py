@@ -36,14 +36,11 @@ class PeelerEngineBase(OpenCL_Helper):
                                         use_sparse_template=False,
                                         sparse_threshold_mad=1.5,
                                         argmin_method='numpy',
-                                        
+                                        inter_sample_oversampling=True,
                                         maximum_jitter_shift = 4,
                                         
                                         cl_platform_index=None,
                                         cl_device_index=None,
-                                        
-                                        
-                                        
                                         ):
         """
         Set parameters for the Peeler.
@@ -68,6 +65,11 @@ class PeelerEngineBase(OpenCL_Helper):
             is considred as NaN
         argmin_method: 'numpy', 'opencl', 'pythran' or 'numba'
             Method use to compute teh minial distance to template.
+        inter_sample_oversampling: bool default True
+            Apply or not inter sample jitter estimation and use oversampled template.
+        maximum_jitter_shift
+            Maximum allowed shift alignement between peak index and its template.
+            
         """
         assert catalogue is not None
         self.catalogue = catalogue
@@ -75,9 +77,8 @@ class PeelerEngineBase(OpenCL_Helper):
         self.internal_dtype= internal_dtype
         self.use_sparse_template = use_sparse_template
         self.sparse_threshold_mad = sparse_threshold_mad
-        
         self.argmin_method = argmin_method
-        
+        self.inter_sample_oversampling =inter_sample_oversampling
         self.maximum_jitter_shift = maximum_jitter_shift
 
         self.cl_platform_index=None
@@ -207,6 +208,7 @@ class PeelerEngineBase(OpenCL_Helper):
 
 
 class PeelerEngineGeneric(PeelerEngineBase):
+    # common base for PeelerEngineGeometrical and PeelerEngineClassic
 
     def process_one_chunk(self,  pos, sigs_chunk):
         #~ if 16000 <pos<16400:
@@ -411,7 +413,10 @@ class PeelerEngineGeneric(PeelerEngineBase):
                 
                 t1 = time.perf_counter()
                 #~ print('left_ind', left_ind, 'proposed_peak_ind', proposed_peak_ind)
-                jitter = self.estimate_jitter(left_ind, cluster_idx)
+                if self.inter_sample_oversampling:
+                    jitter = self.estimate_jitter(left_ind, cluster_idx)
+                else:
+                    jitter = None
                 #~ t2 = time.perf_counter()
                 #~ print('    estimate_jitter', (t2-t1)*1000)
                 #~ print('    jitter', jitter)
@@ -433,19 +438,13 @@ class PeelerEngineGeneric(PeelerEngineBase):
                         self._plot_label_unclassified(left_ind, peak_chan, cluster_idx, jitter)
                     label  = LABEL_UNCLASSIFIED
                     jitter = 0
-                else:
-                    #~ print('cluster_idx', cluster_idx, 'jitter', jitter)
+                
+                elif jitter is not None:
                     shift = -int(np.round(jitter))
                     if (np.abs(jitter) > 0.5) and \
                             (left_ind+shift+self.peak_width<self.fifo_size) and\
                             ((left_ind + shift) >= 0):
-                        #~ shift = -int(np.round(jitter))
                         
-                        # debug
-                        #~ new_cluster_idx = self.get_best_template(left_ind+shift)
-                        #~ new_jitter = self.estimate_jitter(left_ind + shift, new_cluster_idx)
-                        #~ ok = self.accept_tempate(left_ind+shift, new_cluster_idx, new_jitter)
-                        # end debug
                         t1 = time.perf_counter()
                         new_jitter = self.estimate_jitter(left_ind + shift, cluster_idx)
                         #~ t2 = time.perf_counter()
@@ -459,16 +458,6 @@ class PeelerEngineGeneric(PeelerEngineBase):
                             jitter = new_jitter
                             left_ind += shift
                             shift = -int(np.round(jitter))
-                            #~ print('        shift2', shift)
-                            #~ print('        new_jitter', new_jitter)
-                            
-                            
-                            # debug
-                            #~ if cluster_idx != new_cluster_idx:
-                                #~ print('cluster_idx != new_cluster_idx')
-                            #~ cluster_idx = new_cluster_idx
-                            
-                            
                     
                     # ensure jitter in range [-0.5, 0.5]
                     # WRONG IDEA because the mask_not_already_tested will not updated at the good place
@@ -495,9 +484,12 @@ class PeelerEngineGeneric(PeelerEngineBase):
                         
                     else:
                         label = self.catalogue['cluster_labels'][cluster_idx]
-
+                
+                else:
+                    label = self.catalogue['cluster_labels'][cluster_idx]
+                    
         #security if with jitter the index is out
-        if label>=0:
+        if label>=0 and jitter is not None:
             left_ind_check = left_ind - np.round(jitter).astype('int64')
             if left_ind_check<0:
                 label = LABEL_LEFT_LIMIT
@@ -544,11 +536,12 @@ class PeelerEngineGeneric(PeelerEngineBase):
         #~ t2 = time.perf_counter()
         #~ print('    update_peak_mask', (t2-t1)*1000)
         else:
-            # ensure jitter in range [-0.5, 0.5]
-            shift = -int(np.round(jitter))
-            if shift !=0:
-                jitter = jitter + shift
-                left_ind = left_ind + shift
+            if jitter is not None:
+                # ensure jitter in range [-0.5, 0.5]
+                shift = -int(np.round(jitter))
+                if shift !=0:
+                    jitter = jitter + shift
+                    left_ind = left_ind + shift
             
             peak_ind = left_ind - self.n_left
         

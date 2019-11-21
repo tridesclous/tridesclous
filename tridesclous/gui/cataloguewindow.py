@@ -35,20 +35,40 @@ class CatalogueWindow(QT.QMainWindow):
         
         self.catalogueconstructor = catalogueconstructor
         self.controller = CatalogueController(catalogueconstructor=catalogueconstructor)
-        
-        self.traceviewer = CatalogueTraceViewer(controller=self.controller)
-        self.peaklist = PeakList(controller=self.controller)
-        self.clusterlist = ClusterPeakList(controller=self.controller)
+
+
+        print('self.ndscatter')
         self.ndscatter = NDScatter(controller=self.controller)
+        
+        print('debut catalogue windows')
+        
+        print('self.traceviewer')
+        self.traceviewer = CatalogueTraceViewer(controller=self.controller)
+        print('self.peaklist')
+        self.peaklist = PeakList(controller=self.controller)
+        print('self.clusterlist')
+        self.clusterlist = ClusterPeakList(controller=self.controller)
+        print('self.ndscatter')
+        self.ndscatter = NDScatter(controller=self.controller)
+        print('self.waveformviewer')
         self.waveformviewer = WaveformViewer(controller=self.controller)
+        print('self.spikesimilarityview')
         self.spikesimilarityview = SpikeSimilarityView(controller=self.controller)
+        print('self.clustersimilarityview')
         self.clustersimilarityview = ClusterSimilarityView(controller=self.controller)
+        print('self.clusterratiosimilarityview')
         self.clusterratiosimilarityview = ClusterRatioSimilarityView(controller=self.controller)
+        print('self.pairlist')
         self.pairlist = PairList(controller=self.controller)
+        print('self.silhouette')
         self.silhouette = Silhouette(controller=self.controller)
+        print('self.waveformhistviewer')
         self.waveformhistviewer = WaveformHistViewer(controller=self.controller)
+        print('self.featuretimeviewer')
         self.featuretimeviewer = FeatureTimeViewer(controller=self.controller)
         
+        
+        print('la')
         
         docks = {}
 
@@ -109,6 +129,7 @@ class CatalogueWindow(QT.QMainWindow):
         
         self.create_actions()
         self.create_toolbar()
+        
         
         
     def create_actions(self):

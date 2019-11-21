@@ -281,7 +281,7 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
 
         params['feature_method'] = 'pca_by_channel'
         params['feature_kargs'] = {'n_components_by_channel':3}
-        params['cluster_method'] = 'shearscut'
+        params['cluster_method'] = 'pruningshears'
         params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 10)
         params['cluster_kargs']['min_cluster_size'] = 20
 

@@ -34,7 +34,7 @@ Do:
   5. **Open Terminal**
   6. For the basic::
     
-       conda install scipy numpy pandas scikit-learn matplotlib seaborn tqdm openpyxl
+       conda install scipy numpy pandas scikit-learn matplotlib seaborn tqdm openpyxl numba
        conda install -c conda-forge hdbscan
      
   

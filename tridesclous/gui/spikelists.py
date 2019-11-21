@@ -55,7 +55,10 @@ class SpikeModel(QT.QAbstractItemModel):
         abs_ind = self.visible_ind[row]
         spike = self.controller.spikes[abs_ind]
         
-        spike_time = (spike['index']+ spike['jitter'])/self.controller.dataio.sample_rate 
+        if np.isnan(spike['jitter']):
+            spike_time = (spike['index'])/self.controller.dataio.sample_rate
+        else:
+            spike_time = (spike['index']+ spike['jitter'])/self.controller.dataio.sample_rate
         
         if role ==QT.Qt.DisplayRole :
             if col == 0:

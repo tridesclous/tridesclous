@@ -260,13 +260,23 @@ class NDScatter(WidgetBase):
         
         self.lasso = pg.PlotCurveItem(pen='#7FFF00')
         self.plot.addItem(self.lasso)
-
-        med, mad = median_mad(self.data)
-        m = 4.*np.max(mad)
-        self.limit = m
-        self.plot.setXRange(-m, m)
-        self.plot.setYRange(-m, m)
         
+        #estimate limts
+        #  VERY SLOW
+        #~ med, mad = median_mad(self.data)
+        #~ m = 4.*np.max(mad)
+        #~ self.limit = m
+        #~ self.plot.setXRange(-m, m)
+        #~ self.plot.setYRange(-m, m)
+        
+        #estimate limts
+        data = self.data.flatten()
+        if data.size > 1000:
+            data = data.take(np.random.choice(data.size, 1000, replace=False))
+        min_ = np.min(data)
+        max_ = np.max(data)
+        m = max(np.abs(min_), np.abs(max_)) * 2.5
+        self.limit = m
         
         ndim = self.data.shape[1]
         self.selected_comp = np.ones( (ndim), dtype='bool')
@@ -300,7 +310,6 @@ class NDScatter(WidgetBase):
         #~ self.hyper_faces = list(itertools.product(range(ndim), range(ndim)))
         self.hyper_faces = list(itertools.permutations(range(ndim), 2))
         self.n_face = -1
-        
     
     def next_face(self):
         self.n_face += 1

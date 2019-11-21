@@ -104,7 +104,7 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         sawchaincut = SawChainCut(waveforms, n_left, n_right, peak_sign, relative_threshold, **kargs)
         labels = sawchaincut.do_the_job()
         
-    elif method == 'shearscut':
+    elif method == 'pruningshears':
         n_left = cc.info['waveform_extractor_params']['n_left']
         n_right = cc.info['waveform_extractor_params']['n_right']
         peak_sign = cc.info['peak_detector_params']['peak_sign']
@@ -113,9 +113,9 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         adjacency_radius_um = cc.adjacency_radius_um * 0.5 # TODO wokr on this
         channel_adjacency = cc.dataio.get_channel_adjacency(chan_grp=cc.chan_grp, adjacency_radius_um=adjacency_radius_um)
         assert cc.info['peak_detector_params']['method'] == 'geometrical'
-        shearscut = ShearsCut(waveforms, features, n_left, n_right, peak_sign, relative_threshold, channel_adjacency, **kargs)
+        pruningshears = PruningShears(waveforms, features, n_left, n_right, peak_sign, relative_threshold, channel_adjacency, **kargs)
         
-        labels = shearscut.do_the_job()
+        labels = pruningshears.do_the_job()
         
     elif method =='isosplit5':
         assert HAVE_ISOSPLIT5, 'isosplit5 is not installed'
@@ -486,7 +486,7 @@ class SawChainCut:
         return cluster_labels2
 
 
-class ShearsCut:
+class PruningShears:
     def __init__(self, waveforms, 
                         features,
                         n_left, n_right,
@@ -598,7 +598,7 @@ class ShearsCut:
             if iloop>=self.max_loop:
                 cluster_labels[mask_loop] = -1
                 self.log('BREAK iloop', iloop)
-                print('Warning ShearsCut reach max_loop limit there are maybe more cluster')
+                print('Warning PruningShears reach max_loop limit there are maybe more cluster')
                 break
             
             if iloop!=0 and nb_remain<self.break_nb_remain:

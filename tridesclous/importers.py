@@ -184,7 +184,7 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_clust
     
     # save prb file:
     probe_file = output_folder / 'probe.prb'
-    se.save_to_probe_file(recording, probe_file, format='spyking_circus')
+    se.save_to_probe_file(recording, probe_file)
 
     # save binary file (chunk by hcunk) into a new file
     raw_filename = output_folder / 'raw_signals.raw'
@@ -310,7 +310,7 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_clust
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
     
-    cc.project(method='peak_max')
+    cc.extract_some_features(method=params['feature_method'], **params['feature_kargs'])
     
     # put back label 
     cc.all_peaks['cluster_label'][cc.some_peaks_index] = all_peaks[cc.some_peaks_index]['cluster_label']

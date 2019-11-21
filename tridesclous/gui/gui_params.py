@@ -192,7 +192,7 @@ cluster_params_by_methods = OrderedDict([
                                 {'name' : 'auto_merge_threshold', 'type' : 'float', 'value' : 2., 'step':0.1},
                                 {'name':'print_debug', 'type': 'bool', 'value':False},
                             ]),
-    ('shearscut', [{'name' : 'min_cluster_size', 'type' : 'int', 'value' : 20}]),
+    ('pruningshears', [{'name' : 'min_cluster_size', 'type' : 'int', 'value' : 20}]),
 ])
 
 #~ split_params_by_methods = OrderedDict([

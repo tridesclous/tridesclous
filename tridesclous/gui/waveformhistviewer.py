@@ -99,7 +99,7 @@ class WaveformHistViewer(WidgetBase):
         
         self.initialize_plot()
         self.similarity = None
-        
+
         self.on_params_changed()#this do refresh
     
     
@@ -158,17 +158,31 @@ class WaveformHistViewer(WidgetBase):
         #~ self.params['bin_min'] = np.min(self.controller.some_waveforms)
         #~ self.params['bin_max'] = np.max(self.controller.some_waveforms)
         
+        # this is too slow and take too much mem
+        #~ ind, = np.nonzero(self.controller.spike_label[self.controller.some_peaks_index]>=0)
+        #~ if ind.size > 0:
+            #~ wfs = self.controller.some_waveforms.take(ind, axis=0)
+            #~ self.params['bin_min'] = np.percentile(wfs, .001)
+            #~ self.params['bin_max'] = np.percentile(wfs, 99.999)
         
-        #~ print(self.controller.some_waveforms.shape)
-        #~ print(self.controller.some_peaks_index.shape)
-        #~ print(self.controller.some_peaks_index)
-        #~ print(self.controller.spike_label[self.controller.some_peaks_index].shape)
-        keep = self.controller.spike_label[self.controller.some_peaks_index]>=0
-        wfs = self.controller.some_waveforms[keep, :, :]
-        if wfs.shape[0]>0:
-            self.params['bin_min'] = np.percentile(wfs, .001)
-            self.params['bin_max'] = np.percentile(wfs, 99.999)
+        ind, = np.nonzero(self.controller.spike_label[self.controller.some_peaks_index]>=0)
+        n_left, n_right = self.controller.get_waveform_left_right()
+        if ind.size > 0:
+            if ind.size > 1000:
+                ind = ind[np.random.choice(ind.size, 1000, replace=False)]
+            mins, maxs = [], []
+            for c in range(self.controller.nb_channel):
+                wfs = self.controller.some_waveforms[:, -n_left, c].take(ind, axis=0)
+                mins.append(np.percentile(wfs, .001))
+                maxs.append(np.percentile(wfs, 99.9))
+            self.params['bin_min'] = min(mins)
+            self.params['bin_max'] = max(maxs)
             
+            if (self.params['bin_max'] - self.params['bin_min']) < 60:
+                self.params['bin_size'] = 0.1
+            else:
+                self.params['bin_size'] = (self.params['bin_max'] - self.params['bin_min']) / 600
+        
         self.params.blockSignals(False)
                 
 
@@ -197,6 +211,7 @@ class WaveformHistViewer(WidgetBase):
         
         
         cluster_visible = self.controller.cluster_visible
+        
         visibles = [k for k, v in cluster_visible.items() if v and k>=-1 ]
         
         sparse = self.controller.have_sparse_template and self.params['sparse_display']
@@ -243,7 +258,7 @@ class WaveformHistViewer(WidgetBase):
             if wf is None:
                 self.plot.clear()
                 return
-            data_kept = wf[ind_keep,:,:][:, :, common_channels].copy()
+            data_kept = wf[ind_keep,:,:][:, :, common_channels]#.copy()
             if data_kept.size == 0:
                 self.plot.clear()
                 return

@@ -420,6 +420,10 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         
         # criteria mono channel = old implementation
         #~ keep_template = np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2)
+
+        if jitter is None:
+            # this must have a jitter
+            jitter = 0
         
         if np.abs(jitter) > (self.maximum_jitter_shift - 0.5):
             return False

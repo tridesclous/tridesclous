@@ -1653,7 +1653,7 @@ class CatalogueConstructor:
         
         return self.catalogue
     
-    def make_catalogue_for_peeler(self):
+    def make_catalogue_for_peeler(self, **kargs):
         """
         Make and save catalogue in the working dir for the Peeler.
         

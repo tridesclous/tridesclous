@@ -145,8 +145,10 @@ class PeakList(WidgetBase):
         self.tree.setModel(self.model)
         self.tree.selectionModel().selectionChanged.connect(self.on_tree_selection)
 
-        for i in range(self.model.columnCount(None)):
-            self.tree.resizeColumnToContents(i)
+        # This is very slow!!!!!
+        #~ for i in range(self.model.columnCount(None)):
+            #~ print(i)
+            #~ self.tree.resizeColumnToContents(i)
         self.tree.setColumnWidth(0,80)
         
         self.refresh()

@@ -345,13 +345,15 @@ class WaveformViewerBase(WidgetBase):
 
         
         if self._x_range is None or not keep_range :
-            self._x_range = xvect[0], xvect[-1]
-            self._y1_range = self.wf_min*1.1, self.wf_max*1.1
-            self._y2_range = 0., 5.
+            if xvect.size>0:
+                self._x_range = xvect[0], xvect[-1]
+                self._y1_range = self.wf_min*1.1, self.wf_max*1.1
+                self._y2_range = 0., 5.
         
-        self.plot1.setXRange(*self._x_range, padding = 0.0)
-        self.plot1.setYRange(*self._y1_range, padding = 0.0)
-        self.plot2.setYRange(*self._y2_range, padding = 0.0)
+        if self._x_range is not None:
+            self.plot1.setXRange(*self._x_range, padding = 0.0)
+            self.plot1.setYRange(*self._y1_range, padding = 0.0)
+            self.plot2.setYRange(*self._y2_range, padding = 0.0)
 
         
 

@@ -1,3 +1,15 @@
+import tridesclous as tdc
+print(tdc.get_cl_device_list())
+
+ #~ [('Quadro P2000', 0, 0),
+ #~ ('Intel(R) Gen9 HD Graphics NEO', 1, 0),
+ #~ ('pthread-Intel(R) Core(TM) i7-8700 CPU @ 3.20GHz', 2, 0)]
+#~ tdc.set_default_cl_device(0,0) 
+#~ tdc.set_default_cl_device(1,0) 
+tdc.set_default_cl_device(2,0) 
+#~ exit()
+
+
 from tridesclous import get_dataset
 from tridesclous.peakdetector import get_peak_detector_class
 
@@ -108,8 +120,10 @@ def test_compare_offline_online_engines():
     ]
     
     if HAVE_PYOPENCL:
-        engine_names += [('global', 'opencl'),
-                            ('geometrical', 'opencl')]
+        #~ engine_names += [('global', 'opencl'),
+                            #~ ('geometrical', 'opencl')]
+        engine_names += [('geometrical', 'opencl')]
+                        
 
     chunksize=1024
     sigs, sample_rate, normed_sigs, geometry = get_normed_sigs(chunksize=chunksize)
