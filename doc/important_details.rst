@@ -123,13 +123,16 @@ Important:
   * The normalisation is a robust z-score. This means that for each channel **sig_normed = (sig - median) / mad.**
     Mad is `median absolute deviation <https://en.wikipedia.org/wiki/Median_absolute_deviation>`_
     So after pre processing chain, the units of each is **signal to noise ratio**. So as the Gaussian low:
+    
       * magnitude 1 = 1 mad = 1 robust sd = 68% of the noise
       * magnitude 2 = 2 mad = 2 robust sd = 95% of the noise
       * magnitude 3 = 3 mad = 3 robust sd = 99.7% of the noise
+    
     This is crucial to have this in minds for settings the good threshold.
   * Many software also include a `whitening <https://en.wikipedia.org/wiki/Whitening_transformation>`_ stage.
     Basically this consists of applying to signals the factorized and inversed covariance matrix.
     This is intentionally not done in tridesclous for theses reasons:
+    
       * Contrary to what some user think: this does not denoise signals.
       * This must be computed on chunks where there are no spikes. This is hard to do it cleanly.
       * Matrix inversion can lead to numerical error and so some pathological tricks are often added.
@@ -145,12 +148,13 @@ do not overlap with noise. This is important because if the threshold is too clo
 some of the spikes will not be detected and so the cluster will be partial and so the centroids of the
 cluster will be wrong. Bad practice!!
 
-The algorithm of threshold detection is: every local extrema above the threshold on at
-least one channel is considered as peak.
+There is 2 algorithms to detect spike:
+  * **global** : every local extrema above the threshold on at least one channel is considered as peak.
+  * **geometrical** same local extrema detection but only on local part given the geometry of the probe.
 
 With high frequency noise the true peak can be noisy and become a double local extremum. When 
 you want to avoid that to not having twice the same peak extracted with some sample delayed. 
-This is the role of the **peak_span** parameters: when 2 local extrema are in the same span, only the
+This is the role of the **peak_span_ms** parameters: when 2 local extrema are in the same span, only the
 best is kept.
 
 
@@ -175,6 +179,7 @@ peak. The feature and cluster will be based on this array.
     there will be too much noise for clustering. If it is too short, the Peeler (template 
     matching) will fail when substracting leading to noisy residual due to borders.
     A good rule is:
+    
        * the median of each cluster need to be back to 0 on each side
        * AND the mad of a cluster need to be back to 1 (noise) on each side.
 
@@ -265,9 +270,12 @@ The actual method list is:
   * **agglomerative** for trying, we need to decide **n_cluster**
   * **dbscan** density based algorithm n_cluster should be automatic. But **eps** parameters
     play a role in the results.
+  * **hdbscan** identique with withous **eps**
+  * **isosplit** : develop by Jeremy Maglang for moutainsort
   * **sawchaincut** this is a home made, full automatic, not so good, not so bad, dirty, secret algorithm.
     It is density based. If you don't known which one to choose and you are in a hurry, take this one.
     Most beautiful and well isolated clusters should be captured by this one.
+  * **pruningshears** this is also a home made stuff. Internal it use hdbscan but localy.
 
 
 In between sample interpolation

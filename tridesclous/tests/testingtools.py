@@ -10,6 +10,7 @@ from tridesclous.cataloguetools import apply_all_catalogue_steps
 
 
 def is_running_on_ci_cloud():
+    return True
     if os.environ.get('TRAVIS') in ('true', 'True'):
         return True
     

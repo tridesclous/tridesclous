@@ -2,37 +2,42 @@
 
 ![icon](tridesclous/gui/icons/png/main_icon.png)
 
+Authors: Christophe Pouzat and Samuel Garcia
+
+## documentation
+
 The documentation is here: http://tridesclous.readthedocs.io/
 
-Authors: Christophe Pouzat and Samuel Garcia
+## overview
 
 **tris des clous** is a very dishonest translation of **spike sorting** to French.
 
 Pronouce it [tree day clue] in English.
 
-The primary goal of tridesclous is to provide a toolkit to teach good practices in spike sorting techniques.
-This tools is now mature and can be used for experimental data.
+The primary goal of tridesclous was to provide a toolkit to teach good practices in spike sorting techniques.
+Trideslcous is now mature and can be used to sort spike on tetrode up to neuropixel probe recorded dataset.
+
+Tridesclous is both:
+
+  * an offline spike sorter tools able to read many file format
+  * a realtime spike sorting combined with [pyacq](http://pyacq.readthedocs.io)
+
+## Main features
+
+  * template matching based mathod
+  * offer several alternative methods at several processing steps of the chain
+  * offer a UI written in Qt for interactive exploration.
+  * use [neo](https://github.com/NeuralEnsemble/python-neo) for reading dataset. So many format are available (Raw, Blackrock, Neuralynx, Plexon, Spike2, Tdt, OpenEphys...)
+  * use hardware acceleration with opencl : both gpu and multicore cpu
+  * use few memory
+  * have built in dataset to try it
+  * quite fast For a tetrode dataset, you can expect X30 speedup over real time on a simple laptop.
+  * have an simple python API. Easy to write notebook or build custom pipeline.
+  * multi-platform
+  * open source based on a true open source stack
 
 The forest of spike sorting tools is dense and *tridesclous* is a new tree.
 Be curious and try it.
-
-*tridesclous* is a complete rewrite of our old (and unsuccessful) tools (SpikeOmatic, OpenElectrophy, ...)
-with up-to-date (in 2017) python modules to simplify our codes.
-
-tridesclous:
-  * should make it easy to keep a trace of your spike sorting process in
-    a jupyter notebook.
-  * offer a UI written in Qt for interactive exploration.
-  * can be used for online spikesorting with [pyacq](http://pyacq.readthedocs.io). See [online_demo.py](https://github.com/tridesclous/tridesclous/blob/master/example/online_demo.py)
-
-
-Bonus:
-  * tridesclous is quite fast. For a tetrode dataset, you can expect X30 speedup over real time on a simple laptop.
-  * some pieces of algorithm are written both in pure python (numpy/scipy/...) and OpenCL (filter, peak detetion, ...). So *tridesclous* is efficient for large array (>=64 channel).
-  * each piece of the algorithm is written with chunk by chunk in mind. So the offline *tridesclous* is not agressive for memory.
-  * tridesclous used [neo](https://github.com/NeuralEnsemble/python-neo) for reading dataset. So many format are available (Raw, Blackrock, Neuralynx, Plexon, Spike2, Tdt, ...)
-  * tridesclous is open source and based on true opensource stack.
-  * some datasets are available for testing it now here https://github.com/tridesclous/tridesclous_datasets
 
 
 # Installation
@@ -44,19 +49,19 @@ http://tridesclous.readthedocs.io/en/latest/installation.html
 http://tridesclous.readthedocs.io/en/latest/launch.html
 
 
-# Screenshots
+## Screenshots
 
-## Offline Catalogue Window
+### Offline Catalogue Window
 ![snapshot](doc/img/snapshot_cataloguewindow.png)
 
-## offline Peeler Window
+### offline Peeler Window
 ![snapshot](doc/img/snapshot_peelerwindow.png)
 
-## Online Peeler in a pyacq.Node
+### Online Peeler in a pyacq.Node
 ![snapshot](doc/img/online_tridesclous.gif)
 
 
-# Status
+## Status
 
 [![readthedocs](https://readthedocs.org/projects/tridesclous/badge/?version=latest&style=flat)]( http://tridesclous.readthedocs.io/en/latest/?badge=latest)
 [![CircleCI](https://circleci.com/gh/tridesclous/tridesclous.svg?style=svg)](https://circleci.com/gh/tridesclous/tridesclous)

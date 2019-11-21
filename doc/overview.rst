@@ -1,14 +1,39 @@
 .. _overview:
 
 Overview
-======
+========
 
-Pronounce it [tree day clue] in English.
+**tris des clous** is a very dishonest translation of **spike sorting** to French.
 
-The primary goal of tridesclous is to provide a toolkit to teach good practices in spike sorting techniques.
-This tool is now mature and can be used for experimental data.
+Pronouce it [tree day clue] in English.
 
-Authors: Christophe Pouzat and Samuel Garcia
+The primary goal of tridesclous was to provide a toolkit to teach good practices in spike sorting techniques.
+Trideslcous is now mature and can be used to sort spike on tetrode up to neuropixel probe recorded dataset.
+
+Tridesclous is both:
+
+  * an offline spike sorter tools able to read many file format
+  * a realtime spike sorting combined with `pyacq <https://github.com/pyacq/pyacq>`_
+
+  
+Main features
+-------------
+
+  * template matching based mathod
+  * offer several alternative methods at several processing steps of the chain
+  * offer a UI written in Qt for interactive exploration.
+  * use `neo <https://github.com/NeuralEnsemble/python-neo>`_ for reading dataset. So many format are available (Raw, Blackrock, Neuralynx, Plexon, Spike2, Tdt, OpenEphys...)
+  * use hardware acceleration with opencl : both gpu and multicore cpu
+  * use few memory
+  * have built in dataset to try it
+  * quite fast For a tetrode dataset, you can expect X30 speedup over real time on a simple laptop.
+  * have an simple python API. Easy to write notebook or build custom pipeline.
+  * multi-platform
+  * open source based on a true open source stack
+
+The forest of spike sorting tools is dense and *tridesclous* is a new tree.
+Be curious and try it.
+
 
 General workflow
 -------------------
@@ -16,7 +41,7 @@ General workflow
 Many tools claim to be "automatic" for spike sorting.
 In tridesclous we don't, the workflow is:
 
-  1. Construct catalog. This part is automatic but needs carefully chosen parameters.
+  1. Construct catalog. This part is automatic but needs carefully chosen parameters/methods.
      This is more or less the legacy chain of spike sorting = preprocessing+waveform+feature+clustering
      This can be done with a small subset of the whole dataset as long as it is stationary.
   2. Check and correct the catalog. **This part is manual.** It is done through a user interface.
@@ -24,6 +49,8 @@ In tridesclous we don't, the workflow is:
      This part is crucial and must be performed to clean clusters.
   3. "Peel spikes". This is the real spike sorting. It is a template matching approach that subtracts spikes for signals as long as some spike matches the catalog. This part can be run offline as fast as possible or online (*soft* real time) if fast enough.
   4. Check the final result with a dedicated user interface. No manual action is required here.
+
+Manual checking part **2** and **4** can be optional if you like to use black-box style spike sorting tools.
 
 
 Why is it different from other tools:
@@ -36,7 +63,7 @@ Why is it different from other tools:
 
 
 Online spike sorting
----------------
+--------------------
 
 If you have a `pyacq <https://github.com/pyacq/pyacq>`_ compatible device (Blackrock, Multi channel system, NiDaqMx, Measurement computing, ...) you can also test tridesclous online during the experiment. See `online_demo.py <https://github.com/tridesclous/tridesclous/blob/master/example/online_demo.py>`_
 
