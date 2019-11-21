@@ -4,9 +4,10 @@ import time
 
 from tridesclous.waveformtools import extract_chunks
 
-size = 1000000
-#~ nb_channel = 5
-nb_channel = 300
+#~ size = 1000000
+size = 1000
+nb_channel = 5
+#~ nb_channel = 300
 width = 150
 nb_peak = 20003
 
@@ -65,8 +66,8 @@ def test_extract_chunks_n_jobs():
     
 
 if __name__ == '__main__':
-    #~ test_extract_chunks_memory()
-    #~ test_extract_chunks_memmap()
+    test_extract_chunks_memory()
+    test_extract_chunks_memmap()
     test_extract_chunks_n_jobs()
     
     
