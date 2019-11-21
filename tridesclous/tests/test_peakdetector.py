@@ -274,11 +274,15 @@ def benchmark_speed():
 
     engine_names = [
         ('global', 'numpy'),
-        ('global', 'opencl'),
         ('geometrical', 'numpy'),
         #~ ('geometrical', 'numba'),
-        ('geometrical', 'opencl'),
     ]
+    if HAVE_PYOPENCL:
+        engine_names += [
+            ('global', 'opencl'),
+            ('geometrical', 'opencl'),
+        ]
+
     args = (sample_rate, nb_channel, chunksize, 'float32', geometry)
     params = dict(peak_span_ms = 0.9,
                     relative_threshold = 5,
@@ -346,12 +350,14 @@ def test_peak_sign_symetry():
     
     engine_names = [
         ('global', 'numpy'),
-        ('global', 'opencl'),
         ('geometrical', 'numpy'),
         #~ ('geometrical', 'numba'),
-        ('geometrical', 'opencl'),
     ]
-    
+    if HAVE_PYOPENCL:
+        engine_names += [
+            ('global', 'opencl'),
+            ('geometrical', 'opencl'),
+        ]
 
     online_peaks = {}
     for method, engine in engine_names:
@@ -387,9 +393,10 @@ def test_peak_sign_symetry():
 
         assert np.array_equal(online_peaks[method, engine, '-'], online_peaks[method, engine, '+'])
     
-    assert np.array_equal(online_peaks['global', 'numpy', '-'], online_peaks['global', 'opencl', '-'])
-    #~ assert np.array_equal(online_peaks['geometrical', 'numpy', '-'], online_peaks['geometrical', 'numba', '-'])
-    assert np.array_equal(online_peaks['geometrical', 'numpy', '-'], online_peaks['geometrical', 'opencl', '-'])
+    if HAVE_PYOPENCL:
+        assert np.array_equal(online_peaks['global', 'numpy', '-'], online_peaks['global', 'opencl', '-'])
+        #~ assert np.array_equal(online_peaks['geometrical', 'numpy', '-'], online_peaks['geometrical', 'numba', '-'])
+        assert np.array_equal(online_peaks['geometrical', 'numpy', '-'], online_peaks['geometrical', 'opencl', '-'])
     
     
         
@@ -397,12 +404,12 @@ def test_peak_sign_symetry():
 
     
 if __name__ == '__main__':
-    test_compare_offline_online_engines()
+    #~ test_compare_offline_online_engines()
     
     #~ test_detect_geometrical_peaks()
     
     
     #~ benchmark_speed()
     
-    #~ test_peak_sign_symetry()
+    test_peak_sign_symetry()
     
