@@ -106,12 +106,19 @@ Several methods possible. See :ref:`important_details`.
      
     * eps (float): The maximum distance between two samples for them to be considered as in the same neighborhood.
 
+  * **hdbscan** `HDBSCAN <https://hdbscan.readthedocs.io>`_  density base clustering without the problem of the **eps**
+
+  * **isosplit** `ISOSPLIT5 <https://github.com/flatironinstitute/isosplit5>`_ develop for moutainsort (another sorter)
+
   * **optics** `OPTICS <https://scikit-learn.org/stable/modules/generated/sklearn.cluster.OPTICS.html>`_ implemented in sklearn
      
     * min_samples (int): The number of samples in a neighborhood for a point to be considered as a core point.
   
   * **sawchaincut** Home made automatic clustering, usefull for dense arrays. Autodetect well isolated cluster
     and put to trash ambiguous things.
+
+  * **pruningshears** Another home made automatic clustering. Internaly use hdbscan. Have better performance than **sawcahincut**
+    but it is slower.
 
 
 """

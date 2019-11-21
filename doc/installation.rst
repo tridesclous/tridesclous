@@ -1,8 +1,8 @@
 Installation
-=======
+============
 
 
-If your are familiar with python simply install the depency list as usual.
+If your are familiar with python simply install the dependency list as usual.
 
 tridesclous works with python 3 only.
 
@@ -11,14 +11,15 @@ If these are your first steps in the python world there 2 main options:
   * install python and dependencies with anaconda distribution (prefered on window or OSX)
   * use python from your system (in a virtual environement) and install dependencies with standard pip (prefered on Linux Ubuntu/Debian/Mint)
 
-Note that you are free to install Anaconda on Linux.
+Note that you are free to install Anaconda on Linux but conda add an heavy layer of package
+management in parallel of your linux distro pacake management that can be messy.
 
 Here 2 recipes to install tridesclous in an "environement".
 If you don't known what an "environement" is : remember that it is an isolated installation
 of python with a fixed version and many libraries (modules) with also fixed version  somwhere in a folder in your profile.
 This folder won't be affected by upgrading your system and so it should work always.
 This quite important because other spike projects don't use same libraries version (for instance PyQt4 vs PyQt5).
-If you want to compare them, you will nedd environement.
+If you want to compare them, you will need environement.
 
 
 
@@ -27,10 +28,10 @@ Case 1 : with anaconda (prefered on window or OSX)
 
 Do:
 
-  1. Download anaconda here https://www.continuum.io/downloads. Take **python 3.6**
+  1. Download anaconda here https://www.continuum.io/downloads. Take **python 3.7**
   2. Install it in user mode (no admin password)
   3. Lanch **anaconda navigator**
-  4. Go on the tab **environements**, click on **root** context menu.
+  4. Go on the tab **environements**, click on **base** context menu.
   5. **Open Terminal**
   6. For the basic::
     
@@ -56,7 +57,7 @@ Optional if you're up for a fight and you really want fast computing with OpenCL
   1. install driver for GPU (nvidia/intel/amd), this is quite hard in some cases because you need to download some OpenCL (or cuda) toolkit.
   2. Download PyOpenCl here for windows : http://www.lfd.uci.edu/~gohlke/pythonlibs/
   3. cd C:/users/...../Downloads
-  4. pip install pyopencl‑2016.2.1+cl21‑cp36‑cp36m‑win_amd64.whl
+  4. pip install pyopencl‑2019.1.2+cl12‑cp37‑cp37m‑win_amd64.whl
  
   
 
@@ -88,10 +89,6 @@ Open a terminal and do:
 
 
   
-
-   
-
-   
    
 Big GPU, big dataset OpenCL, and CO.
 ------------------------------------
@@ -117,6 +114,7 @@ Here the solution on linux ubuntu/debian :
    3. sudo apt-get instll opencl-headers ocl-icd-opencl-dev libclc-dev ocl-icd-libopencl1
    4. pip install pyopencl
 
+If you have a recent laptop you can also try the new neo-icd for intel GPU.
    
 If you don't have GPU but a multi core CPU you can use POCL on linux:
 
@@ -129,7 +127,7 @@ Here on windows a solution:
     2. Download PyOpenCl here for windows : http://www.lfd.uci.edu/~gohlke/pythonlibs
     3. Take the pyopencl file that match your python
     4. cd C:/users/...../Downloads
-    5. pip install pyopencl‑2018.1.1+cl12‑cp36‑cp36m‑win_amd64.whl (for instance)
+    5. pip install pyopencl‑2019.1.2+cl12‑cp37‑cp37m‑win_amd64.whl (for instance)
 
 
 
@@ -145,7 +143,7 @@ With neo (>=0.8) installed, if you want to view signals you can optionally insta
 
 
 Upgrade tridesclous
-------------------
+-------------------
 
 There are 3 sources for upgrading tridesclous package depending your need.
 
