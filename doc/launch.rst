@@ -26,7 +26,11 @@ Writting simple code block can help you a lot to realize and overcome difficulti
 
 So for this method:
   1. Launch jupyter notebook (easy if you have anaconda)
-  2. Copy/paste this `notebook <https://github.com/tridesclous/tridesclous/blob/master/example/example_locust_dataset.ipynb>`_
+  2. Copy/paste:
+
+    * `this notebook <https://github.com/tridesclous/tridesclous/blob/master/example/example_locust_dataset.ipynb>`_
+    * `or this one <https://github.com/tridesclous/tridesclous/blob/master/example/example_olfactory_bulb_dataset.ipynb>`_
+    
   3. Read it carrefully.
   4. Modify it and do your spike sorting.
   
