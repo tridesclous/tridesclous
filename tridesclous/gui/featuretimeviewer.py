@@ -126,7 +126,7 @@ class FeatureTimeViewer(WidgetBase):
             x = all_times[keep]
             
             if self.params['metric'] == 'max_peak_value':
-                c = self.controller.get_max_on_channel(k)
+                c = self.controller.get_extremum_channel(k)
                 if c is None:
                     continue
                 y = all_waveforms[keep, -n_left, c]

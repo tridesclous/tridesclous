@@ -7,7 +7,7 @@ import numpy as np
 
 from .dataio import DataIO
 from . catalogueconstructor import CatalogueConstructor, _dtype_peak
-
+from .cataloguetools import get_auto_params_for_catalogue
 
 try:
     import h5py
@@ -86,25 +86,32 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
     else:
         raise(NotImlementedError)
     
-    engine = 'numpy'
-    #~ engine = 'opencl'
-
-    cc.set_preprocessor_params(chunksize=1024,
+    
+    cc.set_global_params(
+            chunksize=1024,
             memory_mode='memmap',
-            
-            #signal preprocessor
-            signalpreprocessor_engine=engine,
+            mode='sparse',
+            adjacency_radius_um=400,
+            sparse_threshold=1.5)
+    
+    # params preprocessor
+    cc.set_preprocessor_params(
+            engine='numpy',
             highpass_freq=highpass_freq, 
             lowpass_freq=None,
             common_ref_removal=common_ref_removal,
-            lostfront_chunksize=128,
-            
-            #peak detector
-            peakdetector_engine=engine,
+            lostfront_chunksize=-1,
+        )
+    
+    # params peak detector
+    cc.set_peak_detector_params(
+            method='global',
+            engine='numpy',
             peak_sign=peak_sign, 
             relative_threshold=relative_threshold,
             peak_span=1./sample_rate,
             )
+
     
     t1 = time.perf_counter()
     duration=30.
@@ -172,18 +179,18 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
     return cc
     
 
-def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=300., relative_threshold=5.):
+def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_cluster=300, align_peak=False, catalogue_params={}):
     output_folder = Path(tdc_dirname)
     
     # save prb file:
     probe_file = output_folder / 'probe.prb'
-    se.save_probe_file(recording, probe_file, format='spyking_circus')
+    se.save_to_probe_file(recording, probe_file)
 
     # save binary file (chunk by hcunk) into a new file
     raw_filename = output_folder / 'raw_signals.raw'
     n_chan = recording.get_num_channels()
     chunksize = 2**24// n_chan
-    se.write_binary_dat_format(recording, raw_filename, time_axis=0, dtype='float32', chunksize=chunksize)
+    se.write_to_binary_dat_format(recording, raw_filename, time_axis=0, dtype='float32', chunk_size=chunksize)
     dtype='float32'
     offset = 0
     sr = recording.get_sampling_frequency()
@@ -196,29 +203,34 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=3
                                dtype=dtype, sample_rate=sr,
                                total_channel=nb_chan, offset=offset)
     dataio.set_probe_file(str(probe_file))
+    print(dataio)
     
+    params = get_auto_params_for_catalogue(dataio)
+    for k in params:
+        if k in catalogue_params:
+            if isinstance(catalogue_params[k], dict):
+                params[k].update(catalogue_params[k])
+            else:
+                params[k] = catalogue_params[k]
     
     cc = CatalogueConstructor(dataio=dataio)
 
-    cc.set_preprocessor_params(chunksize=1024,
-            memory_mode='memmap',
-            
-            #signal preprocessor
-            signalpreprocessor_engine='numpy',
-            highpass_freq=highpass_freq, 
-            lowpass_freq=None,
-            common_ref_removal=False,
-            lostfront_chunksize=None,
-            
-            #peak detector
-            peakdetector_engine='numpy',
-            peak_sign='-',
-            relative_threshold=relative_threshold,
-            peak_span_ms=1000./sr,
-            )
+    # global params
+    d = {k:params[k] for k in ('chunksize', 'mode', 'adjacency_radius_um')}
+    cc.set_global_params(**d)
+
+    # params preprocessor
+    d = dict(params['preprocessor'])
+    cc.set_preprocessor_params(**d)
+    
+    # params peak detector
+    d = dict(params['peak_detector'])
+    cc.set_peak_detector_params(**d)
     
     t1 = time.perf_counter()
-    cc.estimate_signals_noise(seg_num=0, duration=30.)
+    noise_duration = min(10., params['duration'], dataio.get_segment_length(seg_num=0)/dataio.sample_rate*.99)
+    t1 = time.perf_counter()
+    cc.estimate_signals_noise(seg_num=0, duration=noise_duration)
     t2 = time.perf_counter()
     print('estimate_signals_noise', t2-t1)
     
@@ -228,16 +240,44 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=3
     t2 = time.perf_counter()
     print('run_signalprocessor', t2-t1)
     
-    n_right = 60
-    n_left = - 45
+    wf_left_ms = params['extract_waveforms']['wf_left_ms']
+    wf_right_ms = params['extract_waveforms']['wf_right_ms']
+    n_left = int(wf_left_ms / 1000. * dataio.sample_rate)
+    n_right = int(wf_right_ms / 1000. * dataio.sample_rate)
     
     sig_size = dataio.get_segment_length(seg_num=0)
+    
+    peak_shift = {}
+    if align_peak:
+        t1 = time.perf_counter()
+        # compute the shift to have the true max at -n_left
+        for label in sorting.get_unit_ids():
+            indexes = sorting.get_unit_spike_train(label)
+            indexes = indexes[indexes<(sig_size-n_right-1)]
+            indexes = indexes[indexes>(-n_left+1)]
+            if indexes.size>spike_per_cluster:
+                keep = np.random.choice(indexes.size, spike_per_cluster, replace=False)
+                indexes = indexes[keep]
+            wfs = dataio.get_some_waveforms(seg_num=0, chan_grp=0, sample_indexes=indexes, n_left=n_left, n_right=n_right)
+            wf0 = np.median(wfs, axis=0)
+            chan_max = np.argmax(np.max(np.abs(wf0), axis=0))
+            ind_max = np.argmax(np.abs(wf0[:, chan_max]))
+            
+            shift = ind_max + n_left
+            peak_shift[label] = shift
+            #~ print(label,'>', shift)
+        t2 = time.perf_counter()
+        print('align peaks', t2-t1)
+    
+    
     all_peaks = []
     for label in sorting.get_unit_ids():
         indexes = sorting.get_unit_spike_train(label)
         indexes = indexes[indexes<(sig_size-n_right-1)]
         indexes = indexes[indexes>(-n_left+1)]
         peaks = np.zeros(indexes.shape, dtype=_dtype_peak)
+        if align_peak:
+            indexes = indexes + peak_shift[label]
         peaks['index'][:] = indexes
         peaks['cluster_label'][:] = label
         peaks['segment'][:] = 0
@@ -255,18 +295,30 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, highpass_freq=3
     cc.on_new_cluster()
     #~ print(cc.clusters)
     
+    #  waveform per cluster selection
     t1 = time.perf_counter()
-    cc.extract_some_waveforms(n_left=n_left, n_right=n_right,   mode='rand', nb_max=10000)
-    cc.clean_waveforms(alien_value_threshold=100.)
+    global_keep = np.zeros(all_peaks.size, dtype='bool')
+    for label in sorting.get_unit_ids():
+        inds, = np.nonzero(all_peaks['cluster_label'] == label)
+        if inds.size>spike_per_cluster:
+            incluster_sel = np.random.choice(inds.size, spike_per_cluster, replace=False)
+            inds = inds[incluster_sel]
+        global_keep[inds] = True
+    index, = np.nonzero(global_keep)
+    cc.extract_some_waveforms(n_left=n_left, n_right=n_right, index=index, recompute_all_centroid=False)
+    cc.clean_waveforms(**params['clean_waveforms'], recompute_all_centroid=False)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
     
-    cc.project(method='peak_max')
+    cc.extract_some_features(method=params['feature_method'], **params['feature_kargs'])
     
     # put back label 
     cc.all_peaks['cluster_label'][cc.some_peaks_index] = all_peaks[cc.some_peaks_index]['cluster_label']
+    t1 = time.perf_counter()
     cc.on_new_cluster()
     cc.compute_all_centroid()
+    t2 = time.perf_counter()
+    print('compute_all_centroid', t2-t1)
     cc.refresh_colors()
     print(cc)
     

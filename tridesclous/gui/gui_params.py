@@ -19,7 +19,7 @@ Preprocessor
     * lostfront_chunksize (int): size in sample of the margin at the front edge for each chunk to avoid border effect in backward filter.
        In you don't known put None then lostfront_chunksize will be int(sample_rate/highpass_freq)*3 which is quite robust (<5% error)
        compared to a true offline filtfilt.
-    * signalpreprocessor_engine (str): 'numpy' or 'opencl'. There is a double implementation for signal preprocessor : With numpy/scipy
+    * engine (str): 'numpy' or 'opencl'. There is a double implementation for signal preprocessor : With numpy/scipy
       flavor (and so CPU) or opencl with home made CL kernel (and so use GPU computing). If you have big fat GPU and are able to install
       "opencl driver" (ICD) for your platform the opencl flavor should speedup the peeler because pre processing signal take a quite
       important amoung of time.
@@ -48,9 +48,6 @@ Waveform extraction
     of cells) + the density (firing rate) fo each cluster. Since this can't be known in advance, the user must explore cluster and
     extract again while changing this number given dense enough clusters. This have a strong imptact of the CPU and RAM.
     So do not choose to big number.
-  * align_waveform (bool): experimental make an oversampling before extracting waveform. This slow down a lot the process
-     with few enhancement for centroids. Note that this is NOT the intersample true peak estimation done by the Peeler (which is
-     very important)
 
 Waveform clean
 -------------------------
@@ -127,13 +124,14 @@ preprocessor_params = [
     {'name': 'lowpass_freq', 'type': 'float', 'value':5000., 'step': 10., 'suffix': 'Hz', 'siPrefix': True},
     {'name': 'smooth_size', 'type': 'int', 'value':0},
     {'name': 'common_ref_removal', 'type': 'bool', 'value':False},
-    {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
-    {'name': 'lostfront_chunksize', 'type': 'int', 'value':0, 'decimals':10, 'limits': (0, np.inf),},
-    {'name': 'signalpreprocessor_engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl']},
+    #~ {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
+    {'name': 'lostfront_chunksize', 'type': 'int', 'value':-1, 'decimals':10, 'limits': (-1, np.inf),},
+    {'name': 'engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl']},
 ]
 
 peak_detector_params = [
-    {'name': 'peakdetector_engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl']},
+    {'name': 'method', 'type': 'list', 'value' : 'global', 'values':['global', 'geometrical']},
+    {'name': 'engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl', 'numba']},
     {'name': 'peak_sign', 'type': 'list',  'value':'-', 'values':['-', '+']},
     {'name': 'relative_threshold', 'type': 'float', 'value': 5., 'step': .1,},
     {'name': 'peak_span_ms', 'type': 'float', 'value':0.5, 'step': 0.05, 'suffix': 'ms', 'siPrefix': False},
@@ -144,8 +142,7 @@ waveforms_params = [
     {'name': 'wf_right_ms', 'type': 'float', 'value': 3.0,  'suffix': 'ms','step': .1,},
     {'name': 'mode', 'type': 'list', 'values':['rand', 'all']},
     {'name': 'nb_max', 'type': 'int', 'value':20000},
-    {'name': 'align_waveform', 'type': 'bool', 'value':False},
-    #~ {'name': 'subsample_ratio', 'type': 'int', 'value':20},
+    #~ {'name': 'sparse', 'type': 'bool', 'value':False},
 ]
 
 clean_waveforms_params =[
@@ -158,6 +155,10 @@ noise_snippet_params = [
     {'name': 'nb_snippet', 'type': 'int', 'value':300},
 ]
 
+
+clean_cluster_params = [
+    {'name': 'too_small', 'type': 'int', 'value':20},
+]
 
 
 features_params_by_methods = OrderedDict([
@@ -182,6 +183,7 @@ cluster_params_by_methods = OrderedDict([
                         {'name' : 'algorithm', 'type' : 'list', 'values' : ['brute', 'auto', 'ball_tree', 'kd_tree', 'brute']},
                     ]),
     ('optics', [{'name' : 'min_samples', 'type' : 'int', 'value' : 5}]),
+    ('hdbscan', [{'name' : 'min_cluster_size', 'type' : 'int', 'value' : 20}]),
     ('isosplit5', []),
     ('sawchaincut', [{'name' : 'max_loop', 'type' : 'int', 'value' : 1000},
                                 {'name' : 'nb_min', 'type' : 'int', 'value' : 20},
@@ -190,6 +192,7 @@ cluster_params_by_methods = OrderedDict([
                                 {'name' : 'auto_merge_threshold', 'type' : 'float', 'value' : 2., 'step':0.1},
                                 {'name':'print_debug', 'type': 'bool', 'value':False},
                             ]),
+    ('pruningshears', [{'name' : 'min_cluster_size', 'type' : 'int', 'value' : 20}]),
 ])
 
 #~ split_params_by_methods = OrderedDict([
@@ -202,11 +205,23 @@ cluster_params_by_methods = OrderedDict([
 
 fullchain_params = [
     {'name':'duration', 'type': 'float', 'value':300., 'suffix': 's', 'siPrefix': True},
+    
+    {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
+    
+    {'name' : 'mode', 'type' : 'list', 'values' : ['dense', 'sparse']},
+    {'name':'adjacency_radius_um', 'type': 'float', 'value':300., 'suffix': 'µm', 'siPrefix': False},
+    {'name':'sparse_threshold', 'type': 'float', 'value':1.5},
+    
+    
     {'name':'preprocessor', 'type':'group', 'children': preprocessor_params},
     {'name':'peak_detector', 'type':'group', 'children': peak_detector_params},
     {'name':'noise_snippet', 'type':'group', 'children': noise_snippet_params},
     {'name':'extract_waveforms', 'type':'group', 'children' : waveforms_params},
     {'name':'clean_waveforms', 'type':'group', 'children' : clean_waveforms_params},
+    
+    {'name':'clean_cluster', 'type': 'bool', 'value':True},
+    {'name':'clean_cluster_kargs', 'type':'group', 'children' : clean_cluster_params},
+    
 ]
 
 metrics_params = [
@@ -217,15 +232,26 @@ metrics_params = [
 ]
 
 
-peeler_params = [
-    {'name':'limit_duration', 'type': 'bool', 'value':True},
+_common_peeler_params = [
+    {'name':'limit_duration', 'type': 'bool', 'value': False},
     {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
     {'name':'duration', 'type': 'float', 'value':60., 'suffix': 's', 'siPrefix': True},
+    
     {'name': 'use_sparse_template', 'type': 'bool', 'value':False},
     {'name':'sparse_threshold_mad', 'type': 'float', 'value': 1.5, },
-    {'name': 'use_opencl_with_sparse', 'type': 'bool', 'value':False},
+    
+    {'name': 'argmin_method', 'type': 'list', 'values' : [ 'numpy', 'opencl', 'numba',]},
+    
+    {'name': 'maximum_jitter_shift', 'type': 'int', 'value':4, 'decimals':10},
     
 ]
+
+
+peeler_params_by_methods = OrderedDict([
+    ('classic', _common_peeler_params),
+    ('geometrical', _common_peeler_params),
+    ('classic_old', _common_peeler_params),
+])
 
 
 

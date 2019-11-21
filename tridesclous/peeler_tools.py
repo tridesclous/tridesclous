@@ -3,17 +3,47 @@ import numpy as np
 
 from .cltools import HAVE_PYOPENCL
 
+try:
+    import numba
+    HAVE_NUMBA = True
+except ImportError:
+    HAVE_NUMBA = False
+
+
 from .labelcodes import (LABEL_TRASH, LABEL_UNCLASSIFIED, LABEL_ALIEN)
 
 LABEL_LEFT_LIMIT = -11
 LABEL_RIGHT_LIMIT = -12
 LABEL_MAXIMUM_SHIFT = -13
+
+LABEL_NO_MORE_PEAK = -20
+
 # good label are >=0
 
 _dtype_spike = [('index', 'int64'), ('cluster_label', 'int64'), ('jitter', 'float64'),]
 
 Spike = namedtuple('Spike', ('index', 'cluster_label', 'jitter'))
 
+
+def make_prediction_on_spike_with_label(spike_index, spike_label, spike_jitter, dtype, catalogue):
+    assert spike_label >= 0
+    cluster_idx = catalogue['label_to_index'][spike_label]
+    return make_prediction_one_spike(spike_index, cluster_idx, spike_jitter, dtype, catalogue)
+
+def make_prediction_one_spike(spike_index, cluster_idx, spike_jitter, dtype, catalogue):
+    
+    r = catalogue['subsample_ratio']
+    pos = spike_index + catalogue['n_left']
+    if spike_jitter is None or np.isnan(spike_jitter):
+        pred = catalogue['centers0'][cluster_idx, :, :]
+    else:
+        #TODO debug that sign   >>>> done this is correct
+        shift = -int(np.round(spike_jitter))
+        pos = pos + shift
+        int_jitter = int((spike_jitter+shift)*r) + r//2
+        pred = catalogue['interp_centers0'][cluster_idx, int_jitter::r, :]
+    
+    return pos, pred
 
 
 def make_prediction_signals(spikes, dtype, shape, catalogue, safe=True):
@@ -24,51 +54,7 @@ def make_prediction_signals(spikes, dtype, shape, catalogue, safe=True):
         k = spikes[i]['cluster_label']
         if k<0: continue
         
-        #~ cluster_idx = np.nonzero(catalogue['cluster_labels']==k)[0][0]
-        cluster_idx = catalogue['label_to_index'][k]
-        
-        #~ print('make_prediction_signals', 'k', k, 'cluster_idx', cluster_idx)
-        
-        # prediction with no interpolation
-        #~ wf0 = catalogue['centers0'][cluster_idx,:,:]
-        #~ pred = wf0
-        
-        # predict with tailor approximate with derivative
-        #~ wf1 = catalogue['centers1'][cluster_idx,:,:]
-        #~ wf2 = catalogue['centers2'][cluster_idx]
-        #~ pred = wf0 +jitter*wf1 + jitter**2/2*wf2
-        
-        #predict with with precilputed splin
-        r = catalogue['subsample_ratio']
-        pos = spikes[i]['index'] + catalogue['n_left']
-        jitter = spikes[i]['jitter']
-        #TODO debug that sign
-        shift = -int(np.round(jitter))
-        pos = pos + shift
-        
-        #~ if np.abs(jitter)>=0.5:
-            #~ print('strange jitter', jitter)
-        
-        #TODO debug that sign
-        #~ if shift >=1:
-            #~ print('jitter', jitter, 'jitter+shift', jitter+shift, 'shift', shift)
-        #~ int_jitter = int((jitter+shift)*r) + r//2
-        int_jitter = int((jitter+shift)*r) + r//2
-        #~ int_jitter = -int((jitter+shift)*r) + r//2
-        
-        #~ assert int_jitter>=0
-        #~ assert int_jitter<r
-        #TODO this is wrong we should move index first
-        #~ int_jitter = max(int_jitter, 0)
-        #~ int_jitter = min(int_jitter, r-1)
-        
-        pred = catalogue['interp_centers0'][cluster_idx, int_jitter::r, :]
-        #~ print(pred.shape)
-        #~ print(int_jitter, spikes[i]['jitter'])
-        
-        
-        #~ print(prediction[pos:pos+catalogue['peak_width'], :].shape)
-        
+        pos, pred = make_prediction_on_spike_with_label(spikes[i]['index'], spikes[i]['cluster_label'], spikes[i]['jitter'], dtype, catalogue)
         
         if pos>=0 and  pos+catalogue['peak_width']<shape[0]:
             prediction[pos:pos+catalogue['peak_width'], :] += pred
@@ -96,14 +82,33 @@ def get_auto_params_for_peelers(dataio, chan_grp=0):
     nb_chan = dataio.nb_channel(chan_grp=chan_grp)
     params = {}
     
+
+    params['inter_sample_oversampling'] = True
+    #~ if dataio.sample_rate < 25000.:
+        #~ params['inter_sample_oversampling'] = True
+    #~ else:
+        #~ params['inter_sample_oversampling'] = False
+    
     if nb_chan <=8:
+        
         params['use_sparse_template'] = False
         params['sparse_threshold_mad'] = 1.5
-        params['use_opencl_with_sparse'] = False
+        params['argmin_method'] = 'numpy'
+        
+        
     else:
         params['use_sparse_template'] = True
         params['sparse_threshold_mad'] = 1.5
-        params['use_opencl_with_sparse'] = HAVE_PYOPENCL
+        
+        params['engine'] = 'geometrical'
+        
+        
+        if HAVE_PYOPENCL:
+            params['argmin_method'] = 'opencl'
+        elif HAVE_NUMBA:
+            params['argmin_method'] = 'numba'
+        else:
+            params['argmin_method'] = 'numpy'
 
     return params
     

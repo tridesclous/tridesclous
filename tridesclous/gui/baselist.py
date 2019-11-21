@@ -24,7 +24,7 @@ class ClusterBaseList(WidgetBase):
         self.layout.addLayout(h)
         h.addWidget(QT.QLabel('sort by'))
         self.combo_sort = QT.QComboBox()
-        self.combo_sort.addItems(['label', 'max_on_channel', 'max_peak_amplitude', 'waveform_rms', 'nb_peak'])
+        self.combo_sort.addItems(['label', 'extremum_channel', 'extremum_amplitude', 'waveform_rms', 'nb_peak'])
         self.combo_sort.currentIndexChanged.connect(self.refresh)
         h.addWidget(self.combo_sort)
         h.addStretch()
@@ -45,7 +45,7 @@ class ClusterBaseList(WidgetBase):
         self.table.itemChanged.disconnect(self.on_item_changed)
         
         self.table.clear()
-        labels = ['cluster_label', 'show/hide', 'nb_peaks', 'max_on_channel', 'cell_label', 'tag', 'annotations']
+        labels = ['cluster_label', 'show/hide', 'nb_peaks', 'extremum_channel', 'cell_label', 'tag', 'annotations']
         self.table.setColumnCount(len(labels))
         self.table.setHorizontalHeaderLabels(labels)
         #~ self.table.setMinimumWidth(100)
@@ -61,10 +61,10 @@ class ClusterBaseList(WidgetBase):
         clusters = clusters[clusters['cluster_label']>=0]
         if sort_mode=='label':
             order =np.arange(clusters.size)
-        elif sort_mode=='max_on_channel':
-            order = np.argsort(clusters['max_on_channel'])
-        elif sort_mode=='max_peak_amplitude':
-            order = np.argsort(np.abs(clusters['max_peak_amplitude']))[::-1]
+        elif sort_mode=='extremum_channel':
+            order = np.argsort(clusters['extremum_channel'])
+        elif sort_mode=='extremum_amplitude':
+            order = np.argsort(np.abs(clusters['extremum_amplitude']))[::-1]
         elif sort_mode=='waveform_rms':
             order = np.argsort(clusters['waveform_rms'])[::-1]
         elif sort_mode=='nb_peak':
@@ -100,7 +100,7 @@ class ClusterBaseList(WidgetBase):
             item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
             self.table.setItem(i,2, item)
             
-            c = self.controller.get_max_on_channel(k)
+            c = self.controller.get_extremum_channel(k)
             if c is not None:
                 item = QT.QTableWidgetItem('{}: {}'.format(c, self.controller.channel_names[c]))
                 item.setFlags(QT.Qt.ItemIsEnabled|QT.Qt.ItemIsSelectable)
@@ -108,7 +108,8 @@ class ClusterBaseList(WidgetBase):
             
             if k>=0:
                 clusters = self.controller.clusters
-                ind = np.searchsorted(clusters['cluster_label'], k)
+                ## ind = np.searchsorted(clusters['cluster_label'], k) ## wrong because searchsortedmust be ordered
+                ind = np.nonzero(clusters['cluster_label'] == k)[0][0]
                 
                 for c, attr in enumerate(['cell_label', 'tag', 'annotations']):
                     value = clusters[attr][ind]

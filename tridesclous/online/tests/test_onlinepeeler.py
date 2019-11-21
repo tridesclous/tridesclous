@@ -12,13 +12,15 @@ from tridesclous.gui import QT
 import  pyqtgraph as pg
 
 
-
+from tridesclous.cataloguetools import _default_catalogue_params
+import copy
 
 
 import numpy as np
 import time
 import os
 import shutil
+from pprint import pprint
 
 
 import pytest
@@ -41,37 +43,9 @@ def setup_catalogue():
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
     
-    params = {
-        'duration' : 60.,
-        'preprocessor' : {
-            'highpass_freq' : 300.,
-            'chunksize' : 1024,
-            'lostfront_chunksize' : 100,
-        },
-        'peak_detector' : {
-            'peak_sign' : '-',
-            'relative_threshold' : 7.,
-            'peak_span' : 0.0005,
-            #~ 'peak_span' : 0.000,
-        },
-        'extract_waveforms' : {
-            'n_left' : -25,
-            'n_right' : 40,
-            'nb_max' : 10000,
-        },
-        'clean_waveforms' : {
-            'alien_value_threshold' : 60.,
-        },
-        'noise_snippet' : {
-            'nb_snippet' : 300,
-        },
-        'feature_method': 'global_pca', 
-        'feature_kargs':{'n_components': 12},
-        'cluster_method' : 'kmeans', 
-        'cluster_kargs' : {'n_clusters': 12},
-        'clean_cluster' : False,
-        'clean_cluster_kargs' : {},
-    }
+    params = copy.deepcopy(_default_catalogue_params)
+    
+
     
     apply_all_catalogue_steps(catalogueconstructor, params, verbose=True)
     catalogueconstructor.trash_small_cluster()
@@ -122,14 +96,14 @@ def test_OnlinePeeler():
     dev.start()
     
     # Node QOscilloscope
-    #~ oscope = QOscilloscope()
-    #~ oscope.configure(with_user_dialog=True)
-    #~ oscope.input.connect(dev.output)
-    #~ oscope.initialize()
-    #~ oscope.show()
-    #~ oscope.start()
-    #~ oscope.params['decimation_method'] = 'min_max'
-    #~ oscope.params['mode'] = 'scan'    
+    oscope = QOscilloscope()
+    oscope.configure(with_user_dialog=True)
+    oscope.input.connect(dev.output)
+    oscope.initialize()
+    oscope.show()
+    oscope.start()
+    oscope.params['decimation_method'] = 'min_max'
+    oscope.params['mode'] = 'scan'    
 
     # Node Peeler
     peeler = OnlinePeeler()
@@ -142,16 +116,16 @@ def test_OnlinePeeler():
     peeler.start()
     
     # Node traceviewer
-    #~ tviewer = OnlineTraceViewer()
-    #~ tviewer.configure(peak_buffer_size = 1000, catalogue=lighter_catalogue(catalogue))
-    #~ tviewer.inputs['signals'].connect(peeler.outputs['signals'])
-    #~ tviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
-    #~ tviewer.initialize()
-    #~ tviewer.show()
-    #~ tviewer.start()
-    #~ tviewer.params['xsize'] = 3.
-    #~ tviewer.params['decimation_method'] = 'min_max'
-    #~ tviewer.params['mode'] = 'scan'
+    tviewer = OnlineTraceViewer()
+    tviewer.configure(peak_buffer_size = 1000, catalogue=lighter_catalogue(catalogue))
+    tviewer.inputs['signals'].connect(peeler.outputs['signals'])
+    tviewer.inputs['spikes'].connect(peeler.outputs['spikes'])
+    tviewer.initialize()
+    tviewer.show()
+    tviewer.start()
+    tviewer.params['xsize'] = 3.
+    tviewer.params['decimation_method'] = 'min_max'
+    tviewer.params['mode'] = 'scan'
 
     
     # waveform histogram viewer
@@ -225,7 +199,7 @@ def test_OnlinePeeler_no_catalogue():
         )
     
     
-    print(empty_catalogue)
+    pprint(empty_catalogue)
     #~ print(empty_catalogue['signal_preprocessor_params'])
     #~ exit()
     

@@ -16,7 +16,7 @@ spike_visible_modes = ['selected', 'all',  'collision']
 
 #~ _dtype_spike = [('index', 'int64'), ('cluster_label', 'int64'), ('jitter', 'float64'),]
 
-_dtype_complement = [('cell_label', 'int64'), ('segment', 'int64'), ('visible', 'bool'),
+_dtype_complement = [('cell_label', 'int64'), ('channel', 'int64'), ('segment', 'int64'), ('visible', 'bool'),
                 ('selected', 'bool')]
 
 
@@ -28,7 +28,7 @@ class PeelerController(ControllerBase):
         
         self.chan_grp = catalogue['chan_grp']
         self.nb_channel = self.dataio.nb_channel(self.chan_grp)
-        
+        self.channels = np.arange(self.nb_channel, dtype='int64')
         
         self.init_plot_attributes()
         self.update_visible_spikes()
@@ -56,8 +56,12 @@ class PeelerController(ControllerBase):
             spikes['cell_label'][mask] = spikes['cluster_label'][mask]
             
             mask = spikes['cluster_label']>=0
-            spike_cluster_index = np.searchsorted(cluster_labels, spikes['cluster_label'][mask])
-            spikes['cell_label'][mask] = cell_labels[spike_cluster_index]
+            # searchsorter wotk with ordered
+            clus = clusters[clusters['cluster_label']>=0]
+            order = np.argsort(clus['cluster_label'])
+            clus = clus[order].copy()
+            spike_cluster_index = np.searchsorted(clus['cluster_label'], spikes['cluster_label'][mask].copy())
+            spikes['cell_label'][mask] = clus['cell_label'][spike_cluster_index]
             
             self.spikes.append(spikes)
         self.spikes = np.concatenate(self.spikes)
@@ -65,6 +69,22 @@ class PeelerController(ControllerBase):
         self.nb_spike = int(self.spikes.size)
         
         self.cluster_labels = self.catalogue['clusters']['cluster_label']
+        
+        # set channel for each cluster
+        for k in self.cluster_labels:
+            chan = self.catalogue['extremum_channel'][k]
+            sel = self.spikes['cluster_label'] == k
+            self.spikes['channel'][sel] = chan
+        
+        # compute sparse mask
+        # TODO : put this mask in catalogue directly
+        self.sparse_threshold = 1.5
+        self.centroids_sparse_mask = np.zeros((self.cluster_labels.size, self.nb_channel), dtype='bool')
+        for k in self.cluster_labels:
+            ind = self.catalogue['label_to_index'][k] 
+            median = self.catalogue['centers0'][ind, :, :]
+            self.centroids_sparse_mask[ind, :] = np.any(np.abs(median) > self.sparse_threshold, axis=0)
+        
         #~ self.cluster_labels = np.unique(self.spikes['cluster_label'])#TODO take from catalogue
         
         
@@ -95,6 +115,10 @@ class PeelerController(ControllerBase):
         #~ self.refresh_colors(reset=False)
     
     @property
+    def have_sparse_template(self):
+        return True
+    
+    @property
     def spike_selection(self):
         return self.spikes['selected']
 
@@ -104,6 +128,10 @@ class PeelerController(ControllerBase):
 
     @property
     def spike_index(self):
+        return self.spikes['index']
+
+    @property
+    def spike_channel(self):
         return self.spikes['index']
 
     @property
@@ -118,15 +146,40 @@ class PeelerController(ControllerBase):
     def get_waveforms_shape(self):
         shape = self.catalogue['centers0'].shape[1:]
         return shape
-
-    def get_waveform_centroid(self, label, metric):
+    
+    def get_sparse_channels(self, label):
+        ind = self.catalogue['label_to_index'][label] 
+        chans,  = np.nonzero(self.centroids_sparse_mask[ind, :])
+        return chans
+    
+    def get_common_sparse_channels(self, labels):
+        inds = [self.catalogue['label_to_index'][label]  for label in labels]
+        chans,  = np.nonzero(np.any(self.centroids_sparse_mask[inds, :], axis=0))
+        return chans
+    
+    def get_waveform_centroid(self, label, metric, sparse=False, channels=None):
         if metric in ('mean', 'std', 'mad'):
-            return None
+            return None, None
         
+
         if label in self.catalogue['label_to_index']:
             i = self.catalogue['label_to_index'][label]
             wf = self.catalogue['centers0'][i, :, :].copy()
-            return wf
+
+            if sparse:
+                assert channels is None
+                chans = self.get_sparse_channels(label)
+                wf = wf[:, chans].copy()
+            elif channels is not None:
+                chans = channels
+                wf = wf[:, chans].copy()
+            else:
+                chans = self.channels
+                wf = wf.copy()
+            
+            return wf, chans
+        else:
+            return None, None
 
     def get_min_max_centroids(self):
         if self.catalogue['centers0'].shape[0]>0:
@@ -146,10 +199,10 @@ class PeelerController(ControllerBase):
             threshold = -threshold
         return threshold
 
-    def get_max_on_channel(self, label):
+    def get_extremum_channel(self, label):
         if label in self.catalogue['label_to_index']:
             cluster_idx = self.catalogue['label_to_index'][label]
-            c = self.catalogue['max_on_channel'][cluster_idx]
+            c = self.catalogue['extremum_channel'][cluster_idx]
             return c
 
     def change_spike_visible_mode(self, mode):

@@ -15,6 +15,7 @@ import shutil
 from tridesclous.tests.testingtools import ON_CI_CLOUD
 import pytest
 
+
 def setup_module():
     setup_catalogue('test_matplotlibplot', dataset_name='olfactory_bulb')
 

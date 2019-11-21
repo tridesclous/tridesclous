@@ -119,6 +119,8 @@ class WaveformViewerBase(WidgetBase):
             self.plot2.showAxis('left', True)
             self.viewBox2.setXLink(self.viewBox1)
             self.factor_y = 1.
+            
+            self._common_channels_flat = None
 
         elif self.mode=='geometry':
             self.plot2 = None
@@ -134,7 +136,8 @@ class WaveformViewerBase(WidgetBase):
                 shape = self.controller.get_waveforms_shape()
                 width = shape[0]
                 
-                self.xvect = np.zeros(shape[0]*shape[1], dtype='float32')
+                #~ self.xvect = np.zeros(shape[0]*shape[1], dtype='float32')
+                self.xvect = np.zeros((shape[1], shape[0]), dtype='float32')
 
                 self.arr_geometry = []
                 for i, chan in enumerate(self.controller.channel_indexes):
@@ -164,7 +167,7 @@ class WaveformViewerBase(WidgetBase):
                     espx = .5
                 for i, chan in enumerate(channel_group['channels']):
                     x, y = channel_group['geometry'][chan]
-                    self.xvect[i*width:(i+1)*width] = np.linspace(x-espx, x+espx, num=width)
+                    self.xvect[i, :] = np.linspace(x-espx, x+espx, num=width)
         
         self.wf_min, self.wf_max = self.controller.get_min_max_centroids()
         
@@ -183,14 +186,15 @@ class WaveformViewerBase(WidgetBase):
     def gain_zoom(self, factor_ratio):
         self.factor_y *= factor_ratio
         
-        self.refresh()
+        self.refresh(keep_range=True)
     
     def zoom_range(self):
         self._x_range = None
         self._y1_range = None
         self._y2_range = None
-        self.refresh()
-    def refresh(self):
+        self.refresh(keep_range=False)
+    
+    def refresh(self, keep_range=False):
         
         if not hasattr(self, 'viewBox1'):
             self.initialize_plot()
@@ -210,23 +214,21 @@ class WaveformViewerBase(WidgetBase):
             cluster_visible = self.controller.cluster_visible
         
         if self.mode=='flatten':
-            self.refresh_mode_flatten(cluster_visible)
+            self.refresh_mode_flatten(cluster_visible, keep_range)
         elif self.mode=='geometry':
-            self.refresh_mode_geometry(cluster_visible)
+            self.refresh_mode_geometry(cluster_visible, keep_range)
         
         self._refresh_one_spike(n_selected)
     
     
-    def refresh_mode_flatten(self, cluster_visible):
-        if self._x_range is not None:
-            #~ self._x_range = self.plot1.getXRange()
-            #~ self._y1_range = self.plot1.getYRange()
-            #~ self._y2_range = self.plot2.getYRange()
+    def refresh_mode_flatten(self, cluster_visible, keep_range):
+        if self._x_range is not None and keep_range:
             #this may change with pyqtgraph
             self._x_range = tuple(self.viewBox1.state['viewRange'][0])
             self._y1_range = tuple(self.viewBox1.state['viewRange'][1])
             self._y2_range = tuple(self.viewBox2.state['viewRange'][1])
-            
+        
+        
         
         self.plot1.clear()
         self.plot2.clear()
@@ -241,10 +243,25 @@ class WaveformViewerBase(WidgetBase):
         n_left, n_right = self.controller.get_waveform_left_right()
         width = n_right - n_left
         
+        sparse = self.controller.have_sparse_template and self.params['sparse_display']
+        visibles = [k for k, v in cluster_visible.items() if v and k>=-1 ]
+        
+        if sparse:
+            if len(visibles) > 0:
+                common_channels = self.controller.get_common_sparse_channels(visibles)
+            else:
+                #~ common_channels = np.array([], dtype='int64')
+                return
+        else:
+            common_channels = self.controller.channels
+        
+        self._common_channels_flat = common_channels
+        
         #lines
         def addSpan(plot):
             white = pg.mkColor(255, 255, 255, 20)
-            for i in range(nb_channel):
+            #~ for i in range(nb_channel):
+            for i, c in enumerate(common_channels):
                 if i%2==1:
                     region = pg.LinearRegionItem([width*i, width*(i+1)-1], movable = False, brush = white)
                     plot.addItem(region, ignoreBounds=True)
@@ -276,6 +293,8 @@ class WaveformViewerBase(WidgetBase):
         shape = self.controller.get_waveforms_shape()
         if shape is None:
             return
+        
+        shape = (shape[0], len(common_channels))
         xvect = np.arange(shape[0]*shape[1])
         
         #~ for i,k in enumerate(self.controller.centroids):
@@ -286,10 +305,11 @@ class WaveformViewerBase(WidgetBase):
             
             #~ wf0 = self.controller.centroids[k][key1].T.flatten()
             #~ mad = self.controller.centroids[k][key2].T.flatten()
-            wf0 = self.controller.get_waveform_centroid(k, key1)
+            wf0, chans = self.controller.get_waveform_centroid(k, key1, channels=common_channels)
             if wf0 is None: continue
             wf0 = wf0.T.flatten()
-            mad = self.controller.get_waveform_centroid(k, key2)
+            
+            mad, chans = self.controller.get_waveform_centroid(k, key2, channels=common_channels)
             
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
             curve = pg.PlotCurveItem(xvect, wf0, pen=pg.mkPen(color, width=2))
@@ -313,28 +333,32 @@ class WaveformViewerBase(WidgetBase):
                 self.plot2.addItem(curve)        
 
         if self.params['show_channel_num']:
-            for i, (chan, name) in enumerate(self.controller.channel_indexes_and_names):
+            cn = self.controller.channel_indexes_and_names
+            for i, c in enumerate(common_channels):
+                # chan i sabsolut chan
+                chan, name = cn[c]
+            #~ for i, (chan, name) in enumerate(self.controller.channel_indexes_and_names):
                 itemtxt = pg.TextItem('{}: {}'.format(i, name), anchor=(.5,.5), color='#FFFF00')
                 itemtxt.setFont(QT.QFont('', pointSize=12))
                 self.plot1.addItem(itemtxt)
                 itemtxt.setPos(width*i-n_left, 0)
 
         
-        if self._x_range is None:
-            self._x_range = xvect[0], xvect[-1]
-            self._y1_range = self.wf_min*1.1, self.wf_max*1.1
-            self._y2_range = 0., 5.
+        if self._x_range is None or not keep_range :
+            if xvect.size>0:
+                self._x_range = xvect[0], xvect[-1]
+                self._y1_range = self.wf_min*1.1, self.wf_max*1.1
+                self._y2_range = 0., 5.
         
-        self.plot1.setXRange(*self._x_range, padding = 0.0)
-        self.plot1.setYRange(*self._y1_range, padding = 0.0)
-        self.plot2.setYRange(*self._y2_range, padding = 0.0)
-
-        
-
-    def refresh_mode_geometry(self, cluster_visible):
         if self._x_range is not None:
-            #~ self._x_range = self.plot1.getXRange()
-            #~ self._y1_range = self.plot1.getYRange()
+            self.plot1.setXRange(*self._x_range, padding = 0.0)
+            self.plot1.setYRange(*self._y1_range, padding = 0.0)
+            self.plot2.setYRange(*self._y2_range, padding = 0.0)
+
+        
+
+    def refresh_mode_geometry(self, cluster_visible, keep_range):
+        if self._x_range is not None and keep_range:
             #this may change with pyqtgraph
             self._x_range = tuple(self.viewBox1.state['viewRange'][0])
             self._y1_range = tuple(self.viewBox1.state['viewRange'][1])
@@ -343,14 +367,28 @@ class WaveformViewerBase(WidgetBase):
         
         if self.xvect is None:
             return
+
+        sparse = self.controller.have_sparse_template and self.params['sparse_display']
+        visibles = [k for k, v in cluster_visible.items() if v and k>=-1 ]
+        
+        #~ if sparse:
+            #~ if len(visibles) > 0:
+                #~ common_channels = self.controller.get_common_sparse_channels(visibles)
+            #~ else:
+                #~ common_channels = np.array([], dtype='int64')
+                #~ return
+        #~ else:
+            #~ common_channels = self.controller.channels
         
         shape = self.controller.get_waveforms_shape()
         if shape is None:
             return
         
         # if n_left/n_right have change need new xvect
-        if self.xvect.shape[0] != shape[0] * shape[1]:
+        if self.xvect.size != shape[0] * shape[1]:
             self.initialize_plot()
+        
+        #~ shape = (shape[0], len(common_channels))
         
         self.plot1.addItem(self.curve_one_waveform)
 
@@ -361,22 +399,29 @@ class WaveformViewerBase(WidgetBase):
         elif self.params['metrics']=='mean/std':
             key1, key2 = 'mean', 'std'
 
-        ypos = self.arr_geometry[:,1]
+        #~ ypos = self.arr_geometry[:,1]
+        #~ ypos = self.arr_geometry[common_channels,1]
         
+        #~ xvect = self.xvect.reshape(self.controller.nb_channel, -1)[common_channels, :].flatten()
         for k in cluster_visible:
             if not cluster_visible[k]:
                 continue
-
-            wf = self.controller.get_waveform_centroid(k, key1)
+            
+            
+            wf, chans = self.controller.get_waveform_centroid(k, key1, sparse=sparse)
             
             if wf is None: continue
+            
+            ypos = self.arr_geometry[chans,1]
             
             wf = wf*self.factor_y*self.delta_y + ypos[None, :]
             wf[0,:] = np.nan
             wf = wf.T.reshape(-1)
             
+            xvect = self.xvect[chans, :].flatten()
+            
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
-            curve = pg.PlotCurveItem(self.xvect, wf, pen=pg.mkPen(color, width=2), connect='finite')
+            curve = pg.PlotCurveItem(xvect, wf, pen=pg.mkPen(color, width=2), connect='finite')
             self.plot1.addItem(curve)
         
         if self.params['show_channel_num']:
@@ -389,9 +434,10 @@ class WaveformViewerBase(WidgetBase):
                 self.plot1.addItem(itemtxt)
                 itemtxt.setPos(x, y)
         
-        if self._x_range is None:
+        #~ if self._x_range is None:
+        if self._x_range is None or not keep_range :
             self._x_range = np.min(self.xvect), np.max(self.xvect)
-            self._y1_range = np.min(ypos)-self.delta_y*2, np.max(ypos)+self.delta_y*2
+            self._y1_range = np.min(self.arr_geometry[:,1])-self.delta_y*2, np.max(self.arr_geometry[:,1])+self.delta_y*2
         
         self.plot1.setXRange(*self._x_range, padding = 0.0)
         self.plot1.setYRange(*self._y1_range, padding = 0.0)
@@ -418,7 +464,11 @@ class WaveformViewerBase(WidgetBase):
         if wf.shape[0]==(n_right-n_left):
             #this avoid border bugs
             if self.mode=='flatten':
-                wf = wf.T.flatten()
+                if self._common_channels_flat is None:
+                    self.curve_one_waveform.setData([], [])
+                    return
+                
+                wf = wf[:, self._common_channels_flat].T.flatten()
                 xvect = np.arange(wf.size)
                 self.curve_one_waveform.setData(xvect, wf)
             elif self.mode=='geometry':
@@ -426,12 +476,12 @@ class WaveformViewerBase(WidgetBase):
                 wf = wf*self.factor_y*self.delta_y + ypos[None, :]
                 wf[0,:] = np.nan
                 wf = wf.T.reshape(-1)
-                self.curve_one_waveform.setData(self.xvect, wf)
+                self.curve_one_waveform.setData(self.xvect.flatten(), wf)
     
     def on_spike_selection_changed(self):
         #~ n_selected = np.sum(self.controller.spike_selection)
         #~ self._refresh_one_spike(n_selected)
-        self.refresh()
+        self.refresh(keep_range=True)
 
 
 
@@ -480,6 +530,7 @@ class WaveformViewer(WaveformViewerBase):
                       {'name': 'show_channel_num', 'type': 'bool', 'value': False},
                       {'name': 'flip_bottom_up', 'type': 'bool', 'value': False},
                       {'name': 'display_threshold', 'type': 'bool', 'value' : True },
+                      {'name': 'sparse_display', 'type': 'bool', 'value' : True },
                       ]
         
 
@@ -495,4 +546,5 @@ class PeelerWaveformViewer(WaveformViewerBase):
                       {'name': 'show_channel_num', 'type': 'bool', 'value': False},
                       {'name': 'flip_bottom_up', 'type': 'bool', 'value': False},
                       {'name': 'display_threshold', 'type': 'bool', 'value' : True },
+                      {'name': 'sparse_display', 'type': 'bool', 'value' : True },
                       ]

@@ -25,6 +25,7 @@ class CatalogueController(ControllerBase):
         self.cc = self.catalogueconstructor = catalogueconstructor
         self.dataio = catalogueconstructor.dataio
         self.nb_channel = self.dataio.nb_channel(self.chan_grp)
+        self.channels = np.arange(self.nb_channel, dtype='int64')
 
         self.init_plot_attributes()
     
@@ -45,6 +46,8 @@ class CatalogueController(ControllerBase):
         
         if self.cc.centroids_median is None:
             self.cc.compute_all_centroid()
+        
+        
         
 
     def check_plot_attributes(self):
@@ -76,6 +79,10 @@ class CatalogueController(ControllerBase):
             self.cluster_count[labelcodes.LABEL_NOISE] = self.cc.some_noise_snippet.shape[0]
         else:
             self.cluster_count[labelcodes.LABEL_NOISE] = 0
+    
+    @property
+    def have_sparse_template(self):
+        return self.cc.mode == 'sparse'
     
     #map some attribute
     @property
@@ -109,6 +116,10 @@ class CatalogueController(ControllerBase):
     @property
     def spike_label(self):
         return self.cc.all_peaks['cluster_label']
+    
+    @property
+    def spike_channel(self):
+        return self.cc.all_peaks['channel']
 
     @property
     def spike_segment(self):
@@ -131,11 +142,34 @@ class CatalogueController(ControllerBase):
             shape = self.cc.some_waveforms.shape[1:]
             return shape
     
-    def get_waveform_centroid(self, label, metric):
+    def get_sparse_channels(self, label):
+        ind = self.cc.index_of_label(label)
+        chans,  = np.nonzero(self.cc.centroids_sparse_mask[ind, :])
+        return chans
+
+    def get_common_sparse_channels(self, labels):
+        inds = [self.cc.index_of_label(label) for label in labels]
+        chans,  = np.nonzero(np.any(self.cc.centroids_sparse_mask[inds, :], axis=0))
+        return chans
+    
+    def get_waveform_centroid(self, label, metric, sparse=False, channels=None):
         if label in self.cc.clusters['cluster_label'] and self.cc.centroids_median is not None:
             ind = self.cc.index_of_label(label)
             attr = getattr(self.cc, 'centroids_'+metric)
-            return attr[ind, :, :]
+            wf = attr[ind, :, :]
+            if sparse:
+                assert channels is None
+                chans = self.get_sparse_channels(label)
+                wf = wf[:, chans]
+            elif channels is not None:
+                chans = channels
+                wf = wf[:, chans]
+            else:
+                chans = self.channels
+            
+            return wf, chans
+        else:
+            return None, None
 
     def get_min_max_centroids(self):
         if self.cc.centroids_median is not None and self.cc.centroids_median.size>0:
@@ -184,7 +218,7 @@ class CatalogueController(ControllerBase):
             threshold = -threshold
         return threshold
     
-    def get_max_on_channel(self, label):
+    def get_extremum_channel(self, label):
         if label<0:
             return None
         
@@ -193,14 +227,14 @@ class CatalogueController(ControllerBase):
             return None
         ind = ind[0]
         
-        max_on_channel = self.cc.clusters['max_on_channel'][ind]
-        if max_on_channel>=0:
-            return max_on_channel
+        extremum_channel = self.cc.clusters['extremum_channel'][ind]
+        if extremum_channel>=0:
+            return extremum_channel
         else:
             return None
         
         #~ if label in self.centroids:
-            #~ c = self.centroids[label]['max_on_channel']
+            #~ c = self.centroids[label]['extremum_channel']
             #~ return c
     
     def on_new_cluster(self, label_changed=None):
@@ -239,7 +273,8 @@ class CatalogueController(ControllerBase):
             return
         
         clusters = self.cc.clusters
-        ind = np.searchsorted(clusters['cluster_label'], label)
+        ## ind = np.searchsorted(clusters['cluster_label'], label)   ## wrong because searchsortedmust be ordered
+        ind = np.nonzero(clusters['cluster_label'] == label)[0][0]
         
         if color is not None:
             if type(color) == QT.QColor:

@@ -34,7 +34,8 @@ Do:
   5. **Open Terminal**
   6. For the basic::
     
-       conda install scipy numpy pandas scikit-learn matplotlib seaborn tqdm openpyxl
+       conda install scipy numpy pandas scikit-learn matplotlib seaborn tqdm openpyxl numba
+       conda install -c conda-forge hdbscan
      
   
   7. For GUI and running example::
@@ -81,7 +82,7 @@ Open a terminal and do:
   1. sudo apt-get install virtualenvwrapper
   2. mkvirtualenv  tdc   --python=/usr/bin/python3.6    (or python3.5)
   3. workon tdc
-  4. pip install scipy numpy pandas scikit-learn matplotlib seaborn tqdm openpyxl
+  4. pip install scipy numpy pandas scikit-learn matplotlib seaborn tqdm openpyxl hdbscan numba
   5. pip install PyQt5 jupyter pyqtgraph==0.10 quantities neo
   6. pip install https://github.com/tridesclous/tridesclous/archive/master.zip
 
@@ -138,7 +139,7 @@ Ephyviewer (optional)
 
 
 
-With neo (>=0.6) installed, if you want to view signals you can optionally install ephyviewer with::
+With neo (>=0.8) installed, if you want to view signals you can optionally install ephyviewer with::
     
     pip install ephyviewer
 

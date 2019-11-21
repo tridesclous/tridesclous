@@ -323,8 +323,8 @@ def plot_centroids(arg0, labels=[], alpha=1, neighborhood_radius=None, **kargs):
     if neighborhood_radius is not None:
         assert len(labels) == 1
         neighborhood = get_neighborhood(geometry, neighborhood_radius)
-        max_on_channel = clusters[label_inds[0]]['max_on_channel']
-        keep = neighborhood[max_on_channel, :]
+        extremum_channel = clusters[label_inds[0]]['extremum_channel']
+        keep = neighborhood[extremum_channel, :]
         centroids_wfs = centroids_wfs[:,  :, keep]
         channels = np.array(channels)[keep]
         geometry = geometry[keep, :]
@@ -346,6 +346,30 @@ def plot_centroids(arg0, labels=[], alpha=1, neighborhood_radius=None, **kargs):
 
 
 
+
+def plot_waveforms_density(waveforms, bin_min, bin_max, bin_size, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots()
+    
+    wf = waveforms
+    data = wf.swapaxes(1,2).reshape(wf.shape[0], -1)
+    
+    bins = np.arange(bin_min, bin_max, bin_size)
+    
+    hist2d = np.zeros((data.shape[1], bins.size))
+    indexes0 = np.arange(data.shape[1])
+    
+    data_bined = np.floor((data-bin_min)/bin_size).astype('int32')
+    data_bined = data_bined.clip(0, bins.size-1)
+    
+    for d in data_bined:
+        hist2d[indexes0, d] += 1
+    
+    im = ax.imshow(hist2d.T, interpolation='nearest', 
+                    origin='lower', aspect='auto', extent=(0, data.shape[1], bin_min, bin_max), cmap='hot')
+    
+    return im
+    
 def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
             bin_min=None, bin_max=None, bin_size=0.1, units='MAD',
             dataio=None,# usefull when arg0 is catalogue
@@ -389,15 +413,15 @@ def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
             # take waveforms
             #~ spike_labels = spikes['cluster_label']
             spikes = spikes[spikes['cluster_label'] == label]
-            spike_indexes = spikes['index']
+            sample_indexes = spikes['index']
             
-            if spike_indexes.size>1000:
+            if sample_indexes.size>1000:
                 # limit to 1000 spike by segment
-                spike_indexes = np.random.choice(spike_indexes, size=1000)
-            spike_indexes = spike_indexes[(spike_indexes>-n_left)]
+                sample_indexes = np.random.choice(sample_indexes, size=1000)
+            sample_indexes = sample_indexes[(sample_indexes>-n_left)]
             
             wf_ = dataio.get_some_waveforms(seg_num=seg_num, chan_grp=chan_grp,
-                        spike_indexes=spike_indexes, n_left=n_left, n_right=n_right)
+                        sample_indexes=sample_indexes, n_left=n_left, n_right=n_right)
             wf_ = wf_[:, :, channels]
             all_wf.append(wf_)
         wf = np.concatenate(all_wf, axis=0)
@@ -421,21 +445,23 @@ def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
         elif units in ('uV', 'μV'):
             bin_size = (bin_max - bin_min) / 500.
     
-    data = wf.swapaxes(1,2).reshape(wf.shape[0], -1)
+    #~ data = wf.swapaxes(1,2).reshape(wf.shape[0], -1)
     
-    bins = np.arange(bin_min, bin_max, bin_size)
+    #~ bins = np.arange(bin_min, bin_max, bin_size)
     
-    hist2d = np.zeros((data.shape[1], bins.size))
-    indexes0 = np.arange(data.shape[1])
+    #~ hist2d = np.zeros((data.shape[1], bins.size))
+    #~ indexes0 = np.arange(data.shape[1])
     
-    data_bined = np.floor((data-bin_min)/bin_size).astype('int32')
-    data_bined = data_bined.clip(0, bins.size-1)
+    #~ data_bined = np.floor((data-bin_min)/bin_size).astype('int32')
+    #~ data_bined = data_bined.clip(0, bins.size-1)
     
-    for d in data_bined:
-        hist2d[indexes0, d] += 1
+    #~ for d in data_bined:
+        #~ hist2d[indexes0, d] += 1
     
-    im = ax.imshow(hist2d.T, interpolation='nearest', 
-                    origin='lower', aspect='auto', extent=(0, data.shape[1], bin_min, bin_max), cmap='hot')
+    #~ im = ax.imshow(hist2d.T, interpolation='nearest', 
+                    #~ origin='lower', aspect='auto', extent=(0, data.shape[1], bin_min, bin_max), cmap='hot')
+                    
+    im = plot_waveforms_density(wf, bin_min, bin_max, bin_size, ax=ax)
 
     peak_width = n_right - n_left
     for c, chan in enumerate(channels):
@@ -504,9 +530,9 @@ def plot_isi(dataio, catalogue=None, chan_grp=None, label=None, ax=None, bin_min
     for seg_num in range(dataio.nb_segment):
         spikes = dataio.get_spikes(seg_num=seg_num, chan_grp=chan_grp,)
         spikes = spikes[spikes['cluster_label'] == label]
-        spike_indexes = spikes['index']
+        sample_indexes = spikes['index']
         
-        isi = np.diff(spike_indexes)/ (sr/1000.)
+        isi = np.diff(sample_indexes)/ (sr/1000.)
         
         count_, bins = np.histogram(isi, bins=bins)
         if count is None:

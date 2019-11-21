@@ -8,11 +8,19 @@ import copy
 from .cltools import HAVE_PYOPENCL
 from .cluster import HAVE_ISOSPLIT5
 
+try:
+    import numba
+    HAVE_NUMBA = True
+except ImportError:
+    HAVE_NUMBA = False
+    
+
 #TODO debug this when no peak at all
 def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     """
     Helper function to call seuquentialy all catalogue steps with dict of params as input.
-    Used by offline mainwinwod and OnlineWindow
+    Used by offline mainwinwod and OnlineWindow.
+    Also used by spikeinterface.sorters.
     
     
     Usage:
@@ -27,11 +35,12 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
             'smooth_size': 0,
             'chunksize': 1024,
             'lostfront_chunksize': -1,   # this auto
-            'signalpreprocessor_engine': 'numpy',
+            'engine': 'numpy',
             'common_ref_removal':False,
         },
         'peak_detector': {
-            'peakdetector_engine': 'numpy',
+            'method' : 'global',
+            'engine': 'numpy',
             'peak_sign': '-',
             'relative_threshold': 5.,
             'peak_span_ms': .3,
@@ -62,10 +71,18 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     
     cc = catalogueconstructor
     
-    p = {}
-    p.update(params['preprocessor'])
-    p.update(params['peak_detector'])
-    cc.set_preprocessor_params(**p)
+    # global params
+    d = {k:params[k] for k in ('chunksize', 'mode', 'adjacency_radius_um')}
+    cc.set_global_params(**d)
+    
+    # params preprocessor
+    d = dict(params['preprocessor'])
+    cc.set_preprocessor_params(**d)
+    
+    # params peak detector
+    d = dict(params['peak_detector'])
+    cc.set_peak_detector_params(**d)
+    
     dataio = cc.dataio
     
     #TODO offer noise esatimation duration somewhere
@@ -84,7 +101,7 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
         print('run_signalprocessor', t2-t1)
 
     t1 = time.perf_counter()
-    cc.extract_some_waveforms(**params['extract_waveforms'])
+    cc.extract_some_waveforms(**params['extract_waveforms'], recompute_all_centroid=False)
     t2 = time.perf_counter()
     if verbose:
         print('extract_some_waveforms', t2-t1)
@@ -92,7 +109,7 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     t1 = time.perf_counter()
     #~ duration = d['duration'] if d['limit_duration'] else None
     #~ d['clean_waveforms']
-    cc.clean_waveforms(**params['clean_waveforms'])
+    cc.clean_waveforms(**params['clean_waveforms'], recompute_all_centroid=False)
     t2 = time.perf_counter()
     if verbose:
         print('clean_waveforms', t2-t1)
@@ -123,27 +140,38 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
         print('find_clusters', t2-t1)
     
     if params['clean_cluster']:
+        t1 = time.perf_counter()
         cc.clean_cluster(**params['clean_cluster_kargs'])
+        t2 = time.perf_counter()
+        print('clean_cluster', t2-t1)
     
     cc.order_clusters(by='waveforms_rms')
 
 
 _default_catalogue_params = {
     'duration': 300.,
+    
+    'chunksize': 1024,
+    'mode': 'dense', # 'sparse'
+    'adjacency_radius_um': None, # None when sparse
+    'sparse_threshold': None, # 1.5
+    
     'preprocessor': {
         'highpass_freq': 300.,
         'lowpass_freq': 5000.,
         'smooth_size': 0,
-        'chunksize': 1024,
+        
         'lostfront_chunksize': -1,   # this auto
-        'signalpreprocessor_engine': 'numpy',
+        'engine': 'numpy',
         'common_ref_removal':False,
     },
     'peak_detector': {
-        'peakdetector_engine': 'numpy',
+        'method' : 'global',
+        'engine': 'numpy',
         'peak_sign': '-',
         'relative_threshold': 5.,
         'peak_span_ms': .7,
+        #~ 'adjacency_radius_um' : None,
     },
     'noise_snippet': {
         'nb_snippet': 300,
@@ -152,20 +180,18 @@ _default_catalogue_params = {
         'wf_left_ms': -1.5,
         'wf_right_ms': 2.5,
         'mode': 'rand',
-        'nb_max': 20000.,
-        'align_waveform': False,
+        'nb_max': 20000,
     },
     'clean_waveforms': {
-        'alien_value_threshold': 100.,
+        'alien_value_threshold': None,
     },
     'feature_method': 'peak_max',
     'feature_kargs': {},
     'cluster_method': 'sawchaincut',
-    'cluster_kargs': {'kde_bandwith': 1.},
+    'cluster_kargs': {},
     
     'clean_cluster' : False,
     'clean_cluster_kargs' : {},
-    
 }
 
 
@@ -186,10 +212,20 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
     # TODO make this more complicated
     #  * by detecting if dense array or not.
     #  * better method sleection
+
+    # auto chunsize of 100 ms
+    params['chunksize'] = int(dataio.sample_rate * 0.1)
     
     
     if nb_chan <=8:
+        params['mode'] = 'dense'
+        params['adjacency_radius_um'] = None
+        params['sparse_threshold'] = None
+        
         params['feature_method'] = 'global_pca'
+        
+        params['peak_detector']['method'] = 'global'
+        params['peak_detector']['engine'] = 'numpy'
         
         if nb_chan in (1,2):
             n_components = 3
@@ -199,25 +235,65 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             n_components = int(nb_chan)
         
         params['feature_kargs'] = {'n_components' : n_components }
-        if HAVE_ISOSPLIT5:
-            params['cluster_method'] = 'isosplit5'
-            params['cluster_kargs'] = {}
-        else:
-            params['cluster_method'] = 'dbscan'
-            params['cluster_kargs'] = {'eps': 3,  'metric':'euclidean', 'algorithm':'brute'}
+        #~ if HAVE_ISOSPLIT5:
+            #~ params['cluster_method'] = 'isosplit5'
+            #~ params['cluster_kargs'] = {}
+        #~ else:
+            #~ params['cluster_method'] = 'dbscan'
+            #~ params['cluster_kargs'] = {'eps': 3,  'metric':'euclidean', 'algorithm':'brute'}
+
+        params['cluster_method'] = 'hdbscan'
+        params['cluster_kargs'] = {'min_cluster_size': 20}
+        
+
         params['clean_cluster'] = True
         params['clean_cluster_kargs'] = {'too_small' : 20 }
+        
 
     else:
-        params['feature_method'] = 'peak_max'
-        params['feature_kargs'] = {}
-        params['cluster_method'] = 'sawchaincut'
-        params['cluster_kargs'] = {'kde_bandwith': 1.}
+        params['mode'] = 'sparse'
+        params['adjacency_radius_um'] = 400.
+        params['sparse_threshold'] = 1.5
+
+
+        params['peak_detector']['method'] = 'geometrical'
+        
+
+        if HAVE_PYOPENCL:
+            params['peak_detector']['engine'] = 'opencl'
+        elif HAVE_NUMBA:
+            params['peak_detector']['engine'] = 'numba'
+        else:
+            print('WARNING : peakdetector will be slow install opencl')
+            params['peak_detector']['engine'] = 'numpy'
+        
+        params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 300)
+        
+        
+        #~ params['feature_method'] = 'peak_max'
+        #~ params['feature_kargs'] = {}
+        #~ params['cluster_method'] = 'sawchaincut'
+        #~ params['cluster_kargs']['kde_bandwith'] = 1.
+        #~ if nb_chan<32:
+            #~ params['cluster_kargs']['max_loop'] = 10000
+        #~ elif nb_chan>=32:
+            #~ params['cluster_kargs']['max_loop'] = nb_chan * 400
+
+        params['feature_method'] = 'pca_by_channel'
+        params['feature_kargs'] = {'n_components_by_channel':3}
+        params['cluster_method'] = 'pruningshears'
+        params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 10)
+        params['cluster_kargs']['min_cluster_size'] = 20
+
+        
+        #~ else:
+            #~ # default one already
+            #~ params['cluster_kargs']['max_loop'] = 1000
         
         if nb_chan >64 and HAVE_PYOPENCL:
             # force opencl : this limit depend on the platform of course
-            params['preprocessor']['signalpreprocessor_engine'] = 'opencl'
-
+            params['preprocessor']['engine'] = 'opencl'
+    
     
     return params
 

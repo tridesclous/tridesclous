@@ -13,9 +13,13 @@ import pandas as pd
 from urllib.request import urlretrieve
 import pickle
 
+
+import sklearn.metrics
+
 from .datasource import data_source_classes
 from .iotools import ArrayCollection
 from .tools import download_probe, create_prb_file_from_dict, fix_prb_file_py2
+from .waveformtools import extract_chunks
 
 from .export import export_list, export_dict
 
@@ -367,6 +371,20 @@ class DataIO:
         geometry = [ channel_group['geometry'][chan] for chan in channel_group['channels'] ]
         geometry = np.array(geometry, dtype='float64')
         return geometry
+    
+    def get_channel_distances(self, chan_grp=0):
+        geometry = self.get_geometry(chan_grp=chan_grp)
+        distances = sklearn.metrics.pairwise.euclidean_distances(geometry)
+        return distances
+    
+    def get_channel_adjacency(self, chan_grp=0, adjacency_radius_um=None):
+        assert adjacency_radius_um is not None
+        channel_distances = self.get_channel_distances(chan_grp=chan_grp)
+        channels_adjacency = {}
+        for c in range(self.nb_channel(chan_grp=chan_grp)):
+            nearest, = np.nonzero(channel_distances[c, :] < adjacency_radius_um)
+            channels_adjacency[c] = nearest
+        return channels_adjacency
 
     def nb_channel(self, chan_grp=0):
         """
@@ -567,19 +585,31 @@ class DataIO:
             return
         return spikes[i_start:i_stop]
     
-    def get_some_waveforms(self, seg_num=0, chan_grp=0, spike_indexes=None, n_left=None, n_right=None):
+    def get_some_waveforms(self, seg_num=0, chan_grp=0, sample_indexes=None,
+                                n_left=None, n_right=None, waveforms=None, channel_adjacency=None, 
+                                channel_indexes=None, n_jobs=0):
         """
-        Exctract some waveforms given spike_indexes
+        Exctract some waveforms given sample_indexes
+        
+        if channel_adjacency not None and channel_indexes not None
+        then it do sparse extaction
         """
-        assert spike_indexes is not None, 'Provide spike_indexes'
+        assert sample_indexes is not None, 'Provide sample_indexes'
         peak_width = n_right - n_left
-        wf = np.zeros((spike_indexes.size, peak_width, self.nb_channel(chan_grp)), dtype='float32')
-        for i, spike_index in enumerate(spike_indexes):
-            i_start = spike_index + n_left
-            i_stop = spike_index + n_right
-            wf[i, :, :] = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, 
-                        i_start=i_start, i_stop=i_stop, signal_type='processed')
-        return wf
+        
+        if waveforms is None:
+            waveforms = np.zeros((sample_indexes.size, peak_width, self.nb_channel(chan_grp)), dtype='float32')
+        else:
+            assert waveforms.shape[0] == sample_indexes.size
+            assert waveforms.shape[1] == peak_width
+        
+        sigs = self.arrays[chan_grp][seg_num].get('processed_signals')
+        
+        extract_chunks(sigs, sample_indexes+n_left, peak_width, 
+                                    channel_adjacency=channel_adjacency, channel_indexes=channel_indexes,
+                                    chunks=waveforms, n_jobs=n_jobs)
+        
+        return waveforms
         
     def save_catalogue(self, catalogue, name='initial'):
         """

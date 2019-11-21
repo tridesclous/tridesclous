@@ -18,7 +18,7 @@ class PeakModel(QT.QAbstractItemModel):
         self.refresh_colors()
     
     def columnCount(self , parentIndex):
-        return 4
+        return 5
         
     def rowCount(self, parentIndex):
         if not parentIndex.isValid() and self.controller.spike_label is not None:
@@ -58,6 +58,8 @@ class PeakModel(QT.QAbstractItemModel):
         peak_pos = self.controller.spike_index[abs_ind]
         peak_time = peak_pos/self.controller.dataio.sample_rate
         peak_label = self.controller.spike_label[abs_ind]
+        peak_chan = self.controller.spike_channel[abs_ind]
+        
         
         if role ==QT.Qt.DisplayRole :
             if col == 0:
@@ -68,6 +70,8 @@ class PeakModel(QT.QAbstractItemModel):
                 return '{:.4f}'.format(peak_time)
             elif col == 3:
                 return '{}'.format(peak_label)
+            elif col == 4:
+                return '{}'.format(peak_chan)
             else:
                 return None
         elif role == QT.Qt.DecorationRole :
@@ -86,7 +90,7 @@ class PeakModel(QT.QAbstractItemModel):
 
     def headerData(self, section, orientation, role):
         if orientation == QT.Qt.Horizontal and role == QT.Qt.DisplayRole:
-            return  ['num', 'seg_num', 'time', 'cluster_label'][section]
+            return  ['num', 'seg_num', 'time', 'cluster_label', 'channel'][section]
         return
     
     def refresh_colors(self):
@@ -141,8 +145,10 @@ class PeakList(WidgetBase):
         self.tree.setModel(self.model)
         self.tree.selectionModel().selectionChanged.connect(self.on_tree_selection)
 
-        for i in range(self.model.columnCount(None)):
-            self.tree.resizeColumnToContents(i)
+        # This is very slow!!!!!
+        #~ for i in range(self.model.columnCount(None)):
+            #~ print(i)
+            #~ self.tree.resizeColumnToContents(i)
         self.tree.setColumnWidth(0,80)
         
         self.refresh()
@@ -356,7 +362,8 @@ class ClusterPeakList(ClusterBaseList):
         if n!=1: return
         k = labels[0]
         clusters = self.controller.clusters
-        ind = np.searchsorted(clusters['cluster_label'], k)
+        ## ind = np.searchsorted(clusters['cluster_label'], k)  ## wrong because searchsortedmust be ordered
+        ind = np.nonzero(clusters['cluster_label'] == k)[0][0]
         
         color = QT.QColor(self.controller.qcolors[k])
         annotations = str(clusters[ind]['annotations'])

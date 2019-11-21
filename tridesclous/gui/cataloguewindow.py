@@ -35,7 +35,7 @@ class CatalogueWindow(QT.QMainWindow):
         
         self.catalogueconstructor = catalogueconstructor
         self.controller = CatalogueController(catalogueconstructor=catalogueconstructor)
-        
+
         self.traceviewer = CatalogueTraceViewer(controller=self.controller)
         self.peaklist = PeakList(controller=self.controller)
         self.clusterlist = ClusterPeakList(controller=self.controller)
@@ -48,7 +48,6 @@ class CatalogueWindow(QT.QMainWindow):
         self.silhouette = Silhouette(controller=self.controller)
         self.waveformhistviewer = WaveformHistViewer(controller=self.controller)
         self.featuretimeviewer = FeatureTimeViewer(controller=self.controller)
-        
         
         docks = {}
 
@@ -109,6 +108,7 @@ class CatalogueWindow(QT.QMainWindow):
         
         self.create_actions()
         self.create_toolbar()
+        
         
         
     def create_actions(self):

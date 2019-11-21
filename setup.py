@@ -13,10 +13,13 @@ install_requires = [
                     'scikit-learn',
                     'matplotlib',
                     'seaborn',
-                    'neo>=0.6.1',
+                    'neo>=0.8',
                     'tqdm',
-                    'PyQt5',
+                    # 'PyQt5',  make conda buggy
                     'pyqtgraph==0.10.0',
+                    'joblib',
+                    'numba',
+                    # 'hdbscan',
                     ]
 extras_require={
                             'online' : ['pyacq',],

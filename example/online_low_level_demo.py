@@ -1,6 +1,7 @@
 from tridesclous import *
 from tridesclous.online import *
 
+
 import  pyqtgraph as pg
 from pyqtgraph.Qt import QtCore, QtGui
 import pyacq
@@ -28,57 +29,15 @@ def setup_catalogue():
     dataio.set_channel_groups(channel_group)
     
     
+    
+    
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
-
-    catalogueconstructor.set_preprocessor_params(chunksize=1024,
-            memory_mode='memmap',
-            
-            #signal preprocessor
-            highpass_freq=300,
-            lostfront_chunksize=64,
-            
-            #peak detector
-            peakdetector_engine='numpy',
-            peak_sign='-', relative_threshold=7, peak_span_ms=0.5,
-            )
     
-    t1 = time.perf_counter()
-    catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
-    t2 = time.perf_counter()
-    print('estimate_signals_noise', t2-t1)
+    params = get_auto_params_for_catalogue(dataio, chan_grp=0)
+    apply_all_catalogue_steps(catalogueconstructor, params, verbose=True)
     
-    t1 = time.perf_counter()
-    catalogueconstructor.run_signalprocessor()
-    t2 = time.perf_counter()
-    print('run_signalprocessor', t2-t1)
-
-    
-    t1 = time.perf_counter()
-    catalogueconstructor.extract_some_waveforms(wf_left_ms=-2.5, wf_right_ms=3.5,  nb_max=10000)
-    t2 = time.perf_counter()
-    print('extract_some_waveforms', t2-t1)
-    print(catalogueconstructor)
-    
-    t1 = time.perf_counter()
-    catalogueconstructor.clean_waveforms(alien_value_threshold=100.)
-    t2 = time.perf_counter()
-    print('clean_waveforms', t2-t1)
 
 
-    # PCA
-    t1 = time.perf_counter()
-    catalogueconstructor.project(method='neighborhood_pca', n_components_by_neighborhood=3)
-    t2 = time.perf_counter()
-    print('project', t2-t1)
-    
-    # cluster
-    t1 = time.perf_counter()
-    catalogueconstructor.find_clusters(method='kmeans', n_clusters=13)
-    t2 = time.perf_counter()
-    print('find_clusters', t2-t1)
-    
-    # trash_small_cluster
-    catalogueconstructor.trash_small_cluster()
 
 
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
@@ -124,13 +83,13 @@ def tridesclous_onlinepeeler():
     
     
     # Device node
-    #~ man = pyacq.create_manager(auto_close_at_exit=True)
-    #~ ng0 = man.create_nodegroup()
-    ng0 = None
-    #~ ng1 = man.create_nodegroup()
-    ng1 = None
-    #~ ng2 = man.create_nodegroup()
-    ng2 = None
+    man = pyacq.create_manager(auto_close_at_exit=True)
+    ng0 = man.create_nodegroup()
+    #~ ng0 = None
+    ng1 = man.create_nodegroup()
+    #~ ng1 = None
+    ng2 = man.create_nodegroup()
+    #~ ng2 = None
     
     
     dev = make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup=ng0, chunksize=chunksize)

@@ -131,7 +131,6 @@ class SignalPreprocessor_base:
             #this is the null filter
             self.coefficients = np.array([[1, 0, 0, 1,0,0]], dtype=self.output_dtype)
         
-        #~ self.filtfilt_engine = SosFiltfilt_Scipy(self.coefficients, self.nb_channel, output_dtype, self.chunksize, lostfront_chunksize)
         self.nb_section =self. coefficients.shape[0]
         self.forward_buffer = FifoBuffer((self.backward_chunksize, self.nb_channel), self.output_dtype)
         self.zi = np.zeros((self.nb_section, 2, self.nb_channel), dtype= self.output_dtype)
@@ -244,35 +243,19 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base, OpenCL_Helper):
                 
         if not data.flags['C_CONTIGUOUS'] or data.dtype!=self.output_dtype:
             chunk = np.ascontiguousarray(data, dtype=self.output_dtype)
+        else:
+            chunk = data
         
         
         #Online filtfilt
         
-        
-        #forward filter
         event = pyopencl.enqueue_copy(self.queue,  self.input_cl, chunk)
-        #~ event.wait()
-        
-        event = self.kern_forward_filter(self.queue,  (self.nb_channel,), (self.nb_channel,),
-                                self.input_cl, self.output_forward_cl, self.coefficients_cl, self.zi1_cl)
-        #~ event.wait()
-        
-        #roll and add to bacward fifo
-        event = self.kern_roll_fifo(self.queue,  (self.nb_channel, self.lostfront_chunksize), (self.nb_channel, 1),
-                                self.fifo_input_backward_cl)
-        #~ event.wait()
-        
-        event = self.kern_new_chunk_fifo(self.queue,  (self.nb_channel, self.chunksize), (self.nb_channel, 1),
-                                self.fifo_input_backward_cl,  self.output_forward_cl)
-        #~ event.wait()
-        
-        # backwward
-        self.zi2[:]=0
-        pyopencl.enqueue_copy(self.queue,  self.zi2_cl, self.zi2)
-
-        event = self.kern_backward_filter(self.queue,  (self.nb_channel,), (self.nb_channel,),
-                                self.fifo_input_backward_cl, self.output_backward_cl, self.coefficients_cl, self.zi2_cl)
+        event = self.kern_forward_backward_filter(self.queue,  (self.nb_channel,), (self.nb_channel,),
+                            self.input_cl, self.coefficients_cl, self.zi1_cl, self.zi2_cl,
+                            self.fifo_input_backward_cl, self.signals_medians_cl, self.signals_mads_cl,  self.output_backward_cl)
         event.wait()
+        
+        
         
         
         #~ event.wait()
@@ -283,30 +266,27 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base, OpenCL_Helper):
         
         pos2 = pos-self.lostfront_chunksize
         
-        
+
         event = pyopencl.enqueue_copy(self.queue,  self.output_backward, self.output_backward_cl)
-        
         if start>0:
             data2 = self.output_backward[:self.chunksize, :]
         else:
             data2 = self.output_backward[self.lostfront_chunksize:self.chunksize, :]
-        
         data2 = data2.copy()
         
-
-        #~ print('pos', pos, 'start', start, 'pos2', pos2, data2.shape)
-        
-        #TODO make OpenCL for this
-        # removal ref
         if self.common_ref_removal:
-            data2 -= np.median(data2, axis=1)[:, None]
-        
-        #TODO make OpenCL for this
-        #normalize
-        if self.normalize:
-            data2 -= self.signals_medians
-            data2 /= self.signals_mads
-        
+            #TODO make OpenCL for this
+            # removal ref
+            if self.common_ref_removal:
+                data2 -= np.median(data2, axis=1)[:, None]
+            
+            
+            #normalize
+            if self.normalize:
+                # OpenCL for this when no common_ref_removal
+                data2 -= self.signals_medians
+                data2 /= self.signals_mads
+            
         return pos2, data2        
         
         
@@ -314,7 +294,9 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base, OpenCL_Helper):
 
         cl_platform_index=kargs.pop('cl_platform_index', None)
         cl_device_index=kargs.pop('cl_device_index', None)
-        OpenCL_Helper.initialize_opencl(self,cl_platform_index=cl_platform_index, cl_device_index=cl_device_index)
+        ctx=kargs.pop('ctx', None)
+        queue=kargs.pop('queue', None)
+        OpenCL_Helper.initialize_opencl(self,cl_platform_index=cl_platform_index, cl_device_index=cl_device_index, ctx=ctx, queue=queue)
         
         SignalPreprocessor_base.change_params(self, **kargs)
         assert self.output_dtype=='float32', 'SignalPreprocessor_OpenCL support only float32 at the moment'
@@ -340,105 +322,132 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base, OpenCL_Helper):
         self.output_forward_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE, size=self.output_forward.nbytes)
         self.fifo_input_backward_cl = pyopencl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.fifo_input_backward)
         self.output_backward_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE, size=self.output_backward.nbytes)
-
+        if self.signals_medians is not None:
+            self.signals_medians_cl = pyopencl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.signals_medians)
+            self.signals_mads_cl = pyopencl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=self.signals_mads)
+        else:
+            self.signals_medians_cl = pyopencl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.zeros(self.nb_channel, dtype= self.output_dtype))
+            self.signals_mads_cl = pyopencl.Buffer(self.ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=np.zeros(self.nb_channel, dtype= self.output_dtype))
+        
         #CL prog
-        kernel = self.kernel%dict(forward_chunksize=self.chunksize, backward_chunksize=self.backward_chunksize,
-                        lostfront_chunksize=self.lostfront_chunksize, nb_section=self.nb_section, nb_channel=self.nb_channel)
-        #~ print(kernel)
+        if not self.common_ref_removal and  self.normalize:
+            extra_code_nomalize = _extra_code_nomalize
+        else:
+            extra_code_nomalize = ''
+        
+        kernel_formated = processor_kernel%dict(forward_chunksize=self.chunksize, backward_chunksize=self.backward_chunksize,
+                        lostfront_chunksize=self.lostfront_chunksize, nb_section=self.nb_section, nb_channel=self.nb_channel, 
+                        extra_code_nomalize=extra_code_nomalize)
+        #~ print(kernel_formated)
         #~ exit()
-        prg = pyopencl.Program(self.ctx, kernel)
+        prg = pyopencl.Program(self.ctx, kernel_formated)
         self.opencl_prg = prg.build(options='-cl-mad-enable')
         
         self.max_wg_size = self.ctx.devices[0].get_info(pyopencl.device_info.MAX_WORK_GROUP_SIZE)
 
 
-        self.kern_roll_fifo = getattr(self.opencl_prg, 'roll_fifo')
-        self.kern_new_chunk_fifo = getattr(self.opencl_prg, 'new_chunk_fifo')
-        self.kern_forward_filter = getattr(self.opencl_prg, 'forward_filter')
-        self.kern_backward_filter = getattr(self.opencl_prg, 'backward_filter')
+        self.kern_forward_backward_filter = getattr(self.opencl_prg, 'forward_backward_filter')
+        
+        
 
-    kernel = """
-    #define forward_chunksize %(forward_chunksize)d
-    #define backward_chunksize %(backward_chunksize)d
-    #define lostfront_chunksize %(lostfront_chunksize)d
-    #define nb_section %(nb_section)d
-    #define nb_channel %(nb_channel)d
+processor_kernel = """
+#define forward_chunksize %(forward_chunksize)d
+#define backward_chunksize %(backward_chunksize)d
+#define lostfront_chunksize %(lostfront_chunksize)d
+#define nb_section %(nb_section)d
+#define nb_channel %(nb_channel)d
 
 
-    __kernel void roll_fifo(__global  float *fifo){
+__kernel void sos_filter(__global  float *input, __global  float *output, __constant  float *coefficients, 
+                                                                        __global float *zi, int chunksize, int direction, int out_offset_index) {
+
+    int chan = get_global_id(0); //channel indice
     
-        int chan = get_global_id(0);
-        int pos = get_global_id(1);
-        
-        fifo[(pos)*nb_channel+chan] = fifo[(pos+forward_chunksize)*nb_channel+chan];
-    }
+    int offset_filt2;  //offset channel within section
+    int offset_zi = chan*nb_section*2;
     
-    __kernel void new_chunk_fifo(__global  float *fifo, __global  float *input){
+    int idx;
 
-        int chan = get_global_id(0);
-        int pos = get_global_id(1);
-        
-        fifo[(pos+lostfront_chunksize)*nb_channel+chan] = input[(pos)*nb_channel+chan];
-        
-    }
+    float w0, w1,w2;
+    float res;
     
-
-
-    __kernel void sos_filter(__global  float *input, __global  float *output, __constant  float *coefficients, 
-                                                                            __global float *zi, int chunksize, int direction) {
-
-        int chan = get_global_id(0); //channel indice
+    for (int section=0; section<nb_section; section++){
+    
+        //offset_filt2 = chan*nb_section*6+section*6;
+        offset_filt2 = section*6;
         
-        int offset_filt2;  //offset channel within section
-        int offset_zi = chan*nb_section*2;
+        w1 = zi[offset_zi+section*2+0];
+        w2 = zi[offset_zi+section*2+1];
         
-        int idx;
-
-        float w0, w1,w2;
-        float res;
-        
-        for (int section=0; section<nb_section; section++){
-        
-            //offset_filt2 = chan*nb_section*6+section*6;
-            offset_filt2 = section*6;
+        for (int s=0; s<chunksize;s++){
             
-            w1 = zi[offset_zi+section*2+0];
-            w2 = zi[offset_zi+section*2+1];
+            if (direction==1) {idx = s*nb_channel+chan;}
+            else if (direction==-1) {idx = (chunksize-s-1)*nb_channel+chan;}
             
-            for (int s=0; s<chunksize;s++){
-                
-                if (direction==1) {idx = s*nb_channel+chan;}
-                else if (direction==-1) {idx = (chunksize-s-1)*nb_channel+chan;}
-                
-                if (section==0)  {w0 = input[idx];}
-                else {w0 = output[idx];}
-                
-                w0 -= coefficients[offset_filt2+4] * w1;
-                w0 -= coefficients[offset_filt2+5] * w2;
-                res = coefficients[offset_filt2+0] * w0 + coefficients[offset_filt2+1] * w1 +  coefficients[offset_filt2+2] * w2;
-                w2 = w1; w1 =w0;
-                
-                output[idx] = res;
-            }
+            if (section==0)  {w0 = input[idx];}
+            else {w0 = output[idx+out_offset_index];}
             
-            zi[offset_zi+section*2+0] = w1;
-            zi[offset_zi+section*2+1] = w2;
-
+            w0 -= coefficients[offset_filt2+4] * w1;
+            w0 -= coefficients[offset_filt2+5] * w2;
+            res = coefficients[offset_filt2+0] * w0 + coefficients[offset_filt2+1] * w1 +  coefficients[offset_filt2+2] * w2;
+            w2 = w1; w1 =w0;
+            
+            output[idx+out_offset_index] = res;
         }
-       
+        
+        zi[offset_zi+section*2+0] = w1;
+        zi[offset_zi+section*2+1] = w2;
+
+    }
+   
+}
+
+
+__kernel void forward_backward_filter(__global  float *input,
+                                                            __constant  float * coefficients,
+                                                            __global float * zi1,
+                                                            __global float * zi2,
+                                                            __global  float *fifo_input_backward,
+                                                            __global  float *signals_medians,
+                                                            __global  float *signals_mads,
+                                                            __global  float *output_backward){
+
+    
+    int chan = get_global_id(0); //channel indice
+
+
+    //roll
+    for (int s=0; s<lostfront_chunksize;s++){
+        fifo_input_backward[(s)*nb_channel+chan] = fifo_input_backward[(s+forward_chunksize)*nb_channel+chan];
+    }
+
+    int out_offset_index = lostfront_chunksize*nb_channel;
+    sos_filter(input, fifo_input_backward, coefficients, zi1, forward_chunksize, 1, out_offset_index);
+    
+    //set zi2 to zeros
+    for (int s=0; s<nb_section;s++){
+        zi2[chan*nb_section*2+s] = 0;
+        zi2[chan*nb_section*2+s+1] = 0;
     }
     
-    __kernel void forward_filter(__global  float *input, __global  float *output, __constant  float *coefficients, __global float *zi){
-        sos_filter(input, output, coefficients, zi, forward_chunksize, 1);
-    }
-
-    __kernel void backward_filter(__global  float *input, __global  float *output, __constant  float *coefficients, __global float *zi) {
-        sos_filter(input, output, coefficients, zi, backward_chunksize, -1);
-    }
+    //filter backward
+    sos_filter(fifo_input_backward, output_backward, coefficients, zi2, backward_chunksize, -1, 0);
     
-    """
+    // nomalize optional
+    %(extra_code_nomalize)s
 
+}
 
+"""
+
+_extra_code_nomalize = """
+    float v;
+    for (int s=0; s<forward_chunksize;s++){
+        v = output_backward[(s)*nb_channel+chan];
+        output_backward[(s)*nb_channel+chan] = (v - signals_medians[chan]) / signals_mads[chan];
+    }
+
+"""
 
 
 
