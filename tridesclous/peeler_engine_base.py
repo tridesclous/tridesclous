@@ -403,6 +403,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
                 if shift is not None:
                     left_ind += shift
                 
+                # cluster_idx can be <0 when no possible cluster with geometrical
                 
                 #~ t2 = time.perf_counter()
                 #~ print('    get_best_template', (t2-t1)*1000)
@@ -410,28 +411,23 @@ class PeelerEngineGeneric(PeelerEngineBase):
 
 
                 
-                
-                t1 = time.perf_counter()
-                #~ print('left_ind', left_ind, 'proposed_peak_ind', proposed_peak_ind)
-                if self.inter_sample_oversampling:
-                    jitter = self.estimate_jitter(left_ind, cluster_idx)
+                if cluster_idx<0:
+                    ok = False
                 else:
-                    jitter = None
-                #~ t2 = time.perf_counter()
-                #~ print('    estimate_jitter', (t2-t1)*1000)
-                #~ print('    jitter', jitter)
-                
-                t1 = time.perf_counter()
-                ok = self.accept_tempate(left_ind, cluster_idx, jitter)
-                #~ t2 = time.perf_counter()
-                #~ print('    accept_tempate', (t2-t1)*1000)
-
-                # DEBUG
-                #~ label = self.catalogue['cluster_labels'][cluster_idx]
-                #~ if label in (5, 8):
-                #~ if label in (10, ):
-                    #~ print('label', label, 'ok', ok, 'jitter', jitter)
-                # END DEBUG                
+                    t1 = time.perf_counter()
+                    #~ print('left_ind', left_ind, 'proposed_peak_ind', proposed_peak_ind)
+                    if self.inter_sample_oversampling:
+                        jitter = self.estimate_jitter(left_ind, cluster_idx)
+                    else:
+                        jitter = None
+                    #~ t2 = time.perf_counter()
+                    #~ print('    estimate_jitter', (t2-t1)*1000)
+                    #~ print('    jitter', jitter)
+                    
+                    t1 = time.perf_counter()
+                    ok = self.accept_tempate(left_ind, cluster_idx, jitter)
+                    #~ t2 = time.perf_counter()
+                    #~ print('    accept_tempate', (t2-t1)*1000)
 
                 if  not ok:
                     if self._plot_debug:

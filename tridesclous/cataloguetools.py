@@ -255,10 +255,12 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['adjacency_radius_um'] = 400.
         params['sparse_threshold'] = 1.5
 
+        if nb_chan > 32 and HAVE_PYOPENCL:
+            params['preprocessor']['engine'] = 'opencl'
 
         params['peak_detector']['method'] = 'geometrical'
         
-
+        #~ numba
         if HAVE_PYOPENCL:
             params['peak_detector']['engine'] = 'opencl'
         elif HAVE_NUMBA:
@@ -290,9 +292,6 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             #~ # default one already
             #~ params['cluster_kargs']['max_loop'] = 1000
         
-        if nb_chan >64 and HAVE_PYOPENCL:
-            # force opencl : this limit depend on the platform of course
-            params['preprocessor']['engine'] = 'opencl'
     
     
     return params
