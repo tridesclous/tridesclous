@@ -71,8 +71,8 @@ class PeelerController(ControllerBase):
         self.cluster_labels = self.catalogue['clusters']['cluster_label']
         
         # set channel for each cluster
-        for k in self.cluster_labels:
-            chan = self.catalogue['extremum_channel'][k]
+        for i, k in enumerate(self.cluster_labels):
+            chan = self.catalogue['extremum_channel'][i]
             sel = self.spikes['cluster_label'] == k
             self.spikes['channel'][sel] = chan
         
