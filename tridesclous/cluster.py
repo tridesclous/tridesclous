@@ -588,6 +588,28 @@ class PruningShears:
         n_components_by_channel = self.features.shape[1] // nb_channel
         #~ self.bins = np.arange(self.threshold, np.max(all_peak_max),  self.binsize)
         
+        
+        weights_feat_chans = {}
+        mask_feat_chans = {}
+        for chan in range(nb_channel):
+            adjacency = self.channel_adjacency[chan]
+            
+            # mask_feat
+            mask_feat = np.zeros(self.features.shape[1], dtype='bool')
+            for i in range(n_components_by_channel):
+                mask_feat[adjacency*n_components_by_channel+i] = True
+            mask_feat_chans[chan] = mask_feat
+            
+            # weights
+            weights = []
+            for adj_chan in adjacency:
+                d = self.channel_distances[chan, adj_chan]
+                w = np.exp(-d/self.adjacency_radius_um * 2) # TODO fix this factor 2
+                #~ print('chan', chan, 'adj_chan', adj_chan, 'd', d, 'w', w)
+                weights += [ w ] * n_components_by_channel
+            weights_feat_chans[chan] = np.array(weights).reshape(1, -1)
+        
+        
         cluster_labels = np.zeros(self.waveforms.shape[0], dtype='int64')
         k = 0
         chan_visited = []
@@ -654,15 +676,16 @@ class PruningShears:
             
             self.log('mask_thresh.size', mask_thresh.size, 'keep.sum', mask_thresh.sum())
 
-            mask_feat = np.zeros(self.features.shape[1], dtype='bool')
-            for i in range(n_components_by_channel):
-                mask_feat[adjacency*n_components_by_channel+i] = True
+            #~ mask_feat = np.zeros(self.features.shape[1], dtype='bool')
+            #~ for i in range(n_components_by_channel):
+                #~ mask_feat[adjacency*n_components_by_channel+i] = True
             
-            #~ local_features = self.features[mask_loop & mask_thresh, :][:, mask_feat]
             
+            
+            
+            mask_feat = mask_feat_chans[actual_chan]
             #~ local_features = self.features[ind_keep, :][:, mask_feat]
             local_features = self.features.take(ind_keep, axis=0).compress(mask_feat, axis=1)
-
             
             self.log('local_features.shape', local_features.shape)
             
@@ -672,17 +695,18 @@ class PruningShears:
             #~ self.log('reduced_features.shape',reduced_features.shape)
             
             # test weithed PCA
+            # TODO put n_components to parameters
             pca =  sklearn.decomposition.IncrementalPCA(n_components=2, whiten=False)
-            weights = []
-            for c in adjacency:
-                d = self.channel_distances[actual_chan, c]
-                w = np.exp(-d/self.adjacency_radius_um * 4)
-                print('actual_chan', actual_chan, 'c', c, 'd', d, 'w', w)
-                weights += [ w ] * n_components_by_channel
-            weights = np.array(weights).reshape(1, -1)
-            print(weights)
-            # TODO manual whitten
-            reduced_features = pca.fit_transform(local_features*weights)
+            #~ print(weights_feat_chans[actual_chan])
+            local_features_w = local_features * weights_feat_chans[actual_chan]
+            local_features_w -= local_features_w.mean(axis=0)
+            
+            reduced_features = pca.fit_transform(local_features_w)
+            #~ fig, ax = plt.subplots()
+            #~ ax.plot(local_features_w.T, color='k', alpha=0.3)
+            #~ fig, ax = plt.subplots()
+            #~ ax.plot(reduced_features.T, color='k', alpha=0.3)
+            #~ plt.show()
             
            
             local_labels = self.one_sub_cluster(reduced_features)
@@ -721,13 +745,13 @@ class PruningShears:
                     pos_peak = np.argmax(centroid_adj[:, chan_peak_local])
                 
                 chan_peak = adjacency[chan_peak_local]
-                print('actual_chan', actual_chan, 'chan_peak', chan_peak)
-                print('adjacency', len(adjacency), adjacency)
-                print('keep it', np.abs(-self.n_left - pos_peak)<=1)
+                #~ print('actual_chan', actual_chan, 'chan_peak', chan_peak)
+                #~ print('adjacency', len(adjacency), adjacency)
+                #~ print('keep it', np.abs(-self.n_left - pos_peak)<=1)
                 
                 #~ ax.plot(centroid_adj.T.flatten())
                 
-                if np.abs(-self.n_left - pos_peak)<=1:
+                if np.abs(-self.n_left - pos_peak) <= 1:
                     keep_labels.append(label)
                     peak_values.append(np.abs(centroid_adj[-self.n_left, chan_peak_local]))
             #~ plt.show()
@@ -740,7 +764,7 @@ class PruningShears:
             
             # 2 piste:
             #  * garder seulement tres grand peak avant DBSCAN
-            #  * garder seulement les template dont le peak est sur n_left
+            #  * garder seulement les template dont le peak est sur n_left  DONE
             
             
             #~ print(np.unique(local_labels))
@@ -782,7 +806,6 @@ class PruningShears:
 
                     if label not in keep_labels:
                         continue
-                    
                     
                     sel = label == local_labels
                     if label<0: 
@@ -975,11 +998,11 @@ class PruningShears:
                             self.log('merge', k1, k2)
                             cluster_labels2[cluster_labels2==k2] = k1
                             nb_merge += 1
-                            fig, ax = plt.subplots()
-                            ax.plot(wf1.T.flatten())
-                            ax.plot(wf2.T.flatten())
-                            ax.set_title('merge')
-                            plt.show()
+                            #~ fig, ax = plt.subplots()
+                            #~ ax.plot(wf1.T.flatten())
+                            #~ ax.plot(wf2.T.flatten())
+                            #~ ax.set_title('merge')
+                            #~ plt.show()
                             break
                     
                     
