@@ -988,7 +988,7 @@ class CatalogueConstructor:
         
     
     
-    def find_clusters(self, method='kmeans', selection=None, **kargs):
+    def find_clusters(self, method='kmeans', selection=None, order=True, **kargs):
         """
         Find cluster for peaks that have a waveform and feature.
         
@@ -1004,8 +1004,9 @@ class CatalogueConstructor:
         if selection is None:
             self.on_new_cluster()
             self.compute_all_centroid(max_per_cluster=_default_max_per_cluster)
-            #maybe remove this but this is a good practice
-            self.order_clusters(by='waveforms_rms')
+            
+            if order:
+                self.order_clusters(by='waveforms_rms')
         else:
             new_labels = np.unique(labels)
             for new_label in new_labels:

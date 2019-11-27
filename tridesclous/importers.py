@@ -179,7 +179,7 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
     return cc
     
 
-def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_cluster=300, align_peak=False, catalogue_params={}):
+def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_cluster=300, align_peak=True, catalogue_params={}):
     output_folder = Path(tdc_dirname)
     
     # save prb file:

@@ -113,7 +113,10 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         adjacency_radius_um = cc.adjacency_radius_um * 0.5 # TODO wokr on this
         channel_adjacency = cc.dataio.get_channel_adjacency(chan_grp=cc.chan_grp, adjacency_radius_um=adjacency_radius_um)
         assert cc.info['peak_detector_params']['method'] == 'geometrical'
-        pruningshears = PruningShears(waveforms, features, n_left, n_right, peak_sign, relative_threshold, channel_adjacency, **kargs)
+        channel_distances = cc.dataio.get_channel_distances(chan_grp=cc.chan_grp)
+        
+        pruningshears = PruningShears(waveforms, features, n_left, n_right, peak_sign, relative_threshold,
+                                adjacency_radius_um, channel_adjacency, channel_distances, **kargs)
         
         labels = pruningshears.do_the_job()
         
@@ -491,7 +494,9 @@ class PruningShears:
                         features,
                         n_left, n_right,
                         peak_sign, threshold,
+                        adjacency_radius_um,
                         channel_adjacency,
+                        channel_distances,
                         
                         min_cluster_size=20,
                         max_loop=1000,
@@ -505,7 +510,9 @@ class PruningShears:
         self.width = n_right - n_left
         self.peak_sign = peak_sign
         self.threshold = threshold
+        self.adjacency_radius_um = adjacency_radius_um
         self.channel_adjacency = channel_adjacency
+        self.channel_distances = channel_distances
         
         #user params
         self.min_cluster_size = min_cluster_size
@@ -660,37 +667,72 @@ class PruningShears:
             self.log('local_features.shape', local_features.shape)
             
             # TODO put n_components to parameters
-            pca =  sklearn.decomposition.IncrementalPCA(n_components=2, whiten=True)
-            reduced_features = pca.fit_transform(local_features)
-            self.log('reduced_features.shape',reduced_features.shape)
+            #~ pca =  sklearn.decomposition.IncrementalPCA(n_components=2, whiten=True)
+            #~ reduced_features = pca.fit_transform(local_features)
+            #~ self.log('reduced_features.shape',reduced_features.shape)
+            
+            # test weithed PCA
+            pca =  sklearn.decomposition.IncrementalPCA(n_components=2, whiten=False)
+            weights = []
+            for c in adjacency:
+                d = self.channel_distances[actual_chan, c]
+                w = np.exp(-d/self.adjacency_radius_um * 4)
+                print('actual_chan', actual_chan, 'c', c, 'd', d, 'w', w)
+                weights += [ w ] * n_components_by_channel
+            weights = np.array(weights).reshape(1, -1)
+            print(weights)
+            # TODO manual whitten
+            reduced_features = pca.fit_transform(local_features*weights)
             
            
             local_labels = self.one_sub_cluster(reduced_features)
             
             keep_labels = []
             peak_values =  []
-            # keep only cluster when template peak is center on self.n_left
+            # keep only cluster when:
+            #   * template peak is center on self.n_left
+            #   * template extremum channel is same as actual chan
+            #~ fig, ax = plt.subplots()
             for l, label in enumerate(np.unique(local_labels)):
                 if label<0: 
                     continue
 
                 ind = ind_keep[label == local_labels]
-                wf = np.median(self.waveforms[ind, :][:, :, actual_chan], axis=0)
+                max_per_cluster_for_median = 300
+                if ind.size > max_per_cluster_for_median:
+                    sub_sel = np.random.choice(ind.size, max_per_cluster_for_median, replace=False)
+                    ind = ind[sub_sel]
                 
-                if self.peak_sign == '-' :
-                    ind_peak = np.argmin(wf)
-                elif self.peak_sign == '+' :
-                    ind_peak = np.argmax(wf)
+                #~ wf = np.median(self.waveforms[ind, :][:, :, actual_chan], axis=0)
+                #~ if self.peak_sign == '-' :
+                    #~ ind_peak = np.argmin(wf)
+                #~ elif self.peak_sign == '+' :
+                    #~ ind_peak = np.argmax(wf)
+                #~ if np.abs(-self.n_left - ind_peak) <=1:
+                    #~ keep_labels.append(label)
+                    #~ peak_values.append(np.abs(wf[ind_peak]))
                 
-                if np.abs(-self.n_left - ind_peak) <=1:
-                    # peak is 
+                centroid_adj = np.median(self.waveforms[ind, :, :][:, :, adjacency], axis=0)
+                if self.peak_sign == '-':
+                    chan_peak_local = np.argmin(np.min(centroid_adj, axis=0))
+                    pos_peak = np.argmin(centroid_adj[:, chan_peak_local])
+                elif self.peak_sign == '+':
+                    chan_peak_local = np.argmax(np.max(centroid, axis=0))
+                    pos_peak = np.argmax(centroid_adj[:, chan_peak_local])
+                
+                chan_peak = adjacency[chan_peak_local]
+                print('actual_chan', actual_chan, 'chan_peak', chan_peak)
+                print('adjacency', len(adjacency), adjacency)
+                print('keep it', np.abs(-self.n_left - pos_peak)<=1)
+                
+                #~ ax.plot(centroid_adj.T.flatten())
+                
+                if np.abs(-self.n_left - pos_peak)<=1:
                     keep_labels.append(label)
-                    peak_values.append(np.abs(wf[ind_peak]))
-                
-                    #~ fig, ax = plt.subplots()
-                    #~ ax.plot(wf)
-                    #~ ax.axvline(-self.n_left)
-                    #~ plt.show()
+                    peak_values.append(np.abs(centroid_adj[-self.n_left, chan_peak_local]))
+            #~ plt.show()
+
+
             
             #~ print(keep_labels)
             #~ print(peak_values)
@@ -705,21 +747,34 @@ class PruningShears:
             
 
             #~ if True:
+            #~ if True and k>9:
+            #~ if True and k==3:
             if False:
                 
                 from .matplotlibplot import plot_waveforms_density
                 
+                colors = plt.cm.get_cmap('jet', len(np.unique(local_labels)))
+                
                 chan_features = self.features[:, actual_chan*n_components_by_channel:(actual_chan+1)*n_components_by_channel]
                 
                 fig, axs = plt.subplots(ncols=3)
-                feat0, feat1 = chan_features[mask_loop & mask_thresh, :][:, 0], chan_features[mask_loop & mask_thresh, :][:, 1]
+                feat0, feat1 = chan_features[ind_keep, :][:, 0], chan_features[ind_keep, :][:, 1]
                 ax = axs[0]
-                ax.scatter(feat0, feat1, s=1)
+
+                for l, label in enumerate(np.unique(local_labels)):
+                    if label not in keep_labels:
+                        continue
+                    sel = label == local_labels
+                    if label<0: 
+                        color = 'k'
+                    else:
+                        color=colors(l)
+                    ax.scatter(feat0[sel], feat1[sel], s=1, color=color)
                 
                 
                 ax = axs[1]
                 ax.scatter(reduced_features[:, 0], reduced_features[:, 1], s=1, color='black')
-                colors = plt.cm.get_cmap('jet', len(np.unique(local_labels)))
+                
                 
                 #~ feat0, feat1 = chan_features[keep_wf, :][:, 0], chan_features[keep, :][:, 1]
                 #~ ax.scatter(reduced_features[:, 0], reduced_features[:, 1], s=1)
@@ -787,8 +842,9 @@ class PruningShears:
 
             self.log('ind_new_label.shape', ind_new_label.shape)
 
-
+            
             #~ if True:
+            #~ if True and k==3:
             if False:
                 
                 from .matplotlibplot import plot_waveforms_density
@@ -803,6 +859,8 @@ class PruningShears:
                 #~ print(wf_adj.swapaxes(1,2).reshape(wf_adj.shape[0], -1).shape)
                 
                 ax = axs[0]
+                if wf_adj.shape[0] > 150:
+                    wf_adj = wf_adj[:150, :, :]
                 ax.plot(wf_adj.swapaxes(1,2).reshape(wf_adj.shape[0], -1).T, color='k', alpha=0.1)
                 ax.plot(m.T.flatten(), color='m')
                 
@@ -814,6 +872,10 @@ class PruningShears:
                 #~ im.set_clim(0, 250)
                 fig.colorbar(im)
                 ax.plot(m.T.flatten(), color='m')
+                
+                txt = 'k={} chan={} adj={}'.format(k, actual_chan, adjacency)
+                fig.suptitle(txt)
+                
 
                 
                 plt.show()
@@ -870,6 +932,7 @@ class PruningShears:
                 centroids[ind,:,:] = np.median(self.waveforms[ind_keep, :, :], axis=0)
             
             #eliminate when best peak not aligned
+            # TODO move this in the main loop!!!!!
             for ind, k in enumerate(labels):
                 centroid = centroids[ind,:,:]
                 if self.peak_sign == '-':
@@ -888,6 +951,7 @@ class PruningShears:
                     #~ ax.plot(centroid.T.flatten())
                     #~ for i in range(centroids.shape[2]):
                         #~ ax.axvline(i*self.width-self.n_left)
+                    #~ ax.set_title('delete')
                     #~ plt.show()
                 
             
@@ -911,10 +975,11 @@ class PruningShears:
                             self.log('merge', k1, k2)
                             cluster_labels2[cluster_labels2==k2] = k1
                             nb_merge += 1
-                            #~ fig, ax = plt.subplots()
-                            #~ ax.plot(wf1.T.flatten())
-                            #~ ax.plot(wf2.T.flatten())
-                            #~ plt.show()
+                            fig, ax = plt.subplots()
+                            ax.plot(wf1.T.flatten())
+                            ax.plot(wf2.T.flatten())
+                            ax.set_title('merge')
+                            plt.show()
                             break
                     
                     

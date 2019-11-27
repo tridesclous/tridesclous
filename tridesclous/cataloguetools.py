@@ -252,7 +252,7 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
 
     else:
         params['mode'] = 'sparse'
-        params['adjacency_radius_um'] = 400.
+        params['adjacency_radius_um'] = 200.
         params['sparse_threshold'] = 1.5
 
         if nb_chan > 32 and HAVE_PYOPENCL:
