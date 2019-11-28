@@ -148,8 +148,11 @@ class CatalogueController(ControllerBase):
         return chans
 
     def get_common_sparse_channels(self, labels):
-        inds = [self.cc.index_of_label(label) for label in labels]
-        chans,  = np.nonzero(np.any(self.cc.centroids_sparse_mask[inds, :], axis=0))
+        if -1 in labels:
+            chans = self.channels
+        else:
+            inds = [self.cc.index_of_label(label) for label in labels]
+            chans,  = np.nonzero(np.any(self.cc.centroids_sparse_mask[inds, :], axis=0))
         return chans
     
     def get_waveform_centroid(self, label, metric, sparse=False, channels=None):
