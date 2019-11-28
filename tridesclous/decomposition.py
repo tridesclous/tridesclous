@@ -97,8 +97,8 @@ def get_pca_one_channel(waveforms, chan, thresh, n_left, n_components_by_channel
     #~ print(wf_chan[:, -n_left].shape)
     #~ keep = np.any((wf_chan>thresh) | (wf_chan<-thresh))
     keep = (wf_chan[:, -n_left]>thresh) | (wf_chan[:, -n_left]<-thresh)
-    #~ print(keep.sum(), keep.size)
-    if np.any(keep):
+
+    if keep.sum() >=n_components_by_channel:
         pca.fit(wf_chan[keep, :])
         return pca
     else:

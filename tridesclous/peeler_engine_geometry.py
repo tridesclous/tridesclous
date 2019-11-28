@@ -104,6 +104,9 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #~ self.cl_local_size = None
             self.cl_local_size2 = (len(self.shifts), 1) # faster a GPU because of memory access
             #~ self.cl_local_size = (1, centers.shape[2])
+            
+            # to check if distance is valid is a coeff (because maxfloat on opencl)
+            self.max_float32 = np.finfo('float32').max * 0.8
 
 
 
@@ -307,10 +310,11 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                         self.rms_waveform_channel_cl, self.waveform_distance_cl,  self.channel_distances_cl, 
                         self.adjacency_radius_um_cl, np.int32(chan_ind))
             pyopencl.enqueue_copy(self.queue,  self.waveform_distance, self.waveform_distance_cl)
+            
             cluster_idx = np.argmin(self.waveform_distance)
             shift = None
             
-            
+            # TODO avoid double enqueue
             long_waveform = self.fifo_residuals[left_ind-self.maximum_jitter_shift:left_ind+self.peak_width+self.maximum_jitter_shift+1,:]
             pyopencl.enqueue_copy(self.queue,  self.long_waveform_cl, long_waveform)
             event = self.kern_explore_shifts(
@@ -339,16 +343,24 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         elif self.argmin_method == 'numba':
             possibles_cluster_idx, = np.nonzero(self.sparse_mask[:, chan_ind])
             
+            if possibles_cluster_idx.size ==0:
+                cluster_idx = -1
+                shift = None
+            else:
             
-            s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
-            cluster_idx = possibles_cluster_idx[np.argmin(s)]
-            
-            shift = None
-            # explore shift
-            long_waveform = self.fifo_residuals[left_ind-self.maximum_jitter_shift:left_ind+self.peak_width+self.maximum_jitter_shift+1,:]
-            all_dist = numba_explore_shifts(long_waveform, self.catalogue['centers0'][cluster_idx, : , :],  self.sparse_mask[cluster_idx, :], self.maximum_jitter_shift)
-            shift = self.shifts[np.argmin(all_dist)]
-            #~ print('      shift', shift)
+                s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
+                cluster_idx = possibles_cluster_idx[np.argmin(s)]
+                if s[cluster_idx] > self.max_float32:
+                    # no match
+                    cluster_idx = -1
+                    shift = None
+                else:
+                    shift = None
+                    # explore shift
+                    long_waveform = self.fifo_residuals[left_ind-self.maximum_jitter_shift:left_ind+self.peak_width+self.maximum_jitter_shift+1,:]
+                    all_dist = numba_explore_shifts(long_waveform, self.catalogue['centers0'][cluster_idx, : , :],  self.sparse_mask[cluster_idx, :], self.maximum_jitter_shift)
+                    shift = self.shifts[np.argmin(all_dist)]
+                #~ print('      shift', shift)
             
             
             #~ fig, ax = plt.subplots()

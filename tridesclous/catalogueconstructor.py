@@ -988,7 +988,7 @@ class CatalogueConstructor:
         
     
     
-    def find_clusters(self, method='kmeans', selection=None, **kargs):
+    def find_clusters(self, method='kmeans', selection=None, order=True, **kargs):
         """
         Find cluster for peaks that have a waveform and feature.
         
@@ -1004,8 +1004,9 @@ class CatalogueConstructor:
         if selection is None:
             self.on_new_cluster()
             self.compute_all_centroid(max_per_cluster=_default_max_per_cluster)
-            #maybe remove this but this is a good practice
-            self.order_clusters(by='waveforms_rms')
+            
+            if order:
+                self.order_clusters(by='waveforms_rms')
         else:
             new_labels = np.unique(labels)
             for new_label in new_labels:
@@ -1076,11 +1077,18 @@ class CatalogueConstructor:
         
         for name in _centroids_arrays:
             arr = getattr(self, name).copy()
-            new_arr = np.zeros((arr.shape[0]+1, arr.shape[1], arr.shape[2]), dtype=arr.dtype)
-            if label>=0:
-                new_arr[:-1, :, :] = arr
+            
+            if arr.ndim == 3:
+                new_arr = np.zeros((arr.shape[0]+1, arr.shape[1], arr.shape[2]), dtype=arr.dtype)
             else:
-                new_arr[1:, :, :] = arr
+                # special case "centroids_sparse_mask"
+                new_arr = np.zeros((arr.shape[0]+1, arr.shape[1]), dtype=arr.dtype)
+            
+            if label>=0:
+                new_arr[:-1] = arr
+            else:
+                new_arr[1:] = arr
+            
             self.arrays.add_array(name, new_arr, self.memory_mode)
         
         #TODO set one color
@@ -1525,7 +1533,7 @@ class CatalogueConstructor:
         mask_pos= (self.clusters['cluster_label']>=0)
         for name in _centroids_arrays:
             arr = getattr(self, name)
-            arr_pos = arr[mask_pos, ].copy()
+            arr_pos = arr[mask_pos, ].copy() # first dim for all
             arr[mask_pos, ] = arr_pos[order, ]
         
         self.refresh_colors(reset=True)
