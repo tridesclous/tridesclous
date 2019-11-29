@@ -248,26 +248,28 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_clust
     sig_size = dataio.get_segment_length(seg_num=0)
     
     peak_shift = {}
-    if align_peak:
-        t1 = time.perf_counter()
-        # compute the shift to have the true max at -n_left
-        for label in sorting.get_unit_ids():
-            indexes = sorting.get_unit_spike_train(label)
-            indexes = indexes[indexes<(sig_size-n_right-1)]
-            indexes = indexes[indexes>(-n_left+1)]
-            if indexes.size>spike_per_cluster:
-                keep = np.random.choice(indexes.size, spike_per_cluster, replace=False)
-                indexes = indexes[keep]
-            wfs = dataio.get_some_waveforms(seg_num=0, chan_grp=0, sample_indexes=indexes, n_left=n_left, n_right=n_right)
-            wf0 = np.median(wfs, axis=0)
-            chan_max = np.argmax(np.max(np.abs(wf0), axis=0))
-            ind_max = np.argmax(np.abs(wf0[:, chan_max]))
-            
-            shift = ind_max + n_left
-            peak_shift[label] = shift
-            #~ print(label,'>', shift)
-        t2 = time.perf_counter()
-        print('align peaks', t2-t1)
+    extremum_channel = {}
+
+    t1 = time.perf_counter()
+    # compute the shift to have the true max at -n_left
+    for label in sorting.get_unit_ids():
+        indexes = sorting.get_unit_spike_train(label)
+        indexes = indexes[indexes<(sig_size-n_right-1)]
+        indexes = indexes[indexes>(-n_left+1)]
+        if indexes.size>spike_per_cluster:
+            keep = np.random.choice(indexes.size, spike_per_cluster, replace=False)
+            indexes = indexes[keep]
+        wfs = dataio.get_some_waveforms(seg_num=0, chan_grp=0, sample_indexes=indexes, n_left=n_left, n_right=n_right)
+        wf0 = np.median(wfs, axis=0)
+        # maybe use '-' or '+'
+        chan_max = np.argmax(np.max(np.abs(wf0), axis=0))
+        ind_max = np.argmax(np.abs(wf0[:, chan_max]))
+        extremum_channel[label] = chan_max
+        shift = ind_max + n_left
+        peak_shift[label] = shift
+        #~ print(label,'>', shift)
+    t2 = time.perf_counter()
+    print('template', t2-t1)
     
     
     all_peaks = []
@@ -281,6 +283,9 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_clust
         peaks['index'][:] = indexes
         peaks['cluster_label'][:] = label
         peaks['segment'][:] = 0
+        peaks['channel'][:] = extremum_channel[label]
+        
+        
         
         all_peaks.append(peaks)
     
