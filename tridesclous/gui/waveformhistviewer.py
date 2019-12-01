@@ -172,9 +172,10 @@ class WaveformHistViewer(WidgetBase):
                 ind = ind[np.random.choice(ind.size, 1000, replace=False)]
             mins, maxs = [], []
             for c in range(self.controller.nb_channel):
-                wfs = self.controller.some_waveforms[:, -n_left, c].take(ind, axis=0)
+                #~ wfs = self.controller.some_waveforms[:, -n_left, c].take(ind, axis=0)
+                wfs = self.controller.some_waveforms[:, :, c].take(ind, axis=0)
                 mins.append(np.percentile(wfs, .001))
-                maxs.append(np.percentile(wfs, 99.9))
+                maxs.append(np.percentile(wfs, 99.999))
             self.params['bin_min'] = min(mins)
             self.params['bin_max'] = max(maxs)
             

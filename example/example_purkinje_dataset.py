@@ -40,23 +40,23 @@ def initialize_catalogueconstructor():
 def preprocess_signals_and_peaks():
     dataio = DataIO(dirname=dirname)
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
-
-    catalogueconstructor.set_preprocessor_params(chunksize=1024,
-            
-            #signal preprocessor
+    
+    
+    catalogueconstructor.set_global_params(chunksize=1024,mode='dense')
+    
+    catalogueconstructor.set_preprocessor_params(
             highpass_freq=None,
             lowpass_freq=None,
             smooth_size=0,
             common_ref_removal=False,
-            lostfront_chunksize=64,
+            lostfront_chunksize=64)
             
+    catalogueconstructor.set_peak_detector_params(
             #peak detector
-            peakdetector_engine='numpy',
+            engine='numpy',
             peak_sign='-', 
             relative_threshold=5,
-            peak_span_ms=0.4,
-            
-            )
+            peak_span_ms=0.4)
     
     
     t1 = time.perf_counter()
@@ -79,8 +79,7 @@ def extract_waveforms_pca_cluster():
     
     
     t1 = time.perf_counter()
-    #~ catalogueconstructor.extract_some_waveforms(n_left=-35, n_right=150,  nb_max=10000, align_waveform=True, subsample_ratio=20)
-    catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=60,  nb_max=20000, align_waveform=False)
+    catalogueconstructor.extract_some_waveforms(n_left=-25, n_right=60,  nb_max=20000)
     t2 = time.perf_counter()
     print('extract_some_waveforms', t2-t1)
     #~ print(catalogueconstructor.some_waveforms.shape)
@@ -164,10 +163,10 @@ def open_PeelerWindow():
 
 
 if __name__ =='__main__':
-    #~ initialize_catalogueconstructor()
+    initialize_catalogueconstructor()
     #~ preprocess_signals_and_peaks()
     #~ extract_waveforms_pca_cluster()
     #~ open_cataloguewindow()
-    run_peeler()
-    open_PeelerWindow()
+    #~ run_peeler()
+    #~ open_PeelerWindow()
     
