@@ -306,7 +306,7 @@ class MainWindow(QT.QMainWindow):
         # set auto params catalogue
         params = get_auto_params_for_catalogue(self.dataio, chan_grp=self.chan_grps[0])
         d = dict(params)
-        pprint(d)
+        
         #~ for k in ('feature_method', 'feature_kargs', 'cluster_method', 'cluster_kargs', 'clean_cluster', 'clean_cluster_kargs'):
         for k in ('feature_method', 'feature_kargs', 'cluster_method', 'cluster_kargs', 'clean_cluster'):
             d.pop(k)
@@ -409,18 +409,19 @@ class MainWindow(QT.QMainWindow):
         #~ #TODO dialog for that
         #~ params['clean_cluster'] = False
         #~ params['clean_cluster_kargs'] = {}
+        
 
         for chan_grp in self.chan_grps:
             print('### chan_grp', chan_grp, ' ###')
         
-            try:
-            #~ if 1:
+            #~ try:
+            if 1:
                 catalogueconstructor = CatalogueConstructor(dataio=self.dataio, chan_grp=chan_grp)
                 apply_all_catalogue_steps(catalogueconstructor, params, verbose=True)            
                 
-            except Exception as e:
-                print(e)
-                self.errorToMessageBox(e)
+            #~ except Exception as e:
+                #~ print(e)
+                #~ self.errorToMessageBox(e)
                 
         self.refresh_info()
     

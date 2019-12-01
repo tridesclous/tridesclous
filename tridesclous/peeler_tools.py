@@ -89,12 +89,15 @@ def get_auto_params_for_peelers(dataio, chan_grp=0):
     #~ else:
         #~ params['inter_sample_oversampling'] = False
     
-    if nb_chan <=8:
+    #~ if nb_chan <=8:
+    #~ if nb_chan <=1:
+    if nb_chan <=4:
         
         params['use_sparse_template'] = False
         params['sparse_threshold_mad'] = 1.5
         params['argmin_method'] = 'numpy'
         
+        params['engine'] = 'classic'
         
     else:
         params['use_sparse_template'] = True

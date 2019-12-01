@@ -385,6 +385,8 @@ class PeakDetectorGeometricalNumpy(BasePeakDetector):
     def change_params(self, nb_neighbour=4, **kargs):
         BasePeakDetector.change_params(self,  **kargs)
         
+        nb_neighbour = min(nb_neighbour, self.nb_channel-1)
+        #~ print('nb_neighbour', nb_neighbour)
         assert self.adjacency_radius_um is None, 'Not implemented yet'
         
         d = sklearn.metrics.pairwise.euclidean_distances(self.geometry)

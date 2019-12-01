@@ -19,7 +19,7 @@ from matplotlib import pyplot
 
 # !!!!!!!! change the working dir here
 #working_dir = '/home/samuel/Documents/projet/DataSpikeSorting/kampff/'
-working_dir = '/media/samuel/dataspikesorting/DataSpikeSortingHD2/kampff/'
+working_dir = '/media/samuel/SamCNRS/DataSpikeSorting/kampff/'
 
 
 dirname= working_dir+'tdc_2015_09_09_Pair_6_0'
@@ -44,86 +44,14 @@ def initialize_catalogueconstructor():
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     print(catalogueconstructor)
 
-
-def preprocess_signals_and_peaks():
+def apply_catalogue_steps_auto():
     dataio = DataIO(dirname=dirname)
-    catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    print(dataio)
+    cc = CatalogueConstructor(dataio=dataio)
 
-
-    catalogueconstructor.set_preprocessor_params(chunksize=1024,
-            memory_mode='memmap',
-            
-            #signal preprocessor
-            #~ signalpreprocessor_engine='numpy',
-            signalpreprocessor_engine='opencl',
-            highpass_freq=300, 
-            lowpass_freq=6000., 
-            smooth_size=1,
-            
-            common_ref_removal=True,
-            lostfront_chunksize=64,
-            
-            #peak detector
-            #~ peakdetector_engine='numpy',
-            peakdetector_engine='opencl',
-            peak_sign='-', 
-            relative_threshold=6,
-            peak_span_ms=0.2,
-            )
-            
-    t1 = time.perf_counter()
-    catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
-    t2 = time.perf_counter()
-    print('estimate_signals_noise', t2-t1)
+    params = get_auto_params_for_catalogue(dataio, chan_grp=1)
+    apply_all_catalogue_steps(cc, params, verbose=True)
+    print(cc)
     
-    t1 = time.perf_counter()
-    catalogueconstructor.run_signalprocessor(duration=60.)
-    t2 = time.perf_counter()
-    print('run_signalprocessor', t2-t1)
-    
-    print(catalogueconstructor)
-
-def extract_waveforms_pca_cluster():
-    dataio = DataIO(dirname=dirname)
-    catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    
-    t1 = time.perf_counter()
-    catalogueconstructor.extract_some_waveforms(mode='rand', n_left=-45, n_right=60,  nb_max=10000)
-    #catalogueconstructor.extract_some_waveforms(mode='all', n_left=-45, n_right=60)
-    t2 = time.perf_counter()
-    print('extract_some_waveforms', t2-t1)
-
-    t1 = time.perf_counter()
-    catalogueconstructor.clean_waveforms(alien_value_threshold=100.)
-    t2 = time.perf_counter()
-    print('clean_waveforms', t2-t1)
-
-
-    #extract_some_noise
-    t1 = time.perf_counter()
-    catalogueconstructor.extract_some_noise(nb_snippet=400)
-    t2 = time.perf_counter()
-    print('extract_some_noise', t2-t1)
-
-
-    t1 = time.perf_counter()
-    catalogueconstructor.extract_some_features(method='peak_max')
-    t2 = time.perf_counter()
-    print('project', t2-t1)
-    
-    t1 = time.perf_counter()
-    #catalogueconstructor.find_clusters(method='kmeans', n_clusters=100)#this is faster 
-    catalogueconstructor.find_clusters(method='sawchaincut')
-    t2 = time.perf_counter()
-    print('find_clusters', t2-t1)
-    
-    print(catalogueconstructor)
-    
-    
-    catalogueconstructor.order_clusters(by='waveforms_rms')
-    
-
 
 
 def open_cataloguewindow():
@@ -183,13 +111,13 @@ def open_PeelerWindow():
 
 if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
-    #~ preprocess_signals_and_peaks()
-    #~ extract_waveforms_pca_cluster()
+    
+    apply_catalogue_steps_auto()
     #~ open_cataloguewindow()
 
     #~ clean_catalogue()
     #~ run_peeler()
-    open_PeelerWindow()
+    #~ open_PeelerWindow()
 
     
 

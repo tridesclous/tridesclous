@@ -4,6 +4,7 @@ Some helping function that apply on catalogueconstructor (apply steps, sumamry, 
 """
 import time
 import copy
+from pprint import pprint
 
 from .cltools import HAVE_PYOPENCL
 from .cluster import HAVE_ISOSPLIT5
@@ -68,11 +69,15 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
       
       apply_all_catalogue_steps(catalogueconstructor, params)
     """
+    if verbose:
+        print('apply all catalogue steps')
+        pprint(params)
     
     cc = catalogueconstructor
     
     # global params
     d = {k:params[k] for k in ('chunksize', 'mode', 'adjacency_radius_um')}
+    print(d)
     cc.set_global_params(**d)
     
     # params preprocessor
@@ -217,10 +222,14 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
     params['chunksize'] = int(dataio.sample_rate * 0.1)
     
     
-    if nb_chan <=8:
+    #~ if nb_chan <=8:
+    #~ if nb_chan <=1:
+    if nb_chan <=4:
+    
+        
         params['mode'] = 'dense'
-        params['adjacency_radius_um'] = None
-        params['sparse_threshold'] = None
+        params['adjacency_radius_um'] = 0.
+        params['sparse_threshold'] = 1.5
         
         params['feature_method'] = 'global_pca'
         
