@@ -67,10 +67,13 @@ def open_cataloguewindow():
 
 def run_peeler():
     dataio = DataIO(dirname=dirname)
-    initial_catalogue = dataio.load_catalogue(chan_grp=0)
+    catalogue = dataio.load_catalogue(chan_grp=0)
 
+    peeler_params = get_auto_params_for_peelers(dataio, chan_grp=0)
+    pprint(peeler_params)    
+    
     peeler = Peeler(dataio)
-    peeler.change_params(catalogue=initial_catalogue)
+    peeler.change_params(catalogue=catalogue, **peeler_params)
     
     t1 = time.perf_counter()
     peeler.run()
@@ -94,9 +97,9 @@ def open_PeelerWindow():
 if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
     
-    apply_catalogue_steps_auto()
-    open_cataloguewindow()
+    #~ apply_catalogue_steps_auto()
+    #~ open_cataloguewindow()
     
-    #~ run_peeler()
+    run_peeler()
     #~ open_PeelerWindow()
     

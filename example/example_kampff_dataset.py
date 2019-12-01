@@ -65,35 +65,22 @@ def open_cataloguewindow():
     app.exec_()    
 
 
-def clean_catalogue():
-    # the catalogue need strong attention with teh catalogue windows.
-    # here a dirty way a cleaning is to take on the first 20 bigger cells
-    # the peeler will only detect them
-    dataio = DataIO(dirname=dirname)
-    cc = CatalogueConstructor(dataio=dataio)
-    
-    #re order by rms
-    cc.order_clusters(by='waveforms_rms')
-
-    #re label >20 to trash (-1)
-    mask = cc.all_peaks['cluster_label']>20
-    cc.all_peaks['cluster_label'][mask] = -1
-    cc.on_new_cluster()
-    
-    #save catalogue before peeler
-    cc.make_catalogue_for_peeler()
     
 
 def run_peeler():
     dataio = DataIO(dirname=dirname)
-    initial_catalogue = dataio.load_catalogue(chan_grp=1)
+    catalogue = dataio.load_catalogue(chan_grp=1)
     
     print(dataio)
     peeler = Peeler(dataio)
-    peeler.change_params(catalogue=initial_catalogue)
+    peeler.change_params(catalogue=catalogue,
+                engine='geometrical',
+                use_sparse_template=True,
+                sparse_threshold_mad=1.5,
+                argmin_method='opencl')
     
     t1 = time.perf_counter()
-    peeler.run(duration=1.)
+    peeler.run(duration=None)
     t2 = time.perf_counter()
     print('peeler.run_loop', t2-t1)
 
@@ -112,12 +99,11 @@ def open_PeelerWindow():
 if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
     
-    apply_catalogue_steps_auto()
+    #~ apply_catalogue_steps_auto()
     #~ open_cataloguewindow()
 
-    #~ clean_catalogue()
     #~ run_peeler()
-    #~ open_PeelerWindow()
+    open_PeelerWindow()
 
     
 
