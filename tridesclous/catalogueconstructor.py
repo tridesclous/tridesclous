@@ -1656,8 +1656,8 @@ class CatalogueConstructor:
         self.catalogue['signals_mads'] = np.array(self.signals_mads, copy=True)
         
         
-        t2 = time.perf_counter()
-        print('make_catalogue', t2-t1)
+        #~ t2 = time.perf_counter()
+        #~ print('make_catalogue', t2-t1)
         
         return self.catalogue
     

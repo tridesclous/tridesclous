@@ -77,7 +77,7 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     
     # global params
     d = {k:params[k] for k in ('chunksize', 'mode', 'adjacency_radius_um')}
-    print(d)
+    
     cc.set_global_params(**d)
     
     # params preprocessor
@@ -148,7 +148,8 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
         t1 = time.perf_counter()
         cc.clean_cluster(**params['clean_cluster_kargs'])
         t2 = time.perf_counter()
-        print('clean_cluster', t2-t1)
+        if verbose:
+            print('clean_cluster', t2-t1)
     
     cc.order_clusters(by='waveforms_rms')
 
@@ -231,10 +232,10 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['adjacency_radius_um'] = 0.
         params['sparse_threshold'] = 1.5
         
-        params['feature_method'] = 'global_pca'
-        
         params['peak_detector']['method'] = 'global'
         params['peak_detector']['engine'] = 'numpy'
+        
+        params['feature_method'] = 'global_pca'
         
         if nb_chan in (1,2):
             n_components = 3
