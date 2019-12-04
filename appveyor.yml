@@ -35,7 +35,7 @@ install:
   - "python -c \"import struct, sys; print(struct.calcsize('P') * 8); print(sys.executable)\""
   
   # install hdbscan form conda forge
-  - "conda install -c conda-forge hdbscan"
+  - "conda install -y -c conda-forge hdbscan"
 
   # Install tridesclous
   - "python setup.py develop"

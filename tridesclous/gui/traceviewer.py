@@ -385,11 +385,14 @@ class BaseTraceViewer(WidgetBase):
         
         data_curves *= self.gains[self.visible_channels, None]
         data_curves += self.offsets[self.visible_channels, None]
-        data_curves[:,0] = np.nan
-        data_curves = data_curves.flatten()
+        #~ data_curves[:,0] = np.nan
+        
+        connect = np.ones(data_curves.shape, dtype='bool')
+        connect[:, -1] = 0
+        
         times_chunk = np.arange(sigs_chunk.shape[0], dtype='float32')/self.dataio.sample_rate+max(t1, 0)
         times_chunk_tile = np.tile(times_chunk, nb_visible)
-        self.signals_curve.setData(times_chunk_tile, data_curves)
+        self.signals_curve.setData(times_chunk_tile, data_curves.flatten(), connect=connect.flatten())
         
         
         #channel labels
@@ -575,9 +578,12 @@ class PeelerTraceViewer(BaseTraceViewer):
             data = data[:, self.visible_channels].T.copy()
             data *= self.gains[self.visible_channels, None]
             data += self.offsets[self.visible_channels, None]
-            data[:,0] = np.nan
-            data = data.flatten()
-            curve.setData(times_chunk_tile, data)
+            #~ data[:,0] = np.nan
+            
+            connect = np.ones(data.shape, dtype='bool')
+            connect[:, -1] = 0
+            
+            curve.setData(times_chunk_tile, data.flatten(), connect=connect.flatten())
         
         if self.plot_buttons['prediction'].isChecked() and self.signal_type == 'processed':
             plot_curves(self.curve_predictions, prediction)
