@@ -415,13 +415,18 @@ class WaveformViewerBase(WidgetBase):
             ypos = self.arr_geometry[chans,1]
             
             wf = wf*self.factor_y*self.delta_y + ypos[None, :]
-            wf[0,:] = np.nan
-            wf = wf.T.reshape(-1)
+            #wf[0,:] = np.nan
             
-            xvect = self.xvect[chans, :].flatten()
+            
+            connect = np.ones(wf.shape, dtype='bool')
+            connect[0, :] = 0
+            connect[-1, :] = 0
+            
+            xvect = self.xvect[chans, :]
             
             color = self.controller.qcolors.get(k, QT.QColor( 'white'))
-            curve = pg.PlotCurveItem(xvect, wf, pen=pg.mkPen(color, width=2), connect='finite')
+            
+            curve = pg.PlotCurveItem(xvect.flatten(), wf.T.flatten(), pen=pg.mkPen(color, width=2), connect=connect.T.flatten())
             self.plot1.addItem(curve)
         
         if self.params['show_channel_num']:
@@ -474,9 +479,12 @@ class WaveformViewerBase(WidgetBase):
             elif self.mode=='geometry':
                 ypos = self.arr_geometry[:,1]
                 wf = wf*self.factor_y*self.delta_y + ypos[None, :]
-                wf[0,:] = np.nan
-                wf = wf.T.reshape(-1)
-                self.curve_one_waveform.setData(self.xvect.flatten(), wf)
+                
+                connect = np.ones(wf.shape, dtype='bool')
+                connect[0, :] = 0
+                connect[-1, :] = 0
+
+                self.curve_one_waveform.setData(self.xvect.flatten(), wf.T.flatten(), connect=connect.T.flatten())
     
     def on_spike_selection_changed(self):
         #~ n_selected = np.sum(self.controller.spike_selection)
