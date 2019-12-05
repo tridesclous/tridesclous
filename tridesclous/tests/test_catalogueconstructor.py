@@ -261,7 +261,7 @@ def test_create_savepoint_catalogue_constructor():
     print(copy_path)
 
 
-def test_interp_centers0():
+def debug_interp_centers0():
     dataio = DataIO(dirname='test_catalogueconstructor')
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     catalogue = catalogueconstructor.make_catalogue()
@@ -284,6 +284,6 @@ if __name__ == '__main__':
     
     #~ test_create_savepoint_catalogue_constructor()
     
-    test_interp_centers0()
+    debug_interp_centers0()
 
 
