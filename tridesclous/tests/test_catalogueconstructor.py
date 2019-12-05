@@ -261,21 +261,21 @@ def test_create_savepoint_catalogue_constructor():
     print(copy_path)
 
 
-#~ def test_interp_centers0():
-    #~ dataio = DataIO(dirname='test_catalogueconstructor')
-    #~ catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    #~ catalogue = catalogueconstructor.make_catalogue()
-    #~ centers = catalogue['centers0']
-    #~ interp_centers = catalogue['interp_centers0']
-    #~ fig, ax = plt.subplots()
-    #~ ax.plot(centers[0])
-    #~ ax.plot(np.arange(interp_centers[0].shape[0])/20. - 0.5, interp_centers[0])
+def debug_interp_centers0():
+    dataio = DataIO(dirname='test_catalogueconstructor')
+    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    catalogue = catalogueconstructor.make_catalogue()
+    centers = catalogue['centers0']
+    interp_centers = catalogue['interp_centers0']
+    fig, ax = plt.subplots()
+    ax.plot(centers[0])
+    ax.plot(np.arange(interp_centers[0].shape[0])/20. - 0.5, interp_centers[0])
     
-    #~ plt.show()
+    plt.show()
 
     
 if __name__ == '__main__':
-    test_catalogue_constructor()
+    #~ test_catalogue_constructor()
     
     #~ compare_nb_waveforms()
     
@@ -284,6 +284,6 @@ if __name__ == '__main__':
     
     #~ test_create_savepoint_catalogue_constructor()
     
-    #~ test_interp_centers0()
+    debug_interp_centers0()
 
 

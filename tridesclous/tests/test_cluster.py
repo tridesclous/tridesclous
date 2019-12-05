@@ -13,8 +13,8 @@ from matplotlib import pyplot
 from tridesclous.tests.testingtools import setup_catalogue
 
 
-#~ dataset_name='olfactory_bulb'
-dataset_name = 'purkinje'
+dataset_name='olfactory_bulb'
+#~ dataset_name = 'purkinje'
 #~ dataset_name='locust'
 #~ dataset_name='striatum_rat'
 
@@ -65,7 +65,28 @@ def test_sawchaincut():
         app.exec_()
 
 
+def test_pruningshears():
+
+    dirname = 'test_cluster'
+    
+    
+    dataio = DataIO(dirname=dirname)
+    print(dataio)
+    cc = CatalogueConstructor(dataio=dataio)
+    
+    cc.extract_some_features(method='pca_by_channel')
+    #~ print(dataio)
+    #~ print(cc)
+    
+    t0 = time.perf_counter()
+    cc.find_clusters(method='pruningshears', print_debug=True)
+    t1 = time.perf_counter()
+    print('cluster', t1-t0)
+
+
 if __name__ == '__main__':
-    setup_module()
-    test_sawchaincut()
+    #~ setup_module()
+    #~ test_sawchaincut()
+    test_pruningshears()
+    
     

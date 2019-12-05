@@ -295,7 +295,7 @@ def test_OnlinePeeler_no_catalogue():
 if __name__ =='__main__':
     #~ setup_catalogue()
     
-    test_OnlinePeeler()
+    #~ test_OnlinePeeler()
     
-    #~ test_OnlinePeeler_no_catalogue()
+    test_OnlinePeeler_no_catalogue()
 

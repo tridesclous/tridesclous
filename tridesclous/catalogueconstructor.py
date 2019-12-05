@@ -1627,8 +1627,14 @@ class CatalogueConstructor:
             #~ centers2[i,:,:] = np.mean(wf2, axis=0)[2:-2, :]
 
             #interpolate centers0 for reconstruction inbetween bsample when jitter is estimated
-            f = scipy.interpolate.interp1d(np.arange(full_width), center0, axis=0, kind='cubic')
+            f = scipy.interpolate.interp1d(np.arange(full_width), center0, axis=0, kind='cubic', )
             oversampled_center = f(subsample)
+            
+            #~ factor = center0.shape[0]
+            #~ f = scipy.interpolate.UnivariateSpline(np.arange(full_width), center0, axis=0, k=3, s=factor)
+            #~ f = scipy.interpolate.RectBivariateSpline(np.arange(full_width), np.arange(center0.shape[1]), center0, kx=3, ky=1, s=factor)
+            #~ oversampled_center = f(subsample, np.arange(center0.shape[1]))
+            
             interp_centers0[i, :, :] = oversampled_center
             
             #~ fig, ax = plt.subplots()
