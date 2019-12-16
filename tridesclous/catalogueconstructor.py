@@ -553,7 +553,7 @@ class CatalogueConstructor:
         length -= length%self.chunksize
 
         #TODO make this by segment
-        self.info['processed_length'] = length
+        self.info['processed_length'] = int(length)
         self.flush_info()
         
         #initialize engines
