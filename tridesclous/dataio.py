@@ -12,10 +12,12 @@ import numpy as np
 import pandas as pd
 from urllib.request import urlretrieve
 import pickle
+import distutils.version
 
 
 import sklearn.metrics
 
+from .version import version as tridesclous_version
 from .datasource import data_source_classes
 from .iotools import ArrayCollection
 from .tools import download_probe, create_prb_file_from_dict, fix_prb_file_py2
@@ -110,6 +112,7 @@ class DataIO:
         if not os.path.exists(self.info_filename):
             #first init
             self.info = {}
+            self.info['tridesclous_version'] = tridesclous_version
             self.flush_info()
             self.datasource = None
         else:
@@ -121,7 +124,8 @@ class DataIO:
             #~ print('*'*50)
             #~ try:
             #~ if 1:
-            if len(self.info)>0:
+            self._check_tridesclous_version()
+            if len(self.info)>1:
                 #~ self._reload_info()
                 self._reload_channel_group()
                 self._reload_data_source()
@@ -137,7 +141,7 @@ class DataIO:
     def __repr__(self):
         t = "DataIO <id: {}> \n  workdir: {}\n".format(id(self), self.dirname)
         if len(self.info) ==0 or self.datasource is None:
-            t  += "\n  Not datasource is set yet"
+            t  += "  Not datasource set yet"
             return t
         t += "  sample_rate: {}\n".format(self.sample_rate)
         t += "  total_channel: {}\n".format(self.total_channel)
@@ -166,6 +170,25 @@ class DataIO:
     def flush_info(self):
         with open(self.info_filename, 'w', encoding='utf8') as f:
             json.dump(self.info, f, indent=4)
+    
+    def _check_tridesclous_version(self):
+        folder_version= self.info.get('tridesclous_version', 'unknown')
+        
+        if folder_version is 'unknown':
+            w = True
+        else:
+            v1 = distutils.version.LooseVersion(tridesclous_version).version
+            v2 = distutils.version.LooseVersion(self.info['tridesclous_version']).version
+            if (v1[0] == v2[0]) and (v1[1] == v2[1]):
+                w = False
+            else:
+                w = True
+
+        if w:
+            txt = 'This folder was created with an old tridesclous version ({})\n'\
+                    'The actual version is {}\n'\
+                    'You may have bug in internal structure.'
+            print(txt.format(folder_version, tridesclous_version))
     
     def set_data_source(self, type='RawData', **kargs):
         """
@@ -533,6 +556,7 @@ class DataIO:
         """
         self.arrays[chan_grp][seg_num].create_array('processed_signals', dtype, 
                             self.get_segment_shape(seg_num, chan_grp=chan_grp), 'memmap')
+        self.arrays[chan_grp][seg_num].annotate('processed_signals', already_processed=False)
     
     def set_signals_chunk(self,sigs_chunk, seg_num=0, chan_grp=0, i_start=None, i_stop=None, signal_type='processed'):
         """

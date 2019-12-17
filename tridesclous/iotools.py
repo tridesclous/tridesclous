@@ -39,7 +39,11 @@ class ArrayCollection:
                     dt = self._array[name].dtype.name
                 else:
                     dt = self._array[name].dtype.descr
-                d[name] = dict(dtype=dt, shape=list(self._array[name].shape))
+                d[name] = dict(dtype=dt,
+                                shape=list(self._array[name].shape),
+                                annotations=self._array_attr[name]['annotations']
+                                )
+                
             json.dump(d, f, indent=4)        
     
     def _check_nb_ref(self, name):
@@ -136,7 +140,7 @@ class ArrayCollection:
                 #~ print('empty array memmap !!!!', name, shape)
         
         self._array[name] = arr
-        self._array_attr[name] = {'state':'w', 'memory_mode':memory_mode}
+        self._array_attr[name] = {'state':'w', 'memory_mode':memory_mode, 'annotations':{}}
         
         if self.parent is not None:
             setattr(self.parent, name, self._array[name])
@@ -176,7 +180,7 @@ class ArrayCollection:
             mode = self._fix_existing(name)
             self._array[name] = open(self._fname(name), mode='wb+')
         
-        self._array_attr[name] = {'state':'a', 'memory_mode':memory_mode, 'dtype': dtype, 'shape':shape}
+        self._array_attr[name] = {'state':'a', 'memory_mode':memory_mode, 'dtype': dtype, 'shape':shape, 'annotations':{}}
         
         if self.parent is not None:
             setattr(self.parent, name, None)
@@ -252,6 +256,7 @@ class ArrayCollection:
                 arr = np.empty(shape, dtype=dtype)
             self._array[name] = arr
             self._array_attr[name] = {'state':'r', 'memory_mode':'memmap'}
+            self._array_attr[name]['annotations'] = d[name].get('annotations', {})
             if self.parent is not None:
                 setattr(self.parent, name, self._array[name])
         else:
@@ -286,4 +291,12 @@ class ArrayCollection:
     def keys(self):
         return self._array.keys()
     
+    def annotate(self, name, **kargs):
+        assert name in self._array_attr
+        self._array_attr[name]['annotations'].update(kargs)
+        self.flush_json()
     
+    def get_annotation(self, name, key):
+        assert name in self._array_attr
+        return self._array_attr[name]['annotations'][key]
+
