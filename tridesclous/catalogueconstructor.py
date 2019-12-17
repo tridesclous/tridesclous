@@ -549,12 +549,8 @@ class CatalogueConstructor:
             assert 'peak_detector_params' in self.info
             assert len(self.info['peak_detector_params'])>0
         
-        print('run_signalprocessor_loop_one_segment')
-        print('duration', duration)
         length = int(duration*self.dataio.sample_rate)
-        print('length', length)
         length = min(length, self.dataio.get_segment_length(seg_num))
-        print('length', length)
         
         #~ length -= length%self.chunksize
 
@@ -568,7 +564,7 @@ class CatalogueConstructor:
         
         self.peakdetector.reset_fifo_index()
         
-        
+        # iterate a bit more on the rigth border
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp,
                         chunksize=self.chunksize, i_stop=length, signal_type='initial',
                         pad_width=self.info['signal_preprocessor_params']['lostfront_chunksize'],
@@ -599,9 +595,9 @@ class CatalogueConstructor:
                     self.arrays.append_chunk('all_peaks',  peaks)
 
             if pos2>length:
-                print('pos2>length : clip it', pos2, length, pos2-length)
-                pos2 = length
+                # clip writting
                 preprocessed_chunk = preprocessed_chunk[:-(pos2-length), :]
+                pos2 = length
                 
             self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num, chan_grp=self.chan_grp,
                             i_start=pos2-preprocessed_chunk.shape[0], i_stop=pos2, signal_type='processed')
@@ -611,6 +607,8 @@ class CatalogueConstructor:
             #maybe flush at each loop to avoid memory up but make it slower
             #~ self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=self.chan_grp)
         #~ return processed_length
+        
+        print('processed_length', int(pos2))
         self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=self.chan_grp, processed_length=int(pos2))
         
     

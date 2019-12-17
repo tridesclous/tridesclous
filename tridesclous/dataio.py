@@ -512,12 +512,6 @@ class DataIO:
             raise(ValueError, 'signal_type is not valide')
         
         return data
-        #~ if return_type=='raw_numpy':
-            #~ return data
-        #~ elif return_type=='on_scale_numpy':
-            #~ raise(NotImplementedError)
-        #~ elif return_type=='pandas':
-            #~ raise(NotImplementedError)
 
     def iter_over_chunk(self, seg_num=0, chan_grp=0,  i_stop=None, chunksize=1024, pad_width=0, with_last_chunk=False,   **kargs):
         """
@@ -534,9 +528,7 @@ class DataIO:
         if i_stop is not None:
             length = min(length, i_stop)
         
-        print('length', length)
         total_length = length + pad_width
-        print('total_length', total_length)
         
         nloop = total_length//chunksize
         for i in range(nloop):
@@ -546,14 +538,14 @@ class DataIO:
             yield  i_stop, sigs_chunk
         
         if with_last_chunk and i_stop<total_length:
-            print('pad_width', pad_width)
-            print('last chunk', i_stop, total_length)
             i_start = i_stop
             i_stop = length
             sigs_chunk = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, i_start=i_start, i_stop=i_stop, **kargs)
             
             sigs_chunk2 = np.zeros((chunksize, sigs_chunk.shape[1]), dtype=sigs_chunk.dtype)
             sigs_chunk2[:sigs_chunk.shape[0], :] = sigs_chunk
+             # extend with last sample : agttenuate fileter border effect
+            sigs_chunk2[sigs_chunk.shape[0]:, :] = sigs_chunk[-1, :]
             
             yield  i_start+chunksize, sigs_chunk2
             
@@ -596,15 +588,15 @@ class DataIO:
         """
         return self.arrays[chan_grp][seg_num].get_annotation('processed_signals', 'processed_length')
     
-    def already_processed(self, seg_num=0, chan_grp=0):
+    def already_processed(self, seg_num=0, chan_grp=0, length=None):
         """
-        Check if the segment is entirely processed
+        Check if the segment is entirely processedis already computed until length
         """
         # check if signals are processed
-        n1 = self.get_segment_length(seg_num)
-        n2 = self.get_processed_length(seg_num, chan_grp=chan_grp)
-        print(n1, n2)
-        return  n1 == n2
+        if length is None:
+            length = self.get_segment_length(seg_num)
+        already_done = self.get_processed_length(seg_num, chan_grp=chan_grp)
+        return  already_done >= length
     
     def reset_spikes(self, seg_num=0,  chan_grp=0, dtype=None):
         """
