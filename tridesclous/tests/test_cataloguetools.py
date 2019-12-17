@@ -43,6 +43,16 @@ def test_apply_all_catalogue_steps():
     
     
     
+    # DEBUG
+    print(dataio.already_processed(seg_num=0, chan_grp=0))
+    sigs = dataio.get_signals_chunk(seg_num=0, chan_grp=0, i_start=None, i_stop=None, signal_type='processed')
+    
+    fig, ax = plt.subplots()
+    ax.plot(sigs[:, 0])
+    plt.show()
+    
+    
+    
     
     
 if __name__ == '__main__':
