@@ -982,6 +982,11 @@ class CatalogueConstructor:
         if selection is None:
             #by default selection is valid label >=0
             selection = self.all_peaks['cluster_label'][self.some_peaks_index]>=0
+            
+            # global feature log it
+            self.info['feature_method'] = method
+            self.info['feature_kargs'] = params
+            self.flush_info()
         
         #~ wf = self.some_waveforms.reshape(self.some_waveforms.shape[0], -1)
         #~ params['n_components'] = n_components
@@ -1027,6 +1032,7 @@ class CatalogueConstructor:
         if selection is not None:
             old_labels = np.unique(self.all_peaks['cluster_label'][selection])
             #~ print(old_labels)
+            
         
         labels = cluster.find_clusters(self, method=method, selection=selection, **kargs)
         
@@ -1036,6 +1042,12 @@ class CatalogueConstructor:
             
             if order:
                 self.order_clusters(by='waveforms_rms')
+
+            # global cluster log it
+            self.info['cluster_method'] = method
+            self.info['cluster_kargs'] = kargs
+            self.flush_info()
+                
         else:
             new_labels = np.unique(labels)
             for new_label in new_labels:

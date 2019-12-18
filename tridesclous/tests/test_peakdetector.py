@@ -275,7 +275,7 @@ def benchmark_speed():
     engine_names = [
         ('global', 'numpy'),
         ('geometrical', 'numpy'),
-        #~ ('geometrical', 'numba'),
+        ('geometrical', 'numba'),
     ]
     if HAVE_PYOPENCL:
         engine_names += [
@@ -409,7 +409,7 @@ if __name__ == '__main__':
     #~ test_detect_geometrical_peaks()
     
     
-    #~ benchmark_speed()
+    benchmark_speed()
     
-    test_peak_sign_symetry()
+    #~ test_peak_sign_symetry()
     

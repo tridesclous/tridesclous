@@ -252,8 +252,12 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             #~ params['cluster_method'] = 'dbscan'
             #~ params['cluster_kargs'] = {'eps': 3,  'metric':'euclidean', 'algorithm':'brute'}
 
-        params['cluster_method'] = 'hdbscan'
-        params['cluster_kargs'] = {'min_cluster_size': 20}
+        #~ params['cluster_method'] = 'hdbscan'
+        #~ params['cluster_kargs'] = {'min_cluster_size': 20}
+        
+        params['cluster_method'] = 'pruningshears'
+        params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 10)
+        params['cluster_kargs']['min_cluster_size'] = 20
         
 
         params['clean_cluster'] = True

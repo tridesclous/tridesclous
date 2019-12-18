@@ -404,7 +404,8 @@ class DataIO:
         assert adjacency_radius_um is not None
         channel_distances = self.get_channel_distances(chan_grp=chan_grp)
         channels_adjacency = {}
-        for c in range(self.nb_channel(chan_grp=chan_grp)):
+        nb_chan = self.nb_channel(chan_grp=chan_grp)
+        for c in range(nb_chan):
             nearest, = np.nonzero(channel_distances[c, :] < adjacency_radius_um)
             channels_adjacency[c] = nearest
         return channels_adjacency
