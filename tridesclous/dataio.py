@@ -543,19 +543,12 @@ class DataIO:
             sigs_chunk = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, i_start=i_start, i_stop=i_stop, **kargs)
             
             sigs_chunk2 = np.zeros((chunksize, sigs_chunk.shape[1]), dtype=sigs_chunk.dtype)
-            sigs_chunk2[:sigs_chunk.shape[0], :] = sigs_chunk
-             # extend with last sample : agttenuate fileter border effect
-            sigs_chunk2[sigs_chunk.shape[0]:, :] = sigs_chunk[-1, :]
+            if sigs_chunk.shape[0] > 0:
+                sigs_chunk2[:sigs_chunk.shape[0], :] = sigs_chunk
+                # extend with last sample : agttenuate fileter border effect
+                sigs_chunk2[sigs_chunk.shape[0]:, :] = sigs_chunk[-1, :]
             
             yield  i_start+chunksize, sigs_chunk2
-            
-            
-        # lat chunk = very bad idea because it break chunksize in many place (OpenCL signal processor, Peeler, ...)
-        #~ if i_stop<length:
-            #~ i_start = i_stop
-            #~ i_stop = length
-            #~ sigs_chunk = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, i_start=i_start, i_stop=i_stop, **kargs)
-            #~ yield  i_stop, sigs_chunk
     
     def reset_processed_signals(self, seg_num=0, chan_grp=0, dtype='float32'):
         """

@@ -104,8 +104,8 @@ class Peeler:
         
         # check if the desired length is already computed or not
         already_processed = self.dataio.already_processed(seg_num=seg_num, chan_grp=chan_grp, length=length)
-        print('signal already_processed', already_processed)
         
+
         kargs = {}
         kargs['sample_rate'] = self.dataio.sample_rate
         kargs['nb_channel'] = self.dataio.nb_channel(chan_grp)

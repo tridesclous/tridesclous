@@ -603,19 +603,8 @@ class CatalogueConstructor:
                             i_start=pos2-preprocessed_chunk.shape[0], i_stop=pos2, signal_type='processed')
 
             
-            
-            #maybe flush at each loop to avoid memory up but make it slower
-            #~ self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=self.chan_grp)
-        #~ return processed_length
-        
-        print('processed_length', int(pos2))
         self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=self.chan_grp, processed_length=int(pos2))
-        
     
-    #~ def finalize_signalprocessor_loop(self):
-        #~ self.arrays.finalize_array('all_peaks')
-        #~ self._reset_arrays(_reset_after_peak_arrays)
-        #~ self.on_new_cluster()
     
     def run_signalprocessor(self, duration=60., detect_peak=True):
         """
@@ -642,18 +631,13 @@ class CatalogueConstructor:
         
         for seg_num in range(self.dataio.nb_segment):
             self.run_signalprocessor_loop_one_segment(seg_num=seg_num, duration=duration, detect_peak=detect_peak)
-            
-            #~ self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=self.chan_grp, processed_length=processed_length)
-        
-        
-        #~ self.finalize_signalprocessor_loop()
         
         # flush peaks
         self.arrays.finalize_array('all_peaks')
         
         self._reset_arrays(_reset_after_peak_arrays)
         self.on_new_cluster()
-        
+    
     
     def re_detect_peak(self, **kargs):
         """
