@@ -106,7 +106,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #~ self.cl_local_size = (1, centers.shape[2])
             
             # to check if distance is valid is a coeff (because maxfloat on opencl)
-            self.max_float32 = np.finfo('float32').max * 0.8
+            #~ self.max_float32 = np.finfo('float32').max * 0.8
 
 
 
@@ -298,6 +298,14 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         assert self.argmin_method in ('numba', 'opencl')
         
         waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
+        
+        if not np.any(self.sparse_mask[:, chan_ind]):
+            # no template near that channel
+            cluster_idx = -1
+            shift = None
+            return cluster_idx, shift
+            
+        
 
         
         if self.argmin_method == 'opencl':
@@ -343,23 +351,19 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         elif self.argmin_method == 'numba':
             possibles_cluster_idx, = np.nonzero(self.sparse_mask[:, chan_ind])
             
-            if possibles_cluster_idx.size ==0:
-                cluster_idx = -1
-                shift = None
-            else:
+            #~ if possibles_cluster_idx.size ==0:
+                #~ cluster_idx = -1
+                #~ shift = None
+            #~ else:
             
-                s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
-                cluster_idx = possibles_cluster_idx[np.argmin(s)]
-                if s[cluster_idx] > self.max_float32:
-                    # no match
-                    cluster_idx = -1
-                    shift = None
-                else:
-                    shift = None
-                    # explore shift
-                    long_waveform = self.fifo_residuals[left_ind-self.maximum_jitter_shift:left_ind+self.peak_width+self.maximum_jitter_shift+1,:]
-                    all_dist = numba_explore_shifts(long_waveform, self.catalogue['centers0'][cluster_idx, : , :],  self.sparse_mask[cluster_idx, :], self.maximum_jitter_shift)
-                    shift = self.shifts[np.argmin(all_dist)]
+            s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
+            cluster_idx = possibles_cluster_idx[np.argmin(s)]
+            shift = None
+            # explore shift
+            long_waveform = self.fifo_residuals[left_ind-self.maximum_jitter_shift:left_ind+self.peak_width+self.maximum_jitter_shift+1,:]
+            all_dist = numba_explore_shifts(long_waveform, self.catalogue['centers0'][cluster_idx, : , :],  self.sparse_mask[cluster_idx, :], self.maximum_jitter_shift)
+            shift = self.shifts[np.argmin(all_dist)]
+            
                 #~ print('      shift', shift)
             
             
@@ -384,15 +388,15 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                 ax.plot(self.shifts, all_dist, marker='o')
                 ax.set_title(f'{left_ind-self.n_left} {chan_ind} {shift}')
         
-        elif self.argmin_method == 'numpy':
+        #~ elif self.argmin_method == 'numpy':
             # replace by this (indentique but faster, a but)
-            d = self.catalogue['centers0']-waveform[None, :, :]
-            d *= d
+            #~ d = self.catalogue['centers0']-waveform[None, :, :]
+            #~ d *= d
             #s = d.sum(axis=1).sum(axis=1)  # intuitive
             #s = d.reshape(d.shape[0], -1).sum(axis=1) # a bit faster
-            s = np.einsum('ijk->i', d) # a bit faster
-            cluster_idx = np.argmin(s)
-            shift = None
+            #~ s = np.einsum('ijk->i', d) # a bit faster
+            #~ cluster_idx = np.argmin(s)
+            #~ shift = None
             
         else:
             raise(NotImplementedError())

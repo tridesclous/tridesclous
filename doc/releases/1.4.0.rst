@@ -1,0 +1,12 @@
+tridesclous release notes 1.4.0
+===============================
+
+**2019-12-12**
+
+  * Do not recompute signal processor at peeler stage when catalogue have 
+    done a full processing
+  * handle version inside dataio
+  * bug fix for SF
+  * some hack on pruningshears
+
+

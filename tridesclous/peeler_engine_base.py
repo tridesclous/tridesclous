@@ -152,27 +152,35 @@ class PeelerEngineBase(OpenCL_Helper):
             #~ plt.show()
 
 
-    def initialize_before_each_segment(self, sample_rate=None, nb_channel=None, source_dtype=None, geometry=None):
+    def initialize_before_each_segment(self, sample_rate=None, nb_channel=None, source_dtype=None, geometry=None, already_processed=False):
         
         self.nb_channel = nb_channel
         self.sample_rate = sample_rate
         self.source_dtype = source_dtype
         self.geometry = geometry
+        self.already_processed = already_processed
         
-        # signal processor class
-        p = dict(self.catalogue['signal_preprocessor_params'])
-        self.signalpreprocessor_engine = p.pop('engine')
-        SignalPreprocessor_class = signalpreprocessor_engines[self.signalpreprocessor_engine]
-        self.signalpreprocessor = SignalPreprocessor_class(sample_rate, nb_channel, self.chunksize, source_dtype)
-        p['normalize'] = True
-        p['signals_medians'] = self.catalogue['signals_medians']
-        p['signals_mads'] = self.catalogue['signals_mads']
-        self.signalpreprocessor.change_params(**p)
+        if not self.already_processed:
+            # signal processor class
+            p = dict(self.catalogue['signal_preprocessor_params'])
+            self.signalpreprocessor_engine = p.pop('engine')
+            SignalPreprocessor_class = signalpreprocessor_engines[self.signalpreprocessor_engine]
+            self.signalpreprocessor = SignalPreprocessor_class(sample_rate, nb_channel, self.chunksize, source_dtype)
+            p['normalize'] = True
+            p['signals_medians'] = self.catalogue['signals_medians']
+            p['signals_mads'] = self.catalogue['signals_mads']
+            self.signalpreprocessor.change_params(**p)
+            self.internal_dtype = self.signalpreprocessor.output_dtype
+            
+            assert self.chunksize>self.signalpreprocessor.lostfront_chunksize, 'lostfront_chunksize ({}) is greater than chunksize ({})!'.format(self.signalpreprocessor.lostfront_chunksize, self.chunksize)
+            
+        else:
+            # no need
+            self.signalpreprocessor = None
+            self.internal_dtype = source_dtype
         
-        self.internal_dtype = self.signalpreprocessor.output_dtype
         
-        assert self.chunksize>self.signalpreprocessor.lostfront_chunksize, 'lostfront_chunksize ({}) is greater than chunksize ({})!'.format(self.signalpreprocessor.lostfront_chunksize, self.chunksize)
-
+        # peak detector class
         self.peak_sign = self.catalogue['peak_detector_params']['peak_sign']
         self.relative_threshold = self.catalogue['peak_detector_params']['relative_threshold']
         peak_span_ms = self.catalogue['peak_detector_params']['peak_span_ms']
@@ -193,8 +201,7 @@ class PeelerEngineBase(OpenCL_Helper):
         self.near_border_good_spikes = []
         
         self.fifo_residuals = np.zeros((self.fifo_size, nb_channel), dtype=self.internal_dtype)
-        
-        
+
 
     def get_remaining_spikes(self):
         if len(self.near_border_good_spikes)>0:
@@ -222,11 +229,14 @@ class PeelerEngineGeneric(PeelerEngineBase):
             print('*'*10)
             print('process_one_chunk', pos)
         
-        #~ print('*'*10)
-        t1 = time.perf_counter()
-        abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
-        #~ t2 = time.perf_counter()
-        #~ print('process_data', (t2-t1)*1000)
+        if self.already_processed:
+            abs_head_index, preprocessed_chunk =  pos, sigs_chunk
+        else:
+            #~ print('*'*10)
+            t1 = time.perf_counter()
+            abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
+            #~ t2 = time.perf_counter()
+            #~ print('process_data', (t2-t1)*1000)
         
         
         #shift rsiruals buffer and put the new one on right side

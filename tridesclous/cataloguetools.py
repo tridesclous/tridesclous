@@ -69,9 +69,9 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
       
       apply_all_catalogue_steps(catalogueconstructor, params)
     """
-    if verbose:
-        print('apply all catalogue steps')
-        pprint(params)
+    #~ if verbose:
+        #~ print('apply all catalogue steps')
+        #~ pprint(params)
     
     cc = catalogueconstructor
     
@@ -222,12 +222,12 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
     # auto chunsize of 100 ms
     params['chunksize'] = int(dataio.sample_rate * 0.1)
     
+    params['duration'] = 601.
     
     #~ if nb_chan <=8:
     #~ if nb_chan <=1:
     if nb_chan <=4:
     
-        
         params['mode'] = 'dense'
         params['adjacency_radius_um'] = 0.
         params['sparse_threshold'] = 1.5
@@ -245,15 +245,10 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             n_components = int(nb_chan)
         
         params['feature_kargs'] = {'n_components' : n_components }
-        #~ if HAVE_ISOSPLIT5:
-            #~ params['cluster_method'] = 'isosplit5'
-            #~ params['cluster_kargs'] = {}
-        #~ else:
-            #~ params['cluster_method'] = 'dbscan'
-            #~ params['cluster_kargs'] = {'eps': 3,  'metric':'euclidean', 'algorithm':'brute'}
-
-        params['cluster_method'] = 'hdbscan'
-        params['cluster_kargs'] = {'min_cluster_size': 20}
+        
+        params['cluster_method'] = 'pruningshears'
+        params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 10)
+        params['cluster_kargs']['min_cluster_size'] = 20
         
 
         params['clean_cluster'] = True
@@ -270,10 +265,10 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
 
         params['peak_detector']['method'] = 'geometrical'
         
-        #~ numba
         if HAVE_PYOPENCL:
             params['peak_detector']['engine'] = 'opencl'
         elif HAVE_NUMBA:
+            print('WARNING : peakdetector will be slow install opencl')
             params['peak_detector']['engine'] = 'numba'
         else:
             print('WARNING : peakdetector will be slow install opencl')
@@ -281,18 +276,9 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         
         params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 300)
         
-        
-        #~ params['feature_method'] = 'peak_max'
-        #~ params['feature_kargs'] = {}
-        #~ params['cluster_method'] = 'sawchaincut'
-        #~ params['cluster_kargs']['kde_bandwith'] = 1.
-        #~ if nb_chan<32:
-            #~ params['cluster_kargs']['max_loop'] = 10000
-        #~ elif nb_chan>=32:
-            #~ params['cluster_kargs']['max_loop'] = nb_chan * 400
-
         params['feature_method'] = 'pca_by_channel'
         params['feature_kargs'] = {'n_components_by_channel':3}
+        
         params['cluster_method'] = 'pruningshears'
         params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 10)
         params['cluster_kargs']['min_cluster_size'] = 20

@@ -94,6 +94,14 @@ def one_test_ArrayCollection(withparent=False, memory_mode='memmap'):
         ac.finalize_array('data_append')
         assert ac.get('data_append').shape == (3,5)
     
+    # annotations
+    ac.annotate('data', one_annotation='yep')
+    value = ac.get_annotation('data', 'one_annotation')
+    assert value == 'yep'
+    
+    
+    
+    
 
 def test_ArrayCollection():
     one_test_ArrayCollection(withparent=False, memory_mode='memmap')

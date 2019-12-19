@@ -1,6 +1,6 @@
 try:
     import numba
-    from numba import jit
+    from numba import jit, prange
     HAVE_NUMBA = True
 except ImportError:
     HAVE_NUMBA = False
@@ -81,24 +81,27 @@ def numba_get_mask_spatiotemporal_peaks(sigs, n_span, thresh, peak_sign, neighbo
 
     if peak_sign == '+':
         mask_peaks = sig_center>thresh
-        for chan in range(sigs.shape[1]):
-            for neighbour in neighbours[chan, :]:
-                for i in range(n_span):
-                    if chan != neighbour:
-                        mask_peaks[:, chan] &= sig_center[:, chan] >= sig_center[:, neighbour]
-                    mask_peaks[:, chan] &= sig_center[:, chan] > sigs[i:i+sig_center.shape[0], neighbour]
-                    mask_peaks[:, chan] &= sig_center[:, chan]>=sigs[n_span+i+1:n_span+i+1+sig_center.shape[0], neighbour]
-        
+        for s in prange(mask_peaks.shape[0]):
+            for chan in prange(sigs.shape[1]):
+                for neighbour in neighbours[chan, :]:
+                    for i in range(n_span):
+                        if chan != neighbour:
+                            mask_peaks[s, chan] &= sig_center[s, chan] >= sig_center[:, neighbour]
+                        mask_peaks[s, chan] &= sig_center[s, chan] > sigs[s+i, neighbour]
+                        mask_peaks[s, chan] &= sig_center[s, chan]>=sigs[n_span+s+i+1, neighbour]                        
+
     elif peak_sign == '-':
         mask_peaks = sig_center<-thresh
-        for chan in range(sigs.shape[1]):
-            #~ print('chan', chan, 'neigh', neighbours[chan, :])
-            for neighbour in neighbours[chan, :]:
-                for i in range(n_span):
-                    if chan != neighbour:
-                        mask_peaks[:, chan] &= sig_center[:, chan] <= sig_center[:, neighbour]
-                    mask_peaks[:, chan] &= sig_center[:, chan] < sigs[i:i+sig_center.shape[0], neighbour]
-                    mask_peaks[:, chan] &= sig_center[:, chan]<=sigs[n_span+i+1:n_span+i+1+sig_center.shape[0], neighbour]
+        
+        for s in prange(mask_peaks.shape[0]):
+            for chan in prange(sigs.shape[1]):
+                for neighbour in neighbours[chan, :]:
+                    for i in range(n_span):
+                    
+                        if chan != neighbour:
+                            mask_peaks[s, chan] &= sig_center[s, chan] <= sig_center[s, neighbour]
+                        mask_peaks[s, chan] &= sig_center[s, chan] < sigs[s+i, neighbour]
+                        mask_peaks[s, chan] &= sig_center[s, chan]<=sigs[n_span+s+i+1, neighbour]                        
     
     return mask_peaks
 

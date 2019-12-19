@@ -92,46 +92,63 @@ class Peeler:
         return self.peeler_engine.process_one_chunk(pos, sigs_chunk)
     
     def initialize_online_loop(self, sample_rate=None, nb_channel=None, source_dtype=None):
-        self.peeler_engine.initialize_before_each_segment(sample_rate=sample_rate, nb_channel=nb_channel, source_dtype=source_dtype)
+        self.peeler_engine.initialize_before_each_segment(sample_rate=sample_rate, nb_channel=nb_channel, source_dtype=source_dtype, already_processed = False)
     
     def run_offline_loop_one_segment(self, seg_num=0, duration=None, progressbar=True):
         chan_grp = self.catalogue['chan_grp']
-        
-        kargs = {}
-        kargs['sample_rate'] = self.dataio.sample_rate
-        kargs['nb_channel'] = self.dataio.nb_channel(chan_grp)
-        kargs['source_dtype'] = self.dataio.source_dtype
-        kargs['geometry'] = self.dataio.get_geometry(chan_grp)
-        self.peeler_engine.initialize_before_each_segment(**kargs)
-        
-        
+
         if duration is not None:
             length = int(duration*self.dataio.sample_rate)
         else:
             length = self.dataio.get_segment_length(seg_num)
-        #~ length -= length%self.chunksize
         
-        #initialize engines
-        self.dataio.reset_processed_signals(seg_num=seg_num, chan_grp=chan_grp, dtype=self.internal_dtype)
+        # check if the desired length is already computed or not
+        already_processed = self.dataio.already_processed(seg_num=seg_num, chan_grp=chan_grp, length=length)
+        
+
+        kargs = {}
+        kargs['sample_rate'] = self.dataio.sample_rate
+        kargs['nb_channel'] = self.dataio.nb_channel(chan_grp)
+        if already_processed:
+            kargs['source_dtype'] = self.internal_dtype
+        else:
+            kargs['source_dtype'] = self.dataio.source_dtype
+        kargs['geometry'] = self.dataio.get_geometry(chan_grp)
+        kargs['already_processed'] = already_processed
+        self.peeler_engine.initialize_before_each_segment(**kargs)
+        
+        
+        
+        if already_processed:
+            # ready from "processed'
+            signal_type = 'processed'
+        else:
+            # read from "initial" 
+            # activate signal processor
+            signal_type = 'initial'
+        
+            #initialize engines
+            self.dataio.reset_processed_signals(seg_num=seg_num, chan_grp=chan_grp, dtype=self.internal_dtype)
+        
         self.dataio.reset_spikes(seg_num=seg_num, chan_grp=chan_grp, dtype=_dtype_spike)
 
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=chan_grp, chunksize=self.chunksize, 
-                                                    i_stop=length, signal_type='initial')
+                                                    i_stop=length, signal_type=signal_type)
         if progressbar:
             iterator = tqdm(iterable=iterator, total=length//self.chunksize)
+        
+        
         for pos, sigs_chunk in iterator:
-            
-            #~ sig_index, preprocessed_chunk, total_spike, spikes = self.process_one_chunk(pos, sigs_chunk)
             sig_index, preprocessed_chunk, total_spike, spikes = self.peeler_engine.process_one_chunk(pos, sigs_chunk)
-            
             
             if sig_index<=0:
                 continue
             
-            # save preprocessed_chunk to file
-            self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num,chan_grp=chan_grp,
-                        i_start=sig_index-preprocessed_chunk.shape[0], i_stop=sig_index,
-                        signal_type='processed')
+            if not already_processed:
+                # save preprocessed_chunk to file
+                self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num,chan_grp=chan_grp,
+                            i_start=sig_index-preprocessed_chunk.shape[0], i_stop=sig_index,
+                            signal_type='processed')
             
             if spikes is not None and spikes.size>0:
                 self.dataio.append_spikes(seg_num=seg_num, chan_grp=chan_grp, spikes=spikes)
@@ -142,16 +159,19 @@ class Peeler:
             if extra_spikes.size>0:
                 self.dataio.append_spikes(seg_num=seg_num, chan_grp=chan_grp, spikes=extra_spikes)
         
-        self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=chan_grp)
+        if not already_processed:
+            self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=chan_grp, processed_length=int(sig_index))
+            
         self.dataio.flush_spikes(seg_num=seg_num, chan_grp=chan_grp)
 
-    def run_offline_all_segment(self, **kargs):
+    def run(self, **kargs):
         assert hasattr(self, 'catalogue'), 'So peeler.change_params first'
         
         for seg_num in range(self.dataio.nb_segment):
             self.run_offline_loop_one_segment(seg_num=seg_num, **kargs)
     
-    run = run_offline_all_segment
+    # old alias just in case
+    run_offline_all_segment = run
         
 
 

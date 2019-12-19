@@ -88,7 +88,7 @@ class SignalPreprocessor_base:
         self.lostfront_chunksize = lostfront_chunksize
         
         # set default lostfront_chunksize if none is provided
-        if self.lostfront_chunksize is None or self.lostfront_chunksize==0 or self.lostfront_chunksize==-1:
+        if self.lostfront_chunksize is None or self.lostfront_chunksize<=0:
             assert self.highpass_freq is not None, 'lostfront_chunksize=None needs a highpass_freq'
             self.lostfront_chunksize = int(self.sample_rate/self.highpass_freq*3)
             #~ print('self.lostfront_chunksize', self.lostfront_chunksize)
