@@ -342,6 +342,14 @@ class CatalogueConstructor:
         if mode == 'sparse':
             assert adjacency_radius_um is not None
             assert adjacency_radius_um > 0. 
+        elif mode == 'dense':
+            # chosse a radius that connect all channels
+            if self.dataio.nb_channel(self.chan_grp) >1:
+                channel_distances = self.dataio.get_channel_distances(chan_grp=self.chan_grp)
+                # important more than 2 times because
+                # adjacency_radius_um is use for waveform with this radius
+                # but also in pruningshears with half radius
+                adjacency_radius_um = np.max(channel_distances) * 2.5
         
         self.info['chunksize'] = chunksize
         self.info['memory_mode'] = memory_mode

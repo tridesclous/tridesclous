@@ -158,7 +158,7 @@ class WaveformViewerBase(WidgetBase):
                 if np.unique(ypos).size>1:
                     self.delta_y = np.min(np.diff(np.sort(np.unique(ypos))))
                 else:
-                    self.delta_y = np.unique(ypos)[0]
+                    self.delta_y = max(np.unique(ypos)[0], 1)
                 self.factor_y = .3
                 if self.delta_x>0.:
                     #~ espx = self.delta_x/2. *.95
