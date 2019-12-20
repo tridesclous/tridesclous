@@ -49,13 +49,11 @@ def diptest(dat, is_hist=False, numt=1000):
     """ diptest with pval """
     # sample dip
     d, (_, idxs, left, _, right, _) = dip_fn(dat, is_hist)
-    print('done')
 
     # simulate from null uniform
     unifs = np.random.uniform(size=numt * idxs.shape[0])\
                      .reshape([numt, idxs.shape[0]])
     unif_dips = np.apply_along_axis(dip_fn, 1, unifs, is_hist, True)
-    print('loop')
 
     # count dips greater or equal to d, add 1/1 to prevent a pvalue of 0
     pval = None \

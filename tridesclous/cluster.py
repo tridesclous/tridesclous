@@ -115,7 +115,9 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         channel_adjacency = cc.dataio.get_channel_adjacency(chan_grp=cc.chan_grp, adjacency_radius_um=adjacency_radius_um)
         channel_distances = cc.dataio.get_channel_distances(chan_grp=cc.chan_grp)
         
-        pruningshears = PruningShears(waveforms, features, n_left, n_right, peak_sign, relative_threshold,
+        noise_features = cc.some_noise_features
+        
+        pruningshears = PruningShears(waveforms, features, noise_features, n_left, n_right, peak_sign, relative_threshold,
                                 adjacency_radius_um, channel_adjacency, channel_distances, dense_mode, **kargs)
         
         labels = pruningshears.do_the_job()
@@ -492,6 +494,7 @@ class SawChainCut:
 class PruningShears:
     def __init__(self, waveforms, 
                         features,
+                        noise_features,
                         n_left, n_right,
                         peak_sign, threshold,
                         adjacency_radius_um,
@@ -506,6 +509,7 @@ class PruningShears:
                         print_debug=False):
         self.waveforms = waveforms
         self.features = features
+        self.noise_features = noise_features
         self.n_left = n_left
         self.n_right = n_right
         self.width = n_right - n_left
@@ -731,7 +735,16 @@ class PruningShears:
                 local_features = self.features.take(ind_keep, axis=0)
                 self.log('local_features.shape', local_features.shape)
                 pca =  sklearn.decomposition.IncrementalPCA(n_components=local_features.shape[1], whiten=False)
-                reduced_features = pca.fit_transform(local_features)
+                #~ reduced_features = pca.fit_transform(local_features)
+                
+                
+                local_noise_features = self.noise_features
+                
+                m = local_features.mean(axis=0)
+                local_noise_features = self.noise_features - m
+                pca.fit(local_features)
+                reduced_features = np.concatenate([pca.transform(local_noise_features), pca.transform(local_features)], axis=0)
+                
                 
                 self.log('reduced_features.shape', reduced_features.shape)
                 
@@ -743,7 +756,9 @@ class PruningShears:
                 mask_feat = mask_feat_chans[actual_chan]
                 #~ local_features = self.features[ind_keep, :][:, mask_feat]
                 local_features = self.features.take(ind_keep, axis=0).compress(mask_feat, axis=1)
-                
+                local_noise_features = self.noise_features.compress(mask_feat, axis=1)
+                #~ print('local_noise_features.shape', local_noise_features.shape)
+                #~ print(local_noise_features)
 
                 self.log('local_features.shape', local_features.shape)
                 
@@ -757,9 +772,21 @@ class PruningShears:
                 pca =  sklearn.decomposition.IncrementalPCA(n_components=2, whiten=False)
                 #~ print(weights_feat_chans[actual_chan])
                 local_features_w = local_features * weights_feat_chans[actual_chan]
-                local_features_w -= local_features_w.mean(axis=0)
+                m = local_features_w.mean(axis=0)
+                local_features_w -= m
                 
-                reduced_features = pca.fit_transform(local_features_w)
+                local_noise_features_w = local_noise_features* weights_feat_chans[actual_chan]
+                #~ local_noise_features_w -= local_noise_features_w.mean(axis=0)
+                local_noise_features_w -= m
+                
+                #~ reduced_features = pca.fit_transform(local_features_w)
+                
+                pca.fit(local_features_w)
+                reduced_features = np.concatenate([pca.transform(local_noise_features_w), pca.transform(local_features_w)], axis=0)
+                #~ reduced_features = pca.fit_transform(np.concatenate([local_noise_features_w, local_features_w], axis=0))
+                
+                
+                
                 self.log('reduced_features.shape', reduced_features.shape)
                 
                 #~ fig, ax = plt.subplots()
@@ -770,6 +797,10 @@ class PruningShears:
             
             
             local_labels = self.one_sub_cluster(reduced_features)
+            # remove noise label
+            local_labels = local_labels[self.noise_features.shape[0]:]
+            
+            
             
             possible_labels = np.unique(local_labels)
             
@@ -789,6 +820,7 @@ class PruningShears:
                     continue
 
                 ind = ind_keep[label == local_labels]
+                cluster_size = ind.size
                 if ind.size > max_per_cluster_for_median:
                     sub_sel = np.random.choice(ind.size, max_per_cluster_for_median, replace=False)
                     ind = ind[sub_sel]
@@ -818,8 +850,8 @@ class PruningShears:
                 
                 #~ ax.plot(centroid_adj.T.flatten())
                 peak_is_aligned = np.abs(-self.n_left - pos_peak) <= 1
-                self.log('label', label, 'chan peak values', chan_peak_local, 'peak_is_aligned', peak_is_aligned, 'peak values', np.abs(centroid_adj[-self.n_left, chan_peak_local]))
-                if peak_is_aligned:
+                self.log('label', label, 'chan peak values', chan_peak_local, 'peak_is_aligned', peak_is_aligned, 'peak values', np.abs(centroid_adj[-self.n_left, chan_peak_local]), 'cluster_size', cluster_size)
+                if peak_is_aligned and cluster_size>self.min_cluster_size:
                     candidate_labels.append(label)
                     candidate_peak_values.append(np.abs(centroid_adj[-self.n_left, chan_peak_local]))
                     candidate_chan_peak.append(chan_peak)
@@ -843,6 +875,9 @@ class PruningShears:
             #~ if True and k>9:
             #~ if True and k==3:
             #~ if False:
+                
+                reduced_noise_features = reduced_features[:self.noise_features.shape[0]]
+                reduced_features = reduced_features[self.noise_features.shape[0]:]
                 
                 from .matplotlibplot import plot_waveforms_density
                 
@@ -870,11 +905,15 @@ class PruningShears:
                         s = 1
                         
                     ax.scatter(feat0[sel], feat1[sel], s=s, color=color)
+                    
                 
+                ax.scatter(local_noise_features[:, 0], local_noise_features[:, 1], s=1, color='r')
                 
                 
                 ax = axs[1]
                 ax.scatter(reduced_features[:, 0], reduced_features[:, 1], s=1, color='black')
+                ax.scatter(reduced_noise_features[:, 0], reduced_noise_features[:, 1], s=1, color='r')
+                
                 
                 
                 #~ feat0, feat1 = chan_features[keep_wf, :][:, 0], chan_features[keep, :][:, 1]
