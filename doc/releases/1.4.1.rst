@@ -1,0 +1,8 @@
+tridesclous release notes 1.4.1
+===============================
+
+**2019-12-20**
+
+  * Some hack on pruningshears to improve benchmark
+
+
