@@ -525,31 +525,54 @@ class DataIO:
                 do_something_on_chunk(sig_chunk)
         
         """
-        length = self.get_segment_length(seg_num)
+        seg_length = self.get_segment_length(seg_num)
+        
+        length = seg_length
         if i_stop is not None:
             length = min(length, i_stop)
         
         total_length = length + pad_width
         
         nloop = total_length//chunksize
+        if total_length % chunksize and with_last_chunk:
+            nloop += 1
+        
+        last_sample = None
         for i in range(nloop):
             i_stop = (i+1)*chunksize
             i_start = i_stop - chunksize
-            sigs_chunk = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, i_start=i_start, i_stop=i_stop, **kargs)
-            yield  i_stop, sigs_chunk
+            
+            if i_stop > seg_length:
+                sigs_chunk2 = np.zeros((chunksize, sigs_chunk.shape[1]), dtype=sigs_chunk.dtype)
+                if i_start < seg_length:
+                    sigs_chunk = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, i_start=i_start, i_stop=seg_length, **kargs)
+                    sigs_chunk2[:sigs_chunk.shape[0], :] = sigs_chunk
+                    last_sample = sigs_chunk[-1, :]
+                    # extend with last sample : agttenuate fileter border effect
+                    sigs_chunk2[sigs_chunk.shape[0]:, :] = last_sample
+                else:
+                    if last_sample is not None:
+                        sigs_chunk2[:, :] = last_sample
+                yield  i_stop, sigs_chunk2
+                
+            else:
+                sigs_chunk = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, i_start=i_start, i_stop=i_stop, **kargs)
+                if i_stop == seg_length:
+                    last_sample = sigs_chunk[-1, :]
+                yield  i_stop, sigs_chunk
         
-        if with_last_chunk and i_stop<total_length:
-            i_start = i_stop
-            i_stop = length
-            sigs_chunk = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, i_start=i_start, i_stop=i_stop, **kargs)
+        #~ if with_last_chunk and i_stop<total_length:
+            #~ i_start = i_stop
+            #~ i_stop = length
+            #~ sigs_chunk = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, i_start=i_start, i_stop=i_stop, **kargs)
             
-            sigs_chunk2 = np.zeros((chunksize, sigs_chunk.shape[1]), dtype=sigs_chunk.dtype)
-            if sigs_chunk.shape[0] > 0:
-                sigs_chunk2[:sigs_chunk.shape[0], :] = sigs_chunk
-                # extend with last sample : agttenuate fileter border effect
-                sigs_chunk2[sigs_chunk.shape[0]:, :] = sigs_chunk[-1, :]
+            #~ sigs_chunk2 = np.zeros((chunksize, sigs_chunk.shape[1]), dtype=sigs_chunk.dtype)
+            #~ if sigs_chunk.shape[0] > 0:
+                #~ sigs_chunk2[:sigs_chunk.shape[0], :] = sigs_chunk
+                #~ # extend with last sample : agttenuate fileter border effect
+                #~ sigs_chunk2[sigs_chunk.shape[0]:, :] = sigs_chunk[-1, :]
             
-            yield  i_start+chunksize, sigs_chunk2
+            #~ yield  i_start+chunksize, sigs_chunk2
     
     def reset_processed_signals(self, seg_num=0, chan_grp=0, dtype='float32'):
         """

@@ -275,15 +275,15 @@ def debug_interp_centers0():
 
     
 if __name__ == '__main__':
-    #~ test_catalogue_constructor()
+    test_catalogue_constructor()
     
     #~ compare_nb_waveforms()
     
-    #~ test_make_catalogue()
-    #~ test_ratio_amplitude()
+    test_make_catalogue()
+    test_ratio_amplitude()
     
-    #~ test_create_savepoint_catalogue_constructor()
+    test_create_savepoint_catalogue_constructor()
     
-    debug_interp_centers0()
+    #~ debug_interp_centers0()
 
 
