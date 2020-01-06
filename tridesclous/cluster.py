@@ -548,7 +548,8 @@ class PruningShears:
             x = x[x>self.threshold]
             
             if x.size>self.min_cluster_size:
-                per = np.nanpercentile(x, 99)
+                #~ per = np.nanpercentile(x, 99)
+                per = np.nanpercentile(x, 95)
             else:
                 per = 0
             percentiles[c] = per
@@ -690,9 +691,14 @@ class PruningShears:
             
             if force_next_chan is None:
                 actual_chan = self.next_channel(peak_max, chan_visited)
+            elif force_next_chan is not None and force_next_chan in chan_visited:
+                # special case when after a force channel no cluster is found
+                self.log('impossible force', force_next_chan, 'chan_visited', chan_visited)
+                #~ raise()
+                actual_chan = self.next_channel(peak_max, chan_visited)
             else:
-                self.log('force', actual_chan)
                 actual_chan = force_next_chan
+                self.log('force', actual_chan)
                 
             
             if actual_chan is None:
@@ -849,7 +855,10 @@ class PruningShears:
                 #~ print('keep it', np.abs(-self.n_left - pos_peak)<=1)
                 
                 #~ ax.plot(centroid_adj.T.flatten())
+                
                 peak_is_aligned = np.abs(-self.n_left - pos_peak) <= 1
+                self.log('-self.n_left', -self.n_left, 'pos_peak', pos_peak, 'peak_is_aligned', peak_is_aligned)
+                
                 self.log('label', label, 'chan peak values', chan_peak_local, 'peak_is_aligned', peak_is_aligned, 'peak values', np.abs(centroid_adj[-self.n_left, chan_peak_local]), 'cluster_size', cluster_size)
                 if peak_is_aligned and cluster_size>self.min_cluster_size:
                     candidate_labels.append(label)
@@ -1027,13 +1036,16 @@ class PruningShears:
 
             self.log('possible_labels', possible_labels)
             self.log('candidate_labels', candidate_labels)
+            
+            
             if len(candidate_labels) == 0:
-                chan_visited.append(actual_chan)
+                
                 #~ self.log('EXPLORE NEW DIM lim0 is None ',  len(chan_visited))
                 self.log('EXPLORE NEW DIM no label ')
                 if self.debug_plot:
                     plt.show()
                 
+                chan_visited.append(actual_chan)
                 force_next_chan = None
                 continue
             
@@ -1042,6 +1054,7 @@ class PruningShears:
                 self.log('Force channel exploration', candidate_chan_peak[ind_best] , actual_chan )
                 if self.debug_plot:
                     plt.show()
+                chan_visited.append(actual_chan)
                 force_next_chan = candidate_chan_peak[ind_best]
                 continue
             
