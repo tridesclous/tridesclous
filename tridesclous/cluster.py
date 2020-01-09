@@ -531,8 +531,8 @@ class PruningShears:
         self.print_debug = print_debug
         self.max_per_cluster_for_median = max_per_cluster_for_median
         
-        self.debug_plot = False
-        #~ self.debug_plot = True
+        #~ self.debug_plot = False
+        self.debug_plot = True
 
     def log(self, *args, **kargs):
         if self.print_debug:
@@ -1409,23 +1409,24 @@ class PruningShears:
         
         
         ax = axs[1, 1]
-        mask_feat = self.mask_feat_per_adj[actual_chan]
-        local_wf_features = self.features.take(ind_keep_l2, axis=0).compress(mask_feat, axis=1)
-        if local_wf_features.shape[0] > 400:
-            local_wf_features = local_wf_features[:400, :]
-        ax.plot(local_wf_features.T, color='k', alpha=0.1)
-        
-        local_wf_features = self.features.take(ind_keep_l2, axis=0).compress(mask_feat, axis=1)
-        
-        if local_labels is not None:
-            for l, label in enumerate(np.unique(local_labels)):
-                if label<0: 
-                    continue
-                sel = label == local_labels
-                m = local_wf_features[sel].mean(axis=0)
+        if ind_keep_l2 is not None:
+            mask_feat = self.mask_feat_per_adj[actual_chan]
+            local_wf_features = self.features.take(ind_keep_l2, axis=0).compress(mask_feat, axis=1)
+            if local_wf_features.shape[0] > 400:
+                local_wf_features = local_wf_features[:400, :]
+            ax.plot(local_wf_features.T, color='k', alpha=0.1)
+            
+            local_wf_features = self.features.take(ind_keep_l2, axis=0).compress(mask_feat, axis=1)
+            
+            if local_labels is not None:
+                for l, label in enumerate(np.unique(local_labels)):
+                    if label<0: 
+                        continue
+                    sel = label == local_labels
+                    m = local_wf_features[sel].mean(axis=0)
 
-                color=colors2(l)
-                ax.plot(m, color=color, alpha=1)
+                    color=colors2(l)
+                    ax.plot(m, color=color, alpha=1)
         
         
         ax = axs[1, 2]
@@ -1555,6 +1556,8 @@ class PruningShears:
 # garde meilleur peak
 # si template max_chan==actual_chan alors pca sur voisinage uniquement sel + bruit
 
+# TODO
+# faire un dip test avant le level2 local
 
 
 
