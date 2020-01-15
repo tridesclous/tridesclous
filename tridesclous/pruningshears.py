@@ -138,24 +138,78 @@ class PruningShears:
         #~ local_labels = isosplit5.isosplit5(local_data.T)
         
         return local_labels
+        
+    def make_local_features(self, ind, actual_chan):
+        
+        mask_feat = self.mask_feat_per_adj[actual_chan]
+        
+        local_wf_features = self.features.take(ind, axis=0).compress(mask_feat, axis=1)
+        #~ local_noise_features = self.noise_features.compress(mask_feat, axis=1)
+        self.log('local_wf_features.shape', local_wf_features.shape)
+        
+        # test weithed PCA
+        # TODO put n_components to parameters
+        
+        
+        # weihted
+        #~ pca =  sklearn.decomposition.IncrementalPCA(n_components=2, whiten=False)
+        #~ local_wf_features_w = local_wf_features * weights_feat_chans[actual_chan]
+        #~ m = local_wf_features_w.mean(axis=0)
+        #~ local_wf_features_w -= m
+        #~ local_noise_features_w = local_noise_features * weights_feat_chans[actual_chan]
+        #~ local_noise_features_w -= m
+        #~ pca.fit(local_wf_features_w)
+        #~ reduced_features = np.concatenate([pca.transform(local_noise_features_w), pca.transform(local_wf_features_w)], axis=0)
+        
+        # not weighted
+        #~ pca =  sklearn.decomposition.IncrementalPCA(n_components=2, whiten=True)
+        #~ local_wf_features_w = local_wf_features.copy()
+        #~ local_noise_features_w = local_noise_features.copy()
+        #~ reduced_features = pca.fit_transform(np.concatenate([local_noise_features_w, local_wf_features_w], axis=0))
+
+        # not weihted not whiten
+        #~ pca =  sklearn.decomposition.IncrementalPCA(n_components=2, whiten=False)
+        #~ local_wf_features_w = local_wf_features.copy()
+        #~ m = local_wf_features_w.mean(axis=0)
+        #~ local_wf_features_w -= m
+        #~ local_noise_features_w = local_noise_features.copy()
+        #~ local_noise_features_w -= m
+        #~ pca.fit(local_wf_features_w)
+        #~ reduced_features = np.concatenate([pca.transform(local_noise_features_w), pca.transform(local_wf_features_w)], axis=0)
+        
+        
+        pca =  sklearn.decomposition.IncrementalPCA(n_components=2, whiten=True)
+        reduced_features = pca.fit_transform(local_wf_features)
+        
+        return reduced_features
+        
     
-    def select_candidate_labels(self, local_ind, local_labels, local_channels):
+    def check_candidate_labels(self, local_ind, local_labels, actual_chan):
         # keep only cluster when:
         #   * template peak is center on self.n_left
         #   * cluster size is bug enoutgh
-
-        candidate_labels = []
-        possible_peak_values =  []
-        possible_chan_peak =  []
+        
+        local_channels = self.channel_adjacency[actual_chan]
+        
+        #~ candidate_labels = []
+        peak_is_on_chan = []
+        peak_is_aligned = []
+        best_chan_peak_values = []
+        cluster_sizes = []
+        #~ actual_chan_peak_values =  []
+        
+        
         local_centroids = {}
         
-        for l, label in enumerate(np.unique(local_labels)):
+        unique_labels = np.unique(local_labels)
+        unique_labels = unique_labels[unique_labels>=0]
+        
+        for l, label in enumerate(unique_labels):
 
-            if label<0: 
-                continue
 
             ind = local_ind[label == local_labels]
             cluster_size = ind.size
+            cluster_sizes.append(cluster_size)
             if ind.size > self.max_per_cluster_for_median:
                 sub_sel = np.random.choice(ind.size, self.max_per_cluster_for_median, replace=False)
                 ind = ind[sub_sel]
@@ -176,20 +230,37 @@ class PruningShears:
             
             if self.dense_mode:
                 chan_peak = chan_peak_local
+                peak_is_on_chan.append(True)
             else:
                 chan_peak = local_channels[chan_peak_local]
+                peak_is_on_chan.append(chan_peak == actual_chan)
             
-            peak_is_aligned = np.abs(-self.n_left - pos_peak) <= 1
-            self.log('-self.n_left', -self.n_left, 'pos_peak', pos_peak, 'peak_is_aligned', peak_is_aligned)
-
-            possible_peak_values.append(np.abs(centroid[pos_peak, chan_peak_local]))
-            possible_chan_peak.append(chan_peak)
             
-            self.log('label', label, 'chan_peak', chan_peak, 'chan_peak_local', chan_peak_local, 'peak_is_aligned', peak_is_aligned, 'peak values', np.abs(centroid[-self.n_left, chan_peak_local]), 'cluster_size', cluster_size)
-            if peak_is_aligned and cluster_size>self.min_cluster_size:
-                candidate_labels.append(label)
+            
+            aligned = np.abs(-self.n_left - pos_peak) <= 1
+            self.log('-self.n_left', -self.n_left, 'pos_peak', pos_peak, 'aligned', aligned)
+            peak_is_aligned.append(aligned)
+            
+            best_chan_peak_value = np.abs(centroid[pos_peak, chan_peak_local])
+            best_chan_peak_values.append(best_chan_peak_value)
+            
+            self.log('label', label, 'chan_peak', chan_peak, 'chan_peak_local', chan_peak_local, 'aligned', aligned, 'best_chan_peak_value', best_chan_peak_value, 'cluster_size', cluster_size, 'peak_is_on_chan', peak_is_on_chan[-1])
+            #~ if peak_is_aligned and cluster_size>self.min_cluster_size:
+                #~ candidate_labels.append(label)
         
-        return candidate_labels, possible_peak_values, possible_chan_peak, local_centroids
+        cluster_sizes = np.array(cluster_sizes)
+        peak_is_aligned = np.array(peak_is_aligned)
+        peak_is_on_chan = np.array(peak_is_on_chan)
+        best_chan_peak_values = np.array(best_chan_peak_values)
+        
+        if unique_labels.size>0:
+            #~ print(cluster_sizes.shape, peak_is_aligned.shape, peak_is_on_chan.shape)
+            selected_mask= (cluster_sizes>=self.min_cluster_size) & peak_is_aligned & peak_is_on_chan
+            candidate_labels = unique_labels[selected_mask]
+        else:
+            candidate_labels = np.array([], dtype='int64')
+        
+        return unique_labels, candidate_labels, best_chan_peak_values, peak_is_aligned, peak_is_on_chan, local_centroids
     
     
     def explore_split_loop(self):
@@ -211,23 +282,22 @@ class PruningShears:
             # general case 
             n_components_by_channel = self.features.shape[1] // nb_channel
             
-            weights_feat_chans = {}
-            mask_feat_per_chan = {}
-            mask_feat_per_adj = {}
-            self.mask_feat_per_adj = mask_feat_per_adj
+            self.weights_feat_chans = {}
+            self.mask_feat_per_chan = {}
+            self.mask_feat_per_adj = {}
             for chan in range(nb_channel):
                 adjacency = self.channel_adjacency[chan]
                 
                 # mask feature per channel
                 mask_feat = np.zeros(self.features.shape[1], dtype='bool')
                 mask_feat[chan*n_components_by_channel:(chan+1)*n_components_by_channel] = True
-                mask_feat_per_chan[chan] = mask_feat
+                self.mask_feat_per_chan[chan] = mask_feat
                 
                 # mask_feat per channel adjacency
                 mask_feat = np.zeros(self.features.shape[1], dtype='bool')
                 for i in range(n_components_by_channel):
                     mask_feat[adjacency*n_components_by_channel+i] = True
-                mask_feat_per_adj[chan] = mask_feat
+                self.mask_feat_per_adj[chan] = mask_feat
                 
                 # weights
                 weights = []
@@ -236,7 +306,7 @@ class PruningShears:
                     w = np.exp(-d/self.adjacency_radius_um * 2) # TODO fix this factor 2
                     #~ print('chan', chan, 'adj_chan', adj_chan, 'd', d, 'w', w)
                     weights += [ w ] * n_components_by_channel
-                weights_feat_chans[chan] = np.array(weights).reshape(1, -1)
+                self.weights_feat_chans[chan] = np.array(weights).reshape(1, -1)
         
         force_next_chan = None
         
@@ -280,7 +350,7 @@ class PruningShears:
                 actual_chan = self.next_channel(peak_max, chan_visited)
             elif force_next_chan is not None and force_next_chan in chan_visited:
                 # special case when after a force channel no cluster is found
-                self.log('impossible force', force_next_chan, 'chan_visited', chan_visited)
+                self.log('!!!!! impossible force', force_next_chan, 'chan_visited', chan_visited)
                 #~ raise()
                 actual_chan = self.next_channel(peak_max, chan_visited)
             else:
@@ -290,10 +360,14 @@ class PruningShears:
             
             if actual_chan is None:
                 if np.sum(cluster_labels>k)>0:
-                    k+=1
-                    chan_visited = []
-                    force_next_chan = None
-                    continue
+                    cluster_labels[mask_loop] = -1
+                    self.log('!!!!!!! BREAK actual_chan None but still some spikes')
+                    break
+                    
+                    #~ k+=1
+                    #~ chan_visited = []
+                    #~ force_next_chan = None
+                    #~ continue
                 else:
                     cluster_labels[mask_loop] = -1
                     self.log('BREAK actual_chan None')
@@ -312,11 +386,16 @@ class PruningShears:
             mask_thresh = np.zeros(mask_loop.size, dtype='bool') # TODO before loop
             mask_thresh[mask_loop] = peak_max[:, actual_chan] > self.threshold
             
-            ind_keep,  = np.nonzero(mask_loop & mask_thresh)
+            self.log('mask_thresh.size', mask_thresh.size, 'keep.sum', mask_thresh.sum())
+            
+            ind_l0,  = np.nonzero(mask_loop & mask_thresh)
+            
+            
+            
             # TODO avoid infinite loop
             #~ if 
             
-            self.log('mask_thresh.size', mask_thresh.size, 'keep.sum', mask_thresh.sum())
+            
 
             #~ mask_feat = np.zeros(self.features.shape[1], dtype='bool')
             #~ for i in range(n_components_by_channel):
@@ -325,47 +404,136 @@ class PruningShears:
             
             # Step2: cluster on the channel only
             if self.dense_mode:
-                channel_wf_features = self.features.take(ind_keep, axis=0)
+                channel_wf_features = self.features.take(ind_l0, axis=0)
                 channel_noise_features = self.noise_features
             else:
-                mask_feat = mask_feat_per_chan[actual_chan]
-                channel_wf_features = self.features.take(ind_keep, axis=0).compress(mask_feat, axis=1)
+                mask_feat = self.mask_feat_per_chan[actual_chan]
+                channel_wf_features = self.features.take(ind_l0, axis=0).compress(mask_feat, axis=1)
                 channel_noise_features = self.noise_features.compress(mask_feat, axis=1)
             
             self.log('channel_wf_features.shape', channel_wf_features.shape)
             
-            channel_features = np.concatenate([channel_noise_features, channel_wf_features, ], axis=0)
-            channel_labels = self.one_sub_cluster(channel_features)
+            channel_features_l0 = np.concatenate([channel_noise_features, channel_wf_features, ], axis=0)
+            self.log('channel_features_l0.shape', channel_features_l0.shape)
+            
+            labels_l0 = self.one_sub_cluster(channel_features_l0)
             # remove noise label
-            channel_labels = channel_labels[self.noise_features.shape[0]:]
-            possible_labels = np.unique(channel_labels)
-            possible_labels = possible_labels[possible_labels>=0]
+            labels_l0 = labels_l0[self.noise_features.shape[0]:]
+            possible_labels_l0 = np.unique(labels_l0)
+            possible_labels_l0 = possible_labels_l0[possible_labels_l0>=0]
             
-            self.log('possible_labels', possible_labels)
+            self.log('possible_labels_l0', possible_labels_l0)
             
-            local_ind = ind_keep
+            if len(labels_l0) ==0 or len(labels_l0) ==1:
+                labels_l0[:] = 0 
+                possible_labels_l0 = np.unique(labels_l0)
+                sleG.log('ATTTENTION pas de label')
+                
+                
             
-            if len(possible_labels) == 0:
-                self.log('len(possible_labels) == 0, explore new chan ')
+            #~ if len(possible_labels_l0) == 0:
+                #~ self.log('len(possible_labels_l0) == 0, explore new chan ')
+                #~ chan_visited.append(actual_chan)
+                #~ force_next_chan = None
+                
+                #~ final_label_l2 = None
+                #~ self._plot_debug(actual_chan, ind_l0, channel_features_l0, labels_l0, possible_labels_l0, ind_l2, labels_l2, possible_labels_l2, final_label_l2)
+                
+                #~ continue
+            
+            # loop over subcluster only on channel
+            # and try to subcluster it with new features
+            labels_l2 = np.zeros(labels_l0.size, dtype='int64')
+            labels_l2[:] = -1
+            label_offset = 0
+            for label in possible_labels_l0:
+                
+                mask = labels_l0 == label
+                ind_l1 = ind_l0[mask]
+                if ind_l1.size < self.min_cluster_size:
+                    continue
+                
+                local_ind,  = np.nonzero(mask)
+                
+                # no noise in features
+                # TODO : with noise ?
+                local_features = self.make_local_features(ind_l1, actual_chan)
+                
+                labels_l1 = self.one_sub_cluster(local_features)
+                self.log('level1: label', label, 'ind_l1.size', ind_l1.size, 'level1: labels_l1', np.unique(labels_l1))
+                
+                mask2 = labels_l1>=0
+                labels_l2[local_ind[mask2]] = labels_l1[mask2] + label_offset
+                
+                label_offset += np.max(labels_l1) + 1
+            
+            mask = labels_l2>=0
+            ind_l2 = ind_l0[mask]
+            labels_l2 = labels_l2[mask]
+            
+            possible_labels_l2 = np.unique(labels_l2)
+            
+            
+            
+            # explore candidate
+            possible_labels_l2, candidate_labels_l2, best_chan_peak_values, peak_is_aligned, peak_is_on_chan, local_centroids = self.check_candidate_labels(ind_l2, labels_l2, actual_chan)
+            self.log('possible_labels_l2', possible_labels_l2)
+            self.log('candidate_labels_l2', candidate_labels_l2)
+            
+            
+            if len(candidate_labels_l2) == 0:
+                # TODO : do something else dense_mode=True
+                self.log('len(candidate_labels) == 0')
                 chan_visited.append(actual_chan)
                 force_next_chan = None
-                
-                candidate_labels = None
-                local_labels = None
-                candidate_labels_l2 = None
-                ind_keep_l2 = None
-                self._plot_debug(actual_chan, channel_wf_features, channel_noise_features, channel_labels, possible_labels, candidate_labels, ind_keep, reduced_features, local_labels, candidate_labels_l2, ind_keep_l2)
-                continue
 
-            # explore candidate
+
+                final_label_l2 = None
+                self._plot_debug(actual_chan, ind_l0, channel_features_l0, labels_l0, possible_labels_l0, ind_l2, labels_l2, possible_labels_l2, final_label_l2)
+                continue
             
-            if self.dense_mode:
-                local_channels = np.arange(nb_channel, dtype='int64')
-            else:
-                local_channels = [actual_chan]
-            candidate_labels, possible_peak_values, possible_chan_peak, local_centroids= self.select_candidate_labels(ind_keep, channel_labels, local_channels)
+            #~ final_label_l2 = None
+            #~ self._plot_debug(actual_chan, ind_l0, channel_features_l0, labels_l0, possible_labels_l0, ind_l2, labels_l2, possible_labels_l2, final_label_l2)
             
-            self.log('candidate_labels one channel', candidate_labels)
+            
+            mask = np.in1d(possible_labels_l2, candidate_labels_l2, assume_unique=True)
+            best_ind = np.argmax(best_chan_peak_values[mask])
+            best_label_l2 = candidate_labels_l2[best_ind ]
+            
+            #~ best_peak_value = best_chan_peak_values[mask][best_ind]
+            
+            self.log('best_ind', best_ind, 'best_label_l2', best_label_l2, 'best_peak_value', best_chan_peak_values[mask][best_ind])
+            
+            final_label_l2 = best_label_l2
+
+            # remove trash : TODO
+            #~ ind_trash_label = ind_keep_l2[local_labels == -1]
+            #~ self.log('ind_trash_label.shape', ind_trash_label.shape)
+            #~ cluster_labels[ind_trash_label] = -1
+            
+            ind_new_label = ind_l2[final_label_l2 == labels_l2]
+            
+            self.log('ind_new_label.shape', ind_new_label.shape)
+
+            cluster_labels[cluster_labels>=k] += 1
+            cluster_labels[ind_new_label] -= 1
+            
+            k += 1
+            chan_visited = []
+            force_next_chan = None
+            
+            self._plot_debug(actual_chan, ind_l0, channel_features_l0, labels_l0, possible_labels_l0, ind_l2, labels_l2, possible_labels_l2, final_label_l2)
+            
+            continue
+
+
+
+            self._plot_debug(actual_chan, ind_l0, channel_features_l0, labels_l0, possible_labels_l0, ind_l2, labels_l2, possible_labels_l2, final_label_l2)
+            
+            
+            """
+            exit()
+            
 
             # for not dense mode check if the best label is on anotehr channel
             if not self.dense_mode:
@@ -493,7 +661,7 @@ class PruningShears:
                 
                 self.log('possible_labels_l2 adjacency channels', possible_labels_l2)
 
-                candidate_labels_l2, possible_peak_values, possible_chan_peak, local_centroids= self.select_candidate_labels(ind_keep_l2, local_labels, adjacency)
+                candidate_labels_l2, possible_peak_values, possible_chan_peak, local_centroids= self.check_candidate_labels(ind_keep_l2, local_labels, adjacency)
                 
                 self.log('candidate_labels_l2', candidate_labels_l2)
 
@@ -572,14 +740,14 @@ class PruningShears:
                 
                 self._plot_debug(actual_chan, channel_wf_features, channel_noise_features, channel_labels, possible_labels, candidate_labels, ind_keep, reduced_features, local_labels, candidate_labels_l2, ind_keep_l2)
                 continue
+            """
 
 
             
         self.log('END loop', np.sum(cluster_labels==-1))
         return cluster_labels
 
-
-    def _plot_debug(self, actual_chan, channel_wf_features, channel_noise_features, channel_labels, possible_labels, candidate_labels, ind_keep, reduced_features, local_labels, candidate_labels_l2, ind_keep_l2):
+    def _plot_debug(self, actual_chan, ind_l0, channel_features_l0, labels_l0, possible_labels_l0, ind_l2, labels_l2, possible_labels_l2, final_label_l2):
         if not self.debug_plot:
             return
         
@@ -587,61 +755,44 @@ class PruningShears:
         fig, axs = plt.subplots(ncols=3, nrows=2)
         #~ plt.show()
         
-        colors = plt.cm.get_cmap('jet', len(np.unique(channel_labels)))
-        colors2 = plt.cm.get_cmap('tab10', len(np.unique(local_labels)))
+        colors = plt.cm.get_cmap('jet', len(possible_labels_l0))
+        if possible_labels_l2 is not None:
+            colors2 = plt.cm.get_cmap('tab10', len(possible_labels_l2))
         
+        noise_size = self.noise_features.shape[0]
+        
+        print(channel_features_l0.shape)
+        print(labels_l0.shape)
         # channel feature
         ax = axs[0, 0]
+        #~ ax.set_title('actual_chan {}'.format(actual_chan))
         
-        feat0, feat1 = channel_wf_features[:, 0], channel_wf_features[:, 1]
-        for l, label in enumerate(possible_labels):
+        feat0, feat1 = channel_features_l0[noise_size:, 0], channel_features_l0[noise_size:, 1]
+        
+        ax.scatter(feat0, feat1, s=1, color='k')
+        ax.scatter(channel_features_l0[:noise_size, 0], channel_features_l0[:noise_size, 1], s=1, color='r')        
+        
+        for l, label in enumerate(possible_labels_l0):
             #~ if label not in candidate_labels:
                 #~ continue
                 
-            sel = label == channel_labels
+            sel = label == labels_l0
             if label<0: 
                 color = 'k'
             else:
                 color=colors(l)
             
-            if label in candidate_labels:
-                s = 3
-            else:
-                s = 1
+            #~ if label in candidate_labels:
+                #~ s = 3
+            #~ else:
+                #~ s = 1
+            s = 1
             
             ax.scatter(feat0[sel], feat1[sel], s=s, color=color)
-        ax.scatter(channel_noise_features[:, 0], channel_noise_features[:, 1], s=1, color='r')        
-        
-        if local_labels is not None:
-            ax = axs[0, 1]
-            
-            
-            noise_size = self.noise_features.shape[0]
-            noise_size = 0
-            ax.scatter(reduced_features[noise_size:, 0], reduced_features[noise_size:, 1], s=1, color='black')
-            ax.scatter(reduced_features[:noise_size, 0], reduced_features[:noise_size, 1], s=1, color='r')
 
-            for l, label in enumerate(np.unique(local_labels)):
-                sel = label == local_labels
-                if label is None:
-                    # THIS IS A DEBUG
-                    print('label', label)
-                    print('local_labels', local_labels)
-                    
-                if label<0: 
-                    color = 'k'
-                else:
-                    color=colors2(l)
-                if candidate_labels_l2 is not None and label in candidate_labels_l2:
-                    s = 3
-                else:
-                    s = 1
-                ax.scatter(reduced_features[noise_size:, :][sel, :][:, 0], reduced_features[noise_size:, :][sel, :][:, 1], s=s, color=color)
 
-        
-        
         ax = axs[1, 0]
-        wf_chan = self.waveforms[:,:, [actual_chan]][ind_keep, :, :]
+        wf_chan = self.waveforms[:,:, [actual_chan]][ind_l0, :, :]
         
         #~ bin_min, bin_max, bin_size =np.min(wf_chan)-3, np.max(wf_chan)+3, 0.2
         #~ im = plot_waveforms_density(wf_chan, bin_min, bin_max, bin_size, ax=ax)
@@ -652,67 +803,129 @@ class PruningShears:
             wf_chan = wf_chan[:400, :, :]
         ax.plot(wf_chan.swapaxes(1,2).reshape(wf_chan.shape[0], -1).T, color='k', alpha=0.1)
         
-        for l, label in enumerate(possible_labels):
-        
-            sel = label == channel_labels
-            ind = ind_keep[sel]
-            wf = self.waveforms[:,:, actual_chan][ind, :].mean(axis=0)
-            
+        for l, label in enumerate(possible_labels_l0):
+
+            sel = label == labels_l0
             if label<0: 
                 color = 'k'
             else:
                 color=colors(l)
+        
+            ind = ind_l0[sel]
             
-            if candidate_labels is not None and label in candidate_labels:
-                ls = '-'
-            else:
-                ls = '--'
+            wf = self.waveforms[:,:, actual_chan][ind, :].mean(axis=0)
             
-            ax.plot(wf, color=color, ls=ls)
+            #~ if candidate_labels is not None and label in candidate_labels:
+                #~ ls = '-'
+            #~ else:
+                #~ ls = '--'
+            
+            ax.plot(wf, color=color, ls='-')
+            
+        #~ plt.show()
         
         
+        #~ if local_labels is not None:
+            #~ ax = axs[0, 1]
+            
+            
+            #~ noise_size = self.noise_features.shape[0]
+            #~ noise_size = 0
+            #~ ax.scatter(reduced_features[noise_size:, 0], reduced_features[noise_size:, 1], s=1, color='black')
+            #~ ax.scatter(reduced_features[:noise_size, 0], reduced_features[:noise_size, 1], s=1, color='r')
+
+            #~ for l, label in enumerate(np.unique(local_labels)):
+                #~ sel = label == local_labels
+                #~ if label is None:
+                    #~ # THIS IS A DEBUG
+                    #~ print('label', label)
+                    #~ print('local_labels', local_labels)
+                    
+                #~ if label<0: 
+                    #~ color = 'k'
+                #~ else:
+                    #~ color=colors2(l)
+                #~ if candidate_labels_l2 is not None and label in candidate_labels_l2:
+                    #~ s = 3
+                #~ else:
+                    #~ s = 1
+                #~ ax.scatter(reduced_features[noise_size:, :][sel, :][:, 0], reduced_features[noise_size:, :][sel, :][:, 1], s=s, color=color)
+
+        #~ plt.show()
         #~ ax.axvline(-self.n_left, color='w', lw=2)        
-        ax.axvline(-self.n_left, color='m', lw=2)
+        #~ ax.axvline(-self.n_left, color='m', lw=2)
+        
         
         
         
         ax = axs[1, 1]
-        if ind_keep_l2 is not None:
+        
+        if ind_l2.size > 0:
             mask_feat = self.mask_feat_per_adj[actual_chan]
-            local_wf_features = self.features.take(ind_keep_l2, axis=0).compress(mask_feat, axis=1)
+            local_wf_features = self.features.take(ind_l2, axis=0).compress(mask_feat, axis=1)
             if local_wf_features.shape[0] > 400:
                 local_wf_features = local_wf_features[:400, :]
+            
             ax.plot(local_wf_features.T, color='k', alpha=0.1)
             
-            local_wf_features = self.features.take(ind_keep_l2, axis=0).compress(mask_feat, axis=1)
+            local_wf_features = self.features.take(ind_l2, axis=0).compress(mask_feat, axis=1)
             
-            if local_labels is not None:
-                for l, label in enumerate(np.unique(local_labels)):
-                    if label<0: 
-                        continue
-                    sel = label == local_labels
+            if possible_labels_l2 is not None:
+                for l, label in enumerate(np.unique(possible_labels_l2)):
+                    #~ if label<0: 
+                        #~ continue
+                    sel = label == labels_l2
+                    
                     m = local_wf_features[sel].mean(axis=0)
 
                     color=colors2(l)
                     ax.plot(m, color=color, alpha=1)
         
+                
+        
+        
+        
+        ax = axs[0, 2]
+        if ind_l2.size > 0:
+            adjacency = self.channel_adjacency[actual_chan]
+            wf_adj = self.waveforms[:,:, adjacency][ind_l2, :, :]
+            if wf_adj.shape[0] > 400:
+                wf_adj = wf_adj[:400, :, :]
+            ax.plot(wf_adj.swapaxes(1,2).reshape(wf_adj.shape[0], -1).T, color='k', alpha=0.1)
+            
+            wf_adj = self.waveforms[:,:, adjacency][ind_l2, :, :]
+            
+            if possible_labels_l2 is not None:
+                for l, label in enumerate(np.unique(possible_labels_l2)):
+                    if label<0: 
+                        continue
+                    sel = label == labels_l2
+                    m = wf_adj[sel].mean(axis=0)
+
+                    color=colors2(l)
+                    ax.plot(m.T.flatten(), color=color, alpha=1)
+        
         
         ax = axs[1, 2]
-        adjacency = self.channel_adjacency[actual_chan]
-        wf_adj = self.waveforms[:,:, adjacency][ind_keep_l2, :, :]
-        if wf_adj.shape[0] > 400:
-            wf_adj = wf_adj[:400, :, :]
-        ax.plot(wf_adj.swapaxes(1,2).reshape(wf_adj.shape[0], -1).T, color='k', alpha=0.1)
-        
-        if local_labels is not None:
-            for l, label in enumerate(np.unique(local_labels)):
-                if label<0: 
-                    continue
-                sel = label == local_labels
-                m = self.waveforms[:,:, adjacency][ind_keep_l2, :, :][sel].mean(axis=0)
+        if ind_l2.size > 0:
+            if final_label_l2 is not None:
+                adjacency = self.channel_adjacency[actual_chan]
+                sel = final_label_l2 == labels_l2
+                wf_adj = self.waveforms[:,:, adjacency][ind_l2, :, :][sel]
+                m = wf_adj.mean(axis=0)
 
-                color=colors2(l)
+                if wf_adj.shape[0] > 400:
+                    wf_adj = wf_adj[:400, :, :]
+                
+                ax.plot(wf_adj.swapaxes(1,2).reshape(wf_adj.shape[0], -1).T, color='k', alpha=0.1)
+                
+                #~ l = possible_labels_l2.tolist().index(final_label_l2)
+                #~ color=colors2(l)
+                
+                color='m'
                 ax.plot(m.T.flatten(), color=color, alpha=1)
+            
+            
             
         
         
@@ -830,7 +1043,7 @@ class PruningShears:
 
 
 
-
+"""
 # to compare with previous release
 class PruningShears_1_4_1:
     def __init__(self, waveforms, 
@@ -1558,3 +1771,4 @@ class PruningShears_1_4_1:
                 break
         
         return cluster_labels2
+"""

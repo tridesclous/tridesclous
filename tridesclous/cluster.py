@@ -120,8 +120,16 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         
         noise_features = cc.some_noise_features
         
+        
         pruningshears = PruningShears(waveforms, features, noise_features, n_left, n_right, peak_sign, relative_threshold,
                                 adjacency_radius_um, channel_adjacency, channel_distances, dense_mode, **kargs)
+        
+        #~ from .pruningshears import PruningShears_1_4_1
+        #~ pruningshears = PruningShears_1_4_1(waveforms, features, noise_features, n_left, n_right, peak_sign, relative_threshold,
+                                #~ adjacency_radius_um, channel_adjacency, channel_distances, dense_mode, **kargs)
+        
+        
+        
         
         labels = pruningshears.do_the_job()
         
