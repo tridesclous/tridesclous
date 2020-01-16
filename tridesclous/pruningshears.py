@@ -72,8 +72,8 @@ class PruningShears:
         self.print_debug = print_debug
         self.max_per_cluster_for_median = max_per_cluster_for_median
         
-        self.debug_plot = False
-        #~ self.debug_plot = True
+        #~ self.debug_plot = False
+        self.debug_plot = True
 
     def log(self, *args, **kargs):
         if self.print_debug:
@@ -94,16 +94,18 @@ class PruningShears:
             x = x[x>self.threshold]
             
             if x.size>self.min_cluster_size:
-                per = np.nanpercentile(x, 99)
+                #~ per = np.nanpercentile(x, 99)
                 #~ per = np.nanpercentile(x, 95)
+                per = np.nanpercentile(x, 80)
+                
             else:
                 per = 0
             percentiles[c] = per
         order_visit = np.argsort(percentiles)[::-1]
         #~ print('percentiles', percentiles)
         order_visit = order_visit[percentiles[order_visit]>0]
-        self.log('order_visit :5', order_visit[:5])
-        self.log('percentiles :5', percentiles[order_visit[:5]])
+        self.log('order_visit :10', order_visit[:10])
+        self.log('percentiles :10', percentiles[order_visit[:10]])
         
         
         
@@ -115,14 +117,6 @@ class PruningShears:
         if len(order_visit)==0:
             self.log('len(order_visit)==0')
             return None
-            #~ if np.sum(cluster_labels>k)>0:
-                #~ k+=1
-                #~ chan_visited = []
-                #~ continue
-            #~ else:
-                #~ cluster_labels[mask_loop] = -1
-                #~ self.log('BREAK no  more channel')
-                #~ break
         
         actual_chan = order_visit[0]        
         
@@ -131,7 +125,9 @@ class PruningShears:
     def one_sub_cluster(self, local_data):
         # clustering on one channel or one adjacency
         
-        clusterer = hdbscan.HDBSCAN(min_cluster_size=self.min_cluster_size)
+        clusterer = hdbscan.HDBSCAN(min_cluster_size=self.min_cluster_size, allow_single_cluster=True)
+        #~ clusterer = hdbscan.HDBSCAN(min_cluster_size=100, min_samples=20, allow_single_cluster=True)
+        
         local_labels = clusterer.fit_predict(local_data)
         
         # try isosplit here not stable enought on windows
@@ -195,6 +191,7 @@ class PruningShears:
         peak_is_on_chan = []
         peak_is_aligned = []
         best_chan_peak_values = []
+        best_chan = []
         cluster_sizes = []
         #~ actual_chan_peak_values =  []
         
@@ -229,11 +226,14 @@ class PruningShears:
                 pos_peak = np.argmax(centroid[:, chan_peak_local])
             
             if self.dense_mode:
+                # TODO
+                raise()
                 chan_peak = chan_peak_local
                 peak_is_on_chan.append(True)
             else:
                 chan_peak = local_channels[chan_peak_local]
                 peak_is_on_chan.append(chan_peak == actual_chan)
+                best_chan.append(chan_peak)
             
             
             
@@ -252,6 +252,7 @@ class PruningShears:
         peak_is_aligned = np.array(peak_is_aligned)
         peak_is_on_chan = np.array(peak_is_on_chan)
         best_chan_peak_values = np.array(best_chan_peak_values)
+        best_chan = np.array(best_chan)
         
         if unique_labels.size>0:
             #~ print(cluster_sizes.shape, peak_is_aligned.shape, peak_is_on_chan.shape)
@@ -260,7 +261,7 @@ class PruningShears:
         else:
             candidate_labels = np.array([], dtype='int64')
         
-        return unique_labels, candidate_labels, best_chan_peak_values, peak_is_aligned, peak_is_on_chan, local_centroids
+        return unique_labels, candidate_labels, best_chan_peak_values, best_chan, peak_is_aligned, peak_is_on_chan, local_centroids
     
     
     def explore_split_loop(self):
@@ -473,12 +474,13 @@ class PruningShears:
                 
                 self.log('level1: label', label, 'ind_l1.size', ind_l1.size, 'level1: labels_l1', np.unique(labels_l1))
                 
-                #~ fig, ax = plt.subplots()
-                #~ ax.scatter(local_features[:, 0], local_features[:, 1], color='k', s=1)
-                #~ for label in np.unique(labels_l1):
-                    #~ sel = label == labels_l1
-                    #~ ax.scatter(local_features[sel, 0], local_features[sel, 1], s=2)
-                #~ plt.show()
+                fig, ax = plt.subplots()
+                ax.scatter(local_features[:, 0], local_features[:, 1], color='black', s=2)
+                for label in np.unique(labels_l1):
+                    if label<0:continue
+                    sel = label == labels_l1
+                    ax.scatter(local_features[sel, 0], local_features[sel, 1], s=2)
+                plt.show()
                 
                 mask2 = labels_l1>=0
                 labels_l2[local_ind[mask2]] = labels_l1[mask2] + label_offset
@@ -494,20 +496,49 @@ class PruningShears:
             
             
             # explore candidate
-            possible_labels_l2, candidate_labels_l2, best_chan_peak_values, peak_is_aligned, peak_is_on_chan, local_centroids = self.check_candidate_labels(ind_l2, labels_l2, actual_chan)
+            possible_labels_l2, candidate_labels_l2, best_chan_peak_values, best_chan, peak_is_aligned, peak_is_on_chan, local_centroids = self.check_candidate_labels(ind_l2, labels_l2, actual_chan)
             self.log('possible_labels_l2', possible_labels_l2)
             self.log('candidate_labels_l2', candidate_labels_l2)
             
             
             if len(candidate_labels_l2) == 0:
-                # TODO : do something else dense_mode=True
-                self.log('len(candidate_labels) == 0')
-                chan_visited.append(actual_chan)
-                force_next_chan = None
+                if force_next_chan is not None:
+                    self.log('force_next_chan is not None and NO candidate!!!!!!')
+                    raise()
+                
+                if self.dense_mode:
+                    raise(NotImplementedError)
+                else:
+                    
+                    ok_elsewhere = peak_is_aligned &  ~peak_is_on_chan
+                    if np.any(ok_elsewhere):
+                        ind_best = np.argmax(best_chan_peak_values[ok_elsewhere])
+                        force_next_chan = best_chan[ok_elsewhere][ind_best]
+                        chan_visited.append(actual_chan)
+                        self.log('force_next_chan', force_next_chan, 'actual_chan', actual_chan)
+                        
+                    else:
+                        force_next_chan = None
+                        chan_visited.append(actual_chan)
+                        
+                        
+                    final_label_l2 = None
+                    self._plot_debug(actual_chan, ind_l0, channel_features_l0, labels_l0, possible_labels_l0, ind_l2, labels_l2, possible_labels_l2, final_label_l2)
+                    continue
+                        
+                        
+                        
+                        
+                        
+                    
+                    # TODO : do something else dense_mode=True
+                    self.log('len(candidate_labels) == 0')
+                    
+                    force_next_chan = None
 
 
-                final_label_l2 = None
-                self._plot_debug(actual_chan, ind_l0, channel_features_l0, labels_l0, possible_labels_l0, ind_l2, labels_l2, possible_labels_l2, final_label_l2)
+                    final_label_l2 = None
+                    self._plot_debug(actual_chan, ind_l0, channel_features_l0, labels_l0, possible_labels_l0, ind_l2, labels_l2, possible_labels_l2, final_label_l2)
                 continue
             
             #~ final_label_l2 = None
@@ -783,11 +814,11 @@ class PruningShears:
         print(labels_l0.shape)
         # channel feature
         ax = axs[0, 0]
-        #~ ax.set_title('actual_chan {}'.format(actual_chan))
+        ax.set_title('actual_chan {}'.format(actual_chan))
         
         feat0, feat1 = channel_features_l0[noise_size:, 0], channel_features_l0[noise_size:, 1]
         
-        ax.scatter(feat0, feat1, s=1, color='k')
+        ax.scatter(feat0, feat1, s=1, color='black')
         ax.scatter(channel_features_l0[:noise_size, 0], channel_features_l0[:noise_size, 1], s=1, color='r')        
         
         for l, label in enumerate(possible_labels_l0):
