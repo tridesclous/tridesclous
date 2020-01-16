@@ -72,8 +72,8 @@ class PruningShears:
         self.print_debug = print_debug
         self.max_per_cluster_for_median = max_per_cluster_for_median
         
-        #~ self.debug_plot = False
-        self.debug_plot = True
+        self.debug_plot = False
+        #~ self.debug_plot = True
 
     def log(self, *args, **kargs):
         if self.print_debug:
@@ -94,8 +94,8 @@ class PruningShears:
             x = x[x>self.threshold]
             
             if x.size>self.min_cluster_size:
-                #~ per = np.nanpercentile(x, 99)
-                per = np.nanpercentile(x, 95)
+                per = np.nanpercentile(x, 99)
+                #~ per = np.nanpercentile(x, 95)
             else:
                 per = 0
             percentiles[c] = per
@@ -422,12 +422,15 @@ class PruningShears:
             possible_labels_l0 = np.unique(labels_l0)
             possible_labels_l0 = possible_labels_l0[possible_labels_l0>=0]
             
-            self.log('possible_labels_l0', possible_labels_l0)
             
-            if len(labels_l0) ==0 or len(labels_l0) ==1:
+            
+            if len(possible_labels_l0) ==0 or len(possible_labels_l0) ==1:
                 labels_l0[:] = 0 
                 possible_labels_l0 = np.unique(labels_l0)
-                sleG.log('ATTTENTION pas de label')
+                self.log('ATTTENTION pas de label')
+            
+            
+            self.log('possible_labels_l0', possible_labels_l0)
                 
                 
             
@@ -450,6 +453,8 @@ class PruningShears:
                 
                 mask = labels_l0 == label
                 ind_l1 = ind_l0[mask]
+                
+                self.log('level1: label', label, 'ind_l1.size', ind_l1.size)
                 if ind_l1.size < self.min_cluster_size:
                     continue
                 
@@ -459,8 +464,21 @@ class PruningShears:
                 # TODO : with noise ?
                 local_features = self.make_local_features(ind_l1, actual_chan)
                 
+                
                 labels_l1 = self.one_sub_cluster(local_features)
+
+                if np.unique(labels_l1).size == 1 and labels_l1[0] == -1:
+                    # if one cluster hdbscan put everything in trash
+                    labels_l1[:] = 0
+                
                 self.log('level1: label', label, 'ind_l1.size', ind_l1.size, 'level1: labels_l1', np.unique(labels_l1))
+                
+                #~ fig, ax = plt.subplots()
+                #~ ax.scatter(local_features[:, 0], local_features[:, 1], color='k', s=1)
+                #~ for label in np.unique(labels_l1):
+                    #~ sel = label == labels_l1
+                    #~ ax.scatter(local_features[sel, 0], local_features[sel, 1], s=2)
+                #~ plt.show()
                 
                 mask2 = labels_l1>=0
                 labels_l2[local_ind[mask2]] = labels_l1[mask2] + label_offset
