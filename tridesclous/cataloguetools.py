@@ -218,11 +218,19 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
     # TODO make this more complicated
     #  * by detecting if dense array or not.
     #  * better method sleection
-
+    
+    seg0_duration = dataio.get_segment_length(seg_num=0) / dataio.sample_rate
+    
     # auto chunsize of 100 ms
     params['chunksize'] = int(dataio.sample_rate * 0.1)
     
     params['duration'] = 601.
+    
+    # segment durartion is not so big then take the whole duration
+    # to avoid double preprocessing (catalogue+peeler)
+    if params['duration'] * 2 > seg0_duration:
+        params['duration'] = seg0_duration
+    
     
     #~ if nb_chan <=8:
     #~ if nb_chan <=1:
