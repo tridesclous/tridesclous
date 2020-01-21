@@ -177,7 +177,7 @@ _default_catalogue_params = {
         'peak_sign': '-',
         'relative_threshold': 5.,
         'peak_span_ms': .7,
-        #~ 'adjacency_radius_um' : None,
+        'adjacency_radius_um' : None,
     },
     'noise_snippet': {
         'nb_snippet': 300,
@@ -263,13 +263,15 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
 
     else:
         params['mode'] = 'sparse'
-        params['adjacency_radius_um'] = 200.
+        params['adjacency_radius_um'] = 150.
         params['sparse_threshold'] = 1.5
 
         if nb_chan > 32 and HAVE_PYOPENCL:
             params['preprocessor']['engine'] = 'opencl'
 
         params['peak_detector']['method'] = 'geometrical'
+        params['peak_detector']['adjacency_radius_um'] = params['adjacency_radius_um']
+        
         
         if HAVE_PYOPENCL:
             params['peak_detector']['engine'] = 'opencl'
@@ -281,6 +283,7 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             params['peak_detector']['engine'] = 'numpy'
         
         params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 300)
+        #~ params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 600)
         
         params['feature_method'] = 'pca_by_channel'
         params['feature_kargs'] = {'n_components_by_channel':5}
