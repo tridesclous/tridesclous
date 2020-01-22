@@ -247,15 +247,18 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['extract_waveforms']['mode'] = 'rand'
         params['extract_waveforms']['nb_max'] = 20000
         
-        params['feature_method'] = 'global_pca'
+        #~ params['feature_method'] = 'global_pca'
+        #~ if nb_chan in (1,2):
+            #~ n_components = 5
+        #~ else:
+            #~ n_components = int(nb_chan*2)
+        #~ params['feature_kargs'] = {'n_components' : n_components }
+        params['feature_method'] = 'pca_by_channel'
+        params['feature_kargs'] = {'n_components_by_channel':5}
         
-        if nb_chan in (1,2):
-            n_components = 5
-        else:
-            n_components = int(nb_chan*2)
         
-        params['feature_kargs'] = {'n_components' : n_components }
         
+        #~ params['cluster_method'] = 'hdbscan'
         params['cluster_method'] = 'pruningshears'
         params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 10)
         params['cluster_kargs']['min_cluster_size'] = 20

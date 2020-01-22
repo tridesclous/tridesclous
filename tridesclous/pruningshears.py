@@ -115,23 +115,28 @@ class PruningShears:
         #~ print('mask.size', mask.size, 'mask.sum', mask.sum())
         
         order_visit = np.argsort(percentiles)[::-1]
+        percentiles = percentiles[order_visit]
+        
+        mask = (percentiles > 0) & ~np.in1d(order_visit, chan_visited)
+        
+        order_visit = order_visit[mask]
+        percentiles = percentiles[mask]
+        
         #~ print('percentiles', percentiles)
-        order_visit = order_visit[percentiles[order_visit]>0]
         self.log('order_visit :10', order_visit[:10])
-        self.log('percentiles :10', percentiles[order_visit[:10]])
-        
-        
-        
-        
-        #~ self.log(order_visit)
-        #~ self.log(percentiles[order_visit])
-        order_visit = order_visit[~np.in1d(order_visit, chan_visited)]
+        self.log('percentiles :10', percentiles[:10])
         
         if len(order_visit)==0:
             self.log('len(order_visit)==0')
             return None
         
-        actual_chan = order_visit[0]        
+        actual_chan = order_visit[0]
+        #~ if len(order_visit)>3:
+            #~ # add some randomness
+            #~ order_visit = np.random.permutation(order_visit[:order_visit.size//3])
+            #~ actual_chan = order_visit[0]
+        #~ else:
+            #~ actual_chan = order_visit[0]
         
         return actual_chan
     
@@ -224,12 +229,19 @@ class PruningShears:
         
         if unique_labels.size>0:
             #~ print(cluster_sizes.shape, peak_is_aligned.shape, peak_is_on_chan.shape)
-            selected_mask= (cluster_sizes>=self.min_cluster_size) & peak_is_aligned & peak_is_on_chan
-            candidate_labels = unique_labels[selected_mask]
+            candidate_mask= (cluster_sizes>=self.min_cluster_size) & peak_is_aligned & peak_is_on_chan
+            #~ candidate_labels = unique_labels[candidate_mask]
+            
+            elsewhere_mask= (cluster_sizes>=self.min_cluster_size) & peak_is_aligned & ~peak_is_on_chan
+            #~ candidate_labels_elsewhere = unique_labels[elsewhere_mask]
+            
         else:
             candidate_labels = np.array([], dtype='int64')
+            candidate_labels_elsewhere = np.array([], dtype='int64')
         
-        return unique_labels, candidate_labels, best_chan_peak_values, best_chan, peak_is_aligned, peak_is_on_chan, local_centroids
+        
+        return unique_labels, candidate_mask, elsewhere_mask, best_chan_peak_values,\
+                        best_chan, peak_is_aligned, peak_is_on_chan, local_centroids
 
     
     def explore_split_loop(self):
@@ -350,7 +362,7 @@ class PruningShears:
                 mask_thresh[:] = True
             else:
                 mask_thresh[mask_loop] = peak_max[:, actual_chan] > self.threshold
-            
+                
             self.log('mask_loop.size', mask_loop.size, 'mask_loop.sum', mask_loop.sum(), 'mask_thresh.sum', mask_thresh.sum())
             
             ind_l0,  = np.nonzero(mask_loop & mask_thresh)
@@ -395,6 +407,7 @@ class PruningShears:
 
 
             if len(possible_labels_l0) == 0:
+                # experimental!!!!!!
 
                 pca =  sklearn.decomposition.IncrementalPCA(n_components=2, whiten=True)
                 reduced_features = pca.fit_transform(wf_features)
@@ -449,6 +462,10 @@ class PruningShears:
                     
                 else:
                     self.log('!!!!!!! Not save trash!!!!!!')
+                    
+                    if self.dense_mode:
+                        self.log('no more with dense mode')
+                        break
 
                     force_next_chan = None
                     chan_visited.append(actual_chan)
@@ -479,102 +496,92 @@ class PruningShears:
             
 
             # explore candidate
-            possible_labels_l0, candidate_labels_l0, best_chan_peak_values, best_chan, peak_is_aligned, peak_is_on_chan, local_centroids = self.check_candidate_labels(ind_l0, labels_l0, actual_chan)
+            possible_labels_l0, candidate_mask_l0, elsewhere_mask_l0, best_chan_peak_values, best_chan,\
+                    peak_is_aligned, peak_is_on_chan, local_centroids = self.check_candidate_labels(ind_l0, labels_l0, actual_chan)
+            
             
             self.log('possible_labels_l0', possible_labels_l0)
+            candidate_labels_l0 = possible_labels_l0[candidate_mask_l0]
             self.log('candidate_labels_l0', candidate_labels_l0)
+            candidate_labels_elsewhere_l0 = possible_labels_l0[elsewhere_mask_l0]
+            self.log('candidate_labels_elsewhere_l0', candidate_labels_elsewhere_l0)
             
             
             if len(possible_labels_l0) == 0:
                 self.log('len(possible_labels_l0) == 0 impossible')
                 raise()
-
-                #~ force_next_chan = None
-                #~ chan_visited.append(actual_chan)
-                #~ self.log('len(possible_labels_l0) == 0  TODO')
-                #~ final_label = None
-                #~ self._plot_debug(actual_chan, ind_l0, features_l0, labels_l0, possible_labels_l0, candidate_labels_l0, final_label)
-                #~ continue
             
-            #~ exit()
+            if np.sum(elsewhere_mask_l0):
+                ind_best_elsewhere = np.argmax(best_chan_peak_values[elsewhere_mask_l0])
+                elsewhere_peak_val = best_chan_peak_values[elsewhere_mask_l0][ind_best_elsewhere]
+            else:
+                elsewhere_peak_val = None
             
-            # if the best peak is align and on other channel then explore the other channel
-            if np.any(peak_is_aligned):
-                ind_best_everywhere = np.argmax(best_chan_peak_values[peak_is_aligned])
-                if best_chan[ind_best_everywhere] != actual_chan:
-                    if best_chan[ind_best_everywhere] in chan_visited:
-                        pass
-                    else:
-                        chan_visited.append(actual_chan)
-                        force_next_chan = best_chan[ind_best_everywhere]
-                        self.log('force_next_chan case1 ', force_next_chan, 'actual_chan', actual_chan)
-                        
-                        final_label = None
-                        self._plot_debug(actual_chan, ind_l0, features_l0, labels_l0, possible_labels_l0, candidate_labels_l0, final_label)
-                        continue
+            if np.sum(candidate_mask_l0):
+                ind_best = np.argmax(best_chan_peak_values[candidate_mask_l0])
+                peak_val = best_chan_peak_values[candidate_mask_l0][ind_best]
+            else:
+                peak_val = None
             
-            if len(candidate_labels_l0) == 0:
-                if force_next_chan is not None:
-                    self.log('force_next_chan is not None and NO candidate!!!!!!')
-                    #~ raise()
-                
-                if self.dense_mode:
-                    raise(NotImplementedError)
-                    
-                    
-                else:
-                    #~ print(peak_is_aligned, peak_is_on_chan)
-                    ok_elsewhere = peak_is_aligned &  ~peak_is_on_chan
-                    if np.any(ok_elsewhere):
-                        ind_best = np.argmax(best_chan_peak_values[ok_elsewhere])
-                        force_next_chan = best_chan[ok_elsewhere][ind_best]
-                        
-                        if force_next_chan in chan_visited:
-                            # avoid loop with force chan
-                            # force this label to candidate ??? TODO
-                            force_next_chan = None
-                            chan_visited.append(actual_chan)
+            self.log('peak_val', peak_val, 'elsewhere_peak_val', elsewhere_peak_val)
+            
+            if elsewhere_peak_val is not None:
+                if (peak_val is not None and elsewhere_peak_val > peak_val) or peak_val is None:
+                    # there is a better option elsewhere
+                    force_next_chan = best_chan[elsewhere_mask_l0][ind_best_elsewhere]
+                    if force_next_chan in chan_visited:
+                        if peak_val is None:
                             self.log('Impossible to force_next_chan!!!!!!!!!!!!!!!', force_next_chan, 'actual_chan', actual_chan)
                             
-                            final_label = None
-                            self._plot_debug(actual_chan, ind_l0, features_l0, labels_l0, possible_labels_l0, candidate_labels_l0, final_label)
-                            continue
-                            
-                        else:
+                            force_next_chan = None
                             chan_visited.append(actual_chan)
                             
-                            self.log('force_next_chan case2', force_next_chan, 'actual_chan', actual_chan)
+                            
                             final_label = None
                             self._plot_debug(actual_chan, ind_l0, features_l0, labels_l0, possible_labels_l0, candidate_labels_l0, final_label)
                             continue
+                        else:
+                            force_next_chan = None
+                            # test peak_val
                     else:
-                        force_next_chan = None
                         chan_visited.append(actual_chan)
+                        self.log('force_next_chan', force_next_chan, 'actual_chan', actual_chan)
+                        
                         final_label = None
                         self._plot_debug(actual_chan, ind_l0, features_l0, labels_l0, possible_labels_l0, candidate_labels_l0, final_label)
                         continue
-
-                    
-                    # TODO : do something else dense_mode=True
             
-            #~ final_label_l2 = None
-            #~ self._plot_debug(actual_chan, ind_l0, channel_features_l0, labels_l0, possible_labels_l0, ind_l2, labels_l2, possible_labels_l2, final_label_l2)
+            if peak_val is None:
+                # no candidate and no elsewhere
+                force_next_chan = None
+                chan_visited.append(actual_chan)
+                final_label = None
+                self._plot_debug(actual_chan, ind_l0, features_l0, labels_l0, possible_labels_l0, candidate_labels_l0, final_label)
+                continue                
             
             
-            mask = np.in1d(possible_labels_l0, candidate_labels_l0, assume_unique=True)
-            best_ind = np.argmax(best_chan_peak_values[mask])
-            best_label = candidate_labels_l0[best_ind]
+            final_label = possible_labels_l0[candidate_mask_l0][ind_best]
             
-            #~ best_peak_value = best_chan_peak_values[mask][best_ind]
+            self.log('final_label', final_label, 'peak_val', peak_val)
             
-            self.log('best_ind', best_ind, 'best_label', best_label, 'best_peak_value', best_chan_peak_values[mask][best_ind])
-            
-            final_label = best_label
-
             # remove trash : TODO
+            #~ if not self.dense_mode:
             ind_trash_label = ind_l0[labels_l0 == -1]
             self.log('ind_trash_label.shape', ind_trash_label.shape)
             cluster_labels[ind_trash_label] = -1
+
+
+            ##### debug for level1
+            #~ ind_l1 = ind_l0[final_label == labels_l0]
+            #~ if self.dense_mode:
+                #~ features_l1 = self.features.take(ind_l1, axis=0)
+            #~ else:
+                #~ mask_feat = self.mask_feat_per_adj[actual_chan]
+                #~ features_l1 = self.features.take(ind_l1, axis=0).compress(mask_feat, axis=1)
+            #~ self.log('features_l1.shape', features_l1.shape)
+            #~ labels_l1 = self.one_sub_cluster(features_l0, allow_single_cluster=True)
+            #~ print('np.unique(labels_l1)', np.unique(labels_l1, return_counts=True))
+            ##### debug for level1
             
             ind_new_label = ind_l0[final_label == labels_l0]
             
@@ -784,10 +791,11 @@ class PruningShears:
             
             ax.set_title('trash size {}'.format(np.sum(sel)))
             
-            wf_adj = self.waveforms[:,:, adjacency][ind_l0, :, :][sel]
-            if wf_adj.shape[0] > 400:
-                wf_adj = wf_adj[:400, :, :]
-            ax.plot(wf_adj.swapaxes(1,2).reshape(wf_adj.shape[0], -1).T, color='k', alpha=0.1)
+            if np.sum(sel) > 0:
+                wf_adj = self.waveforms[:,:, adjacency][ind_l0, :, :][sel]
+                if wf_adj.shape[0] > 400:
+                    wf_adj = wf_adj[:400, :, :]
+                ax.plot(wf_adj.swapaxes(1,2).reshape(wf_adj.shape[0], -1).T, color='k', alpha=0.1)
 
             for c, chan in enumerate(adjacency):
             #~ ind = adjacency.tolist().index(actual_chan)
