@@ -49,7 +49,9 @@ class PruningShears:
                         auto_merge_threshold=2.,
                         max_per_cluster_for_median = 300,
                         
-                        print_debug=False):
+                        print_debug=False,
+                        debug_plot=False
+                        ):
         
         self.waveforms = waveforms
         self.features = features
@@ -72,8 +74,9 @@ class PruningShears:
         self.print_debug = print_debug
         self.max_per_cluster_for_median = max_per_cluster_for_median
         
-        self.debug_plot = False
+        #~ self.debug_plot = False
         #~ self.debug_plot = True
+        self.debug_plot = debug_plot
 
     def log(self, *args, **kargs):
         if self.print_debug:
@@ -90,18 +93,27 @@ class PruningShears:
         nb_channel = self.waveforms.shape[2]
         percentiles = np.zeros(nb_channel)
         for c in range(nb_channel):
+            if c in chan_visited:
+                continue
+            
             x = peak_max[:, c]
             x = x[x>self.threshold]
             
-            if x.size>self.min_cluster_size:
+            if x.size>self.min_cluster_size * 4:
                 #~ per = np.nanpercentile(x, 99)
                 per = np.nanpercentile(x, 95)
                 #~ per = np.nanpercentile(x, 90)
                 #~ per = np.nanpercentile(x, 80)
-                
+            
+            elif x.size>self.min_cluster_size:
+                per = np.nanpercentile(x, 60)
             else:
                 per = 0
             percentiles[c] = per
+        
+        #~ mask = percentiles > 0
+        #~ print('mask.size', mask.size, 'mask.sum', mask.sum())
+        
         order_visit = np.argsort(percentiles)[::-1]
         #~ print('percentiles', percentiles)
         order_visit = order_visit[percentiles[order_visit]>0]
@@ -339,9 +351,11 @@ class PruningShears:
             else:
                 mask_thresh[mask_loop] = peak_max[:, actual_chan] > self.threshold
             
-            self.log('mask_thresh.size', mask_thresh.size, 'keep.sum', mask_thresh.sum())
+            self.log('mask_loop.size', mask_loop.size, 'mask_loop.sum', mask_loop.sum(), 'mask_thresh.sum', mask_thresh.sum())
             
             ind_l0,  = np.nonzero(mask_loop & mask_thresh)
+            self.log('ind_l0.size', ind_l0.size)
+            
             
             
             # Step2: 
@@ -393,7 +407,7 @@ class PruningShears:
                 #~ self.debug_plot = True
                 #~ plt.show()
                 
-                if pval>0.2:
+                if pval is not None and pval>0.2:
                     self.log('!!!!!!! save trash!!!!!!')
 
                     if self.dense_mode:
@@ -460,6 +474,9 @@ class PruningShears:
             
             
             self.log('possible_labels_l0', possible_labels_l0)
+            
+            self.log('labels_l0 == -1 size', labels_l0[labels_l0==-1].size)
+            
 
             # explore candidate
             possible_labels_l0, candidate_labels_l0, best_chan_peak_values, best_chan, peak_is_aligned, peak_is_on_chan, local_centroids = self.check_candidate_labels(ind_l0, labels_l0, actual_chan)
@@ -481,6 +498,20 @@ class PruningShears:
             
             #~ exit()
             
+            # if the best peak is align and on other channel then explore the other channel
+            if np.any(peak_is_aligned):
+                ind_best_everywhere = np.argmax(best_chan_peak_values[peak_is_aligned])
+                if best_chan[ind_best_everywhere] != actual_chan:
+                    if best_chan[ind_best_everywhere] in chan_visited:
+                        pass
+                    else:
+                        chan_visited.append(actual_chan)
+                        force_next_chan = best_chan[ind_best_everywhere]
+                        self.log('force_next_chan case1 ', force_next_chan, 'actual_chan', actual_chan)
+                        
+                        final_label = None
+                        self._plot_debug(actual_chan, ind_l0, features_l0, labels_l0, possible_labels_l0, candidate_labels_l0, final_label)
+                        continue
             
             if len(candidate_labels_l0) == 0:
                 if force_next_chan is not None:
@@ -512,7 +543,7 @@ class PruningShears:
                         else:
                             chan_visited.append(actual_chan)
                             
-                            self.log('force_next_chan', force_next_chan, 'actual_chan', actual_chan)
+                            self.log('force_next_chan case2', force_next_chan, 'actual_chan', actual_chan)
                             final_label = None
                             self._plot_debug(actual_chan, ind_l0, features_l0, labels_l0, possible_labels_l0, candidate_labels_l0, final_label)
                             continue
@@ -735,6 +766,8 @@ class PruningShears:
             adjacency = self.channel_adjacency[actual_chan]
             sel = final_label == labels_l0
             
+            ax.set_title('keep size {}'.format(np.sum(sel)))
+            
             wf_adj = self.waveforms[:,:, adjacency][ind_l0, :, :][sel]
             m = wf_adj.mean(axis=0)
 
@@ -744,7 +777,29 @@ class PruningShears:
             color=colors[final_label]
             ax.plot(wf_adj.swapaxes(1,2).reshape(wf_adj.shape[0], -1).T, color=color, alpha=0.1)
             ax.plot(m.T.flatten(), color=color, alpha=1, lw=2)
-        
+
+        ax = axs[1, 1]
+        if final_label is not None:
+            sel = -1 == labels_l0
+            
+            ax.set_title('trash size {}'.format(np.sum(sel)))
+            
+            wf_adj = self.waveforms[:,:, adjacency][ind_l0, :, :][sel]
+            if wf_adj.shape[0] > 400:
+                wf_adj = wf_adj[:400, :, :]
+            ax.plot(wf_adj.swapaxes(1,2).reshape(wf_adj.shape[0], -1).T, color='k', alpha=0.1)
+
+            for c, chan in enumerate(adjacency):
+            #~ ind = adjacency.tolist().index(actual_chan)
+                if self.dense_mode:
+                    lw = 1
+                else:
+                    if chan == actual_chan:
+                        lw = 2
+                    else:
+                        lw = 1
+                ax.axvline(self.width * c - self.n_left, color='m', lw=lw)
+
         
 
         plt.show()
@@ -860,8 +915,9 @@ class PruningShears:
 
 
 # TODO new
-# si len(possible_labels_l0) == 0 alors on garde quand meme
+# si len(possible_labels_l0) == 0 alors on garde quand meme DONE
 # si pas aligne plus que n_shift_merged et un seul cluster alors trash
+# elsewhere candiate avec size
 
 
 

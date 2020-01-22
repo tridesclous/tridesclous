@@ -242,6 +242,10 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         
         params['peak_detector']['method'] = 'global'
         params['peak_detector']['engine'] = 'numpy'
+
+
+        params['extract_waveforms']['mode'] = 'rand'
+        params['extract_waveforms']['nb_max'] = 20000
         
         params['feature_method'] = 'global_pca'
         
@@ -263,7 +267,7 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
 
     else:
         params['mode'] = 'sparse'
-        params['adjacency_radius_um'] = 150.
+        params['adjacency_radius_um'] = 200.
         params['sparse_threshold'] = 1.5
 
         if nb_chan > 32 and HAVE_PYOPENCL:
@@ -282,8 +286,10 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             print('WARNING : peakdetector will be slow install opencl')
             params['peak_detector']['engine'] = 'numpy'
         
-        params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 300)
+        #~ params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 300)
         #~ params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 600)
+        params['extract_waveforms']['mode'] = 'rand_by_channel'
+        params['extract_waveforms']['nb_max_by_channel'] = 600
         
         params['feature_method'] = 'pca_by_channel'
         params['feature_kargs'] = {'n_components_by_channel':5}
