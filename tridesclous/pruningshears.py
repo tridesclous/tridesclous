@@ -84,6 +84,7 @@ class PruningShears:
     
     def do_the_job(self):
         cluster_labels = self.explore_split_loop()
+        cluster_labels = self.try_oversplit(cluster_labels)
         cluster_labels = self.merge_and_clean(cluster_labels)
         return cluster_labels
     
@@ -143,11 +144,29 @@ class PruningShears:
     def one_sub_cluster(self, local_data, allow_single_cluster):
         # clustering on one channel or one adjacency
         
+        
+        n_components = min(local_data.shape[1], 6)
+        
+        pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, whiten=True)
+        local_features = pca.fit_transform(local_data)
+        
+        
         clusterer = hdbscan.HDBSCAN(min_cluster_size=self.min_cluster_size, allow_single_cluster=allow_single_cluster)
         #~ clusterer = hdbscan.HDBSCAN(min_cluster_size=self.min_cluster_size, allow_single_cluster=True)
         #~ clusterer = hdbscan.HDBSCAN(min_cluster_size=100, min_samples=20, allow_single_cluster=True)
         
-        local_labels = clusterer.fit_predict(local_data)
+        #~ t0 = time.perf_counter()
+        #~ local_labels = clusterer.fit_predict(local_data)
+        #~ t1 = time.perf_counter()
+        #~ print('fit_predict wf', t1-t0)
+
+        
+        #~ t0 = time.perf_counter()
+        local_labels = clusterer.fit_predict(local_features)
+        #~ t1 = time.perf_counter()
+        #~ print('fit_predict pca', t1-t0)
+        
+        
         
         # try isosplit here not stable enought on windows
         #~ local_labels = isosplit5.isosplit5(local_data.T)
@@ -815,7 +834,61 @@ class PruningShears:
         #~ self.debug_plot = False
         
         return
+    
+    
+    def try_oversplit(self, cluster_labels):
+        cluster_labels = cluster_labels.copy()
         
+        print(cluster_labels.shape)
+        print(self.waveforms.shape)
+        
+        labels = np.unique(cluster_labels)
+        labels = labels[labels>=0]
+        
+        m = np.max(labels) + 1
+        
+        #~ max_per_cluster= 300 
+        for label in np.unique(labels):
+
+            ind_keep,  = np.nonzero(cluster_labels == label)
+            #~ if ind_keep.size > max_per_cluster:
+                #~ sub_sel = np.random.choice(ind_keep.size, max_per_cluster, replace=False)
+                #~ ind_keep = ind_keep[sub_sel]
+
+            if self.dense_mode:
+                waveforms = self.waveforms.take(ind_keep, axis=0)
+            else:
+                centroid = np.median(self.waveforms[ind_keep, :, :], axis=0)
+                if self.peak_sign == '-':
+                    extremum_channel = np.argmin(centroid[-self.n_left,:], axis=0)
+                elif self.peak_sign == '+':
+                    extremum_channel = np.argmax(centroid[-self.n_left,:], axis=0)
+                
+                # TODO by sparsity level threhold and not radius
+                adjacency = self.channel_adjacency[extremum_channel]
+                
+                waveforms = self.waveforms.take(ind_keep, axis=0).take(adjacency, axis=2)
+            
+            wf_flat = waveforms.swapaxes(1,2).reshape(waveforms.shape[0], -1)
+            
+            fig, axs = plt.subplots(ncols=3)
+            
+            ax = axs[0]
+            print(waveforms.shape)
+            print(wf_flat.shape)
+            ax.plot(wf_flat.T, color='k', alpha=0.1)
+            
+            ax = axs[1]
+            pca =  sklearn.decomposition.IncrementalPCA(n_components=6, whiten=True)
+            feats = pca.fit_transform(wf_flat)
+            
+            ax.scatter(feats[:, 0], feats[:, 1], color='k')
+            
+            plt.show()
+            
+        return cluster_labels
+
+
 
     def merge_and_clean(self, cluster_labels):
         # merge : 
