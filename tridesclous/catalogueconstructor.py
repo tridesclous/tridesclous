@@ -768,7 +768,7 @@ class CatalogueConstructor:
                 for c in range(self.nb_channel):
                     ind, = np.nonzero(self.all_peaks['channel'] == c)
                     if ind.size > nb_max_by_channel:
-                        take = np.random.choice(ind.size, size=nb_max_by_channel).astype('int64')
+                        take = np.random.choice(ind.size, size=nb_max_by_channel, replace=False)#.astype('int64')
                         ind = ind[take]
                     some_peaks_index.append(ind)
                 some_peaks_index = np.concatenate(some_peaks_index)

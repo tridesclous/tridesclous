@@ -34,6 +34,9 @@ except:
 
 
 def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs):
+    """
+    selection is mask bool size all_peaks
+    """
     
     cc = catalogueconstructor
     
@@ -43,15 +46,22 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         if np.all(sel):
             features = cc.some_features[:]
             waveforms = cc.some_waveforms[:]
+            
         else:
             # this can be very long because copy!!!!!
             # TODO fix this for high channel count
             features = cc.some_features[sel]
             waveforms = cc.some_waveforms[sel]
+        
+        peaks = cc.all_peaks[cc.some_peaks_index]
+        peaks = peaks[peaks['cluster_label']>=-1]
+        detection_channel_indexes = peaks['channel'].copy()
+        
     else:
         sel = selection[cc.some_peaks_index]
         features = cc.some_features[sel]
         waveforms = cc.some_waveforms[sel]
+        detection_channel_indexes = cc.all_peaks['channel'][selection]
     
     if waveforms.shape[0] == 0:
         #print('oupas waveforms vide')
@@ -121,7 +131,8 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         noise_features = cc.some_noise_features
         
         
-        pruningshears = PruningShears(waveforms, features, noise_features, n_left, n_right, peak_sign, relative_threshold,
+        #~ adjacency_radius_um = 200
+        pruningshears = PruningShears(waveforms, features, detection_channel_indexes, noise_features, n_left, n_right, peak_sign, relative_threshold,
                                 adjacency_radius_um, channel_adjacency, channel_distances, dense_mode, **kargs)
         
         #~ from .pruningshears import PruningShears_1_4_1

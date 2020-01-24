@@ -44,7 +44,7 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
             'engine': 'numpy',
             'peak_sign': '-',
             'relative_threshold': 5.,
-            'peak_span_ms': .3,
+            'peak_span_ms': .7,
         },
         'noise_snippet': {
             'nb_snippet': 300,
@@ -277,6 +277,7 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             params['preprocessor']['engine'] = 'opencl'
 
         params['peak_detector']['method'] = 'geometrical'
+        # TODO chekc this
         params['peak_detector']['adjacency_radius_um'] = params['adjacency_radius_um']
         
         
@@ -292,13 +293,16 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         #~ params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 300)
         #~ params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 600)
         params['extract_waveforms']['mode'] = 'rand_by_channel'
-        params['extract_waveforms']['nb_max_by_channel'] = 600
+        #~ params['extract_waveforms']['nb_max_by_channel'] = 600
+        params['extract_waveforms']['nb_max_by_channel'] = 1000
         
         params['feature_method'] = 'pca_by_channel'
-        params['feature_kargs'] = {'n_components_by_channel':5}
+        # TODO change n_components_by_channel depending on channel density
+        #~ params['feature_kargs'] = {'n_components_by_channel':5}
+        params['feature_kargs'] = {'n_components_by_channel': 3}
         
         params['cluster_method'] = 'pruningshears'
-        params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 10)
+        params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 20)
         params['cluster_kargs']['min_cluster_size'] = 20
 
         

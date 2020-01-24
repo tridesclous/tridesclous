@@ -513,7 +513,7 @@ class DataIO:
             raise(ValueError, 'signal_type is not valide')
         
         return data
-
+    
     def iter_over_chunk(self, seg_num=0, chan_grp=0,  i_stop=None, chunksize=1024, pad_width=0, with_last_chunk=False,   **kargs):
         """
         Create an iterable on signals. ('initial' or 'processed')
@@ -649,6 +649,21 @@ class DataIO:
         if spikes is None:
             return
         return spikes[i_start:i_stop]
+
+    def get_peak_values(self,  seg_num=0, chan_grp=0, sample_indexes=None, channel_indexes=None):
+        """
+        Extract peak values
+        """
+        assert sample_indexes is not None, 'Provide sample_indexes'
+        assert channel_indexes is not None, 'Provide channel_indexes'
+        sigs = self.arrays[chan_grp][seg_num].get('processed_signals')
+        
+        peak_values = []
+        for s, c in zip(sample_indexes, channel_indexes):
+            peak_values.append(sigs[s, c])
+        peak_values = np.array(peak_values)
+        return peak_values
+        
     
     def get_some_waveforms(self, seg_num=0, chan_grp=0, sample_indexes=None,
                                 n_left=None, n_right=None, waveforms=None, channel_adjacency=None, 

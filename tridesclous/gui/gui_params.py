@@ -142,14 +142,15 @@ peak_detector_params = [
     {'name': 'peak_sign', 'type': 'list',  'value':'-', 'values':['-', '+']},
     {'name': 'relative_threshold', 'type': 'float', 'value': 5., 'step': .1,},
     {'name': 'peak_span_ms', 'type': 'float', 'value':0.5, 'step': 0.05, 'suffix': 'ms', 'siPrefix': False},
+    {'name':'adjacency_radius_um', 'type': 'float', 'value':200., 'suffix': 'µm', 'siPrefix': False},    
 ]
 
 waveforms_params = [
     {'name': 'wf_left_ms', 'type': 'float', 'value':-2.0, 'suffix': 'ms', 'step': .1,},
     {'name': 'wf_right_ms', 'type': 'float', 'value': 3.0,  'suffix': 'ms','step': .1,},
-    {'name': 'mode', 'type': 'list', 'values':['rand', 'all']},
+    {'name': 'mode', 'type': 'list', 'values':['rand', 'rand_by_channel', 'all']},
     {'name': 'nb_max', 'type': 'int', 'value':20000},
-    #~ {'name': 'sparse', 'type': 'bool', 'value':False},
+    {'name': 'nb_max_by_channel', 'type': 'int', 'value':600},
 ]
 
 clean_waveforms_params =[
@@ -216,7 +217,7 @@ fullchain_params = [
     {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
     
     {'name' : 'mode', 'type' : 'list', 'values' : ['dense', 'sparse']},
-    {'name':'adjacency_radius_um', 'type': 'float', 'value':300., 'suffix': 'µm', 'siPrefix': False},
+    {'name':'adjacency_radius_um', 'type': 'float', 'value':200., 'suffix': 'µm', 'siPrefix': False},
     {'name':'sparse_threshold', 'type': 'float', 'value':1.5},
     
     

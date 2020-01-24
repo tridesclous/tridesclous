@@ -424,6 +424,9 @@ class BaseTraceViewer(WidgetBase):
             spikes_chunk['index'] -= ind1
             inwindow_ind = spikes_chunk['index']
             inwindow_label = spikes_chunk['cluster_label']
+            inwindow_chan = spikes_chunk['channel']
+            if np.any(inwindow_chan==-1):
+                inwindow_chan = None
             inwindow_selected = np.array(self.controller.spike_selection[keep])
 
             self.scatter.clear()
@@ -440,31 +443,31 @@ class BaseTraceViewer(WidgetBase):
                 color.setAlpha(int(self.params['alpha']*255))
                 
                 x = times_chunk[inwindow_ind[mask]]
-                
                 sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
+                chan_inds = None
                 if k >=0:
                     c = self.controller.get_extremum_channel(k)
                     if c is not None:
-                        #~ print('k', k, 'c', c)
-                        c = np.array([c]*np.sum(mask), dtype='int64')
+                        chan_inds = np.array([c]*np.sum(mask), dtype='int64')
+                if chan_inds is None:
+                    if inwindow_chan is None:
+                        chan_inds = np.argmax(np.abs(sigs_chunk_in), axis=1)
                     else:
-                        c = np.argmax(np.abs(sigs_chunk_in), axis=1)
-                else:
-                    # TODO use spikes['channel'] when !=-1
-                    c = np.argmax(np.abs(sigs_chunk_in), axis=1)
-                keep = self.visible_channels[c]
-                if np.sum(keep)==0: continue
-                c = c[keep]
-                x = x[keep]
-                y = sigs_chunk_in[np.arange(c.size), c]*self.gains[c]+self.offsets[c]
-                #~ print('c', c)
-                #~ print('x', x)
-                #~ print('y', y)
-                #~ self.scatter.addPoints(x=x, y=y,pen=pg.mkPen(None), brush=color)
+                        chan_inds = inwindow_chan[mask]
+                mask_visible = self.visible_channels[chan_inds]
+                if np.sum(mask_visible)==0: continue
+                
+                chan_inds = chan_inds[mask_visible]
+                x = x[mask_visible]
+                y = sigs_chunk_in[mask_visible, :][np.arange(chan_inds.size), chan_inds]*self.gains[chan_inds]+self.offsets[chan_inds]
+                
                 all_x.append(x)
                 all_y.append(y)
                 all_brush.append(np.array([pg.mkBrush(color)]*len(x)))
-            if len(all_x):
+            #~ print()
+            #~ print(all_x)
+            #~ print(all_y)
+            if len(all_x) > 0:
                 all_x = np.concatenate(all_x)
                 all_y = np.concatenate(all_y)
                 all_brush = np.concatenate(all_brush)
