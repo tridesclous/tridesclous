@@ -923,30 +923,34 @@ class PruningShears:
             
                 clusterer = hdbscan.HDBSCAN(min_cluster_size=self.min_cluster_size, allow_single_cluster=False, metric='l2')
                 sub_labels = clusterer.fit_predict(feats[:, :2])
-                
-                possible_labels, candidate_mask, elsewhere_mask, best_chan_peak_values, best_chan,\
-                    peak_is_aligned, peak_is_on_chan, local_centroids = self.check_candidate_labels(ind_keep, sub_labels, extremum_channel)
-                
-                print('possible_labels',possible_labels, 'candidate_label', possible_labels[candidate_mask])
-                
                 unique_sub_labels = np.unique(sub_labels)
-                for sub_label in unique_sub_labels:
-                    sub_mask = sub_labels == sub_label
+                if unique_sub_labels.size ==  1 and unique_sub_labels[0] == -1:
+                    pass
+                else:
+                    possible_labels, candidate_mask, elsewhere_mask, best_chan_peak_values, best_chan,\
+                        peak_is_aligned, peak_is_on_chan, local_centroids = self.check_candidate_labels(ind_keep, sub_labels, extremum_channel)
                     
-                    valid = sub_label in possible_labels[peak_is_aligned]
-                    
-                    print('sub_label', 'valid', valid)
+                    print('possible_labels',possible_labels, 'candidate_label', possible_labels[candidate_mask])
                     
                     
                     
-                    if sub_label == -1:
-                        cluster_labels[ind_keep[sub_mask]] = -1
-                    else:
-                        # TODO check if peak center and size OK
-                        cluster_labels[ind_keep[sub_mask]] = sub_label + m 
-                
-                if np.max(unique_sub_labels) >=0:
-                    m += np.max(unique_sub_labels) + 1
+                    for sub_label in unique_sub_labels:
+                        sub_mask = sub_labels == sub_label
+                        
+                        valid = sub_label in possible_labels[peak_is_aligned]
+                        
+                        print('sub_label', 'valid', valid)
+                        
+                        
+                        
+                        if sub_label == -1:
+                            cluster_labels[ind_keep[sub_mask]] = -1
+                        else:
+                            # TODO check if peak center and size OK
+                            cluster_labels[ind_keep[sub_mask]] = sub_label + m 
+                    
+                    if np.max(unique_sub_labels) >=0:
+                        m += np.max(unique_sub_labels) + 1
                 
                 
                 #~ fig, axs = plt.subplots(ncols=3)
