@@ -277,8 +277,8 @@ class PruningShears:
             #~ candidate_labels_elsewhere = unique_labels[elsewhere_mask]
             
         else:
-            candidate_labels = np.array([], dtype='int64')
-            candidate_labels_elsewhere = np.array([], dtype='int64')
+            candidate_mask = np.array([], dtype='bool')
+            elsewhere_mask = np.array([], dtype='bool')
         
         
         return unique_labels, candidate_mask, elsewhere_mask, best_chan_peak_values,\
@@ -896,58 +896,89 @@ class PruningShears:
             print('label', label)
 
             ind_keep,  = np.nonzero(cluster_labels == label)
-            #~ if ind_keep.size > max_per_cluster:
-                #~ sub_sel = np.random.choice(ind_keep.size, max_per_cluster, replace=False)
-                #~ ind_keep = ind_keep[sub_sel]
-
             if self.dense_mode:
                 waveforms = self.waveforms.take(ind_keep, axis=0)
+                extremum_channel = 0
             else:
                 centroid = np.median(self.waveforms[ind_keep, :, :], axis=0)
                 if self.peak_sign == '-':
                     extremum_channel = np.argmin(centroid[-self.n_left,:], axis=0)
                 elif self.peak_sign == '+':
                     extremum_channel = np.argmax(centroid[-self.n_left,:], axis=0)
-                
                 # TODO by sparsity level threhold and not radius
                 adjacency = self.channel_adjacency[extremum_channel]
-                
                 waveforms = self.waveforms.take(ind_keep, axis=0).take(adjacency, axis=2)
-            
             wf_flat = waveforms.swapaxes(1,2).reshape(waveforms.shape[0], -1)
+
+
+            
 
             #~ pca =  sklearn.decomposition.IncrementalPCA(n_components=6, whiten=True)
             pca =  sklearn.decomposition.IncrementalPCA(n_components=6, whiten=True)
             
             feats = pca.fit_transform(wf_flat)
-            
-            clusterer = hdbscan.HDBSCAN(min_cluster_size=self.min_cluster_size, allow_single_cluster=True, metric='l2')
-            labels = clusterer.fit_predict(feats[:, :2])
-            print(np.unique(labels))
-
-            clusterer = hdbscan.HDBSCAN(min_cluster_size=self.min_cluster_size, allow_single_cluster=False, metric='l2')
-            labels = clusterer.fit_predict(feats[:, :2])
-            print(np.unique(labels))
-            
             pval = diptest(np.sort(feats[:, 0]), numt=200)
             print('pval', pval)
+            if pval<0.2:
             
-            
-            #~ fig, axs = plt.subplots(ncols=3)
-            
-            #~ ax = axs[0]
-            #~ print(waveforms.shape)
-            #~ print(wf_flat.shape)
-            #~ ax.plot(wf_flat.T, color='k', alpha=0.1)
+                clusterer = hdbscan.HDBSCAN(min_cluster_size=self.min_cluster_size, allow_single_cluster=False, metric='l2')
+                sub_labels = clusterer.fit_predict(feats[:, :2])
+                
+                possible_labels, candidate_mask, elsewhere_mask, best_chan_peak_values, best_chan,\
+                    peak_is_aligned, peak_is_on_chan, local_centroids = self.check_candidate_labels(ind_keep, sub_labels, extremum_channel)
+                
+                print('possible_labels',possible_labels, 'candidate_label', possible_labels[candidate_mask])
+                
+                unique_sub_labels = np.unique(sub_labels)
+                for sub_label in unique_sub_labels:
+                    sub_mask = sub_labels == sub_label
+                    
+                    valid = sub_label in possible_labels[peak_is_aligned]
+                    
+                    print('sub_label', 'valid', valid)
+                    
+                    
+                    
+                    if sub_label == -1:
+                        cluster_labels[ind_keep[sub_mask]] = -1
+                    else:
+                        # TODO check if peak center and size OK
+                        cluster_labels[ind_keep[sub_mask]] = sub_label + m 
+                
+                if np.max(unique_sub_labels) >=0:
+                    m += np.max(unique_sub_labels) + 1
+                
+                
+                #~ fig, axs = plt.subplots(ncols=3)
+                #~ colors = plt.cm.get_cmap('jet', len(unique_sub_labels))
+                #~ colors = {unique_sub_labels[l]:colors(l) for l in range(len(unique_sub_labels))}
+                #~ colors[-1] = 'k'
+                
+                #~ ax = axs[0]
+                #~ print(waveforms.shape)
+                #~ print(wf_flat.shape)
+                #~ ax.plot(wf_flat.T, color='k', alpha=0.1)
+                #~ for sub_label in unique_sub_labels:
+                    #~ valid = sub_label in possible_labels[peak_is_aligned]
+                    
+                    #~ sub_mask = sub_labels == sub_label
+                    #~ color = colors[sub_label]
+                    #~ ax.plot(wf_flat.T, color=color, alpha=0.1)
+                    #~ if valid:
+                        #~ ls = '-'
+                    #~ else:
+                        #~ ls = '--'
+                    #~ if sub_label>=0:
+                        #~ ax.plot(np.median(wf_flat[sub_mask], axis=0), color=color, lw=2, ls=ls)
+                
 
-            #~ ax = axs[1]
-            #~ ax.plot(feats.T, color='k', alpha=0.1)
+                #~ ax = axs[1]
+                #~ ax.plot(feats.T, color='k', alpha=0.1)
+                
+                #~ ax = axs[2]
+                #~ ax.scatter(feats[:, 0], feats[:, 1], color='k')
             
-            #~ ax = axs[2]
-            #~ ax.scatter(feats[:, 0], feats[:, 1], color='k')
-            
-            
-            plt.show()
+                #~ plt.show()
             
         return cluster_labels
 
