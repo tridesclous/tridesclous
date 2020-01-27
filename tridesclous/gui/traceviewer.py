@@ -390,7 +390,7 @@ class BaseTraceViewer(WidgetBase):
         connect = np.ones(data_curves.shape, dtype='bool')
         connect[:, -1] = 0
         
-        times_chunk = np.arange(sigs_chunk.shape[0], dtype='float32')/self.dataio.sample_rate+max(t1, 0)
+        times_chunk = np.arange(sigs_chunk.shape[0], dtype='float64')/self.dataio.sample_rate+max(t1, 0)
         times_chunk_tile = np.tile(times_chunk, nb_visible)
         self.signals_curve.setData(times_chunk_tile, data_curves.flatten(), connect=connect.flatten())
         

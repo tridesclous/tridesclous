@@ -1,5 +1,6 @@
 import os
 import shutil
+from pprint import pprint
 
 import numpy as np
 
@@ -70,6 +71,7 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
             'peak_span_ms' : 0.5,
             'method' : peak_method,
             'engine' : peak_engine,
+            'adjacency_radius_um':adjacency_radius_um,
         },
         'extract_waveforms' : {
             'wf_left_ms' : -2.5,
@@ -90,6 +92,7 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
         'clean_cluster_kargs' : {},
     }
     
+    #~ pprint(params)
     apply_all_catalogue_steps(catalogueconstructor, params, verbose=True)
     
     catalogueconstructor.make_catalogue_for_peeler()

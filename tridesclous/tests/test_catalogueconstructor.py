@@ -58,6 +58,7 @@ def test_catalogue_constructor():
                     #peak detector
                     method=peak_method, engine=peak_engine,
                     peak_sign='-', relative_threshold=7, peak_span_ms=0.5,
+                    adjacency_radius_um=adjacency_radius_um,
                     )
             
             t1 = time.perf_counter()
@@ -76,7 +77,8 @@ def test_catalogue_constructor():
             
             # redetect peak
             cc.re_detect_peak(method=peak_method, engine=peak_engine,
-                                                peak_sign='-', relative_threshold=5, peak_span_ms=0.2)
+                                                peak_sign='-', relative_threshold=5, peak_span_ms=0.2,
+                                                adjacency_radius_um=adjacency_radius_um)
             for seg_num in range(dataio.nb_segment):
                 mask = cc.all_peaks['segment']==seg_num
                 print('seg_num', seg_num, 'nb peak',  np.sum(mask))

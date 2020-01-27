@@ -293,8 +293,8 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         #~ params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 300)
         #~ params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 600)
         params['extract_waveforms']['mode'] = 'rand_by_channel'
-        #~ params['extract_waveforms']['nb_max_by_channel'] = 600
-        params['extract_waveforms']['nb_max_by_channel'] = 1000
+        params['extract_waveforms']['nb_max_by_channel'] = 600
+        #~ params['extract_waveforms']['nb_max_by_channel'] = 1000
         
         params['feature_method'] = 'pca_by_channel'
         # TODO change n_components_by_channel depending on channel density
