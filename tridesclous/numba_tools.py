@@ -84,6 +84,8 @@ def numba_get_mask_spatiotemporal_peaks(sigs, n_span, thresh, peak_sign, neighbo
         for s in prange(mask_peaks.shape[0]):
             for chan in prange(sigs.shape[1]):
                 for neighbour in neighbours[chan, :]:
+                    if neighbour<0:
+                        continue
                     for i in range(n_span):
                         if chan != neighbour:
                             mask_peaks[s, chan] &= sig_center[s, chan] >= sig_center[:, neighbour]
@@ -96,8 +98,9 @@ def numba_get_mask_spatiotemporal_peaks(sigs, n_span, thresh, peak_sign, neighbo
         for s in prange(mask_peaks.shape[0]):
             for chan in prange(sigs.shape[1]):
                 for neighbour in neighbours[chan, :]:
+                    if neighbour<0:
+                        continue
                     for i in range(n_span):
-                    
                         if chan != neighbour:
                             mask_peaks[s, chan] &= sig_center[s, chan] <= sig_center[s, neighbour]
                         mask_peaks[s, chan] &= sig_center[s, chan] < sigs[s+i, neighbour]

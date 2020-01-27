@@ -10,7 +10,7 @@ tqdm
 numba
 hdbscan
 
-PyQt5  
+PyQt5==5.14.0
 pyqtgraph
 
 sphinx>=1.7.5

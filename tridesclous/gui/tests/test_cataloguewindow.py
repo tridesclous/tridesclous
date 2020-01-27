@@ -189,7 +189,7 @@ def test_CatalogueWindow():
     
     
 if __name__ == '__main__':
-    #~ setup_module()
+    setup_module()
     
     #~ test_CatalogueController()
     

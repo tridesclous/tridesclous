@@ -61,6 +61,7 @@ class BasePeakDetector:
 
     def change_params(self, peak_sign=None, relative_threshold=None,
                                             peak_span_ms=None, peak_span=None,
+                                            smooth_radius_um=None,
                                             adjacency_radius_um=None,
                                             cl_platform_index=None, # only for CL
                                             cl_device_index=None):
@@ -74,16 +75,18 @@ class BasePeakDetector:
         
         self.peak_span_ms = peak_span_ms
         
+        self.adjacency_radius_um = adjacency_radius_um
+        
         self.n_span = int(self.sample_rate * self.peak_span_ms / 1000.)//2
         #~ print('self.n_span', self.n_span)
         self.n_span = max(1, self.n_span)
         
-        self.adjacency_radius_um = adjacency_radius_um
-        if self.adjacency_radius_um is None or self.adjacency_radius_um <= 0.:
+        self.smooth_radius_um = smooth_radius_um
+        if self.smooth_radius_um is None or self.smooth_radius_um <= 0.:
             self.spatial_kernel = None
         else:
             d = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
-            self.spatial_kernel = np.exp(-d/self.adjacency_radius_um)
+            self.spatial_kernel = np.exp(-d/self.smooth_radius_um)
             # make it sparse
             self.spatial_kernel[self.spatial_kernel<0.01] = 0.
         
@@ -335,6 +338,8 @@ def get_mask_spatiotemporal_peaks(sigs, n_span, thresh, peak_sign, neighbours):
         mask_peaks = sig_center>thresh
         for chan in range(sigs.shape[1]):
             for neighbour in neighbours[chan, :]:
+                if neighbour<0:
+                    continue
                 for i in range(n_span):
                     if chan != neighbour:
                         mask_peaks[:, chan] &= sig_center[:, chan] >= sig_center[:, neighbour]
@@ -346,6 +351,8 @@ def get_mask_spatiotemporal_peaks(sigs, n_span, thresh, peak_sign, neighbours):
         for chan in range(sigs.shape[1]):
             #~ print('chan', chan, 'neigh', neighbours[chan, :])
             for neighbour in neighbours[chan, :]:
+                if neighbour<0:
+                    continue
                 for i in range(n_span):
                     if chan != neighbour:
                         mask_peaks[:, chan] &= sig_center[:, chan] <= sig_center[:, neighbour]
@@ -382,19 +389,26 @@ class PeakDetectorGeometricalNumpy(BasePeakDetector):
         mask_peaks = get_mask_spatiotemporal_peaks(fifo_residuals, self.n_span, self.relative_threshold, self.peak_sign, self.neighbours)
         return mask_peaks
     
-    def change_params(self, nb_neighbour=4, **kargs):
+    def change_params(self, adjacency_radius_um=200., **kargs):
         BasePeakDetector.change_params(self,  **kargs)
+        assert self.smooth_radius_um is None, 'Not implemented yet'
         
-        nb_neighbour = min(nb_neighbour, self.nb_channel-1)
-        #~ print('nb_neighbour', nb_neighbour)
-        assert self.adjacency_radius_um is None, 'Not implemented yet'
+        self.adjacency_radius_um = adjacency_radius_um
         
         d = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
-        self.nb_neighbour = nb_neighbour
-        self.neighbours = np.zeros((self.nb_channel, nb_neighbour+1), dtype='int32')
+        neighbour_mask = d<=self.adjacency_radius_um
+        nb_neighbour_per_channel = np.sum(neighbour_mask, axis=0)
+        nb_max_neighbour = np.max(nb_neighbour_per_channel)
+        
+        self.nb_max_neighbour = nb_max_neighbour # include itself
+        self.neighbours = np.zeros((self.nb_channel, nb_max_neighbour), dtype='int32')
+        
+        self.neighbours[:] = -1
         for c in range(self.nb_channel):
-            nearest = np.argsort(d[c, :])
-            self.neighbours[c, :] = nearest[:nb_neighbour+1] # include itself
+            neighb, = np.nonzero(neighbour_mask[c, :])
+            self.neighbours[c, :neighb.size] = neighb
+        
+        print('self.nb_max_neighbour', self.nb_max_neighbour)
         
         self.fifo_sigs = FifoBuffer((self.chunksize+2*self.n_span, self.nb_channel), self.dtype)
     
@@ -477,7 +491,7 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
         
         #~ print('self.global_size', self.global_size, 'self.chunksize', self.chunksize)
         
-        assert self.adjacency_radius_um is None, 'Not implemented yet'
+        assert self.smooth_radius_um is None, 'Not implemented yet'
         
         self._make_gpu_buffer()
         
@@ -493,7 +507,7 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
         
         
         kernel = self.kernel%dict(chunksize=self.chunksize, nb_channel=self.nb_channel, n_span=self.n_span,
-                    relative_threshold=self.relative_threshold, peak_sign={'+':1, '-':-1}[self.peak_sign], nb_neighbour=self.nb_neighbour)
+                    relative_threshold=self.relative_threshold, peak_sign={'+':1, '-':-1}[self.peak_sign], nb_neighbour=self.nb_max_neighbour)
         
         prg = pyopencl.Program(self.ctx, kernel)
 
@@ -542,7 +556,7 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
             if (peak == 1){
                 for (int neighbour=0; neighbour<=nb_neighbour; neighbour++){
                     // when neighbour then chan==chan_neigh (itself)
-                    chan_neigh = neighbours[chan * (nb_neighbour+1) +neighbour];
+                    chan_neigh = neighbours[chan * nb_neighbour +neighbour];
                     
                     if (chan_neigh<0){continue;}
                     

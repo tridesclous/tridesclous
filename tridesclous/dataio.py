@@ -513,7 +513,7 @@ class DataIO:
             raise(ValueError, 'signal_type is not valide')
         
         return data
-
+    
     def iter_over_chunk(self, seg_num=0, chan_grp=0,  i_stop=None, chunksize=1024, pad_width=0, with_last_chunk=False,   **kargs):
         """
         Create an iterable on signals. ('initial' or 'processed')
@@ -525,31 +525,54 @@ class DataIO:
                 do_something_on_chunk(sig_chunk)
         
         """
-        length = self.get_segment_length(seg_num)
+        seg_length = self.get_segment_length(seg_num)
+        
+        length = seg_length
         if i_stop is not None:
             length = min(length, i_stop)
         
         total_length = length + pad_width
         
         nloop = total_length//chunksize
+        if total_length % chunksize and with_last_chunk:
+            nloop += 1
+        
+        last_sample = None
         for i in range(nloop):
             i_stop = (i+1)*chunksize
             i_start = i_stop - chunksize
-            sigs_chunk = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, i_start=i_start, i_stop=i_stop, **kargs)
-            yield  i_stop, sigs_chunk
+            
+            if i_stop > seg_length:
+                sigs_chunk2 = np.zeros((chunksize, sigs_chunk.shape[1]), dtype=sigs_chunk.dtype)
+                if i_start < seg_length:
+                    sigs_chunk = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, i_start=i_start, i_stop=seg_length, **kargs)
+                    sigs_chunk2[:sigs_chunk.shape[0], :] = sigs_chunk
+                    last_sample = sigs_chunk[-1, :]
+                    # extend with last sample : agttenuate fileter border effect
+                    sigs_chunk2[sigs_chunk.shape[0]:, :] = last_sample
+                else:
+                    if last_sample is not None:
+                        sigs_chunk2[:, :] = last_sample
+                yield  i_stop, sigs_chunk2
+                
+            else:
+                sigs_chunk = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, i_start=i_start, i_stop=i_stop, **kargs)
+                if i_stop == seg_length:
+                    last_sample = sigs_chunk[-1, :]
+                yield  i_stop, sigs_chunk
         
-        if with_last_chunk and i_stop<total_length:
-            i_start = i_stop
-            i_stop = length
-            sigs_chunk = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, i_start=i_start, i_stop=i_stop, **kargs)
+        #~ if with_last_chunk and i_stop<total_length:
+            #~ i_start = i_stop
+            #~ i_stop = length
+            #~ sigs_chunk = self.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp, i_start=i_start, i_stop=i_stop, **kargs)
             
-            sigs_chunk2 = np.zeros((chunksize, sigs_chunk.shape[1]), dtype=sigs_chunk.dtype)
-            if sigs_chunk.shape[0] > 0:
-                sigs_chunk2[:sigs_chunk.shape[0], :] = sigs_chunk
-                # extend with last sample : agttenuate fileter border effect
-                sigs_chunk2[sigs_chunk.shape[0]:, :] = sigs_chunk[-1, :]
+            #~ sigs_chunk2 = np.zeros((chunksize, sigs_chunk.shape[1]), dtype=sigs_chunk.dtype)
+            #~ if sigs_chunk.shape[0] > 0:
+                #~ sigs_chunk2[:sigs_chunk.shape[0], :] = sigs_chunk
+                #~ # extend with last sample : agttenuate fileter border effect
+                #~ sigs_chunk2[sigs_chunk.shape[0]:, :] = sigs_chunk[-1, :]
             
-            yield  i_start+chunksize, sigs_chunk2
+            #~ yield  i_start+chunksize, sigs_chunk2
     
     def reset_processed_signals(self, seg_num=0, chan_grp=0, dtype='float32'):
         """
@@ -626,6 +649,21 @@ class DataIO:
         if spikes is None:
             return
         return spikes[i_start:i_stop]
+
+    def get_peak_values(self,  seg_num=0, chan_grp=0, sample_indexes=None, channel_indexes=None):
+        """
+        Extract peak values
+        """
+        assert sample_indexes is not None, 'Provide sample_indexes'
+        assert channel_indexes is not None, 'Provide channel_indexes'
+        sigs = self.arrays[chan_grp][seg_num].get('processed_signals')
+        
+        peak_values = []
+        for s, c in zip(sample_indexes, channel_indexes):
+            peak_values.append(sigs[s, c])
+        peak_values = np.array(peak_values)
+        return peak_values
+        
     
     def get_some_waveforms(self, seg_num=0, chan_grp=0, sample_indexes=None,
                                 n_left=None, n_right=None, waveforms=None, channel_adjacency=None, 

@@ -44,7 +44,7 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
             'engine': 'numpy',
             'peak_sign': '-',
             'relative_threshold': 5.,
-            'peak_span_ms': .3,
+            'peak_span_ms': .7,
         },
         'noise_snippet': {
             'nb_snippet': 300,
@@ -177,7 +177,7 @@ _default_catalogue_params = {
         'peak_sign': '-',
         'relative_threshold': 5.,
         'peak_span_ms': .7,
-        #~ 'adjacency_radius_um' : None,
+        'adjacency_radius_um' : None,
     },
     'noise_snippet': {
         'nb_snippet': 300,
@@ -218,14 +218,20 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
     # TODO make this more complicated
     #  * by detecting if dense array or not.
     #  * better method sleection
-
+    
+    seg0_duration = dataio.get_segment_length(seg_num=0) / dataio.sample_rate
+    
     # auto chunsize of 100 ms
     params['chunksize'] = int(dataio.sample_rate * 0.1)
     
     params['duration'] = 601.
     
-    #~ if nb_chan <=8:
-    #~ if nb_chan <=1:
+    # segment durartion is not so big then take the whole duration
+    # to avoid double preprocessing (catalogue+peeler)
+    if params['duration'] * 2 > seg0_duration:
+        params['duration'] = seg0_duration
+    
+    
     if nb_chan <=4:
     
         params['mode'] = 'dense'
@@ -234,15 +240,18 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         
         params['peak_detector']['method'] = 'global'
         params['peak_detector']['engine'] = 'numpy'
+
+
+        params['extract_waveforms']['mode'] = 'rand'
+        params['extract_waveforms']['nb_max'] = 20000
         
         params['feature_method'] = 'global_pca'
-        
         if nb_chan in (1,2):
             n_components = 5
         else:
             n_components = int(nb_chan*2)
-        
         params['feature_kargs'] = {'n_components' : n_components }
+        
         
         params['cluster_method'] = 'pruningshears'
         params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 10)
@@ -262,6 +271,7 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             params['preprocessor']['engine'] = 'opencl'
 
         params['peak_detector']['method'] = 'geometrical'
+        params['peak_detector']['adjacency_radius_um'] = params['adjacency_radius_um']
         
         if HAVE_PYOPENCL:
             params['peak_detector']['engine'] = 'opencl'
@@ -272,20 +282,18 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             print('WARNING : peakdetector will be slow install opencl')
             params['peak_detector']['engine'] = 'numpy'
         
-        params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 300)
+        params['extract_waveforms']['mode'] = 'rand_by_channel'
+        params['extract_waveforms']['nb_max_by_channel'] = 700
         
         params['feature_method'] = 'pca_by_channel'
-        params['feature_kargs'] = {'n_components_by_channel':5}
+        # TODO change n_components_by_channel depending on channel density
+        #~ params['feature_kargs'] = {'n_components_by_channel':5}
+        params['feature_kargs'] = {'n_components_by_channel': 3}
         
         params['cluster_method'] = 'pruningshears'
-        params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 10)
+        params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 20)
         params['cluster_kargs']['min_cluster_size'] = 20
 
-        
-        #~ else:
-            #~ # default one already
-            #~ params['cluster_kargs']['max_loop'] = 1000
-        
     
     
     return params

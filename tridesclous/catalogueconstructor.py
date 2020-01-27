@@ -436,7 +436,8 @@ class CatalogueConstructor:
     
     def set_peak_detector_params(self, 
             method='global', engine='numpy',
-            peak_sign='-', relative_threshold=7, peak_span_ms=0.3):
+            peak_sign='-', relative_threshold=7, peak_span_ms=0.3,
+            adjacency_radius_um=None):
         """
         Set parameters for the peak_detector engine
         
@@ -458,9 +459,11 @@ class CatalogueConstructor:
         
         if self.mode == 'sparse':
             assert method in ('geometrical', )
+            assert adjacency_radius_um is not None
 
         self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold,
-                    peak_span_ms=peak_span_ms, engine=engine, method=method)
+                    peak_span_ms=peak_span_ms, engine=engine, method=method,
+                    adjacency_radius_um=adjacency_radius_um)
         
         PeakDetector_class = peakdetector.get_peak_detector_class(method, engine)
         
@@ -703,7 +706,8 @@ class CatalogueConstructor:
 
     def extract_some_waveforms(self, n_left=None, n_right=None,
                             wf_left_ms=None, wf_right_ms=None,
-                            index=None, mode='rand', nb_max=10000,
+                            index=None, mode='rand', 
+                            nb_max=10000, nb_max_by_channel=600,
                             recompute_all_centroid=True):
         """
         Extract waveform snippet for a subset of peaks (already detected).
@@ -726,8 +730,10 @@ class CatalogueConstructor:
         index: None (by default) or numpy array of int
             If mode is None then the user can give a selection index of peak 
             to extract waveforms.
-        mode: 'rand' (default) or 'all' or None
+        mode: 'rand' (default) or 'rand_by_channel' or 'all' or None
            'rand' select randomly some peak to extract waveform.
+           'rand_by_channel' work only in mode 'sparse' and random by channel using the 
+                nb_max_by_channel args
            If None then index must not be None.
         nb_max: int 
             When rand then is this the number of selected waveform.
@@ -750,10 +756,23 @@ class CatalogueConstructor:
         if index is not None:
             some_peaks_index = index.copy()
         else:
-            if mode=='rand' and self.nb_peak>nb_max:
-                some_peaks_index = np.random.choice(self.nb_peak, size=nb_max).astype('int64')
-            elif mode=='rand' and self.nb_peak<=nb_max:
-                some_peaks_index = np.arange(self.nb_peak, dtype='int64')
+            if mode=='rand':
+                if self.nb_peak > nb_max:
+                    some_peaks_index = np.random.choice(self.nb_peak, size=nb_max).astype('int64')
+                else:
+                    some_peaks_index = np.arange(self.nb_peak, dtype='int64')
+            elif mode=='rand_by_channel':
+                assert self.mode == 'sparse'
+                
+                some_peaks_index = []
+                for c in range(self.nb_channel):
+                    ind, = np.nonzero(self.all_peaks['channel'] == c)
+                    if ind.size > nb_max_by_channel:
+                        take = np.random.choice(ind.size, size=nb_max_by_channel, replace=False)#.astype('int64')
+                        ind = ind[take]
+                    some_peaks_index.append(ind)
+                some_peaks_index = np.concatenate(some_peaks_index)
+                
             elif mode=='all':
                 some_peaks_index = np.arange(self.nb_peak, dtype='int64')
             else:
