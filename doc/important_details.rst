@@ -27,6 +27,13 @@ from segments is natural so this notion of segment is the same in tridesclous.
 This means that you can feed tridesclous with a list a files (with same channels maps of course)
 and tridesclous will generate them as a list of segment naturally.
 
+Note that the raw file should store the data in this order:
+*t0c0 t0c1 t0c2 t0c3... t1c0 t1c1 t1c2 t1c3* where *t{i}c{j}* 
+is sample no. *i* on channel no. *j*. Thus if the data is loaded in a
+2D numpy array `x` where each row is the time series data from one
+channel, you can save it in a raw file with this code:
+`x.T.tofile(filename)`.
+
 
 
 Channel groups, geometry and PRB file
@@ -80,6 +87,23 @@ A typical PRB file look like this, here 8 channels (2 tetrodes)::
         },
     }
     
+
+
+If some of the channels were dead or picked up excessive noise, they can be skipped::
+
+  channel_groups = {
+      0: {
+       #  'channels': [0, 1, 2, 3],   # if all channels were to be used in spike-sorting
+          'channels': [1, 2, 3],   # do not use data from channel at index 0
+          'graph':  [],  # Used by klusta but we don't care, SpikeInterface fills this up automatically
+          'geometry':  {
+             # 0: [0, 20],
+              1: [0, -20],
+              2: [20, 0],
+              3: [-20, 0],
+          }
+       },
+  }
 
 **Units of geometry must be micrometers**
 
