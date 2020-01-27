@@ -232,8 +232,6 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['duration'] = seg0_duration
     
     
-    #~ if nb_chan <=8:
-    #~ if nb_chan <=1:
     if nb_chan <=4:
     
         params['mode'] = 'dense'
@@ -253,12 +251,8 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         else:
             n_components = int(nb_chan*2)
         params['feature_kargs'] = {'n_components' : n_components }
-        #~ params['feature_method'] = 'pca_by_channel'
-        #~ params['feature_kargs'] = {'n_components_by_channel':5}
         
         
-        
-        #~ params['cluster_method'] = 'hdbscan'
         params['cluster_method'] = 'pruningshears'
         params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 10)
         params['cluster_kargs']['min_cluster_size'] = 20
@@ -277,9 +271,7 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             params['preprocessor']['engine'] = 'opencl'
 
         params['peak_detector']['method'] = 'geometrical'
-        # TODO chekc this
         params['peak_detector']['adjacency_radius_um'] = params['adjacency_radius_um']
-        
         
         if HAVE_PYOPENCL:
             params['peak_detector']['engine'] = 'opencl'
@@ -290,11 +282,8 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             print('WARNING : peakdetector will be slow install opencl')
             params['peak_detector']['engine'] = 'numpy'
         
-        #~ params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 300)
-        #~ params['extract_waveforms']['nb_max'] = max(20000, nb_chan * 600)
         params['extract_waveforms']['mode'] = 'rand_by_channel'
-        params['extract_waveforms']['nb_max_by_channel'] = 600
-        #~ params['extract_waveforms']['nb_max_by_channel'] = 1000
+        params['extract_waveforms']['nb_max_by_channel'] = 700
         
         params['feature_method'] = 'pca_by_channel'
         # TODO change n_components_by_channel depending on channel density
@@ -305,11 +294,6 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 20)
         params['cluster_kargs']['min_cluster_size'] = 20
 
-        
-        #~ else:
-            #~ # default one already
-            #~ params['cluster_kargs']['max_loop'] = 1000
-        
     
     
     return params
