@@ -19,7 +19,7 @@ install_requires = [
                     'pyqtgraph==0.10.0',
                     'joblib',
                     'numba',
-                    # 'hdbscan',
+                    'hdbscan',
                     ]
 extras_require={
                             'online' : ['pyacq',],

@@ -1,0 +1,10 @@
+tridesclous release notes 1.4.2
+===============================
+
+**2012-01-21**
+
+  * peakdetector with a radius neighborhood
+  * prunningshears clustering totally refactored
+  * various bug fix in GUI
+
+
