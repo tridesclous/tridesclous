@@ -437,7 +437,7 @@ class CatalogueConstructor:
     def set_peak_detector_params(self, 
             method='global', engine='numpy',
             peak_sign='-', relative_threshold=7, peak_span_ms=0.3,
-            adjacency_radius_um=None):
+            adjacency_radius_um=None, smooth_radius_um=None):
         """
         Set parameters for the peak_detector engine
         
@@ -463,7 +463,7 @@ class CatalogueConstructor:
 
         self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold,
                     peak_span_ms=peak_span_ms, engine=engine, method=method,
-                    adjacency_radius_um=adjacency_radius_um)
+                    adjacency_radius_um=adjacency_radius_um, smooth_radius_um=smooth_radius_um)
         
         PeakDetector_class = peakdetector.get_peak_detector_class(method, engine)
         

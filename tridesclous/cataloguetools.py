@@ -178,6 +178,8 @@ _default_catalogue_params = {
         'relative_threshold': 5.,
         'peak_span_ms': .7,
         'adjacency_radius_um' : None,
+        'smooth_radius_um' : None,
+        
     },
     'noise_snippet': {
         'nb_snippet': 300,
@@ -240,6 +242,7 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         
         params['peak_detector']['method'] = 'global'
         params['peak_detector']['engine'] = 'numpy'
+        params['peak_detector']['smooth_radius_um' ] = None
 
 
         params['extract_waveforms']['mode'] = 'rand'
@@ -272,6 +275,9 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
 
         params['peak_detector']['method'] = 'geometrical'
         params['peak_detector']['adjacency_radius_um'] = params['adjacency_radius_um']
+        #~ params['peak_detector']['smooth_radius_um' ] = 10
+        params['peak_detector']['smooth_radius_um' ] = None
+        
         
         if HAVE_PYOPENCL:
             params['peak_detector']['engine'] = 'opencl'
