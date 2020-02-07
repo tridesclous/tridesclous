@@ -40,15 +40,19 @@ class PruningShears:
                         n_left, n_right,
                         peak_sign, threshold,
                         adjacency_radius_um,
-                        channel_adjacency,
-                        channel_distances,
+                        geometry,
+                        #~ channel_adjacency,
+                        #~ channel_distances,
                         dense_mode,
+                        
+                        high_adjacency_radius_um = 30,
                         
                         min_cluster_size=20,
                         max_loop=1000,
                         break_nb_remain=30,
                         auto_merge_threshold=2.,
                         max_per_cluster_for_median = 300,
+                        n_components_local_pca=3,
                         
                         print_debug=False,
                         debug_plot=False
@@ -64,17 +68,37 @@ class PruningShears:
         self.peak_sign = peak_sign
         self.threshold = threshold
         self.adjacency_radius_um = adjacency_radius_um
-        self.channel_adjacency = channel_adjacency
-        self.channel_distances = channel_distances
+        #~ self.adjacency_radius_um = 50
+        self.geometry = geometry
         self.dense_mode =  dense_mode
         
+        
+        
         #user params
+        self.high_adjacency_radius_um = high_adjacency_radius_um
         self.min_cluster_size = min_cluster_size
         self.max_loop = max_loop
         self.break_nb_remain = break_nb_remain
         self.auto_merge_threshold = auto_merge_threshold
         self.print_debug = print_debug
         self.max_per_cluster_for_median = max_per_cluster_for_median
+        self.n_components_local_pca = n_components_local_pca
+
+        nb_channel = self.waveforms.shape[2]
+        self.channel_distances = sklearn.metrics.pairwise.euclidean_distances(geometry)
+        self.channel_adjacency = {}
+        for c in range(nb_channel):
+            nearest, = np.nonzero(self.channel_distances[c, :] < self.adjacency_radius_um)
+            self.channel_adjacency[c] = nearest
+        
+        self.channel_high_adjacency = {}
+        for c in range(nb_channel):
+            nearest, = np.nonzero(self.channel_distances[c, :] < self.high_adjacency_radius_um)
+            self.channel_high_adjacency[c] = nearest
+        
+        
+
+
         
         #~ self.debug_plot = False
         #~ self.debug_plot = True
@@ -167,7 +191,7 @@ class PruningShears:
         # clustering on one channel or one adjacency
         
         
-        n_components = min(local_data.shape[1], 6)
+        n_components = min(local_data.shape[1], self.n_components_local_pca)
         
         pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, whiten=True)
         local_features = pca.fit_transform(local_data)
@@ -410,15 +434,17 @@ class PruningShears:
             
             self.log('actual_chan', actual_chan)
             adjacency = self.channel_adjacency[actual_chan]
-            self.log('adjacency', adjacency)
+            high_adjacency = self.channel_high_adjacency[actual_chan]
+            self.log('adjacency', adjacency, 'high_adjacency', high_adjacency)
             
             
             mask_thresh = np.zeros(mask_loop.size, dtype='bool')
             if self.dense_mode:
                 mask_thresh[:] = True
             else:
-                peak_max = self.all_peak_max[mask_loop, :]
-                mask_thresh[mask_loop] = peak_max[:, actual_chan] > self.threshold
+                #~ peak_max = self.all_peak_max[mask_loop, :]
+                #~ mask_thresh[mask_loop] = peak_max[:, actual_chan] > self.threshold
+                mask_thresh[mask_loop] = np.in1d(self.detection_channel_indexes[mask_loop], high_adjacency)
                 
             self.log('mask_loop.size', mask_loop.size, 'mask_loop.sum', mask_loop.sum(), 'mask_thresh.sum', mask_thresh.sum())
             
@@ -430,6 +456,7 @@ class PruningShears:
                 chan_visited.append(actual_chan)
                 self.log('len(ind_l0.size) < self.min_cluster_size')
                 final_label = None
+                features_l0 = None
                 self._plot_debug(actual_chan, ind_l0, features_l0, labels_l0, possible_labels_l0, candidate_labels_l0, final_label)
                 continue
             
@@ -499,6 +526,7 @@ class PruningShears:
                         force_next_chan = None
                         chan_visited.append(actual_chan)
                         final_label = None
+                        candidate_labels_l0 = None
                         self._plot_debug(actual_chan, ind_l0, features_l0, labels_l0, possible_labels_l0, candidate_labels_l0, final_label)
                         continue
                     labels_l0[ok] = 0
@@ -629,9 +657,9 @@ class PruningShears:
             return
         
         from .matplotlibplot import plot_waveforms_density
-        fig, axs = plt.subplots(ncols=2, nrows=2)
+        fig, axs = plt.subplots(ncols=3, nrows=2)
         
-        colors = plt.cm.get_cmap('jet', len(possible_labels_l0))
+        colors = plt.cm.get_cmap('Set3', len(possible_labels_l0))
         colors = {possible_labels_l0[l]:colors(l) for l in range(len(possible_labels_l0))}
         colors[-1] = 'k'
         
@@ -639,14 +667,14 @@ class PruningShears:
         
         ax.set_title('actual_chan '+str(actual_chan))
         
-        if self.dense_mode:
-            mask_feat = slice(None)
-        else:
-            mask_feat = self.mask_feat_per_adj[actual_chan]
+        #~ if self.dense_mode:
+            #~ mask_feat = slice(None)
+        #~ else:
+            #~ mask_feat = self.mask_feat_per_adj[actual_chan]
         local_wf_features = features_l0
+        #~ print('local_wf_features.shape', local_wf_features.shape)
         
-        
-        local_wf_features = features_l0
+        #~ local_wf_features = features_l0
         
         if possible_labels_l0 is not None:
             for l, label in enumerate([-1] + possible_labels_l0.tolist()):
@@ -659,15 +687,49 @@ class PruningShears:
 
                 ind, = np.nonzero(sel)
 
-                if ind.size> 200:
-                    ind = ind[:200]
+                #~ if ind.size> 200:
+                    #~ ind = ind[:200]
+                if ind.size> 600:
+                    ind = ind[:600]
 
                 color=colors[label]
                 
-                ax.plot(local_wf_features[ind].T, color=color, alpha=0.05)
+                ax.plot(local_wf_features[ind].T, color=color, alpha=0.3)
                 
                 if label>=0:
                     ax.plot(m, color=color, alpha=1)
+        
+        ax = axs[0, 1]
+        n_components = min(local_wf_features.shape[1], self.n_components_local_pca)
+        pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, whiten=True)
+        reduced_features_l0 = pca.fit_transform(local_wf_features)
+        #~ print('reduced_features_l0.shape', reduced_features_l0.shape)
+        if possible_labels_l0 is not None:
+            for l, label in enumerate([-1] + possible_labels_l0.tolist()):
+                sel = label == labels_l0
+                if np.sum(sel) ==0:
+                    continue
+                color=colors[label]
+                #~ print('label', label, 'color', color)
+                ax.scatter(reduced_features_l0[:, 0][sel], reduced_features_l0[:, 1][sel], color=color, s=2)
+
+        ax = axs[1, 1]
+        if possible_labels_l0 is not None:
+            for l, label in enumerate([-1] + possible_labels_l0.tolist()):
+                sel = label == labels_l0
+                if np.sum(sel) ==0:
+                    continue
+                ind, = np.nonzero(sel)
+                #~ if ind.size> 200:
+                    #~ ind = ind[:200]
+                if ind.size> 600:
+                    ind = ind[:600]
+                    
+                color=colors[label]
+                ax.plot(reduced_features_l0[ind].T, color=color, alpha=0.3, lw=1)
+
+
+                
         
         
         ax = axs[1, 0]
@@ -682,12 +744,15 @@ class PruningShears:
                 m = wf_adj[sel].mean(axis=0)
                 ind, = np.nonzero(sel)
 
-                if ind.size> 200:
-                    ind = ind[:200]
+                #~ if ind.size> 200:
+                    #~ ind = ind[:200]
+                
+                if ind.size> 600:
+                    ind = ind[:600]
                 
                 color=colors[label]
                 
-                ax.plot(wf_adj[ind].swapaxes(1,2).reshape(ind.size, -1).T, color=color, alpha=0.05)
+                ax.plot(wf_adj[ind].swapaxes(1,2).reshape(ind.size, -1).T, color=color, alpha=0.3)
                 
                 if label>=0:
                     ax.plot(m.T.flatten(), color=color, alpha=1, lw=2)
@@ -705,7 +770,10 @@ class PruningShears:
                 ax.axvline(self.width * c - self.n_left, color='m', lw=lw)
         
         
-        ax = axs[0, 1]
+        
+        
+        
+        ax = axs[0, 2]
         if final_label is not None:
             
             adjacency = self.channel_adjacency[actual_chan]
@@ -723,7 +791,7 @@ class PruningShears:
             ax.plot(wf_adj.swapaxes(1,2).reshape(wf_adj.shape[0], -1).T, color=color, alpha=0.1)
             ax.plot(m.T.flatten(), color=color, alpha=1, lw=2)
 
-        ax = axs[1, 1]
+        ax = axs[1, 2]
         if final_label is not None:
             sel = -1 == labels_l0
             
@@ -786,8 +854,7 @@ class PruningShears:
 
             
 
-            #~ pca =  sklearn.decomposition.IncrementalPCA(n_components=6, whiten=True)
-            pca =  sklearn.decomposition.IncrementalPCA(n_components=6, whiten=True)
+            pca =  sklearn.decomposition.IncrementalPCA(n_components=self.n_components_local_pca, whiten=True)
             
             feats = pca.fit_transform(wf_flat)
             pval = diptest(np.sort(feats[:, 0]), numt=200)
@@ -800,6 +867,7 @@ class PruningShears:
                 unique_sub_labels = np.unique(sub_labels)
                 if unique_sub_labels.size ==  1 and unique_sub_labels[0] == -1:
                     pass
+                    unique_sub_labels = []
                 else:
                     possible_labels, candidate_mask, elsewhere_mask, best_chan_peak_values, best_chan,\
                         peak_is_aligned, peak_is_on_chan, local_centroids = self.check_candidate_labels(ind_keep, sub_labels, extremum_channel)

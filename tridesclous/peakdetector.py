@@ -68,6 +68,7 @@ class BasePeakDetector:
         self.peak_sign = peak_sign
         self.relative_threshold = relative_threshold
         
+        #~ print('peak_span_ms', peak_span_ms)
         if peak_span_ms is None:
             # kept for compatibility with previous version
             assert peak_span is not None
@@ -80,6 +81,7 @@ class BasePeakDetector:
         self.n_span = int(self.sample_rate * self.peak_span_ms / 1000.)//2
         #~ print('self.n_span', self.n_span)
         self.n_span = max(1, self.n_span)
+        #~ print('self.n_span', self.n_span)
         
         self.smooth_radius_um = smooth_radius_um
 
@@ -415,7 +417,7 @@ class PeakDetectorGeometricalNumpy(BasePeakDetector):
             neighb, = np.nonzero(neighbour_mask[c, :])
             self.neighbours[c, :neighb.size] = neighb
         
-        print('self.nb_max_neighbour', self.nb_max_neighbour)
+        #~ print('self.nb_max_neighbour', self.nb_max_neighbour)
         
         self.fifo_sigs = FifoBuffer((self.chunksize+2*self.n_span, self.nb_channel), self.dtype)
     

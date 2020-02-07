@@ -289,7 +289,9 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             params['peak_detector']['engine'] = 'numpy'
         
         params['extract_waveforms']['mode'] = 'rand_by_channel'
-        params['extract_waveforms']['nb_max_by_channel'] = 700
+        #~ params['extract_waveforms']['nb_max_by_channel'] = 700
+        params['extract_waveforms']['nb_max_by_channel'] = 1500
+        
         
         params['feature_method'] = 'pca_by_channel'
         # TODO change n_components_by_channel depending on channel density

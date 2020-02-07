@@ -124,6 +124,10 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         peak_sign = cc.info['peak_detector_params']['peak_sign']
         relative_threshold = cc.info['peak_detector_params']['relative_threshold']
         dense_mode = cc.info['mode'] == 'dense'
+        
+        geometry = cc.dataio.get_geometry(chan_grp=cc.chan_grp)
+        
+        
         adjacency_radius_um = cc.adjacency_radius_um * 0.5 # TODO wokr on this
         channel_adjacency = cc.dataio.get_channel_adjacency(chan_grp=cc.chan_grp, adjacency_radius_um=adjacency_radius_um)
         channel_distances = cc.dataio.get_channel_distances(chan_grp=cc.chan_grp)
@@ -133,7 +137,9 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         
         #~ adjacency_radius_um = 200
         pruningshears = PruningShears(waveforms, features, detection_channel_indexes, noise_features, n_left, n_right, peak_sign, relative_threshold,
-                                adjacency_radius_um, channel_adjacency, channel_distances, dense_mode, **kargs)
+                                adjacency_radius_um, geometry,
+                                
+                                dense_mode, **kargs)
         
         #~ from .pruningshears import PruningShears_1_4_1
         #~ pruningshears = PruningShears_1_4_1(waveforms, features, noise_features, n_left, n_right, peak_sign, relative_threshold,
