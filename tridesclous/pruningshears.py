@@ -67,8 +67,8 @@ class PruningShears:
         self.width = n_right - n_left
         self.peak_sign = peak_sign
         self.threshold = threshold
-        self.adjacency_radius_um = adjacency_radius_um
-        #~ self.adjacency_radius_um = 50
+        #~ self.adjacency_radius_um = adjacency_radius_um
+        self.adjacency_radius_um = 50
         self.geometry = geometry
         self.dense_mode =  dense_mode
         
@@ -328,7 +328,7 @@ class PruningShears:
             # general case 
             n_components_by_channel = self.features.shape[1] // nb_channel
             
-            self.weights_feat_chans = {}
+            #~ self.weights_feat_chans = {}
             self.mask_feat_per_chan = {}
             self.mask_feat_per_adj = {}
             for chan in range(nb_channel):
@@ -346,13 +346,13 @@ class PruningShears:
                 self.mask_feat_per_adj[chan] = mask_feat
                 
                 # weights
-                weights = []
-                for adj_chan in adjacency:
-                    d = self.channel_distances[chan, adj_chan]
-                    w = np.exp(-d/self.adjacency_radius_um * 2) # TODO fix this factor 2
+                #~ weights = []
+                #~ for adj_chan in adjacency:
+                    #~ d = self.channel_distances[chan, adj_chan]
+                    #~ w = np.exp(-d/self.adjacency_radius_um * 2) # TODO fix this factor 2
                     #~ print('chan', chan, 'adj_chan', adj_chan, 'd', d, 'w', w)
-                    weights += [ w ] * n_components_by_channel
-                self.weights_feat_chans[chan] = np.array(weights).reshape(1, -1)
+                    #~ weights += [ w ] * n_components_by_channel
+                #~ self.weights_feat_chans[chan] = np.array(weights).reshape(1, -1)
         
         force_next_chan = None
         
@@ -847,12 +847,11 @@ class PruningShears:
                 elif self.peak_sign == '+':
                     extremum_channel = np.argmax(centroid[-self.n_left,:], axis=0)
                 # TODO by sparsity level threhold and not radius
-                adjacency = self.channel_adjacency[extremum_channel]
-                waveforms = self.waveforms.take(ind_keep, axis=0).take(adjacency, axis=2)
+                #~ adjacency = self.channel_adjacency[extremum_channel]
+                #~ waveforms = self.waveforms.take(ind_keep, axis=0).take(adjacency, axis=2)
+                high_adjacency = self.channel_high_adjacency[extremum_channel]
+                waveforms = self.waveforms.take(ind_keep, axis=0).take(high_adjacency, axis=2)
             wf_flat = waveforms.swapaxes(1,2).reshape(waveforms.shape[0], -1)
-
-
-            
 
             pca =  sklearn.decomposition.IncrementalPCA(n_components=self.n_components_local_pca, whiten=True)
             
@@ -860,7 +859,8 @@ class PruningShears:
             pval = diptest(np.sort(feats[:, 0]), numt=200)
             #~ print('pval', pval)
             self.log('label', label,'pval', pval)
-            if pval<0.2:
+            #~ if pval<0.2:
+            if pval<0.1: # TODO global params
             
                 clusterer = hdbscan.HDBSCAN(min_cluster_size=self.min_cluster_size, allow_single_cluster=False, metric='l2')
                 sub_labels = clusterer.fit_predict(feats[:, :2])
@@ -895,32 +895,54 @@ class PruningShears:
                         m += np.max(unique_sub_labels) + 1
                 
                 if self.debug_plot:
-                    fig, axs = plt.subplots(ncols=3)
-                    colors = plt.cm.get_cmap('jet', len(unique_sub_labels))
+                #~ if True:
+                    fig, axs = plt.subplots(ncols=4)
+                    colors = plt.cm.get_cmap('Set3', len(unique_sub_labels))
                     colors = {unique_sub_labels[l]:colors(l) for l in range(len(unique_sub_labels))}
                     colors[-1] = 'k'
                     
-                    ax = axs[0]
-                    ax.plot(wf_flat.T, color='k', alpha=0.1)
+                    #~ ax = axs[0]
+                    #~ ax.plot(wf_flat.T, color='k', alpha=0.1)
+                    #~ print(sub_labels.shape, wf_flat.shape, waveforms.shape)
                     for sub_label in unique_sub_labels:
                         valid = sub_label in possible_labels[peak_is_aligned]
                         
                         sub_mask = sub_labels == sub_label
-                        color = colors[sub_label]
-                        ax.plot(wf_flat.T, color=color, alpha=0.1)
+                        
                         if valid:
                             ls = '-'
+                            color = colors[sub_label]
                         else:
                             ls = '--'
+                            color = 'k'
+
+                        ax = axs[0]
+                        ax.plot(wf_flat[sub_mask].T, color=color, alpha=0.1)
+                            
+                        ax = axs[3]
                         if sub_label>=0:
                             ax.plot(np.median(wf_flat[sub_mask], axis=0), color=color, lw=2, ls=ls)
                     
 
-                    ax = axs[1]
-                    ax.plot(feats.T, color='k', alpha=0.1)
                     
-                    ax = axs[2]
-                    ax.scatter(feats[:, 0], feats[:, 1], color='k')
+                    #~ ax.plot(feats.T, color='k', alpha=0.1)
+                    for sub_label in unique_sub_labels:
+                        valid = sub_label in possible_labels[peak_is_aligned]
+                        sub_mask = sub_labels == sub_label
+                        color = colors[sub_label]
+                        if valid:
+                            color = colors[sub_label]
+                        else:
+                            color = 'k'
+                        ax = axs[1]
+                        ax.plot(feats[sub_mask].T, color=color, alpha=0.1)
+                        
+                        
+                    
+                        ax = axs[2]
+                        ax.scatter(feats[sub_mask][:, 0], feats[sub_mask][:, 1], color=color)
+                    
+                    
                 
                     plt.show()
             
