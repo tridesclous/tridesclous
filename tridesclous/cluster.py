@@ -43,7 +43,7 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
     if selection is None:
         # this include trash but not allien
         sel = (cc.all_peaks['cluster_label']>=-1)[cc.some_peaks_index]
-        print(np.all(sel), np.sum(sel), sel.size)
+        
         if np.all(sel):
             features = cc.some_features[:]
             #~ waveforms = cc.some_waveforms[:]

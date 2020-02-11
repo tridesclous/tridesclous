@@ -40,14 +40,14 @@ def project_waveforms(method='pca_by_channel', catalogueconstructor=None, **para
 
 
 class GlobalPCA:
-    def __init__(self, waveforms, catalogueconstructor=None, n_components=5, **params):
+    def __init__(self, catalogueconstructor=None, n_components=5, **params):
         cc = catalogueconstructor
         
         self.n_components = n_components
         
         self.waveforms = cc.get_some_waveforms()
             
-        flatten_waveforms = self.waveforms.reshape(waveforms.shape[0], -1)
+        flatten_waveforms = self.waveforms.reshape(self.waveforms.shape[0], -1)
         self.pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, **params)
         self.pca.fit(flatten_waveforms)
         
@@ -55,22 +55,34 @@ class GlobalPCA:
         #In GlobalPCA all feature represent all channels
         self.channel_to_features = np.ones((cc.nb_channel, self.n_components), dtype='bool')
 
+    def get_features(self, catalogueconstructor):
+        features = self.transform(self.waveforms)
+        return features
+
 
     def transform(self, waveforms):
         flatten_waveforms = waveforms.reshape(waveforms.shape[0], -1)
         return self.pca.transform(flatten_waveforms)
 
 class PeakMaxOnChannel:
-    def __init__(self, waveforms, catalogueconstructor=None, **params):
+    def __init__(self,  catalogueconstructor=None, **params):
         cc = catalogueconstructor
         
-        self.waveforms = waveforms
+        #~ self.waveforms = waveforms
+        # TODO something faster with only the max!!!!!
+        self.waveforms = cc.get_some_waveforms()
+        
         self.ind_peak = -catalogueconstructor.info['waveform_extractor_params']['n_left']
         #~ print('PeakMaxOnChannel self.ind_peak', self.ind_peak)
         
         
         #In full PeakMaxOnChannel one feature is one channel
         self.channel_to_features = np.eye(cc.nb_channel, dtype='bool')
+    
+    def get_features(self, catalogueconstructor):
+        features = self.transform(self.waveforms)
+        return features
+    
         
     def transform(self, waveforms):
         #~ print('ici', waveforms.shape, self.ind_peak)
@@ -115,11 +127,11 @@ class PcaByChannel:
         self.pcas = []
         for chan in range(cc.nb_channel):
         #~ for chan in range(20):
-            print('fit', chan)
+            #~ print('fit', chan)
             sel = some_peaks['channel'] == chan
             wf_chan = cc.get_some_waveforms(peaks_index=cc.some_peaks_index[sel], channel_indexes=[chan])
             wf_chan = wf_chan[:, :, 0]
-            print(wf_chan.shape)
+            #~ print(wf_chan.shape)
             
             if wf_chan.shape[0] > n_components_by_channel:
                 pca = sklearn.decomposition.IncrementalPCA(n_components=n_components_by_channel, **params)
@@ -158,20 +170,20 @@ class PcaByChannel:
         for chan, pca in enumerate(self.pcas):
             if pca is None:
                 continue
-            print('transform', chan)
+            #~ print('transform', chan)
             #~ sel = some_peaks['channel'] == chan
             
             if cc.mode == 'dense':
                 wf_chan = cc.get_some_waveforms(peaks_index=cc.some_peaks_index, channel_indexes=[chan])
                 wf_chan = wf_chan[:, :, 0]
-                print('dense', wf_chan.shape)
+                #~ print('dense', wf_chan.shape)
                 features[:, chan*n:(chan+1)*n] = pca.transform(wf_chan)
             elif cc.mode == 'sparse':
                 adj = channel_adjacency[chan]
                 sel = np.in1d(some_peaks['channel'], channel_adjacency[chan])
                 wf_chan = cc.get_some_waveforms(peaks_index=cc.some_peaks_index[sel], channel_indexes=[chan])
                 wf_chan = wf_chan[:, :, 0]
-                print('sparse', wf_chan.shape)
+                #~ print('sparse', wf_chan.shape)
                 features[:, chan*n:(chan+1)*n][sel, :] = pca.transform(wf_chan)
             
             

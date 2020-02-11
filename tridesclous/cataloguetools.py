@@ -92,11 +92,6 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     if verbose:
         print('sample_some_peaks', t2-t1)
     
-    print(cc.all_peaks.shape)
-    print(cc.some_peaks_index.shape)
-    
-    
-    
     #~ t1 = time.perf_counter()
     #~ waveforms = cc.get_some_waveforms(peaks_index=cc.some_peaks_index[:])
     #~ waveforms = cc.get_some_waveforms()
@@ -278,7 +273,8 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         
         params['peak_sampler']['mode'] = 'rand_by_channel'
         #~ params['extract_waveforms']['nb_max_by_channel'] = 700
-        params['peak_sampler']['nb_max_by_channel'] = 1500
+        params['peak_sampler']['nb_max_by_channel'] = 1000
+        #~ params['peak_sampler']['nb_max_by_channel'] = 1500
         
         
         params['feature_method'] = 'pca_by_channel'

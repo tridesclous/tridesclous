@@ -266,8 +266,8 @@ class PruningShears:
             
             if self.dense_mode:
                 #~ centroid = np.median(self.waveforms[ind, :, :], axis=0)
-                #~ get_some_waveforms(self, peaks_index=None, channel_indexes=None)
-                raise NotImplementedError
+                wfs = self.cc.get_some_waveforms( peaks_index=self.peak_index[ind], channel_indexes=None)
+                centroid = np.median(wfs, axis=0)
             else:
                 #~ centroid = np.median(self.waveforms[ind, :, :][:, :, local_channels], axis=0)
                 wfs = self.cc.get_some_waveforms( peaks_index=self.peak_index[ind], channel_indexes=local_channels)
@@ -870,10 +870,14 @@ class PruningShears:
 
             ind_keep,  = np.nonzero(cluster_labels == label)
             if self.dense_mode:
-                waveforms = self.waveforms.take(ind_keep, axis=0)
+                #~ waveforms = self.waveforms.take(ind_keep, axis=0)
+                waveforms = self.cc.get_some_waveforms(self.peak_index[ind_keep], channel_indexes=None)
                 extremum_channel = 0
             else:
-                centroid = np.median(self.waveforms[ind_keep, :, :], axis=0)
+                #~ centroid = np.median(self.waveforms[ind_keep, :, :], axis=0)
+                waveforms = self.cc.get_some_waveforms(self.peak_index[ind_keep], channel_indexes=None)
+                centroid = np.median(waveforms, axis=0)
+                
                 if self.peak_sign == '-':
                     extremum_channel = np.argmin(centroid[-self.n_left,:], axis=0)
                 elif self.peak_sign == '+':
@@ -882,7 +886,10 @@ class PruningShears:
                 #~ adjacency = self.channel_adjacency[extremum_channel]
                 #~ waveforms = self.waveforms.take(ind_keep, axis=0).take(adjacency, axis=2)
                 high_adjacency = self.channel_high_adjacency[extremum_channel]
-                waveforms = self.waveforms.take(ind_keep, axis=0).take(high_adjacency, axis=2)
+                #~ waveforms = self.waveforms.take(ind_keep, axis=0).take(high_adjacency, axis=2)
+                waveforms = waveforms.take(high_adjacency, axis=2)
+                
+                
             wf_flat = waveforms.swapaxes(1,2).reshape(waveforms.shape[0], -1)
 
             pca =  sklearn.decomposition.IncrementalPCA(n_components=self.n_components_local_pca, whiten=True)
@@ -999,14 +1006,16 @@ class PruningShears:
             n = labels.size
             self.log(labels)
             
-            centroids = np.zeros((labels.size, self.waveforms.shape[1], self.waveforms.shape[2]))
+            centroids = np.zeros((labels.size, self.width, self.nb_channel))
                         
             for ind, k in enumerate(labels):
                 ind_keep,  = np.nonzero(cluster_labels2 == k)
                 if ind_keep.size > self.max_per_cluster_for_median:
                     sub_sel = np.random.choice(ind_keep.size, self.max_per_cluster_for_median, replace=False)
                     ind_keep = ind_keep[sub_sel]
-                centroids[ind,:,:] = np.median(self.waveforms[ind_keep, :, :], axis=0)
+                #~ centroids[ind,:,:] = np.median(self.waveforms[ind_keep, :, :], axis=0)
+                waveforms = self.cc.get_some_waveforms(self.peak_index[ind_keep], channel_indexes=None)
+                centroids[ind,:,:] = np.median(waveforms, axis=0)
             
             #eliminate when best peak not aligned
             # eliminate when peak value is too small

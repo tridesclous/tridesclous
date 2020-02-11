@@ -254,13 +254,13 @@ class CatalogueConstructor:
         nb_peak_by_segment = [ np.sum(self.all_peaks['segment']==i)  for i in range(self.dataio.nb_segment)]
         t += '  nb_peak_by_segment: '+', '.join('{}'.format(n) for n in nb_peak_by_segment)+'\n'
 
-        if self.some_waveforms is not None:
-            if self.mode == 'sparse':
-                sparsity = self.some_waveforms_sparse_mask.sum() / self.some_waveforms_sparse_mask.size
-                sparsity = '(sparse {:.2f})'.format(sparsity)
-            else:
-                sparsity = ''
-            t += '  some_waveforms.shape: {} {}\n'.format(self.some_waveforms.shape, sparsity)
+        #~ if self.some_waveforms is not None:
+            #~ if self.mode == 'sparse':
+                #~ sparsity = self.some_waveforms_sparse_mask.sum() / self.some_waveforms_sparse_mask.size
+                #~ sparsity = '(sparse {:.2f})'.format(sparsity)
+            #~ else:
+                #~ sparsity = ''
+            #~ t += '  some_waveforms.shape: {} {}\n'.format(self.some_waveforms.shape, sparsity)
             
         if self.some_features is not None:
             t += '  some_features.shape: {}\n'.format(self.some_features.shape)
@@ -874,162 +874,160 @@ class CatalogueConstructor:
 
     
 
-    def extract_some_waveforms(self, n_left=None, n_right=None,
-                            wf_left_ms=None, wf_right_ms=None,
-                            index=None, mode='rand', 
-                            nb_max=10000, nb_max_by_channel=600,
-                            recompute_all_centroid=True):
-        """
-        Extract waveform snippet for a subset of peaks (already detected).
+    #~ def extract_some_waveforms(self, n_left=None, n_right=None,
+                            #~ wf_left_ms=None, wf_right_ms=None,
+                            #~ index=None, mode='rand', 
+                            #~ nb_max=10000, nb_max_by_channel=600,
+                            #~ recompute_all_centroid=True):
+        #~ """
+        #~ Extract waveform snippet for a subset of peaks (already detected).
         
-        Note that this operation is slow.
+        #~ Note that this operation is slow.
         
-        After this the attribute some_peaks_index will contain index in all_peaks that
-        have waveforms.
+        #~ After this the attribute some_peaks_index will contain index in all_peaks that
+        #~ have waveforms.
         
-        Parameters
-        ----------
-        n_left: int
-            Left sweep in sample must be negative
-        n_right: int
-            Right sweep in sample
-        wf_left_ms: 
-            Left sweep in ms must be negative
-        wf_right_ms: 
-            Right sweep in ms must be negative
-        index: None (by default) or numpy array of int
-            If mode is None then the user can give a selection index of peak 
-            to extract waveforms.
-        mode: 'rand' (default) or 'rand_by_channel' or 'all' or None
-           'rand' select randomly some peak to extract waveform.
-           'rand_by_channel' work only in mode 'sparse' and random by channel using the 
-                nb_max_by_channel args
-           If None then index must not be None.
-        nb_max: int 
-            When rand then is this the number of selected waveform.
+        #~ Parameters
+        #~ ----------
+        #~ n_left: int
+            #~ Left sweep in sample must be negative
+        #~ n_right: int
+            #~ Right sweep in sample
+        #~ wf_left_ms: 
+            #~ Left sweep in ms must be negative
+        #~ wf_right_ms: 
+            #~ Right sweep in ms must be negative
+        #~ index: None (by default) or numpy array of int
+            #~ If mode is None then the user can give a selection index of peak 
+            #~ to extract waveforms.
+        #~ mode: 'rand' (default) or 'rand_by_channel' or 'all' or None
+           #~ 'rand' select randomly some peak to extract waveform.
+           #~ 'rand_by_channel' work only in mode 'sparse' and random by channel using the 
+                #~ nb_max_by_channel args
+           #~ If None then index must not be None.
+        #~ nb_max: int 
+            #~ When rand then is this the number of selected waveform.
         
-        """
-        if n_left is None or n_right is None:
-            if 'waveform_extractor_params' in self.info:
-                n_left = self.info['waveform_extractor_params']['n_left']
-                n_right = self.info['waveform_extractor_params']['n_right']
-            elif wf_left_ms is not None and wf_right_ms is not None:
-                n_left = int(wf_left_ms / 1000. * self.dataio.sample_rate)
-                n_right = int(wf_right_ms / 1000. * self.dataio.sample_rate)
-            else:
-                raise(ValueError('Must provide wf_left_ms/wf_right_ms'))
+        #~ """
+        #~ if n_left is None or n_right is None:
+            #~ if 'waveform_extractor_params' in self.info:
+                #~ n_left = self.info['waveform_extractor_params']['n_left']
+                #~ n_right = self.info['waveform_extractor_params']['n_right']
+            #~ elif wf_left_ms is not None and wf_right_ms is not None:
+                #~ n_left = int(wf_left_ms / 1000. * self.dataio.sample_rate)
+                #~ n_right = int(wf_right_ms / 1000. * self.dataio.sample_rate)
+            #~ else:
+                #~ raise(ValueError('Must provide wf_left_ms/wf_right_ms'))
         
-        peak_sign = self.info['peak_detector_params']['peak_sign']
+        #~ peak_sign = self.info['peak_detector_params']['peak_sign']
         
-        peak_width = n_right - n_left
+        #~ peak_width = n_right - n_left
         
-        if index is not None:
-            some_peaks_index = index.copy()
-        else:
-            if mode=='rand':
-                if self.nb_peak > nb_max:
-                    some_peaks_index = np.random.choice(self.nb_peak, size=nb_max).astype('int64')
-                else:
-                    some_peaks_index = np.arange(self.nb_peak, dtype='int64')
-            elif mode=='rand_by_channel':
-                assert self.mode == 'sparse'
+        #~ if index is not None:
+            #~ some_peaks_index = index.copy()
+        #~ else:
+            #~ if mode=='rand':
+                #~ if self.nb_peak > nb_max:
+                    #~ some_peaks_index = np.random.choice(self.nb_peak, size=nb_max).astype('int64')
+                #~ else:
+                    #~ some_peaks_index = np.arange(self.nb_peak, dtype='int64')
+            #~ elif mode=='rand_by_channel':
+                #~ assert self.mode == 'sparse'
                 
-                some_peaks_index = []
-                for c in range(self.nb_channel):
-                    ind, = np.nonzero(self.all_peaks['channel'] == c)
-                    if ind.size > nb_max_by_channel:
-                        take = np.random.choice(ind.size, size=nb_max_by_channel, replace=False)#.astype('int64')
-                        ind = ind[take]
-                    some_peaks_index.append(ind)
-                some_peaks_index = np.concatenate(some_peaks_index)
+                #~ some_peaks_index = []
+                #~ for c in range(self.nb_channel):
+                    #~ ind, = np.nonzero(self.all_peaks['channel'] == c)
+                    #~ if ind.size > nb_max_by_channel:
+                        #~ take = np.random.choice(ind.size, size=nb_max_by_channel, replace=False)#.astype('int64')
+                        #~ ind = ind[take]
+                    #~ some_peaks_index.append(ind)
+                #~ some_peaks_index = np.concatenate(some_peaks_index)
                 
-            elif mode=='all':
-                some_peaks_index = np.arange(self.nb_peak, dtype='int64')
-            else:
-                raise(NotImplementedError, 'unknown mode')
+            #~ elif mode=='all':
+                #~ some_peaks_index = np.arange(self.nb_peak, dtype='int64')
+            #~ else:
+                #~ raise(NotImplementedError, 'unknown mode')
         
-        # this is important to not take 2 times the sames, this leads to bad mad/median
-        some_peaks_index = np.unique(some_peaks_index)
+        #~ # this is important to not take 2 times the sames, this leads to bad mad/median
+        #~ some_peaks_index = np.unique(some_peaks_index)
         
-        seg_nums = np.unique(self.all_peaks['segment'])
+        #~ seg_nums = np.unique(self.all_peaks['segment'])
         
-        # remove peak_index near border
-        keep = np.zeros(some_peaks_index.size, dtype='bool')
-        for seg_num in seg_nums:
-            in_seg_mask = self.all_peaks[some_peaks_index]['segment'] == seg_num
-            indexes  = self.all_peaks[some_peaks_index]['index']
-            in_seg_keep = (indexes > peak_width) & (indexes < self.dataio.get_segment_length(seg_num) - peak_width)
-            keep |= in_seg_mask & in_seg_keep
-        some_peaks_index = some_peaks_index[keep]
+        #~ # remove peak_index near border
+        #~ keep = np.zeros(some_peaks_index.size, dtype='bool')
+        #~ for seg_num in seg_nums:
+            #~ in_seg_mask = self.all_peaks[some_peaks_index]['segment'] == seg_num
+            #~ indexes  = self.all_peaks[some_peaks_index]['index']
+            #~ in_seg_keep = (indexes > peak_width) & (indexes < self.dataio.get_segment_length(seg_num) - peak_width)
+            #~ keep |= in_seg_mask & in_seg_keep
+        #~ some_peaks_index = some_peaks_index[keep]
         
-        some_peak_mask = np.zeros(self.nb_peak, dtype='bool')
-        some_peak_mask[some_peaks_index] = True
-        
-        
-        nb = some_peaks_index.size
+        #~ some_peak_mask = np.zeros(self.nb_peak, dtype='bool')
+        #~ some_peak_mask[some_peaks_index] = True
         
         
-        if self.mode == 'sparse':
-            channel_adjacency = self.dataio.get_channel_adjacency(chan_grp=self.chan_grp, adjacency_radius_um=self.adjacency_radius_um)
-            assert self.info['peak_detector_params']['method'] == 'geometrical'
-        elif self.mode == 'dense':
-            channel_adjacency = None
-        else:
-            raise(NotImplementedError)
+        #~ nb = some_peaks_index.size
         
-        # make it persitent
-        #~ self.arrays.create_array('some_peaks_index', 'int64', (nb,), self.memory_mode)
-        #~ self.some_peaks_index[:] = some_peaks_index
-        self.arrays.add_array('some_peaks_index', some_peaks_index, self.memory_mode)
         
-        shape = (nb, peak_width, self.nb_channel)
-        self.arrays.create_array('some_waveforms', self.info['internal_dtype'], shape, self.memory_mode)
-        shape = (nb, self.nb_channel)
-        self.arrays.create_array('some_waveforms_sparse_mask', 'bool', shape, self.memory_mode)
+        #~ if self.mode == 'sparse':
+            #~ channel_adjacency = self.dataio.get_channel_adjacency(chan_grp=self.chan_grp, adjacency_radius_um=self.adjacency_radius_um)
+            #~ assert self.info['peak_detector_params']['method'] == 'geometrical'
+        #~ elif self.mode == 'dense':
+            #~ channel_adjacency = None
+        #~ else:
+            #~ raise(NotImplementedError)
         
-        if self.mode == 'sparse':
-            self.some_waveforms[:] = 0
-            self.some_waveforms_sparse_mask[:] = False
-        elif self.mode == 'dense':
-            self.some_waveforms_sparse_mask[:] = True
+        #~ # make it persitent
+        #~ self.arrays.add_array('some_peaks_index', some_peaks_index, self.memory_mode)
         
-        n = 0
-        for seg_num in seg_nums:
-            insegment_peaks  = self.all_peaks[some_peak_mask & (self.all_peaks['segment']==seg_num)]
+        #~ shape = (nb, peak_width, self.nb_channel)
+        #~ self.arrays.create_array('some_waveforms', self.info['internal_dtype'], shape, self.memory_mode)
+        #~ shape = (nb, self.nb_channel)
+        #~ self.arrays.create_array('some_waveforms_sparse_mask', 'bool', shape, self.memory_mode)
+        
+        #~ if self.mode == 'sparse':
+            #~ self.some_waveforms[:] = 0
+            #~ self.some_waveforms_sparse_mask[:] = False
+        #~ elif self.mode == 'dense':
+            #~ self.some_waveforms_sparse_mask[:] = True
+        
+        #~ n = 0
+        #~ for seg_num in seg_nums:
+            #~ insegment_peaks  = self.all_peaks[some_peak_mask & (self.all_peaks['segment']==seg_num)]
             
-            sample_indexes = insegment_peaks['index']
-            if sample_indexes.size == 0:
-                continue
+            #~ sample_indexes = insegment_peaks['index']
+            #~ if sample_indexes.size == 0:
+                #~ continue
             
-            if self.mode == 'sparse':
-                channel_indexes = insegment_peaks['channel']
-                for i, chan in enumerate(channel_indexes):
-                    adj_chans = channel_adjacency[chan]
-                    self.some_waveforms_sparse_mask[i+n, :][adj_chans] = True
-            else:
-                channel_indexes = None
+            #~ if self.mode == 'sparse':
+                #~ channel_indexes = insegment_peaks['channel']
+                #~ for i, chan in enumerate(channel_indexes):
+                    #~ adj_chans = channel_adjacency[chan]
+                    #~ self.some_waveforms_sparse_mask[i+n, :][adj_chans] = True
+            #~ else:
+                #~ channel_indexes = None
             
-            waveforms = self.some_waveforms[n:n+sample_indexes.size]
-            self.dataio.get_some_waveforms(seg_num=seg_num, chan_grp=self.chan_grp,
-                                                    sample_indexes=sample_indexes, n_left=n_left, n_right=n_right,
-                                                    waveforms=waveforms, channel_adjacency=channel_adjacency,
-                                                    channel_indexes=channel_indexes)
-            n += sample_indexes.size
+            #~ waveforms = self.some_waveforms[n:n+sample_indexes.size]
+            #~ self.dataio.get_some_waveforms(seg_num=seg_num, chan_grp=self.chan_grp,
+                                                    #~ sample_indexes=sample_indexes, n_left=n_left, n_right=n_right,
+                                                    #~ waveforms=waveforms, channel_adjacency=channel_adjacency,
+                                                    #~ channel_indexes=channel_indexes)
+            #~ n += sample_indexes.size
             
-        self.info['waveform_extractor_params'] = dict(n_left=n_left, n_right=n_right, 
-                                                nb_max=nb_max)
+        #~ self.info['waveform_extractor_params'] = dict(n_left=n_left, n_right=n_right, 
+                                                #~ nb_max=nb_max)
 
-        self.flush_info()
+        #~ self.flush_info()
         
-        self.projector = None
-        self._reset_arrays(_reset_after_waveforms_arrays)
+        #~ self.projector = None
+        #~ self._reset_arrays(_reset_after_waveforms_arrays)
         
-        self.all_peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
-        self.all_peaks['cluster_label'][self.some_peaks_index] = 0
+        #~ self.all_peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
+        #~ self.all_peaks['cluster_label'][self.some_peaks_index] = 0
 
-        self.on_new_cluster()
-        if recompute_all_centroid:
-            self.compute_all_centroid(max_per_cluster=_default_max_per_cluster)
+        #~ self.on_new_cluster()
+        #~ if recompute_all_centroid:
+            #~ self.compute_all_centroid(max_per_cluster=_default_max_per_cluster)
     
     #~ def clean_waveforms(self, alien_value_threshold=100., recompute_all_centroid=True):
         #~ """
@@ -1320,7 +1318,9 @@ class CatalogueConstructor:
             selected = selected[keep]
         
         #~ wf = self.some_waveforms[self.all_peaks['cluster_label'][self.some_peaks_index]==k]
-        wf = self.some_waveforms[selected, :, :]
+        #~ wf = self.some_waveforms[selected, :, :]
+        wf = self.get_some_waveforms(peaks_index=self.some_peaks_index[selected], channel_indexes=None)
+        
         
         median, mad = median_mad(wf, axis = 0)
         # mean, std = np.mean(wf, axis=0), np.std(wf, axis=0) # TODO rome the mean/std
@@ -1353,7 +1353,8 @@ class CatalogueConstructor:
 
     def compute_all_centroid(self, max_per_cluster=None):
         t1 = time.perf_counter()
-        if self.some_waveforms is None:
+        #~ if self.some_waveforms is None:
+        if self.some_peaks_index is None:
             for name in _centroids_arrays:
                 self.arrays.detach_array(name)
                 setattr(self, name, None)

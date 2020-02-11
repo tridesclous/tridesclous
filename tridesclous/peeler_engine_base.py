@@ -194,7 +194,9 @@ class PeelerEngineBase(OpenCL_Helper):
         
         assert self.chunksize > (self.extra_size+1), 'chunksize is too small because of n_size'
         
-        self.alien_value_threshold = self.catalogue['clean_waveforms_params']['alien_value_threshold']
+        # TODO
+        #~ self.alien_value_threshold = self.catalogue['clean_waveforms_params']['alien_value_threshold']
+        self.alien_value_threshold = None
         
         self.total_spike = 0
         
