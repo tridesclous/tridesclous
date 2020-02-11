@@ -665,32 +665,33 @@ class DataIO:
         return peak_values
         
     
-    def get_some_waveforms(self, seg_num=0, chan_grp=0, sample_indexes=None,
-                                n_left=None, n_right=None, waveforms=None, channel_adjacency=None, 
-                                channel_indexes=None, n_jobs=0):
+    def get_some_waveforms(self, seg_num=0, chan_grp=0, peak_sample_indexes=None,
+                                n_left=None, n_right=None, waveforms=None, channel_indexes=None):
         """
         Exctract some waveforms given sample_indexes
-        
-        if channel_adjacency not None and channel_indexes not None
-        then it do sparse extaction
         """
-        assert sample_indexes is not None, 'Provide sample_indexes'
+        assert peak_sample_indexes is not None, 'Provide sample_indexes'
         peak_width = n_right - n_left
         
-        if waveforms is None:
-            waveforms = np.zeros((sample_indexes.size, peak_width, self.nb_channel(chan_grp)), dtype='float32')
+        if channel_indexes is None:
+            nb_chan = self.nb_channel(chan_grp)
         else:
-            assert waveforms.shape[0] == sample_indexes.size
-            assert waveforms.shape[1] == peak_width
+            nb_chan = len(channel_indexes)
         
         sigs = self.arrays[chan_grp][seg_num].get('processed_signals')
         
-        extract_chunks(sigs, sample_indexes+n_left, peak_width, 
-                                    channel_adjacency=channel_adjacency, channel_indexes=channel_indexes,
-                                    chunks=waveforms, n_jobs=n_jobs)
+        if waveforms is None:
+                waveforms = np.zeros((peak_sample_indexes.size, peak_width, nb_chan), dtype=sigs.dtype)
+        else:
+            assert waveforms.shape[0] == peak_sample_indexes.size
+            assert waveforms.shape[1] == peak_width
+        
+        extract_chunks(sigs, peak_sample_indexes+n_left, peak_width, 
+                                    channel_indexes=channel_indexes, chunks=waveforms)
         
         return waveforms
-        
+
+
     def save_catalogue(self, catalogue, name='initial'):
         """
         Save the catalogue made by `CatalogueConstructor` and needed

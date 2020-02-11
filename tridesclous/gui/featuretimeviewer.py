@@ -107,7 +107,7 @@ class FeatureTimeViewer(WidgetBase):
             if self.controller.some_waveforms is None:
                 return
             else:
-                # all_waveforms = self.controller.some_waveforms[selected]  #<<<<slow
+                # all_waveforms = self.controller.some_waveforms[selected]  #<<<<slow
                 all_waveforms = self.controller.some_waveforms[selected_slice]
         if self.params['metric'] == 'feat_0':
             if self.controller.some_features is None:

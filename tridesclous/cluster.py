@@ -39,31 +39,30 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
     """
     
     cc = catalogueconstructor
-    
+    #~ print('selection', selection)
     if selection is None:
         # this include trash but not allien
         sel = (cc.all_peaks['cluster_label']>=-1)[cc.some_peaks_index]
+        print(np.all(sel), np.sum(sel), sel.size)
         if np.all(sel):
             features = cc.some_features[:]
-            waveforms = cc.some_waveforms[:]
+            #~ waveforms = cc.some_waveforms[:]
             
         else:
             # this can be very long because copy!!!!!
             # TODO fix this for high channel count
             features = cc.some_features[sel]
-            waveforms = cc.some_waveforms[sel]
         
-        peaks = cc.all_peaks[cc.some_peaks_index]
-        peaks = peaks[peaks['cluster_label']>=-1]
-        detection_channel_indexes = peaks['channel'].copy()
+        peak_index = cc.some_peaks_index[sel].copy()
+        peaks = cc.all_peaks[peak_index]
         
     else:
         sel = selection[cc.some_peaks_index]
         features = cc.some_features[sel]
-        waveforms = cc.some_waveforms[sel]
-        detection_channel_indexes = cc.all_peaks['channel'][selection]
-    
-    if waveforms.shape[0] == 0:
+        peak_index = cc.some_peaks_index[sel]
+        peaks = cc.all_peaks[peak_index]
+        
+    if features.shape[0] == 0:
         #print('oupas waveforms vide')
         return
     
@@ -111,12 +110,13 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         labels = ms.fit_predict(features)
         
     elif method == 'sawchaincut':
-        n_left = cc.info['waveform_extractor_params']['n_left']
-        n_right = cc.info['waveform_extractor_params']['n_right']
-        peak_sign = cc.info['peak_detector_params']['peak_sign']
-        relative_threshold = cc.info['peak_detector_params']['relative_threshold']
-        sawchaincut = SawChainCut(waveforms, n_left, n_right, peak_sign, relative_threshold, **kargs)
-        labels = sawchaincut.do_the_job()
+        raise NotImplemenetdError
+        #~ n_left = cc.info['waveform_extractor_params']['n_left']
+        #~ n_right = cc.info['waveform_extractor_params']['n_right']
+        #~ peak_sign = cc.info['peak_detector_params']['peak_sign']
+        #~ relative_threshold = cc.info['peak_detector_params']['relative_threshold']
+        #~ sawchaincut = SawChainCut(waveforms, n_left, n_right, peak_sign, relative_threshold, **kargs)
+        #~ labels = sawchaincut.do_the_job()
         
     elif method == 'pruningshears':
         n_left = cc.info['waveform_extractor_params']['n_left']
@@ -133,13 +133,18 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         channel_distances = cc.dataio.get_channel_distances(chan_grp=cc.chan_grp)
         
         noise_features = cc.some_noise_features
+        channel_to_features = cc.channel_to_features
         
+        
+        #~ print(peaks.shape)
+        #~ print(features.shape)
+        #~ print(channel_to_features.shape)
+        #~ exit()
         
         #~ adjacency_radius_um = 200
-        pruningshears = PruningShears(waveforms, features, detection_channel_indexes, noise_features, n_left, n_right, peak_sign, relative_threshold,
-                                adjacency_radius_um, geometry,
-                                
-                                dense_mode, **kargs)
+        pruningshears = PruningShears(features, channel_to_features, peaks, peak_index,
+                            noise_features, n_left, n_right, peak_sign, relative_threshold, 
+                            adjacency_radius_um, geometry, dense_mode, cc, **kargs)
         
         #~ from .pruningshears import PruningShears_1_4_1
         #~ pruningshears = PruningShears_1_4_1(waveforms, features, noise_features, n_left, n_right, peak_sign, relative_threshold,

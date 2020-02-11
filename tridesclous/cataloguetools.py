@@ -26,48 +26,9 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     
     Usage:
       
-      catalogueconstructor = CatalogueConstructor(dataio, chan_grp=0)
-      
-    params = {
-        'duration': 300.,
-        'preprocessor': {
-            'highpass_freq': 300.,
-            'lowpass_freq': 5000.,
-            'smooth_size': 0,
-            'chunksize': 1024,
-            'lostfront_chunksize': -1,   # this auto
-            'engine': 'numpy',
-            'common_ref_removal':False,
-        },
-        'peak_detector': {
-            'method' : 'global',
-            'engine': 'numpy',
-            'peak_sign': '-',
-            'relative_threshold': 5.,
-            'peak_span_ms': .7,
-        },
-        'noise_snippet': {
-            'nb_snippet': 300,
-        },
-        'extract_waveforms': {
-            'wf_left_ms': -1.5,
-            'wf_right_ms': 2.5,
-            'mode': 'rand',
-            'nb_max': 20000.,
-            'align_waveform': False,
-        },
-        'clean_waveforms': {
-            'alien_value_threshold': 100.,
-        },
-        'feature_method': 'peak_max',
-        'feature_kargs': {},
-        'cluster_method': 'sawchaincut',
-        'cluster_kargs': {'kde_bandwith': 1.},
-        'clean_cluster' : False,
-        'clean_cluster_kargs' : {},
-    }
-      
-      apply_all_catalogue_steps(catalogueconstructor, params)
+      cc = CatalogueConstructor(dataio, chan_grp=0)
+      params = get_auto_params_for_catalogue(dataio, chan_grp=0)
+      apply_all_catalogue_steps(cc, params)
     """
     #~ if verbose:
         #~ print('apply all catalogue steps')
@@ -105,24 +66,48 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     if verbose:
         print('run_signalprocessor', t2-t1)
 
-    t1 = time.perf_counter()
-    cc.extract_some_waveforms(**params['extract_waveforms'], recompute_all_centroid=False)
-    t2 = time.perf_counter()
-    if verbose:
-        print('extract_some_waveforms', t2-t1)
+    #~ t1 = time.perf_counter()
+    #~ cc.extract_some_waveforms(**params['extract_waveforms'], recompute_all_centroid=False)
+    #~ t2 = time.perf_counter()
+    #~ if verbose:
+        #~ print('extract_some_waveforms', t2-t1)
     
-    t1 = time.perf_counter()
-    #~ duration = d['duration'] if d['limit_duration'] else None
-    #~ d['clean_waveforms']
-    cc.clean_waveforms(**params['clean_waveforms'], recompute_all_centroid=False)
-    t2 = time.perf_counter()
-    if verbose:
-        print('clean_waveforms', t2-t1)
+    #~ t1 = time.perf_counter()
+    #~ cc.clean_waveforms(**params['clean_waveforms'], recompute_all_centroid=False)
+    #~ t2 = time.perf_counter()
+    #~ if verbose:
+        #~ print('clean_waveforms', t2-t1)
     
     #~ t1 = time.perf_counter()
     #~ n_left, n_right = cc.find_good_limits(mad_threshold = 1.1,)
     #~ t2 = time.perf_counter()
     #~ print('find_good_limits', t2-t1)
+
+    cc.set_waveform_extractor_params(**params['extract_waveforms'])
+    
+    #~ mode='rand_by_channel', nb_max_by_channel=1000, index=None
+    t1 = time.perf_counter()
+    cc.sample_some_peaks(**params['peak_sampler'])
+    t2 = time.perf_counter()
+    if verbose:
+        print('sample_some_peaks', t2-t1)
+    
+    print(cc.all_peaks.shape)
+    print(cc.some_peaks_index.shape)
+    
+    
+    
+    #~ t1 = time.perf_counter()
+    #~ waveforms = cc.get_some_waveforms(peaks_index=cc.some_peaks_index[:])
+    #~ waveforms = cc.get_some_waveforms()
+    #~ print(waveforms.shape)
+    #~ t2 = time.perf_counter()
+    #~ print('get_some_waveforms', t2-t1)
+    
+    #~ t1 = time.perf_counter()
+    #~ cc.extract_some_features(method=params['feature_method'], **params['feature_kargs'])
+    #~ t2 = time.perf_counter()
+    #~ print('project', t2-t1)
 
     t1 = time.perf_counter()
     cc.extract_some_noise(**params['noise_snippet'])
@@ -136,7 +121,7 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     cc.extract_some_features(method=params['feature_method'], **params['feature_kargs'])
     t2 = time.perf_counter()
     if verbose:
-        print('project', t2-t1)
+        print('extract_some_features', t2-t1)
     
     t1 = time.perf_counter()
     cc.find_clusters(method=params['cluster_method'], **params['cluster_kargs'])
@@ -187,8 +172,11 @@ _default_catalogue_params = {
     'extract_waveforms': {
         'wf_left_ms': -1.5,
         'wf_right_ms': 2.5,
+    },
+    'peak_sampler': {
         'mode': 'rand',
         'nb_max': 20000,
+        'nb_max_by_channel': None,
     },
     'clean_waveforms': {
         'alien_value_threshold': None,
@@ -245,8 +233,8 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['peak_detector']['smooth_radius_um' ] = None
 
 
-        params['extract_waveforms']['mode'] = 'rand'
-        params['extract_waveforms']['nb_max'] = 20000
+        params['peak_sampler']['mode'] = 'rand'
+        params['peak_sampler']['nb_max'] = 20000
         
         params['feature_method'] = 'global_pca'
         if nb_chan in (1,2):
@@ -288,9 +276,9 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
             print('WARNING : peakdetector will be slow install opencl')
             params['peak_detector']['engine'] = 'numpy'
         
-        params['extract_waveforms']['mode'] = 'rand_by_channel'
+        params['peak_sampler']['mode'] = 'rand_by_channel'
         #~ params['extract_waveforms']['nb_max_by_channel'] = 700
-        params['extract_waveforms']['nb_max_by_channel'] = 1500
+        params['peak_sampler']['nb_max_by_channel'] = 1500
         
         
         params['feature_method'] = 'pca_by_channel'

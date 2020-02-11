@@ -39,12 +39,14 @@ import matplotlib.pyplot as plt
 
 
 class PeelerEngineGeometrical(PeelerEngineGeneric):
-    def change_params(self, adjacency_radius_um=200, **kargs):
+    def change_params(self, adjacency_radius_um=100, high_adjacency_radius_um=50, **kargs):
         PeelerEngineGeneric.change_params(self, **kargs)
         
         assert self.use_sparse_template
         
-        self.adjacency_radius_um = adjacency_radius_um
+        self.adjacency_radius_um = adjacency_radius_um # for waveform distance
+        #~ self.high_adjacency_radius_um = high_adjacency_radius_um # for possible template around
+        
         self.shifts = np.arange(-self.maximum_jitter_shift, self.maximum_jitter_shift+1)
 
         
@@ -530,6 +532,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         
     
     def _plot_label_unclassified(self, left_ind, peak_chan, cluster_idx, jitter):
+        return
         print('LABEL UNCLASSIFIED', left_ind, cluster_idx)
         fig, ax = plt.subplots()
         

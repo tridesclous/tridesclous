@@ -33,9 +33,11 @@ except:
 
 
 class PruningShears:
-    def __init__(self, waveforms, 
+    def __init__(self,  
                         features,
-                        detection_channel_indexes,
+                        channel_to_features,
+                        peaks,
+                        peak_index,
                         noise_features,
                         n_left, n_right,
                         peak_sign, threshold,
@@ -44,6 +46,7 @@ class PruningShears:
                         #~ channel_adjacency,
                         #~ channel_distances,
                         dense_mode,
+                        catalogueconstructor, # for get_some_waveform TODO find betetr
                         
                         high_adjacency_radius_um = 30,
                         
@@ -58,9 +61,11 @@ class PruningShears:
                         debug_plot=False
                         ):
         
-        self.waveforms = waveforms
+   
         self.features = features
-        self.detection_channel_indexes = detection_channel_indexes
+        self.channel_to_features = channel_to_features
+        self.peaks = peaks
+        self.peak_index = peak_index
         self.noise_features = noise_features
         self.n_left = n_left
         self.n_right = n_right
@@ -71,6 +76,8 @@ class PruningShears:
         self.adjacency_radius_um = 50
         self.geometry = geometry
         self.dense_mode =  dense_mode
+        self.catalogueconstructor = catalogueconstructor
+        self.cc = catalogueconstructor
         
         
         
@@ -83,16 +90,18 @@ class PruningShears:
         self.print_debug = print_debug
         self.max_per_cluster_for_median = max_per_cluster_for_median
         self.n_components_local_pca = n_components_local_pca
-
-        nb_channel = self.waveforms.shape[2]
+        
+        self.nb_channel = self.channel_to_features.shape[0]
+        
         self.channel_distances = sklearn.metrics.pairwise.euclidean_distances(geometry)
+        
         self.channel_adjacency = {}
-        for c in range(nb_channel):
+        for c in range(self.nb_channel):
             nearest, = np.nonzero(self.channel_distances[c, :] < self.adjacency_radius_um)
             self.channel_adjacency[c] = nearest
         
         self.channel_high_adjacency = {}
-        for c in range(nb_channel):
+        for c in range(self.nb_channel):
             nearest, = np.nonzero(self.channel_distances[c, :] < self.high_adjacency_radius_um)
             self.channel_high_adjacency[c] = nearest
         
@@ -110,25 +119,29 @@ class PruningShears:
     
     def do_the_job(self):
         cluster_labels = self.explore_split_loop()
-        #~ t0 = time.perf_counter()
+        t0 = time.perf_counter()
         cluster_labels = self.try_oversplit(cluster_labels)
-        #~ t1 = time.perf_counter()
-        #~ print('try_oversplit', t1-t0)
+        t1 = time.perf_counter()
+        self.log('try_oversplit', t1-t0)
+        
+        t0 = time.perf_counter()
         cluster_labels = self.merge_and_clean(cluster_labels)
+        t1 = time.perf_counter()
+        self.log('merge_and_clean', t1-t0)
+        
         return cluster_labels
     
     def next_channel(self, mask_loop, chan_visited):
         self.log('next_channel percentiles', 'peak_max.size', np.sum(mask_loop))
         self.log('chan_visited', chan_visited)
         
-        peak_max = self.all_peak_max[mask_loop, :]
+        #~ peak_max = self.all_peak_max[mask_loop, :]
         
-        #~ self.detection_channel_indexes[mask_loop]
+        #~ self.peaks['channel'][mask_loop]
         
         
-        nb_channel = self.waveforms.shape[2]
-        percentiles = np.zeros(nb_channel)
-        for c in range(nb_channel):
+        percentiles = np.zeros(self.nb_channel)
+        for c in range(self.nb_channel):
             if c in chan_visited:
                 continue
             
@@ -147,9 +160,10 @@ class PruningShears:
                 #~ per = 0
             #~ percentiles[c] = per
             
-            mask = self.detection_channel_indexes[mask_loop] == c
+            mask = self.peaks['channel'][mask_loop] == c
             #~ print(mask.size, peak_max.shape)
-            x = peak_max[mask, :][:, c]
+            #~ x = peak_max[mask, :][:, c]
+            x = np.abs(self.peaks['extremum_amplitude'][mask_loop][mask])
             if x.size >self.min_cluster_size:
                 per = np.nanpercentile(x, 90)
             else:
@@ -251,9 +265,13 @@ class PruningShears:
                 ind = ind[sub_sel]
             
             if self.dense_mode:
-                centroid = np.median(self.waveforms[ind, :, :], axis=0)
+                #~ centroid = np.median(self.waveforms[ind, :, :], axis=0)
+                #~ get_some_waveforms(self, peaks_index=None, channel_indexes=None)
+                raise NotImplementedError
             else:
-                centroid = np.median(self.waveforms[ind, :, :][:, :, local_channels], axis=0)
+                #~ centroid = np.median(self.waveforms[ind, :, :][:, :, local_channels], axis=0)
+                wfs = self.cc.get_some_waveforms( peaks_index=self.peak_index[ind], channel_indexes=local_channels)
+                centroid = np.median(wfs, axis=0)
             
             local_centroids[label] = centroid
             
@@ -311,14 +329,14 @@ class PruningShears:
     
     def explore_split_loop(self):
         #~ print('all_peak_max')
-        ind_peak = -self.n_left
-        self.all_peak_max = self.waveforms[:, ind_peak, : ].copy()
-        if self.peak_sign == '-' :
-            self.all_peak_max *= -1
+        #~ ind_peak = -self.n_left
+        #~ self.all_peak_max = self.waveforms[:, ind_peak, : ].copy()
+        #~ if self.peak_sign == '-' :
+            #~ self.all_peak_max *= -1
         
         #~ print('all_peak_max done')
         
-        nb_channel = self.waveforms.shape[2]
+        #~ nb_channel = self.waveforms.shape[2]
         
         if self.dense_mode:
             # global pca so no sparse used
@@ -326,12 +344,12 @@ class PruningShears:
             
         else:
             # general case 
-            n_components_by_channel = self.features.shape[1] // nb_channel
+            n_components_by_channel = self.features.shape[1] // self.nb_channel
             
             #~ self.weights_feat_chans = {}
             self.mask_feat_per_chan = {}
             self.mask_feat_per_adj = {}
-            for chan in range(nb_channel):
+            for chan in range(self.nb_channel):
                 adjacency = self.channel_adjacency[chan]
                 
                 # mask feature per channel
@@ -356,7 +374,7 @@ class PruningShears:
         
         force_next_chan = None
         
-        cluster_labels = np.zeros(self.waveforms.shape[0], dtype='int64')
+        cluster_labels = np.zeros(self.features.shape[0], dtype='int64')
         last_nb_remain = cluster_labels.size
         
         k = 0
@@ -444,7 +462,7 @@ class PruningShears:
             else:
                 #~ peak_max = self.all_peak_max[mask_loop, :]
                 #~ mask_thresh[mask_loop] = peak_max[:, actual_chan] > self.threshold
-                mask_thresh[mask_loop] = np.in1d(self.detection_channel_indexes[mask_loop], high_adjacency)
+                mask_thresh[mask_loop] = np.in1d(self.peaks['channel'][mask_loop], high_adjacency)
                 
             self.log('mask_loop.size', mask_loop.size, 'mask_loop.sum', mask_loop.sum(), 'mask_thresh.sum', mask_thresh.sum())
             
@@ -492,59 +510,66 @@ class PruningShears:
                 possible_labels_l0 = possible_labels_l0[possible_labels_l0>=0]
                 
                 # instead of experimental save trash
-                #~ if len(possible_labels_l0) == 0:
-                    #~ self.log('Add noise do not work, explore other channel')
-                    #~ force_next_chan = None
-                    #~ chan_visited.append(actual_chan)
-                    #~ final_label = None
-                    #~ self._plot_debug(actual_chan, ind_l0, features_l0, labels_l0, possible_labels_l0, candidate_labels_l0, final_label)
-                    #~ continue
-            
-            if len(possible_labels_l0) == 0:
-                # experimental!!!!!!
-
-                pca =  sklearn.decomposition.IncrementalPCA(n_components=2, whiten=True)
-                reduced_features = pca.fit_transform(wf_features)
-                
-                pval = diptest(np.sort(reduced_features[:, 0]), numt=200)
-                
-                if pval is not None and pval>0.2:
-                    self.log('len(possible_labels_l0) == 0 BUT diptest pval', pval)
-
-                    if self.dense_mode:
-                        wf_l0 = self.waveforms.take(ind_l0, axis=0)
-                    else:
-                        mask_feat = self.mask_feat_per_adj[actual_chan]
-                        wf_l0 = self.waveforms.take(ind_l0, axis=0).take(adjacency, axis=2)
-                    centroid = np.median(wf_l0, axis=0)
-                    centroid = centroid[np.newaxis, :, :]
-                    out_up = np.any(np.any(wf_l0 > centroid + 4, axis=2), axis=1)
-                    out_dw = np.any(np.any(wf_l0 < centroid - 4, axis=2), axis=1)
-                    ok = ~out_up & ~out_dw
-                    if np.sum(ok) < self.min_cluster_size:
-                        self.log('!!!!!!! Not save trash!!!!!! np.sum(ok)', np.sum(ok))
-                        force_next_chan = None
-                        chan_visited.append(actual_chan)
-                        final_label = None
-                        candidate_labels_l0 = None
-                        self._plot_debug(actual_chan, ind_l0, features_l0, labels_l0, possible_labels_l0, candidate_labels_l0, final_label)
-                        continue
-                    labels_l0[ok] = 0
-                    labels_l0[~ok] = -1
-                    possible_labels_l0 = np.array([0], dtype='int64')
-                else:
-                    self.log('len(possible_labels_l0) == 0 AND diptest pval', pval, 'no cluster at all')
+                if len(possible_labels_l0) == 0:
                     if self.dense_mode:
                         self.log('no more with dense mode')
                         break
                     else:
+                
+                        self.log('Add noise do not work, explore other channel')
                         force_next_chan = None
                         chan_visited.append(actual_chan)
-                        #TODO dip test ????
-                        self.log('len(possible_labels_l0) == 0')
                         final_label = None
                         self._plot_debug(actual_chan, ind_l0, features_l0, labels_l0, possible_labels_l0, candidate_labels_l0, final_label)
                         continue
+            
+            #~ if len(possible_labels_l0) == 0:
+                #~ # experimental!!!!!!
+                #~ pca =  sklearn.decomposition.IncrementalPCA(n_components=2, whiten=True)
+                #~ reduced_features = pca.fit_transform(wf_features)
+                
+                #~ pval = diptest(np.sort(reduced_features[:, 0]), numt=200)
+                
+                #~ if pval is not None and pval>0.2:
+                    #~ self.log('len(possible_labels_l0) == 0 BUT diptest pval', pval)
+
+                    #~ if self.dense_mode:
+                        #~ wf_l0 = self.waveforms.take(ind_l0, axis=0)
+                    #~ else:
+                        #~ mask_feat = self.mask_feat_per_adj[actual_chan]
+                        #~ wf_l0 = self.waveforms.take(ind_l0, axis=0).take(adjacency, axis=2)
+                    #~ centroid = np.median(wf_l0, axis=0)
+                    #~ centroid = centroid[np.newaxis, :, :]
+                    #~ out_up = np.any(np.any(wf_l0 > centroid + 4, axis=2), axis=1)
+                    #~ out_dw = np.any(np.any(wf_l0 < centroid - 4, axis=2), axis=1)
+                    #~ ok = ~out_up & ~out_dw
+                    #~ if np.sum(ok) < self.min_cluster_size:
+                        #~ self.log('!!!!!!! Not save trash!!!!!! np.sum(ok)', np.sum(ok))
+                        #~ force_next_chan = None
+                        #~ chan_visited.append(actual_chan)
+                        #~ final_label = None
+                        #~ candidate_labels_l0 = None
+                        #~ self._plot_debug(actual_chan, ind_l0, features_l0, labels_l0, possible_labels_l0, candidate_labels_l0, final_label)
+                        #~ continue
+                    #~ labels_l0[ok] = 0
+                    #~ labels_l0[~ok] = -1
+                    #~ possible_labels_l0 = np.array([0], dtype='int64')
+                #~ else:
+                    #~ self.log('len(possible_labels_l0) == 0 AND diptest pval', pval, 'no cluster at all')
+                    #~ if self.dense_mode:
+                        #~ self.log('no more with dense mode')
+                        #~ break
+                    #~ else:
+                        #~ force_next_chan = None
+                        #~ chan_visited.append(actual_chan)
+                        #~ #TODO dip test ????
+                        #~ self.log('len(possible_labels_l0) == 0')
+                        #~ final_label = None
+                        #~ self._plot_debug(actual_chan, ind_l0, features_l0, labels_l0, possible_labels_l0, candidate_labels_l0, final_label)
+                        #~ continue
+
+
+
             
             
             self.log('possible_labels_l0', possible_labels_l0)
@@ -735,7 +760,10 @@ class PruningShears:
         ax = axs[1, 0]
         adjacency = self.channel_adjacency[actual_chan]
         
-        wf_adj = self.waveforms[:,:, adjacency][ind_l0, :, :]
+        #~ wf_adj = self.waveforms[:,:, adjacency][ind_l0, :, :]
+        wf_adj = self.cc.get_some_waveforms(self.peak_index[ind_l0], channel_indexes=adjacency)
+        
+        
         if possible_labels_l0 is not None:
             for l, label in enumerate([-1] + possible_labels_l0.tolist()):
                 sel = label == labels_l0
@@ -781,7 +809,9 @@ class PruningShears:
             
             ax.set_title('keep size {}'.format(np.sum(sel)))
             
-            wf_adj = self.waveforms[:,:, adjacency][ind_l0, :, :][sel]
+            #~ wf_adj = self.waveforms[:,:, adjacency][ind_l0, :, :][sel]
+            wf_adj = self.cc.get_some_waveforms(self.peak_index[ind_l0], channel_indexes=adjacency)[sel]
+            
             m = wf_adj.mean(axis=0)
 
             if wf_adj.shape[0] > 400:
@@ -798,7 +828,9 @@ class PruningShears:
             ax.set_title('trash size {}'.format(np.sum(sel)))
             
             if np.sum(sel) > 0:
-                wf_adj = self.waveforms[:,:, adjacency][ind_l0, :, :][sel]
+                #~ wf_adj = self.waveforms[:,:, adjacency][ind_l0, :, :][sel]
+                wf_adj = self.cc.get_some_waveforms(self.peak_index[ind_l0], channel_indexes=adjacency)[sel]
+                
                 if wf_adj.shape[0] > 400:
                     wf_adj = wf_adj[:400, :, :]
                 ax.plot(wf_adj.swapaxes(1,2).reshape(wf_adj.shape[0], -1).T, color='k', alpha=0.1)

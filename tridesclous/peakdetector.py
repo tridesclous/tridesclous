@@ -173,9 +173,9 @@ class PeakDetectorGlobalNumpy(BasePeakDetector):
         
         if time_ind_peaks.size>0:
             time_ind_peaks = time_ind_peaks + pos - newbuf.shape[0] -2*self.n_span
-            return time_ind_peaks, chan_ind_peaks
+            return time_ind_peaks, chan_ind_peaks, None
 
-        return None, None
+        return None, None, None
     
     def get_mask_peaks_in_chunk(self, fifo_residuals):
         # this is used by peeler which handle externaly
@@ -216,9 +216,9 @@ class PeakDetectorGlobalOpenCL(BasePeakDetector, OpenCL_Helper):
         if time_ind_peaks.size>0:
             time_ind_peaks += pos - self.chunksize - self.n_span
             chan_ind_peaks = None# not in this method
-            return time_ind_peaks, chan_ind_peaks
+            return time_ind_peaks, chan_ind_peaks, None
         
-        return None, None
+        return None, None, None
     
     def reset_fifo_index(self):
         pass
@@ -385,12 +385,13 @@ class PeakDetectorGeometricalNumpy(BasePeakDetector):
         
         mask_peaks = self.get_mask_peaks_in_chunk(sigs)
         time_ind_peaks, chan_ind_peaks = np.nonzero(mask_peaks)
+        peak_val_peaks = sigs[time_ind_peaks+self.n_span, chan_ind_peaks]
 
         if time_ind_peaks.size>0:
             time_ind_peaks += (pos - newbuf.shape[0] - self.n_span)
-            return time_ind_peaks, chan_ind_peaks
+            return time_ind_peaks, chan_ind_peaks, peak_val_peaks
 
-        return None, None
+        return None, None, None
     
     def get_mask_peaks_in_chunk(self, fifo_residuals):
         
@@ -453,13 +454,14 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
         
         mask_peaks = self.get_mask_peaks_in_chunk(sigs)
         time_ind_peaks, chan_ind_peaks = np.nonzero(mask_peaks)
-
+        peak_val_peaks = sigs[time_ind_peaks+self.n_span, chan_ind_peaks]
 
         if time_ind_peaks.size>0:
             time_ind_peaks += (pos - newbuf.shape[0] - self.n_span)
-            return time_ind_peaks, chan_ind_peaks
+            
+            return time_ind_peaks, chan_ind_peaks, peak_val_peaks
 
-        return None, None
+        return None, None, None
     
     def get_mask_peaks_in_chunk(self, fifo_residuals):
 
