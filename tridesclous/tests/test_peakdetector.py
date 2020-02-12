@@ -176,7 +176,7 @@ def test_compare_offline_online_engines():
             #~ print(i)
             pos = (i+1)*chunksize
             chunk = sigs[pos-chunksize:pos,:]
-            time_ind_peaks, chan_peak_index = peakdetector.process_data(pos, chunk)
+            time_ind_peaks, chan_peak_index, peak_val_peaks = peakdetector.process_data(pos, chunk)
             #~ print(n_peaks)
             if time_ind_peaks is not None:
                 #~ all_online_peaks.append(chunk_peaks['index'])
@@ -311,7 +311,7 @@ def benchmark_speed():
         for i in range(nloop):
             pos = (i+1)*chunksize
             chunk = normed_sigs[pos-chunksize:pos,:]
-            time_ind_peaks, chan_peak_index = peakdetector.process_data(pos, chunk)
+            time_ind_peaks, chan_peak_index, peak_val_peaks = peakdetector.process_data(pos, chunk)
             if time_ind_peaks is not None:
                 peak_inds.append(time_ind_peaks)
                 
@@ -385,7 +385,7 @@ def test_peak_sign_symetry():
                 #~ print(i)
                 pos = (i+1)*chunksize
                 chunk = sigs[pos-chunksize:pos,:]
-                time_ind_peaks, chan_peak_index = peakdetector.process_data(pos, chunk)
+                time_ind_peaks, chan_peak_index, peak_val_peaks = peakdetector.process_data(pos, chunk)
                 #~ print(n_peaks)
                 #~ print(chunk_peaks)
                 if time_ind_peaks is not None:
