@@ -412,7 +412,6 @@ class PruningShears:
             if self.dense_mode:
                 actual_chan = 0
             else:
-                
                 if force_next_chan is None:
                     actual_chan = self.next_channel(mask_loop,  chan_visited)
                 elif force_next_chan is not None and force_next_chan in chan_visited:
@@ -650,9 +649,21 @@ class PruningShears:
             
             # remove trash : TODO
             #~ if not self.dense_mode:
-            ind_trash_label = ind_l0[labels_l0 == -1]
-            self.log('ind_trash_label.shape', ind_trash_label.shape)
-            cluster_labels[ind_trash_label] = -1
+            #~ if len(possible_labels_l0) > 2:
+            if True:
+                # put -1 labels to trash
+                ind_trash_label = ind_l0[labels_l0 == -1]
+                cluster_labels[ind_trash_label] = -1
+                self.log('trash -1 n=', ind_trash_label.shape)
+                
+                #~ # put peak_is_on_chan=True / aligned False
+                #~ bad_labels = possible_labels_l0[~peak_is_aligned & peak_is_on_chan]
+                # put aligned False
+                bad_labels = possible_labels_l0[~peak_is_aligned]
+                ind_trash_label = ind_l0[np.in1d(labels_l0, bad_labels)]
+                self.log('trash bad_labels for trash', bad_labels, 'n=', ind_trash_label.size)
+                cluster_labels[ind_trash_label] = -1
+                
 
 
             ind_new_label = ind_l0[final_label == labels_l0]
