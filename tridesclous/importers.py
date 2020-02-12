@@ -163,13 +163,11 @@ def import_from_spykingcircus(data_filename, spykingcircus_dirname, tdc_dirname)
     n_right = int(N_t*sample_rate/1000.)//2
     n_left = -n_right
     
-    t1 = time.perf_counter()
-    cc.extract_some_waveforms(n_left=n_left, n_right=n_right,   mode='rand', nb_max=10000)
-    cc.clean_waveforms(alien_value_threshold=100.)
-    t2 = time.perf_counter()
-    print('extract_some_waveforms', t2-t1)
-    
-    cc.project(method='peak_max')
+    cc.set_waveform_extractor_params(n_left=n_left, n_right=n_right)
+    cc.sample_some_peaks( mode='rand', nb_max=10000)
+
+    cc.extract_some_noise()
+    cc.extract_some_features(method='peak_max')
     
     self.all_peaks['cluster_label'][cc.some_peaks_index] = all_peaks[cc.some_peaks_index]['cluster_label']
     cc.on_new_cluster()
@@ -259,7 +257,7 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_clust
         if indexes.size>spike_per_cluster:
             keep = np.random.choice(indexes.size, spike_per_cluster, replace=False)
             indexes = indexes[keep]
-        wfs = dataio.get_some_waveforms(seg_num=0, chan_grp=0, sample_indexes=indexes, n_left=n_left, n_right=n_right)
+        wfs = dataio.get_some_waveforms(seg_num=0, chan_grp=0, peak_sample_indexes=indexes, n_left=n_left, n_right=n_right)
         wf0 = np.median(wfs, axis=0)
         # maybe use '-' or '+'
         chan_max = np.argmax(np.max(np.abs(wf0), axis=0))
@@ -310,10 +308,14 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_clust
             inds = inds[incluster_sel]
         global_keep[inds] = True
     index, = np.nonzero(global_keep)
-    cc.extract_some_waveforms(n_left=n_left, n_right=n_right, index=index, recompute_all_centroid=False)
-    cc.clean_waveforms(**params['clean_waveforms'], recompute_all_centroid=False)
+
+    cc.set_waveform_extractor_params(n_left=n_left, n_right=n_right)
+    
+    t1 = time.perf_counter()
+    cc.sample_some_peaks(mode='force', index=index)
     t2 = time.perf_counter()
-    print('extract_some_waveforms', t2-t1)
+    print('sample_some_peaks', t2-t1)
+    
     
     cc.extract_some_features(method=params['feature_method'], **params['feature_kargs'])
     

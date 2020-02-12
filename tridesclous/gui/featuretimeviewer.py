@@ -104,11 +104,13 @@ class FeatureTimeViewer(WidgetBase):
         selected_slice = slice(np.min(ind_selected), np.max(ind_selected)+1)
         
         if self.params['metric'] == 'max_peak_value':
-            if self.controller.some_waveforms is None:
+            if self.controller.spikes is None:
                 return
             else:
                 # all_waveforms = self.controller.some_waveforms[selected]  #<<<<slow
-                all_waveforms = self.controller.some_waveforms[selected_slice]
+                #~ all_waveforms = self.controller.some_waveforms[selected_slice]
+                extremum_amplitude = self.controller.spikes[selected_slice]['extremum_amplitude']
+                
         if self.params['metric'] == 'feat_0':
             if self.controller.some_features is None:
                 return
@@ -116,8 +118,8 @@ class FeatureTimeViewer(WidgetBase):
                 # all_features = self.controller.some_features[selected]   #<<<<slow
                 all_features = self.controller.some_features[selected_slice]
 
-        d = self.controller.info['waveform_extractor_params']
-        n_left, n_right = d['n_left'], d['n_right']
+        #~ d = self.controller.info['waveform_extractor_params']
+        #~ n_left, n_right = d['n_left'], d['n_right']
         
         for k in visibles:
             #~ self.controller.some
@@ -129,7 +131,9 @@ class FeatureTimeViewer(WidgetBase):
                 c = self.controller.get_extremum_channel(k)
                 if c is None:
                     continue
-                y = all_waveforms[keep, -n_left, c]
+                #~ y = all_waveforms[keep, -n_left, c]
+                y = extremum_amplitude[keep]
+                
             elif self.params['metric'] == 'feat_0':
                 y = all_features[keep, 0]
             

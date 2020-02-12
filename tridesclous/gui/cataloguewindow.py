@@ -126,15 +126,18 @@ class CatalogueWindow(QT.QMainWindow):
         self.act_redetect_peak = QT.QAction('New peaks', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
         self.act_redetect_peak.triggered.connect(self.redetect_peak)
 
-        self.act_new_waveforms = QT.QAction('New waveforms', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
-        self.act_new_waveforms.triggered.connect(self.new_waveforms)
+        #~ self.act_new_waveforms = QT.QAction('New waveforms', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        #~ self.act_new_waveforms.triggered.connect(self.new_waveforms)
 
-        self.act_clean_waveforms = QT.QAction('Clean waveforms', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
-        self.act_clean_waveforms.triggered.connect(self.clean_waveforms)
+        #~ self.act_clean_waveforms = QT.QAction('Clean waveforms', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        #~ self.act_clean_waveforms.triggered.connect(self.clean_waveforms)
 
-        self.act_new_noise_snippet = QT.QAction('New noise snippet', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
-        self.act_new_noise_snippet.triggered.connect(self.new_noise_snippet)
+        #~ self.act_new_noise_snippet = QT.QAction('New noise snippet', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        #~ self.act_new_noise_snippet.triggered.connect(self.new_noise_snippet)
 
+        self.act_new_waveform_sample = QT.QAction('New waveform sample', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
+        self.act_new_waveform_sample.triggered.connect(self.new_waveform_sample)
+        
         self.act_new_features = QT.QAction('New features', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
         self.act_new_features.triggered.connect(self.new_features)
 
@@ -162,9 +165,9 @@ class CatalogueWindow(QT.QMainWindow):
         self.toolbar.addAction(self.act_refresh)
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.act_redetect_peak)
-        self.toolbar.addAction(self.act_new_waveforms)
-        self.toolbar.addAction(self.act_clean_waveforms)
-        self.toolbar.addAction(self.act_new_noise_snippet)
+        #~ self.toolbar.addAction(self.act_new_waveforms)
+        #~ self.toolbar.addAction(self.act_clean_waveforms)
+        #~ self.toolbar.addAction(self.act_new_noise_snippet)
         self.toolbar.addAction(self.act_new_features)
         self.toolbar.addAction(self.act_new_cluster)
         self.toolbar.addAction(self.act_compute_metrics)
@@ -221,30 +224,35 @@ class CatalogueWindow(QT.QMainWindow):
             self.controller.init_plot_attributes()
         self.refresh()
     
-    def new_waveforms(self):
-        dia = ParamDialog(gui_params.waveforms_params)
-        dia.resize(450, 500)
-        if dia.exec_():
-            d = dia.get()
-            self.catalogueconstructor.extract_some_waveforms(**d)
+    #~ def new_waveforms(self):
+        #~ dia = ParamDialog(gui_params.waveforms_params)
+        #~ dia.resize(450, 500)
+        #~ if dia.exec_():
+            #~ d = dia.get()
+            #~ self.catalogueconstructor.extract_some_waveforms(**d)
             
-            self.refresh()
+            #~ self.refresh()
 
-    def clean_waveforms(self):
-        dia = ParamDialog(gui_params.clean_waveforms_params)
-        dia.resize(450, 500)
-        if dia.exec_():
-            d = dia.get()
-            self.catalogueconstructor.clean_waveforms(**d)
-            self.refresh()
+    #~ def clean_waveforms(self):
+        #~ dia = ParamDialog(gui_params.clean_waveforms_params)
+        #~ dia.resize(450, 500)
+        #~ if dia.exec_():
+            #~ d = dia.get()
+            #~ self.catalogueconstructor.clean_waveforms(**d)
+            #~ self.refresh()
 
-    def new_noise_snippet(self):
-        dia = ParamDialog(gui_params.noise_snippet_params)
-        dia.resize(450, 500)
-        if dia.exec_():
-            d = dia.get()
-            self.catalogueconstructor.extract_some_noise(**d)
-        self.refresh()
+    #~ def new_noise_snippet(self):
+        #~ dia = ParamDialog(gui_params.noise_snippet_params)
+        #~ dia.resize(450, 500)
+        #~ if dia.exec_():
+            #~ d = dia.get()
+            #~ self.catalogueconstructor.extract_some_noise(**d)
+        #~ self.refresh()
+    
+    def new_waveform_sample(self):
+        # waveform + sampler + noise
+        print('TODO')
+        
 
     def new_features(self):
         method, kargs = open_dialog_methods(gui_params.features_params_by_methods, self)

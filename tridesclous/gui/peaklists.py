@@ -18,7 +18,7 @@ class PeakModel(QT.QAbstractItemModel):
         self.refresh_colors()
     
     def columnCount(self , parentIndex):
-        return 5
+        return 6
         
     def rowCount(self, parentIndex):
         if not parentIndex.isValid() and self.controller.spike_label is not None:
@@ -59,6 +59,7 @@ class PeakModel(QT.QAbstractItemModel):
         peak_time = peak_pos/self.controller.dataio.sample_rate
         peak_label = self.controller.spike_label[abs_ind]
         peak_chan = self.controller.spike_channel[abs_ind]
+        peak_ampl = self.controller.spikes[abs_ind]['extremum_amplitude']
         
         
         if role ==QT.Qt.DisplayRole :
@@ -72,6 +73,8 @@ class PeakModel(QT.QAbstractItemModel):
                 return '{}'.format(peak_label)
             elif col == 4:
                 return '{}'.format(peak_chan)
+            elif col == 5:
+                return '{:.1f}'.format(peak_ampl)
             else:
                 return None
         elif role == QT.Qt.DecorationRole :
@@ -90,7 +93,7 @@ class PeakModel(QT.QAbstractItemModel):
 
     def headerData(self, section, orientation, role):
         if orientation == QT.Qt.Horizontal and role == QT.Qt.DisplayRole:
-            return  ['num', 'seg_num', 'time', 'cluster_label', 'channel'][section]
+            return  ['num', 'seg_num', 'time', 'cluster_label', 'channel', 'amplitude'][section]
         return
     
     def refresh_colors(self):
@@ -156,11 +159,11 @@ class PeakList(WidgetBase):
     def refresh(self):
         self.model.refresh_colors()
         nb_peak = self.controller.spikes.size
-        if self.controller.some_waveforms is not None:
-            nb_wf = self.controller.some_waveforms.shape[0]
+        if self.controller.some_peaks_index is not None:
+            nb_sampled = self.controller.some_peaks_index.shape[0]
         else:
-            nb_wf = 0
-        self.label_title.setText('<b>All peaks {} - Nb waveforms {}</b>'.format(nb_peak, nb_wf))
+            nb_sampled = 0
+        self.label_title.setText('<b>All peaks {} - Nb sampled {}</b>'.format(nb_peak, nb_sampled))
     
     def on_tree_selection(self):
         self.controller.spike_selection[:] = False

@@ -51,7 +51,7 @@ _persistent_metrics = ('spike_waveforms_similarity', 'cluster_similarity',
 _centroids_arrays = ('centroids_median', 'centroids_mad', 'centroids_mean', 'centroids_std', 'centroids_sparse_mask', )
 
 
-_reset_after_waveforms_arrays = ('some_features', 'channel_to_features', 'some_noise_snippet',
+_reset_after_peak_sampler = ('some_features', 'channel_to_features', 'some_noise_snippet',
                 'some_noise_index', 'some_noise_features',) + _persistent_metrics + _centroids_arrays
 
 #~ _reset_after_peak_arrays = ('some_peaks_index', 'some_waveforms', 'some_features',
@@ -59,7 +59,8 @@ _reset_after_waveforms_arrays = ('some_features', 'channel_to_features', 'some_n
                         #~ 'some_noise_index', 'some_noise_snippet', 'some_noise_features',
                         #~ ) + _persistent_metrics + _centroids_arrays
 
-_reset_after_peak_arrays = ('some_peaks_index', 'some_waveforms', 'some_waveforms_sparse_mask') + _reset_after_waveforms_arrays
+# 'some_waveforms', 'some_waveforms_sparse_mask'
+_reset_after_peak_arrays = ('some_peaks_index', ) + _reset_after_peak_sampler
 
 
 
@@ -729,7 +730,7 @@ class CatalogueConstructor:
         self.flush_info()
         
         self.projector = None
-        self._reset_arrays(_reset_after_waveforms_arrays)
+        self._reset_arrays(_reset_after_peak_sampler)
     
     def sample_some_peaks(self, mode='rand', 
                             nb_max=10000, nb_max_by_channel=1000, index=None):
@@ -1020,7 +1021,7 @@ class CatalogueConstructor:
         #~ self.flush_info()
         
         #~ self.projector = None
-        #~ self._reset_arrays(_reset_after_waveforms_arrays)
+        #~ self._reset_arrays(_reset_after_peak_sampler)
         
         #~ self.all_peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
         #~ self.all_peaks['cluster_label'][self.some_peaks_index] = 0

@@ -59,6 +59,7 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
         'chunksize': 1024,
         'mode': mode,
         'adjacency_radius_um': adjacency_radius_um,
+        'memory_mode': 'memmap',
         
         'preprocessor' : {
             'highpass_freq' : 300.,
@@ -76,11 +77,15 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
         'extract_waveforms' : {
             'wf_left_ms' : -2.5,
             'wf_right_ms' : 4.0,
+            #~ 'nb_max' : 10000,
+        },
+        'peak_sampler':{
+            'mode': 'rand',
             'nb_max' : 10000,
         },
-        'clean_waveforms' : {
-            'alien_value_threshold' : 60.,
-        },
+        #~ 'clean_waveforms' : {
+            #~ 'alien_value_threshold' : 60.,
+        #~ },
         'noise_snippet' : {
             'nb_snippet' : 300,
         },

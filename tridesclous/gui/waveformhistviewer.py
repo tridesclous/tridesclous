@@ -128,7 +128,7 @@ class WaveformHistViewer(WidgetBase):
         self.refresh()
     
     def initialize_plot(self):
-        if self.controller.some_waveforms is None:
+        if self.controller.some_peaks_index is None:
             return
         
         self.viewBox = MyViewBox()
@@ -165,32 +165,49 @@ class WaveformHistViewer(WidgetBase):
             #~ self.params['bin_min'] = np.percentile(wfs, .001)
             #~ self.params['bin_max'] = np.percentile(wfs, 99.999)
         
-        ind, = np.nonzero(self.controller.spike_label[self.controller.some_peaks_index]>=0)
-        n_left, n_right = self.controller.get_waveform_left_right()
-        if ind.size > 0:
-            if ind.size > 1000:
-                ind = ind[np.random.choice(ind.size, 1000, replace=False)]
-            mins, maxs = [], []
-            for c in range(self.controller.nb_channel):
-                #~ wfs = self.controller.some_waveforms[:, -n_left, c].take(ind, axis=0)
-                wfs = self.controller.some_waveforms[:, :, c].take(ind, axis=0)
-                mins.append(np.percentile(wfs, .001))
-                maxs.append(np.percentile(wfs, 99.999))
-            self.params['bin_min'] = min(mins)
-            self.params['bin_max'] = max(maxs)
+        #~ ind, = np.nonzero(self.controller.spike_label[self.controller.some_peaks_index]>=0)
+        #~ n_left, n_right = self.controller.get_waveform_left_right()
+        #~ if ind.size > 0:
+            #~ if ind.size > 1000:
+                #~ ind = ind[np.random.choice(ind.size, 1000, replace=False)]
+            #~ mins, maxs = [], []
+            #~ for c in range(self.controller.nb_channel):
+                #~ wfs = self.controller.some_waveforms[:, :, c].take(ind, axis=0)
+                #~ mins.append(np.percentile(wfs, .001))
+                #~ maxs.append(np.percentile(wfs, 99.999))
+            #~ self.params['bin_min'] = min(mins)
+            #~ self.params['bin_max'] = max(maxs)
             
-            if (self.params['bin_max'] - self.params['bin_min']) < 60:
-                self.params['bin_size'] = 0.1
-            else:
-                self.params['bin_size'] = (self.params['bin_max'] - self.params['bin_min']) / 600
+            #~ if (self.params['bin_max'] - self.params['bin_min']) < 60:
+                #~ self.params['bin_size'] = 0.1
+            #~ else:
+                #~ self.params['bin_size'] = (self.params['bin_max'] - self.params['bin_min']) / 600
+
+        n_left, n_right = self.controller.get_waveform_left_right()
+        
+        #~ get_min_max_centroids
+        #~ peak_sign = self.controller.get_peak_sign()
+        #~ if peak_sign == '+':
+            #~ m = np.max(self.controller.spikes['extremum_amplitude'])
+            #~ self.params['bin_min'] = min(-m / 10,  -5.)
+            #~ self.params['bin_max'] = m * 1.2
+        #~ elif peak_sign == '-':
+            #~ m = np.min(self.controller.spikes['extremum_amplitude'])
+            #~ self.params['bin_min'] = m * 1.2
+            #~ self.params['bin_max'] = max(-m / 10,  5.)
+        
+        self.wf_min, self.wf_max = self.controller.get_min_max_centroids()
+        self.params['bin_min'] = self.wf_min * 1.2
+        self.params['bin_max'] = self.wf_max * 1.2
+        
+        if (self.params['bin_max'] - self.params['bin_min']) < 60:
+            self.params['bin_size'] = 0.1
+        else:
+            self.params['bin_size'] = (self.params['bin_max'] - self.params['bin_min']) / 600
         
         self.params.blockSignals(False)
-                
-
-        
-
-        
-        
+    
+    
     def gain_zoom(self, v):
         #~ print('v', v)
         levels = self.image.getLevels()
@@ -255,11 +272,13 @@ class WaveformHistViewer(WidgetBase):
             ind_keep = ind_keep[sub_sel]
         
         if self.params['data']=='waveforms':
-            wf = self.controller.some_waveforms
-            if wf is None:
+            #~ wf = self.controller.some_waveforms
+            #~ if wf is None:
+            if self.controller.some_peaks_index is None:
                 self.plot.clear()
                 return
-            data_kept = wf[ind_keep,:,:][:, :, common_channels]#.copy()
+            #~ data_kept = wf[ind_keep,:,:][:, :, common_channels]#.copy()
+            data_kept = self.controller.get_some_waveforms(peaks_index=self.controller.some_peaks_index[ind_keep], channel_indexes=common_channels)
             if data_kept.size == 0:
                 self.plot.clear()
                 return

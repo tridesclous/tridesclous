@@ -37,7 +37,7 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     cc = catalogueconstructor
     
     # global params
-    d = {k:params[k] for k in ('chunksize', 'mode', 'adjacency_radius_um')}
+    d = {k:params[k] for k in ('chunksize', 'mode', 'adjacency_radius_um', 'memory_mode')}
     
     cc.set_global_params(**d)
     
@@ -85,25 +85,12 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
 
     cc.set_waveform_extractor_params(**params['extract_waveforms'])
     
-    #~ mode='rand_by_channel', nb_max_by_channel=1000, index=None
     t1 = time.perf_counter()
     cc.sample_some_peaks(**params['peak_sampler'])
     t2 = time.perf_counter()
     if verbose:
         print('sample_some_peaks', t2-t1)
     
-    #~ t1 = time.perf_counter()
-    #~ waveforms = cc.get_some_waveforms(peaks_index=cc.some_peaks_index[:])
-    #~ waveforms = cc.get_some_waveforms()
-    #~ print(waveforms.shape)
-    #~ t2 = time.perf_counter()
-    #~ print('get_some_waveforms', t2-t1)
-    
-    #~ t1 = time.perf_counter()
-    #~ cc.extract_some_features(method=params['feature_method'], **params['feature_kargs'])
-    #~ t2 = time.perf_counter()
-    #~ print('project', t2-t1)
-
     t1 = time.perf_counter()
     cc.extract_some_noise(**params['noise_snippet'])
     t2 = time.perf_counter()
@@ -141,6 +128,7 @@ _default_catalogue_params = {
     'mode': 'dense', # 'sparse'
     'adjacency_radius_um': None, # None when sparse
     'sparse_threshold': None, # 1.5
+    'memory_mode': 'memmap',
     
     'preprocessor': {
         'highpass_freq': 300.,
