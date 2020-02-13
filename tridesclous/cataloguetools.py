@@ -161,9 +161,9 @@ _default_catalogue_params = {
         'nb_max': 20000,
         'nb_max_by_channel': None,
     },
-    'clean_waveforms': {
-        'alien_value_threshold': None,
-    },
+    #~ 'clean_waveforms': {
+        #~ 'alien_value_threshold': None,
+    #~ },
     'feature_method': 'peak_max',
     'feature_kargs': {},
     'cluster_method': 'sawchaincut',

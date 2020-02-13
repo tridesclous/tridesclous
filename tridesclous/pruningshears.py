@@ -519,6 +519,8 @@ class PruningShears:
                         force_next_chan = None
                         chan_visited.append(actual_chan)
                         final_label = None
+                        candidate_labels_l0 = None
+                        final_label = None
                         self._plot_debug(actual_chan, ind_l0, features_l0, labels_l0, possible_labels_l0, candidate_labels_l0, final_label)
                         continue
             
