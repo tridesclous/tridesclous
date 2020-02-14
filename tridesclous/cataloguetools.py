@@ -204,8 +204,32 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
     if params['duration'] * 2 > seg0_duration:
         params['duration'] = seg0_duration
     
+    #~ if nb_chan == 1:
+        #~ params['mode'] = 'dense'
+        #~ params['adjacency_radius_um'] = 0.
+        #~ params['sparse_threshold'] = 1.5
+        
+        #~ params['peak_detector']['method'] = 'global'
+        #~ params['peak_detector']['engine'] = 'numpy'
+        #~ params['peak_detector']['smooth_radius_um' ] = None
+
+
+        #~ params['peak_sampler']['mode'] = 'rand'
+        #~ params['peak_sampler']['nb_max'] = 20000
+        
+        #~ params['feature_method'] = 'global_pca'
+        #~ params['feature_kargs'] = {'n_components' : 4 }
+        
+        #~ params['cluster_method'] = 'dbscan_with_noise'
+        #~ params['cluster_kargs'] = {}
+        
+
+        #~ params['clean_cluster'] = True
+        #~ params['clean_cluster_kargs'] = {'too_small' : 20 }        
     
+    #~ elif nb_chan <=4:
     if nb_chan <=4:
+    #~ if nb_chan <=8:
     
         params['mode'] = 'dense'
         params['adjacency_radius_um'] = 0.

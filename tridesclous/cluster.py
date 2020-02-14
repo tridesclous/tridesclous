@@ -100,6 +100,12 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
             kargs['min_cluster_size'] = 20
         clusterer = hdbscan.HDBSCAN(**kargs)
         labels = clusterer.fit_predict(features)
+    elif  method == 'dbscan_with_noise':
+        assert selection is None
+        features = np.concatenate([cc.some_noise_features, features], axis=0)
+        clusterer = hdbscan.HDBSCAN(**kargs)
+        labels = clusterer.fit_predict(features)
+        labels = labels[cc.some_noise_features.shape[0]:]
         
     elif  method == 'optics':
         optic = sklearn.cluster.OPTICS(**kargs)
