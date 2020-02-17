@@ -277,10 +277,9 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         if HAVE_PYOPENCL:
             params['peak_detector']['engine'] = 'opencl'
         elif HAVE_NUMBA:
-            print('WARNING : peakdetector will be slow install opencl')
             params['peak_detector']['engine'] = 'numba'
         else:
-            print('WARNING : peakdetector will be slow install opencl')
+            print('WARNING : peakdetector will be slow install opencl or numba')
             params['peak_detector']['engine'] = 'numpy'
         
         params['peak_sampler']['mode'] = 'rand_by_channel'

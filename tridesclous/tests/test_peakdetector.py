@@ -268,10 +268,10 @@ def benchmark_speed():
     #~ sigs = np
     
     #***for testing large channels num***
-    #~ sigs = np.tile(sigs, (1, 20))
-    #~ normed_sigs = np.tile(normed_sigs, (1, 20))
-    #~ geometry = np.zeros((sigs.shape[1], 2), dtype='float64')
-    #~ geometry[:, 0] = np.arange(sigs.shape[1]) * 50.
+    sigs = np.tile(sigs, (1, 20))
+    normed_sigs = np.tile(normed_sigs, (1, 20))
+    geometry = np.zeros((sigs.shape[1], 2), dtype='float64')
+    geometry[:, 0] = np.arange(sigs.shape[1]) * 50.
     #***
     
     
@@ -279,13 +279,13 @@ def benchmark_speed():
     print('nb_channel', nb_channel)
 
     engine_names = [
-        ('global', 'numpy'),
-        ('geometrical', 'numpy'),
-        #~ ('geometrical', 'numba'),
+        #~ ('global', 'numpy'),
+        #~ ('geometrical', 'numpy'),
+        ('geometrical', 'numba'),
     ]
     if HAVE_PYOPENCL:
         engine_names += [
-            ('global', 'opencl'),
+            #~ ('global', 'opencl'),
             ('geometrical', 'opencl'),
         ]
 
@@ -357,19 +357,20 @@ def test_peak_sign_symetry():
     engine_names = [
         ('global', 'numpy'),
         ('geometrical', 'numpy'),
-        #~ ('geometrical', 'numba'),
+        ('geometrical', 'numba'),
     ]
     if HAVE_PYOPENCL:
         engine_names += [
             ('global', 'opencl'),
             ('geometrical', 'opencl'),
         ]
-
     online_peaks = {}
     for method, engine in engine_names:
         peakdetector = get_peak_detector_class(method, engine)(*args)
         
+        
         for peak_sign in ['-', '+']:
+        
 
             if peak_sign=='-':
                 sigs = normed_sigs
@@ -385,6 +386,7 @@ def test_peak_sign_symetry():
                 #~ print(i)
                 pos = (i+1)*chunksize
                 chunk = sigs[pos-chunksize:pos,:]
+                #~ print(chunk.shape)
                 time_ind_peaks, chan_peak_index, peak_val_peaks = peakdetector.process_data(pos, chunk)
                 #~ print(n_peaks)
                 #~ print(chunk_peaks)
@@ -401,13 +403,13 @@ def test_peak_sign_symetry():
     
     if HAVE_PYOPENCL:
         assert np.array_equal(online_peaks['global', 'numpy', '-'], online_peaks['global', 'opencl', '-'])
-        #~ assert np.array_equal(online_peaks['geometrical', 'numpy', '-'], online_peaks['geometrical', 'numba', '-'])
+        assert np.array_equal(online_peaks['geometrical', 'numpy', '-'], online_peaks['geometrical', 'numba', '-'])
+        
         
         # TODO this should be totally equal
         # assert np.array_equal(online_peaks['geometrical', 'numpy', '-'], online_peaks['geometrical', 'opencl', '-'])
-    
-    
-        
+        # assert np.array_equal(online_peaks['geometrical', 'numba', '-'], online_peaks['geometrical', 'opencl', '-'])
+
     
 
     

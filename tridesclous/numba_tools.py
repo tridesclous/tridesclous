@@ -30,6 +30,7 @@ def numba_loop_sparse_dist(waveform, centers,  mask):
     
 @jit(parallel=True)
 def numba_loop_sparse_dist_with_geometry(waveform, centers,  mask, possibles_cluster_idx, channels):
+    # TODO this is differents from opencl version
     nb_total_clus, width, nb_chan = centers.shape
     nb_clus = possibles_cluster_idx.size
     
@@ -75,37 +76,56 @@ def numba_explore_shifts(long_waveform, one_center,  one_mask, maximum_jitter_sh
     return all_dist
 
 
+
+
 @jit(parallel=True)
+def peak_loop_plus(sigs, sig_center, mask_peaks, n_span, thresh, peak_sign, neighbours):
+    for chan in prange(sig_center.shape[1]):
+        for s in range(mask_peaks.shape[0]):
+            for neighbour in neighbours[chan, :]:
+                if neighbour<0:
+                    continue
+                for i in range(n_span):
+                    if chan != neighbour:
+                        mask_peaks[s, chan] &= sig_center[s, chan] >= sig_center[s, neighbour]
+                    mask_peaks[s, chan] &= sig_center[s, chan] > sigs[s+i, neighbour]
+                    mask_peaks[s, chan] &= sig_center[s, chan]>=sigs[n_span+s+i+1, neighbour]
+                    if mask_peaks[s, chan] == 0:
+                        break
+                if mask_peaks[s, chan] == 0:
+                    break
+    return mask_peaks
+
+@jit(parallel=True)
+def peak_loop_minus(sigs, sig_center, mask_peaks, n_span, thresh, peak_sign, neighbours):
+    for chan in prange(sig_center.shape[1]):
+        for s in range(mask_peaks.shape[0]):
+            for neighbour in neighbours[chan, :]:
+                if neighbour<0:
+                    continue
+                for i in range(n_span):
+                    if chan != neighbour:
+                        mask_peaks[s, chan] &= sig_center[s, chan] <= sig_center[s, neighbour]
+                    mask_peaks[s, chan] &= sig_center[s, chan] < sigs[s+i, neighbour]
+                    mask_peaks[s, chan] &= sig_center[s, chan]<=sigs[n_span+s+i+1, neighbour]                        
+                    if mask_peaks[s, chan] == 0:
+                        break
+                if mask_peaks[s, chan] == 0:
+                    break
+    return mask_peaks
+
+
 def numba_get_mask_spatiotemporal_peaks(sigs, n_span, thresh, peak_sign, neighbours):
     sig_center = sigs[n_span:-n_span, :]
 
     if peak_sign == '+':
         mask_peaks = sig_center>thresh
-        for s in prange(mask_peaks.shape[0]):
-            for chan in prange(sigs.shape[1]):
-                for neighbour in neighbours[chan, :]:
-                    if neighbour<0:
-                        continue
-                    for i in range(n_span):
-                        if chan != neighbour:
-                            mask_peaks[s, chan] &= sig_center[s, chan] >= sig_center[:, neighbour]
-                        mask_peaks[s, chan] &= sig_center[s, chan] > sigs[s+i, neighbour]
-                        mask_peaks[s, chan] &= sig_center[s, chan]>=sigs[n_span+s+i+1, neighbour]                        
+        mask_peaks = peak_loop_plus(sigs, sig_center, mask_peaks, n_span, thresh, peak_sign, neighbours)
 
     elif peak_sign == '-':
         mask_peaks = sig_center<-thresh
-        
-        for s in prange(mask_peaks.shape[0]):
-            for chan in prange(sigs.shape[1]):
-                for neighbour in neighbours[chan, :]:
-                    if neighbour<0:
-                        continue
-                    for i in range(n_span):
-                        if chan != neighbour:
-                            mask_peaks[s, chan] &= sig_center[s, chan] <= sig_center[s, neighbour]
-                        mask_peaks[s, chan] &= sig_center[s, chan] < sigs[s+i, neighbour]
-                        mask_peaks[s, chan] &= sig_center[s, chan]<=sigs[n_span+s+i+1, neighbour]                        
-    
+        mask_peaks = peak_loop_minus(sigs, sig_center, mask_peaks, n_span, thresh, peak_sign, neighbours)
+
     return mask_peaks
 
 
