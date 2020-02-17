@@ -88,7 +88,8 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
 
             #~ mask[:] = 0
             self.sparse_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask.astype('u1'))
-
+            self.high_sparse_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.high_sparse_mask.astype('u1'))
+            
             rms_waveform_channel = np.zeros(nb_channel, dtype='float32')
             self.rms_waveform_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=rms_waveform_channel)
             
@@ -316,7 +317,9 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             pyopencl.enqueue_copy(self.queue,  self.one_waveform_cl, waveform)
             pyopencl.enqueue_copy(self.queue,  self.rms_waveform_channel_cl, rms_waveform_channel)
             event = self.kern_waveform_distance(self.queue,  self.cl_global_size, self.cl_local_size,
-                        self.one_waveform_cl, self.catalogue_center_cl, self.sparse_mask_cl, 
+                        self.one_waveform_cl, self.catalogue_center_cl,
+                        #~ self.sparse_mask_cl,
+                        self.high_sparse_mask_cl,
                         self.rms_waveform_channel_cl, self.waveform_distance_cl,  self.channel_distances_cl, 
                         self.adjacency_radius_um_cl, np.int32(chan_ind))
             pyopencl.enqueue_copy(self.queue,  self.waveform_distance, self.waveform_distance_cl)
@@ -358,7 +361,10 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                 #~ shift = None
             #~ else:
             
-            s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
+            s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  
+                                                    #~ self.sparse_mask, 
+                                                    self.high_sparse_mask, 
+                                                    possibles_cluster_idx, self.channels_adjacency[chan_ind])
             cluster_idx = possibles_cluster_idx[np.argmin(s)]
             shift = None
             # explore shift
