@@ -44,7 +44,7 @@ class CatalogueWindow(QT.QMainWindow):
         self.clusterlist = ClusterPeakList(controller=self.controller)
         self.ndscatter = NDScatter(controller=self.controller)
         self.waveformviewer = WaveformViewer(controller=self.controller)
-        self.spikesimilarityview = SpikeSimilarityView(controller=self.controller)
+        #~ self.spikesimilarityview = SpikeSimilarityView(controller=self.controller)
         self.clustersimilarityview = ClusterSimilarityView(controller=self.controller)
         self.clusterratiosimilarityview = ClusterRatioSimilarityView(controller=self.controller)
         self.pairlist = PairList(controller=self.controller)
@@ -87,27 +87,31 @@ class CatalogueWindow(QT.QMainWindow):
         self.tabifyDockWidget(docks['pairlist'], docks['clusterlist'])
         
         #on bottom left
-        docks['spikesimilarityview'] = QT.QDockWidget('spikesimilarityview',self)
-        docks['spikesimilarityview'].setWidget(self.spikesimilarityview)
-        self.addDockWidget(QT.Qt.LeftDockWidgetArea, docks['spikesimilarityview'])
+        #~ docks['spikesimilarityview'] = QT.QDockWidget('spikesimilarityview',self)
+        #~ docks['spikesimilarityview'].setWidget(self.spikesimilarityview)
+        #~ self.addDockWidget(QT.Qt.LeftDockWidgetArea, docks['spikesimilarityview'])
 
         docks['clustersimilarityview'] = QT.QDockWidget('clustersimilarityview',self)
         docks['clustersimilarityview'].setWidget(self.clustersimilarityview)
-        self.tabifyDockWidget(docks['spikesimilarityview'], docks['clustersimilarityview'])
+        #~ self.tabifyDockWidget(docks['spikesimilarityview'], docks['clustersimilarityview'])
+        self.addDockWidget(QT.Qt.LeftDockWidgetArea, docks['clustersimilarityview'])
 
         docks['clusterratiosimilarityview'] = QT.QDockWidget('clusterratiosimilarityview',self)
         docks['clusterratiosimilarityview'].setWidget(self.clusterratiosimilarityview)
-        self.tabifyDockWidget(docks['spikesimilarityview'], docks['clusterratiosimilarityview'])
+        #~ self.tabifyDockWidget(docks['spikesimilarityview'], docks['clusterratiosimilarityview'])
+        self.tabifyDockWidget(docks['clustersimilarityview'], docks['clusterratiosimilarityview'])
         
 
         docks['silhouette'] = QT.QDockWidget('silhouette',self)
         docks['silhouette'].setWidget(self.silhouette)
-        self.tabifyDockWidget(docks['spikesimilarityview'], docks['silhouette'])
+        #~ self.tabifyDockWidget(docks['spikesimilarityview'], docks['silhouette'])
+        self.tabifyDockWidget(docks['clustersimilarityview'], docks['silhouette'])
         
         
         docks['ndscatter'] = QT.QDockWidget('ndscatter',self)
         docks['ndscatter'].setWidget(self.ndscatter)
-        self.tabifyDockWidget(docks['spikesimilarityview'], docks['ndscatter'])
+        #~ self.tabifyDockWidget(docks['spikesimilarityview'], docks['ndscatter'])
+        self.tabifyDockWidget(docks['clustersimilarityview'], docks['ndscatter'])
         
         self.create_actions()
         self.create_toolbar()
@@ -282,7 +286,7 @@ class CatalogueWindow(QT.QMainWindow):
         dia.resize(450, 500)
         if dia.exec_():
             d = dia.get()
-            self.catalogueconstructor.compute_spike_waveforms_similarity(method=d['spike_waveforms_similarity'], size_max=d['size_max'])
+            #~ self.catalogueconstructor.compute_spike_waveforms_similarity(method=d['spike_waveforms_similarity'], size_max=d['size_max'])
             self.catalogueconstructor.compute_cluster_similarity(method=d['cluster_similarity'])
             self.catalogueconstructor.compute_cluster_ratio_similarity(method=d['cluster_ratio_similarity'])
             self.catalogueconstructor.compute_spike_silhouette(size_max=d['size_max'])

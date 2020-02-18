@@ -9,6 +9,7 @@ import pytest
 
 import shutil
 import os
+import time
 
 
 def setup_module():
@@ -25,10 +26,25 @@ def test_all_metrics():
     dataio = DataIO(dirname='test_metrics')
     cc = CatalogueConstructor(dataio=dataio)
     
-    cc.compute_spike_waveforms_similarity()
+    #~ cc.compute_spike_waveforms_similarity()
+    
+    t0 = time.perf_counter()
     cc.compute_cluster_similarity()
+    t1 = time.perf_counter()
+    print('compute_cluster_similarity', t1-t0)
+    print(cc.cluster_similarity)
+    
+    t0 = time.perf_counter()
     cc.compute_cluster_ratio_similarity()
+    t1 = time.perf_counter()
+    print('compute_cluster_ratio_similarity', t1-t0)
+    print(cc.cluster_ratio_similarity)
+    
+    t0 = time.perf_counter()
     cc.compute_spike_silhouette()
+    t1 = time.perf_counter()
+    print('compute_spike_silhouette', t1-t0)
+    print(cc.spike_silhouette)
 
     
 
@@ -53,7 +69,7 @@ def test_cluster_ratio():
 
 
 if __name__ == '__main__':
-    setup_module()
+    #~ setup_module()
     
     test_all_metrics()
     test_cluster_ratio()

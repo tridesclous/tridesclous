@@ -78,54 +78,23 @@ def test_catalogue_constructor():
             
             # redetect peak
             cc.re_detect_peak(method=peak_method, engine=peak_engine,
-                                                peak_sign='-', relative_threshold=5, peak_span_ms=0.2,
+                                                peak_sign='-', relative_threshold=5, peak_span_ms=0.7,
                                                 adjacency_radius_um=adjacency_radius_um)
             for seg_num in range(dataio.nb_segment):
                 mask = cc.all_peaks['segment']==seg_num
                 print('seg_num', seg_num, 'nb peak',  np.sum(mask))
-
-            
-            
-            #~ t1 = time.perf_counter()
-            #~ cc.extract_some_waveforms(n_left=-25, n_right=40, mode='rand', nb_max=5000)
-            #~ cc.extract_some_waveforms(wf_left_ms=-2.5, wf_right_ms=4.0, mode='rand', nb_max=5000)
-            #~ t2 = time.perf_counter()
-            #~ print('extract_some_waveforms rand', t2-t1)
-            #~ print(cc.some_waveforms.shape)
-
-            #~ t1 = time.perf_counter()
-            #~ cc.find_good_limits()
-            #~ t2 = time.perf_counter()
-            #~ print('find_good_limits', t2-t1)
-            #~ print(cc.some_waveforms.shape)
-            
-            #~ t1 = time.perf_counter()
-            #~ cc.clean_waveforms()
-            #~ t2 = time.perf_counter()
-            #~ print('find_good_limits', t2-t1)
-            
-            
-
-            #~ t1 = time.perf_counter()
-            #~ cc.extract_some_waveforms(n_left=None, n_right=None, mode='rand', nb_max=5000)
-            #~ t2 = time.perf_counter()
-            #~ print('extract_some_waveforms rand', t2-t1)
-            #~ print(cc.some_waveforms.shape)
-            
-            #~ t1 = time.perf_counter()
-            #~ cc.clean_waveforms(alien_value_threshold=60.)
-            #~ t2 = time.perf_counter()
-            #~ print('clean_waveforms', t2-t1)
-
 
             cc.set_waveform_extractor_params(n_left=-25, n_right=40)
 
             t1 = time.perf_counter()
             cc.clean_peaks(alien_value_threshold=100, mode='extremum_amplitude')
             t2 = time.perf_counter()
-            print('clean_peaks', t2-t1)
-            
-            
+            print('clean_peaks extremum_amplitude', t2-t1)
+
+            t1 = time.perf_counter()
+            cc.clean_peaks(alien_value_threshold=100, mode='full_waveform')
+            t2 = time.perf_counter()
+            print('clean_peaks full_waveforms', t2-t1)
             
             t1 = time.perf_counter()
             cc.sample_some_peaks( mode='rand', nb_max=5000)
@@ -143,32 +112,32 @@ def test_catalogue_constructor():
             print('extract_some_noise', t2-t1)
             
             
-            # PCA
-            t1 = time.perf_counter()
-            cc.extract_some_features(method='global_pca', n_components=7, batch_size=16384)
-            t2 = time.perf_counter()
-            print('project pca', t2-t1)
+            if mode == 'dense':
+                # PCA
+                t1 = time.perf_counter()
+                cc.extract_some_features(method='global_pca', n_components=12)
+                t2 = time.perf_counter()
+                print('project pca', t2-t1)
 
-
-            # peak_max
-            #~ t1 = time.perf_counter()
-            #~ cc.project(method='peak_max')
-            #~ t2 = time.perf_counter()
-            #~ print('project peak_max', t2-t1)
-            #~ print(cc.some_features.shape)
-
-            #~ t1 = time.perf_counter()
-            #~ cc.extract_some_waveforms(index=np.arange(1000))
-            #~ t2 = time.perf_counter()
-            #~ print('extract_some_waveforms others', t2-t1)
-            #~ print(cc.some_waveforms.shape)
-
+                # cluster
+                t1 = time.perf_counter()
+                cc.find_clusters(method='kmeans', n_clusters=11)
+                t2 = time.perf_counter()
+                print('find_clusters', t2-t1)
             
-            # cluster
-            t1 = time.perf_counter()
-            cc.find_clusters(method='kmeans', n_clusters=11)
-            t2 = time.perf_counter()
-            print('find_clusters', t2-t1)
+            elif mode == 'sparse':
+            
+                # PCA
+                t1 = time.perf_counter()
+                cc.extract_some_features(method='pca_by_channel', n_components_by_channel=3)
+                t2 = time.perf_counter()
+                print('project pca', t2-t1)
+
+                # cluster
+                t1 = time.perf_counter()
+                cc.find_clusters(method='pruningshears')
+                t2 = time.perf_counter()
+                print('find_clusters', t2-t1)
             
             print(cc)
 
@@ -271,7 +240,9 @@ def compare_nb_waveforms():
     axs[0].set_title('median')
     axs[1].set_title('mean')
     plt.show()        
-    
+
+
+
 
 def test_make_catalogue():
     dataio = DataIO(dirname='test_catalogueconstructor')
@@ -279,17 +250,17 @@ def test_make_catalogue():
     cc = CatalogueConstructor(dataio=dataio)
 
     #~ cc.make_catalogue()
-    cc.make_catalogue_for_peeler()
+    cc.make_catalogue_for_peeler(max_per_cluster=1000)
     
-    #~ for i, k in cc.catalogue['label_to_index'].items():
+    for i, k in cc.catalogue['label_to_index'].items():
     
-        #~ fig, ax = plt.subplots()
-        #~ ax.plot(cc.catalogue['centers0'][i, :, :].T.flatten(), color='b')
-        #~ ax.plot(cc.catalogue['centers1'][i, :, :].T.flatten(), color='g')
-        #~ ax.plot(cc.catalogue['centers2'][i, :, :].T.flatten(), color='r')
+        fig, ax = plt.subplots()
+        ax.plot(cc.catalogue['centers0'][i, :, :].T.flatten(), color='b')
+        ax.plot(cc.catalogue['centers1'][i, :, :].T.flatten(), color='g')
+        ax.plot(cc.catalogue['centers2'][i, :, :].T.flatten(), color='r')
         
     
-    #~ plt.show()
+    plt.show()
     
 
 
@@ -324,7 +295,7 @@ def debug_interp_centers0():
 
     
 if __name__ == '__main__':
-    test_catalogue_constructor()
+    #~ test_catalogue_constructor()
     
     #~ compare_nb_waveforms()
     

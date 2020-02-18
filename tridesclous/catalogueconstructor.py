@@ -754,19 +754,26 @@ class CatalogueConstructor:
                     index_over, = np.nonzero(self.all_peaks['extremum_amplitude'] >= alien_value_threshold)
                 elif peak_sign == '-':
                     index_over, = np.nonzero(self.all_peaks['extremum_amplitude'] <= -alien_value_threshold)
-                self.all_peaks['cluster_label'][index_over] = labelcodes.LABEL_ALIEN
-            elif mode == 'full_waveform':
-                raise NotImplementedError
-                # need to load all waveforms
                 
-                # over = np.any(np.abs(self.some_waveforms)>alien_value_threshold, axis=(1,2)) # BAD IDEA copye evrything in mem
-                #~ over1 = np.any(self.some_waveforms>alien_value_threshold, axis=(1,2))
-                #~ over2 = np.any(self.some_waveforms<-alien_value_threshold, axis=(1,2))
-                #~ over = over1 | over2
-                #~ index_over = self.some_peaks_index[over]
-                #~ index_ok = self.some_peaks_index[~over]
-                #~ self.all_peaks['cluster_label'][index_over] = labelcodes.LABEL_ALIEN
-                #~ self.all_peaks['cluster_label'][index_ok] = 0
+            elif mode == 'full_waveform':
+                # need to load all waveforms chunk by chunk
+                alien_mask = np.zeros(self.all_peaks.size, dtype='bool')
+                n = 100000
+                nloop = self.all_peaks.size // n
+                if self.all_peaks.size % n:
+                    nloop += 1
+                for i in range(nloop):
+                    i1, i2 = i, min(i+n, self.all_peaks.size)
+                    peaks_index = np.arange(i1, i2, dtype='int64')
+                    wfs = self.get_some_waveforms(peaks_index=peaks_index, channel_indexes=None)
+                    over1 = np.any(wfs>alien_value_threshold, axis=(1,2))
+                    over2 = np.any(wfs<-alien_value_threshold, axis=(1,2))
+                    over = over1 | over2
+                    alien_mask[i1:i2] = over
+                
+                index_over, = np.nonzero(alien_mask)
+            
+            self.all_peaks['cluster_label'][index_over] = labelcodes.LABEL_ALIEN
 
         self.info['clean_peaks_params'] = dict(alien_value_threshold=alien_value_threshold, mode=mode)
         self.flush_info()
@@ -1538,27 +1545,23 @@ class CatalogueConstructor:
         
         self.pop_labels_from_cluster(to_remove)
 
-    def compute_spike_waveforms_similarity(self, method='cosine_similarity', size_max = 1e7):
-        """This compute the similarity spike by spike.
-        """
-        #~ t1 = time.perf_counter()
-        spike_waveforms_similarity = None
-        if self.some_waveforms is not None:
-            wf = self.some_waveforms
-            wf = wf.reshape(wf.shape[0], -1)
-            if wf.size<size_max:
-                spike_waveforms_similarity = metrics.compute_similarity(wf, method)
+    #~ def compute_spike_waveforms_similarity(self, method='cosine_similarity', size_max = 1e7):
+        #~ """This compute the similarity spike by spike.
+        #~ """
+        #~ spike_waveforms_similarity = None
+        #~ if self.some_waveforms is not None:
+            #~ wf = self.some_waveforms
+            #~ wf = wf.reshape(wf.shape[0], -1)
+            #~ if wf.size<size_max:
+                #~ spike_waveforms_similarity = metrics.compute_similarity(wf, method)
         
-        if spike_waveforms_similarity is None:
-            self.arrays.detach_array('spike_waveforms_similarity')
-            self.spike_waveforms_similarity = None
-        else:
-            self.arrays.add_array('spike_waveforms_similarity', spike_waveforms_similarity.astype('float32'), self.memory_mode)
+        #~ if spike_waveforms_similarity is None:
+            #~ self.arrays.detach_array('spike_waveforms_similarity')
+            #~ self.spike_waveforms_similarity = None
+        #~ else:
+            #~ self.arrays.add_array('spike_waveforms_similarity', spike_waveforms_similarity.astype('float32'), self.memory_mode)
 
-        #~ t2 = time.perf_counter()
-        #~ print('compute_spike_waveforms_similarity', t2-t1)
-        
-        return self.spike_waveforms_similarity
+        #~ return self.spike_waveforms_similarity
 
     def compute_cluster_similarity(self, method='cosine_similarity_with_max'):
         if self.centroids_median is None:
@@ -1666,8 +1669,9 @@ class CatalogueConstructor:
         #~ t1 = time.perf_counter()
         
         spike_silhouette = None
-        wf = self.some_waveforms
-        if wf is not None:
+        #~ wf = self.some_waveforms
+        if self.some_peaks_index is not None:
+            wf = self.get_some_waveforms(peaks_index=self.some_peaks_index)
             wf = wf.reshape(wf.shape[0], -1)
             labels = self.all_peaks['cluster_label'][self.some_peaks_index]
             if wf.size<size_max:
@@ -1778,9 +1782,13 @@ class CatalogueConstructor:
         t1 = time.perf_counter()
         self.catalogue = {}
         
+        n_left = self.info['waveform_extractor_params']['n_left']
+        n_right = self.info['waveform_extractor_params']['n_right']
+        
         self.catalogue = {}
         self.catalogue['chan_grp'] = self.chan_grp
-        n_left = self.catalogue['n_left'] = int(self.info['waveform_extractor_params']['n_left'] +2)
+        # be carefull n_left/n_right are shorter in the catalogue due to derivative
+        self.catalogue['n_left'] = int(self.info['waveform_extractor_params']['n_left'] +2)
         self.catalogue['n_right'] = int(self.info['waveform_extractor_params']['n_right'] -2)
         self.catalogue['peak_width'] = self.catalogue['n_right'] - self.catalogue['n_left']
         
@@ -1798,6 +1806,7 @@ class CatalogueConstructor:
         #~ n, full_width, nchan = self.some_waveforms.shape
         #~ n = self.some_peaks_index.size
         full_width = self.info['waveform_extractor_params']['n_right'] - self.info['waveform_extractor_params']['n_left']
+        catalogue_width = self.catalogue['n_right'] - self.catalogue['n_left']
         #~ nchan = self.nb_channel
         
         centers0 = np.zeros((len(cluster_labels), full_width - 4, self.nb_channel), dtype=self.info['internal_dtype'])
@@ -1812,13 +1821,17 @@ class CatalogueConstructor:
             subsample_ratio = int(np.ceil(200000/self.dataio.sample_rate))
             #~ print('subsample_ratio auto', subsample_ratio)
         
-        subsample = np.arange(1.5, full_width-2.5, 1./subsample_ratio)
+        original_time = np.arange(full_width)
+        #~ subsample_time = np.arange(1.5, full_width-2.5, 1./subsample_ratio)
+        subsample_time = np.arange(0, (full_width-1), 1./subsample_ratio)
+        
         self.catalogue['subsample_ratio'] = subsample_ratio
-        interp_centers0 = np.zeros((len(cluster_labels), subsample.size, self.nb_channel), dtype=self.info['internal_dtype'])
+        interp_centers0 = np.zeros((len(cluster_labels), subsample_ratio*catalogue_width, self.nb_channel), dtype=self.info['internal_dtype'])
         self.catalogue['interp_centers0'] = interp_centers0
         
         #~ print('peak_width', self.catalogue['peak_width'])
         
+        self.catalogue['extremum_channel'] = np.zeros_like(self.catalogue['cluster_labels'])
         self.catalogue['label_to_index'] = {}
         for i, k in enumerate(cluster_labels):
             self.catalogue['label_to_index'][k] = i
@@ -1827,14 +1840,8 @@ class CatalogueConstructor:
             if selected.size>max_per_cluster:
                 keep = np.random.choice(selected.size, max_per_cluster, replace=False)
                 selected = selected[keep]
-            #~ wf = self.some_waveforms[selected, :, :]
             
-            #~ wf0 = self.some_waveforms[self.all_peaks['cluster_label'][self.some_peaks_index]==k]
-            #~ wf0 = self.some_waveforms[selected]
             wf0 = self.get_some_waveforms(peaks_index=self.some_peaks_index[selected])
-            
-            #~ wf0 = wf0.copy()
-            #~ print(wf0.shape, wf0.size)
             
             # compute first and second derivative on dim=1 (time)
             # Note this was the old implementation but too slow
@@ -1855,40 +1862,37 @@ class CatalogueConstructor:
             centers0[i,:,:] = center0[2:-2, :]
             centers1[i,:,:] = np.median(wf1, axis=0)[2:-2, :]
             centers2[i,:,:] = np.median(wf2, axis=0)[2:-2, :]
-            #~ center0 = np.mean(wf0, axis=0)
-            #~ centers0[i,:,:] = center0[2:-2, :]
-            #~ centers1[i,:,:] = np.mean(wf1, axis=0)[2:-2, :]
-            #~ centers2[i,:,:] = np.mean(wf2, axis=0)[2:-2, :]
 
+            extremum_channel = np.argmax(np.abs(center0[-n_left,:]), axis=0)
+            self.catalogue['extremum_channel'][i] = extremum_channel
+            
             #interpolate centers0 for reconstruction inbetween bsample when jitter is estimated
-            f = scipy.interpolate.interp1d(np.arange(full_width), center0, axis=0, kind='cubic', )
-            oversampled_center = f(subsample)
+            f = scipy.interpolate.interp1d(original_time, center0, axis=0, kind='cubic', )
+            oversampled_center = f(subsample_time)
             
             #~ factor = center0.shape[0]
             #~ f = scipy.interpolate.UnivariateSpline(np.arange(full_width), center0, axis=0, k=3, s=factor)
             #~ f = scipy.interpolate.RectBivariateSpline(np.arange(full_width), np.arange(center0.shape[1]), center0, kx=3, ky=1, s=factor)
             #~ oversampled_center = f(subsample, np.arange(center0.shape[1]))
             
-            interp_centers0[i, :, :] = oversampled_center
+            #find max  channel for each cluster for peak alignement
+            ind_max = np.argmax(np.abs(oversampled_center[(-n_left - 1)*subsample_ratio:(-n_left + 1)*subsample_ratio, extremum_channel]))
+            ind_max += (-n_left - 1)*subsample_ratio
+            i1 = int(ind_max + (n_left+1.5) * subsample_ratio)
+            i2 = i1 + subsample_ratio*catalogue_width
+            interp_centers0[i, :, :] = oversampled_center[i1:i2, :]
             
             #~ fig, ax = plt.subplots()
-            #~ ax.plot(np.arange(full_width-4), center0[2:-2, :], color='b', marker='o')
-            #~ ax.plot(subsample-2.,oversampled_center, color='c')
+            #~ ax.plot(np.arange(full_width-4) + 2, center0[2:-2, extremum_channel], color='b', marker='o')
+            #~ ax.plot(subsample_time,oversampled_center[:, extremum_channel], color='c')
+            #~ ax.axvspan(subsample_time[(-n_left - 1)*subsample_ratio], subsample_time[(-n_left + 1)*subsample_ratio], alpha=.2, color='g')
+            #~ ax.axvline(subsample_time[ind_max], color='g')
+            #~ ax.axvline(subsample_time[-n_left*subsample_ratio], color='g')
+            #~ sl = slice(i1, i2)
+            #~ ax.plot(subsample_time[sl],oversampled_center[:, extremum_channel][sl], color='r', ls='--')
             #~ plt.show()
-            
-        #find max  channel for each cluster for peak alignement
-        self.catalogue['extremum_channel'] = np.zeros_like(self.catalogue['cluster_labels'])
-        for i, k in enumerate(cluster_labels):
-            center = self.catalogue['centers0'][i,:,:]
-            self.catalogue['extremum_channel'][i] = np.argmax(np.abs(center[-n_left,:]), axis=0)
         
-        #colors
-        
-        
-        #~ self.catalogue['cluster_colors'] = {}
-        #~ self.catalogue['cluster_colors'].update(self.colors)
-        
-        #params
+        #params propagation
         self.catalogue['signal_preprocessor_params'] = dict(self.info['signal_preprocessor_params'])
         self.catalogue['peak_detector_params'] = dict(self.info['peak_detector_params'])
         self.catalogue['clean_peaks_params'] = dict(self.info['clean_peaks_params'])

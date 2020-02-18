@@ -174,9 +174,9 @@ _default_catalogue_params = {
     #~ 'clean_waveforms': {
         #~ 'alien_value_threshold': None,
     #~ },
-    'feature_method': 'peak_max',
+    'feature_method': 'pca_by_channel',
     'feature_kargs': {},
-    'cluster_method': 'sawchaincut',
+    'cluster_method': 'pruningshears',
     'cluster_kargs': {},
     
     'clean_cluster' : False,

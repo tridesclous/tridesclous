@@ -81,7 +81,7 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
         },
         'clean_peaks' : {
             'alien_value_threshold' : 60.,
-            'mode': 'extremum_amplitude',
+            'mode': 'full_waveform',
         },
         'peak_sampler':{
             'mode': 'rand',
@@ -92,8 +92,10 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
         },
         'feature_method': 'global_pca', 
         'feature_kargs':{'n_components': 5},
-        'cluster_method' : 'kmeans', 
-        'cluster_kargs' : {'n_clusters': 12},
+        #~ 'cluster_method' : 'kmeans', 
+        #~ 'cluster_kargs' : {'n_clusters': 12},
+        'cluster_method' : 'pruningshears', 
+        'cluster_kargs' : {},
         'clean_cluster' : False,
         'clean_cluster_kargs' : {},
     }
