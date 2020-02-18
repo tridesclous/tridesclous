@@ -3,6 +3,8 @@ import numpy as np
 from .myqt import QT
 import pyqtgraph as pg
 
+from ..catalogueconstructor import _default_max_per_cluster
+
 from .cataloguecontroller import CatalogueController
 from .traceviewer import CatalogueTraceViewer
 from .peaklists import PeakList, ClusterPeakList
@@ -25,6 +27,7 @@ import itertools
 import datetime
 import time
 import webbrowser
+from pprint import pprint
 
 class CatalogueWindow(QT.QMainWindow):
     new_catalogue = QT.pyqtSignal(int)
@@ -126,15 +129,6 @@ class CatalogueWindow(QT.QMainWindow):
         self.act_redetect_peak = QT.QAction('New peaks', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
         self.act_redetect_peak.triggered.connect(self.redetect_peak)
 
-        #~ self.act_new_waveforms = QT.QAction('New waveforms', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
-        #~ self.act_new_waveforms.triggered.connect(self.new_waveforms)
-
-        #~ self.act_clean_waveforms = QT.QAction('Clean waveforms', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
-        #~ self.act_clean_waveforms.triggered.connect(self.clean_waveforms)
-
-        #~ self.act_new_noise_snippet = QT.QAction('New noise snippet', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
-        #~ self.act_new_noise_snippet.triggered.connect(self.new_noise_snippet)
-
         self.act_new_waveform_sample = QT.QAction('New waveform sample', self,checkable = False, icon=QT.QIcon(":/configure-shortcuts.svg"))
         self.act_new_waveform_sample.triggered.connect(self.new_waveform_sample)
         
@@ -165,9 +159,7 @@ class CatalogueWindow(QT.QMainWindow):
         self.toolbar.addAction(self.act_refresh)
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.act_redetect_peak)
-        #~ self.toolbar.addAction(self.act_new_waveforms)
-        #~ self.toolbar.addAction(self.act_clean_waveforms)
-        #~ self.toolbar.addAction(self.act_new_noise_snippet)
+        self.toolbar.addAction(self.act_new_waveform_sample)
         self.toolbar.addAction(self.act_new_features)
         self.toolbar.addAction(self.act_new_cluster)
         self.toolbar.addAction(self.act_compute_metrics)
@@ -250,9 +242,27 @@ class CatalogueWindow(QT.QMainWindow):
         #~ self.refresh()
     
     def new_waveform_sample(self):
-        # waveform + sampler + noise
-        print('TODO')
+        params_ = [
+            {'name':'extract_waveforms', 'type':'group', 'children' : gui_params.waveforms_params},
+            {'name':'clean_peaks', 'type':'group', 'children' : gui_params.clean_peaks_params},
+            {'name':'noise_snippet', 'type':'group', 'children': gui_params.noise_snippet_params},
+            {'name':'peak_sampler', 'type':'group', 'children' : gui_params.peak_sampler_params},
+        ]        
         
+        dia = ParamDialog(params_)
+        dia.resize(450, 500)
+        if dia.exec_():
+            d = dia.get()
+            #~ pprint(d)
+            
+            cc = self.catalogueconstructor
+            
+            cc.set_waveform_extractor_params(**d['extract_waveforms'])
+            cc.clean_peaks(**d['clean_peaks'])
+            cc.sample_some_peaks(**d['peak_sampler'])
+            cc.extract_some_noise(**d['noise_snippet'])
+            cc.compute_all_centroid(max_per_cluster=_default_max_per_cluster)
+            self.refresh()
 
     def new_features(self):
         method, kargs = open_dialog_methods(gui_params.features_params_by_methods, self)

@@ -343,13 +343,13 @@ def debug_compare_peeler_engines():
     
     
 if __name__ =='__main__':
-    #~ setup_module()
+    setup_module()
     
     #~ open_catalogue_window()
     
-    #~ test_peeler_classic()
+    test_peeler_classic()
     
-    test_peeler_geometry()
+    #~ test_peeler_geometry()
     
     #~ test_peeler_cl()
     

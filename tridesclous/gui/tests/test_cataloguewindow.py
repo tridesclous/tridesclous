@@ -177,8 +177,8 @@ def test_CatalogueWindow():
 
     cc = CatalogueConstructor(dataio=dataio)
     
-    sel = cc.all_peaks['cluster_label'] == -9
-    print(np.sum(sel))
+    #~ sel = cc.all_peaks['cluster_label'] == -9
+    #~ print(np.sum(sel))
     
     app = mkQApp()
     win = CatalogueWindow(cc)

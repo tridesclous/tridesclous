@@ -771,6 +771,7 @@ class CatalogueConstructor:
         self.info['clean_peaks_params'] = dict(alien_value_threshold=alien_value_threshold, mode=mode)
         self.flush_info()
         self._reset_arrays(_reset_after_peak_sampler)
+        self.on_new_cluster()
 
     
     def sample_some_peaks(self, mode='rand', 
@@ -838,6 +839,9 @@ class CatalogueConstructor:
         
         self.info['peak_sampler_params'] = dict(mode=mode, nb_max=nb_max, nb_max_by_channel=nb_max_by_channel)
         self.flush_info()
+        
+        self.on_new_cluster()
+        
     
     
     def get_some_waveforms(self, peaks_index=None, channel_indexes=None):
@@ -1887,7 +1891,7 @@ class CatalogueConstructor:
         #params
         self.catalogue['signal_preprocessor_params'] = dict(self.info['signal_preprocessor_params'])
         self.catalogue['peak_detector_params'] = dict(self.info['peak_detector_params'])
-        #~ self.catalogue['clean_waveforms_params'] = dict(self.info['clean_waveforms_params'])
+        self.catalogue['clean_peaks_params'] = dict(self.info['clean_peaks_params'])
         self.catalogue['signals_medians'] = np.array(self.signals_medians, copy=True)
         self.catalogue['signals_mads'] = np.array(self.signals_mads, copy=True)
         
