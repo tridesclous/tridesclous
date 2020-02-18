@@ -2,7 +2,7 @@ import numpy as np
 import pyqtgraph as pg
 from pyacq.devices import NumpyDeviceBuffer
 from tridesclous.gui.tools import get_dict_from_group_param
-from tridesclous.gui.gui_params import preprocessor_params, peak_detector_params, clean_waveforms_params
+from tridesclous.gui.gui_params import preprocessor_params, peak_detector_params, clean_peaks_params
 
 from pprint import pprint
 
@@ -16,9 +16,9 @@ peak_detector_params_default = get_dict_from_group_param(
                 pg.parametertree.Parameter.create(name='',
                     type='group', children=peak_detector_params))
 
-clean_waveforms_params_default = get_dict_from_group_param(
+clean_peaks_params_default = get_dict_from_group_param(
                 pg.parametertree.Parameter.create(name='',
-                    type='group', children=clean_waveforms_params))
+                    type='group', children=clean_peaks_params))
 
 
 
@@ -48,7 +48,7 @@ def make_empty_catalogue(chan_grp=0,
                 
                 preprocessor_params={},
                 peak_detector_params={},
-                clean_waveforms_params={},
+                clean_peaks_params={},
                 
                 signals_medians = None,
                 signals_mads = None,
@@ -94,8 +94,8 @@ def make_empty_catalogue(chan_grp=0,
     peak_detector_params_ = dict(peak_detector_params_default)
     peak_detector_params_.update(peak_detector_params)
 
-    clean_waveforms_params_ = dict(clean_waveforms_params_default)
-    clean_waveforms_params_.update(clean_waveforms_params)
+    clean_peaks_params_ = dict(clean_peaks_params_default)
+    clean_peaks_params_.update(clean_peaks_params)
     
     if signals_medians is None:
         signals_medians = signals_medians = np.zeros(nchan, dtype=internal_dtype)
@@ -105,7 +105,7 @@ def make_empty_catalogue(chan_grp=0,
     #params
     catalogue['signal_preprocessor_params'] = preprocessor_params_
     catalogue['peak_detector_params'] = peak_detector_params_
-    catalogue['clean_waveforms_params'] = clean_waveforms_params_
+    catalogue['clean_peaks_params'] = clean_peaks_params_
     catalogue['signals_medians'] = signals_medians
     catalogue['signals_mads'] = signals_mads
     

@@ -447,7 +447,7 @@ class TdcOnlineWindow(MainWindowNode):
             
             preprocessor_params=p['preprocessor'],
             peak_detector_params=p['peak_detector'], #{'relative_threshold' : 8.},
-            clean_waveforms_params=p['clean_waveforms'],
+            clean_peaks_params=p['clean_peaks'],
             
             signals_medians=None,
             signals_mads=None,

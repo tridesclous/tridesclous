@@ -252,15 +252,15 @@ def test_make_catalogue():
     #~ cc.make_catalogue()
     cc.make_catalogue_for_peeler(max_per_cluster=1000)
     
-    for i, k in cc.catalogue['label_to_index'].items():
+    #~ for i, k in cc.catalogue['label_to_index'].items():
     
-        fig, ax = plt.subplots()
-        ax.plot(cc.catalogue['centers0'][i, :, :].T.flatten(), color='b')
-        ax.plot(cc.catalogue['centers1'][i, :, :].T.flatten(), color='g')
-        ax.plot(cc.catalogue['centers2'][i, :, :].T.flatten(), color='r')
+        #~ fig, ax = plt.subplots()
+        #~ ax.plot(cc.catalogue['centers0'][i, :, :].T.flatten(), color='b')
+        #~ ax.plot(cc.catalogue['centers1'][i, :, :].T.flatten(), color='g')
+        #~ ax.plot(cc.catalogue['centers2'][i, :, :].T.flatten(), color='r')
         
     
-    plt.show()
+    #~ plt.show()
     
 
 
@@ -287,15 +287,15 @@ def debug_interp_centers0():
     interp_centers = catalogue['interp_centers0']
     subsample_ratio = catalogue['subsample_ratio']
     
-    fig, ax = plt.subplots()
-    ax.plot(centers[0])
-    ax.plot(np.arange(interp_centers[0].shape[0])/subsample_ratio - 0.5, interp_centers[0])
+    #~ fig, ax = plt.subplots()
+    #~ ax.plot(centers[0])
+    #~ ax.plot(np.arange(interp_centers[0].shape[0])/subsample_ratio - 0.5, interp_centers[0])
     
-    plt.show()
+    #~ plt.show()
 
     
 if __name__ == '__main__':
-    #~ test_catalogue_constructor()
+    test_catalogue_constructor()
     
     #~ compare_nb_waveforms()
     
