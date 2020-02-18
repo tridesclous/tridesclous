@@ -152,6 +152,12 @@ waveforms_params = [
 ]
 
 
+clean_peaks_params = [
+    {'name': 'alien_value_threshold', 'type': 'float', 'value':100.},
+    {'name': 'mode', 'type': 'list', 'values':['extremum_amplitude', ]}, # full_waveform
+]
+
+
 peak_sampler_params = [
     {'name': 'mode', 'type': 'list', 'values':['rand', 'rand_by_channel', 'all']},
     {'name': 'nb_max', 'type': 'int', 'value':20000},
@@ -230,7 +236,7 @@ fullchain_params = [
     {'name':'peak_detector', 'type':'group', 'children': peak_detector_params},
     {'name':'noise_snippet', 'type':'group', 'children': noise_snippet_params},
     {'name':'extract_waveforms', 'type':'group', 'children' : waveforms_params},
-    #~ {'name':'clean_waveforms', 'type':'group', 'children' : clean_waveforms_params},
+    {'name':'clean_peaks', 'type':'group', 'children' : clean_peaks_params},
     {'name':'peak_sampler', 'type':'group', 'children' : peak_sampler_params},
     
     {'name':'clean_cluster', 'type': 'bool', 'value':True},

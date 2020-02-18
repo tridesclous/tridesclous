@@ -79,13 +79,14 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
             'wf_right_ms' : 4.0,
             #~ 'nb_max' : 10000,
         },
+        'clean_peaks' : {
+            'alien_value_threshold' : 60.,
+            'mode': 'extremum_amplitude',
+        },
         'peak_sampler':{
             'mode': 'rand',
             'nb_max' : 10000,
         },
-        #~ 'clean_waveforms' : {
-            #~ 'alien_value_threshold' : 60.,
-        #~ },
         'noise_snippet' : {
             'nb_snippet' : 300,
         },

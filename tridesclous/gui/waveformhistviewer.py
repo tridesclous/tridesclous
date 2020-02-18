@@ -197,8 +197,9 @@ class WaveformHistViewer(WidgetBase):
             #~ self.params['bin_max'] = max(-m / 10,  5.)
         
         self.wf_min, self.wf_max = self.controller.get_min_max_centroids()
-        self.params['bin_min'] = self.wf_min * 1.2
-        self.params['bin_max'] = self.wf_max * 1.2
+        self.params['bin_min'] = min(self.wf_min * 2, -5.)
+        self.params['bin_max'] = max(self.wf_max * 2, 5)
+        
         
         if (self.params['bin_max'] - self.params['bin_min']) < 60:
             self.params['bin_size'] = 0.1

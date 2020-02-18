@@ -398,6 +398,7 @@ class MainWindow(QT.QMainWindow):
         params = {}
         params.update(self.dialog_fullchain_params.get())
         params['memory_mode'] = 'memmap'
+        #~ pprint(params)
         
         method, d = self.dialog_method_features.get()
         params['feature_method'] = method

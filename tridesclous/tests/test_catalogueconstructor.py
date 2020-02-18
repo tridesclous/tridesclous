@@ -27,6 +27,7 @@ def test_catalogue_constructor():
     
     for memory_mode in ['ram', 'memmap']:
         for mode in ['dense', 'sparse']:
+        
             print('*'*5)
             print('memory_mode', memory_mode, 'mode', mode)
 
@@ -118,6 +119,13 @@ def test_catalogue_constructor():
 
 
             cc.set_waveform_extractor_params(n_left=-25, n_right=40)
+
+            t1 = time.perf_counter()
+            cc.clean_peaks(alien_value_threshold=100, mode='extremum_amplitude')
+            t2 = time.perf_counter()
+            print('clean_peaks', t2-t1)
+            
+            
             
             t1 = time.perf_counter()
             cc.sample_some_peaks( mode='rand', nb_max=5000)
@@ -134,11 +142,13 @@ def test_catalogue_constructor():
             t2 = time.perf_counter()
             print('extract_some_noise', t2-t1)
             
+            
             # PCA
             t1 = time.perf_counter()
             cc.extract_some_features(method='global_pca', n_components=7, batch_size=16384)
             t2 = time.perf_counter()
             print('project pca', t2-t1)
+
 
             # peak_max
             #~ t1 = time.perf_counter()
@@ -161,6 +171,8 @@ def test_catalogue_constructor():
             print('find_clusters', t2-t1)
             
             print(cc)
+
+            
             
             # similarity
             #~ cc.compute_centroid()
@@ -312,7 +324,7 @@ def debug_interp_centers0():
 
     
 if __name__ == '__main__':
-    #~ test_catalogue_constructor()
+    test_catalogue_constructor()
     
     #~ compare_nb_waveforms()
     
@@ -321,6 +333,6 @@ if __name__ == '__main__':
     
     #~ test_create_savepoint_catalogue_constructor()
     
-    debug_interp_centers0()
+    #~ debug_interp_centers0()
 
 

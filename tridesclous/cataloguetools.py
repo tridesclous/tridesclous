@@ -86,6 +86,12 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     cc.set_waveform_extractor_params(**params['extract_waveforms'])
     
     t1 = time.perf_counter()
+    cc.clean_peaks(**params['clean_peaks'])
+    t2 = time.perf_counter()
+    if verbose:
+        print('clean_peaks', t2-t1)
+    
+    t1 = time.perf_counter()
     cc.sample_some_peaks(**params['peak_sampler'])
     t2 = time.perf_counter()
     if verbose:
@@ -155,6 +161,10 @@ _default_catalogue_params = {
     'extract_waveforms': {
         'wf_left_ms': -1.5,
         'wf_right_ms': 2.5,
+    },
+    'clean_peaks': {
+        'alien_value_threshold': None,
+        'mode': 'extremum_amplitude',
     },
     'peak_sampler': {
         'mode': 'rand',

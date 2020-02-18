@@ -732,6 +732,47 @@ class CatalogueConstructor:
         self.projector = None
         self._reset_arrays(_reset_after_peak_sampler)
     
+    def clean_peaks(self, alien_value_threshold=200, mode='extremum_amplitude'):
+        """
+        Detect alien peak with very high values.
+        Tag then with alien (label=-9)
+        This prevent then to be selected.
+        Usefull to remove artifact.
+        
+        alien_value_threshold: float or None
+            threhold for alien peak
+        mode='peak_value' / 'full_waveform'
+            'peak_value' use only the peak value very fast because already measured
+            'full_waveform' use the full waveform for this and can be slow.
+        """
+        
+        if alien_value_threshold is not None:
+            peak_sign = self.info['peak_detector_params']['peak_sign']
+            
+            if mode == 'extremum_amplitude':
+                if peak_sign == '+':
+                    index_over, = np.nonzero(self.all_peaks['extremum_amplitude'] >= alien_value_threshold)
+                elif peak_sign == '-':
+                    index_over, = np.nonzero(self.all_peaks['extremum_amplitude'] <= -alien_value_threshold)
+                self.all_peaks['cluster_label'][index_over] = labelcodes.LABEL_ALIEN
+            elif mode == 'full_waveform':
+                raise NotImplementedError
+                # need to load all waveforms
+                
+                # over = np.any(np.abs(self.some_waveforms)>alien_value_threshold, axis=(1,2)) # BAD IDEA copye evrything in mem
+                #~ over1 = np.any(self.some_waveforms>alien_value_threshold, axis=(1,2))
+                #~ over2 = np.any(self.some_waveforms<-alien_value_threshold, axis=(1,2))
+                #~ over = over1 | over2
+                #~ index_over = self.some_peaks_index[over]
+                #~ index_ok = self.some_peaks_index[~over]
+                #~ self.all_peaks['cluster_label'][index_over] = labelcodes.LABEL_ALIEN
+                #~ self.all_peaks['cluster_label'][index_ok] = 0
+
+        self.info['clean_peaks_params'] = dict(alien_value_threshold=alien_value_threshold, mode=mode)
+        self.flush_info()
+        self._reset_arrays(_reset_after_peak_sampler)
+
+    
     def sample_some_peaks(self, mode='rand', 
                             nb_max=10000, nb_max_by_channel=1000, index=None):
         
@@ -759,6 +800,14 @@ class CatalogueConstructor:
             
         else:
             raise(NotImplementedError, 'unknown mode')
+        
+        #remove alien
+        valid = self.all_peaks['cluster_label'][some_peaks_index] != labelcodes.LABEL_ALIEN
+        if mode in ('rand', 'rand_by_channel', 'all'):
+            some_peaks_index = some_peaks_index[valid]
+        else:
+            if np.any(~valid):
+                print('WARNING : sample_some_peaks with mode "froce" but take some alien peaks')
 
         n_left = self.info['waveform_extractor_params']['n_left']
         n_right = self.info['waveform_extractor_params']['n_right']
@@ -781,8 +830,10 @@ class CatalogueConstructor:
         
         # make persistent
         self.arrays.add_array('some_peaks_index', some_peaks_index, self.memory_mode)
-
+        
+        alien_index, = np.nonzero(self.all_peaks['cluster_label'] == labelcodes.LABEL_ALIEN)
         self.all_peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
+        self.all_peaks['cluster_label'][alien_index] = labelcodes.LABEL_ALIEN
         self.all_peaks['cluster_label'][self.some_peaks_index] = 0
         
         self.info['peak_sampler_params'] = dict(mode=mode, nb_max=nb_max, nb_max_by_channel=nb_max_by_channel)
