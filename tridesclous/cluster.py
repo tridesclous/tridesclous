@@ -116,7 +116,7 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         labels = ms.fit_predict(features)
         
     elif method == 'sawchaincut':
-        raise NotImplemenetdError
+        raise NotImplementedError
         #~ n_left = cc.info['waveform_extractor_params']['n_left']
         #~ n_right = cc.info['waveform_extractor_params']['n_right']
         #~ peak_sign = cc.info['peak_detector_params']['peak_sign']

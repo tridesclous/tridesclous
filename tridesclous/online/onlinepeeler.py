@@ -64,13 +64,11 @@ class PeelerThread(ThreadPollInput):
                                                 nb_channel=len(self.in_group_channels),
                                                 source_dtype=self.input_stream().params['dtype'])
             
-            #~ print('self.peeler.total_spike', self.peeler.total_spike)
-            self.peeler.total_spike = buffer_spike_index
-            #~ print('self.peeler.total_spike', self.peeler.total_spike)
+            #~ print('self.peeler.peeler_engine.total_spike', self.peeler.peeler_engine.total_spike)
+            self.peeler.peeler_engine.total_spike = buffer_spike_index
+            #~ print('self.peeler.peeler_engine.total_spike', self.peeler.peeler_engine.total_spike)
             
             
-            
-            # hack the head index of 'spikes' output
             
 
 class OnlinePeeler(Node):

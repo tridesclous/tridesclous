@@ -99,9 +99,9 @@ class TdcOnlineWindow(MainWindowNode):
         
         
         self.dialog_method_features = MethodDialog(features_params_by_methods, parent=self,
-                        title='Which feature method ?', selected_method='peak_max')
+                        title='Which feature method ?', selected_method='global_pca')
         self.dialog_method_cluster = MethodDialog(cluster_params_by_methods, parent=self,
-                        title='Which cluster method ?', selected_method = 'sawchaincut')
+                        title='Which cluster method ?', selected_method = 'pruningshears')
         
         
         
@@ -273,12 +273,11 @@ class TdcOnlineWindow(MainWindowNode):
         if 1<= max(self.nb_channels.values()) <9:
             feat_method = 'global_pca'
         else: 
-            feat_method = 'peak_max'
+            feat_method = 'pca_by_channel'
         self.dialog_method_features.param_method['method'] = feat_method
 
 
     def _initialize(self, **kargs):
-        
         
         self.rtpeelers = {}
         if self.nodegroup_friends is None:
@@ -616,6 +615,8 @@ class TdcOnlineWindow(MainWindowNode):
         params = {}
         params.update(self.dialog_fullchain_params.get())
         params['chunksize'] = self.chunksize
+        params['memory_mode'] = 'memmap'
+        
         
         params['feature_method'] = self.dialog_method_features.param_method['method']
         params['feature_kargs'] = get_dict_from_group_param(self.dialog_method_features.all_params[params['feature_method']], cascade=True)
