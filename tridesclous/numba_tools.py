@@ -29,24 +29,25 @@ def numba_loop_sparse_dist(waveform, centers,  mask):
     
     
 @jit(parallel=True)
-def numba_loop_sparse_dist_with_geometry(waveform, centers,  mask, possibles_cluster_idx, channels):
-    # TODO this is differents from opencl version
+def numba_loop_sparse_dist_with_geometry(waveform, centers,  possibles_cluster_idx, rms_waveform_channel,channel_adjacency):
+    
+    
     nb_total_clus, width, nb_chan = centers.shape
     nb_clus = possibles_cluster_idx.size
     
     rms_waveform_channel = np.sum(waveform**2, axis=0)#.astype('float32')
     waveform_distance = np.zeros((nb_clus,), dtype=np.float32)
     
-    for clus, cluster_idx in enumerate(possibles_cluster_idx):
+    for clus in prange(len(possibles_cluster_idx)):
+        cluster_idx = possibles_cluster_idx[clus]
         sum = 0
-        #~ for c in range(nb_chan):
-        for c in channels:
-            if mask[cluster_idx, c]:
-                for s in range(width):
-                    d = waveform[s, c] - centers[cluster_idx, s, c]
-                    sum += d*d
-            else:
-                sum +=rms_waveform_channel[c]
+        for c in channel_adjacency:
+            #~ if mask[cluster_idx, c]:
+            for s in range(width):
+                d = waveform[s, c] - centers[cluster_idx, s, c]
+                sum += d*d
+            #~ else:
+                #~ sum +=rms_waveform_channel[c]
         waveform_distance[clus] = sum
     
     return waveform_distance
@@ -60,17 +61,12 @@ def numba_explore_shifts(long_waveform, one_center,  one_mask, maximum_jitter_sh
     all_dist = np.zeros((n, ), dtype=np.float32)
     
     for shift in range(n):
-        # waveform = long_waveform[shift:shift+width]
         sum = 0
         for c in range(nb_chan):
             if one_mask[c]:
                 for s in range(width):
                     d = long_waveform[shift+s, c] - one_center[s, c]
                     sum += d*d
-            #~ else:
-                #~ for pos in range(width):
-                    #~ d = long_waveform[shift+s, c]
-                    #~ sum += d*d
         all_dist[shift] = sum
     
     return all_dist

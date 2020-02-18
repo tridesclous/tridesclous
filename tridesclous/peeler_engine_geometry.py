@@ -39,7 +39,7 @@ import matplotlib.pyplot as plt
 
 
 class PeelerEngineGeometrical(PeelerEngineGeneric):
-    def change_params(self, adjacency_radius_um=100, high_adjacency_radius_um=50, **kargs):
+    def change_params(self, adjacency_radius_um=100, **kargs): # high_adjacency_radius_um=50, 
         PeelerEngineGeneric.change_params(self, **kargs)
         
         assert self.use_sparse_template
@@ -354,23 +354,32 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #~ shift = None
         
         elif self.argmin_method == 'numba':
-            possibles_cluster_idx, = np.nonzero(self.sparse_mask[:, chan_ind])
+            rms_waveform_channel = np.sum(waveform**2, axis=0).astype('float32')
             
-            #~ if possibles_cluster_idx.size ==0:
-                #~ cluster_idx = -1
-                #~ shift = None
-            #~ else:
+            #~ possibles_cluster_idx, = np.nonzero(self.sparse_mask[:, chan_ind])
+            possibles_cluster_idx, = np.nonzero(self.high_sparse_mask[:, chan_ind])
             
-            s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  
-                                                    #~ self.sparse_mask, 
-                                                    self.high_sparse_mask, 
-                                                    possibles_cluster_idx, self.channels_adjacency[chan_ind])
-            cluster_idx = possibles_cluster_idx[np.argmin(s)]
-            shift = None
-            # explore shift
-            long_waveform = self.fifo_residuals[left_ind-self.maximum_jitter_shift:left_ind+self.peak_width+self.maximum_jitter_shift+1,:]
-            all_dist = numba_explore_shifts(long_waveform, self.catalogue['centers0'][cluster_idx, : , :],  self.sparse_mask[cluster_idx, :], self.maximum_jitter_shift)
-            shift = self.shifts[np.argmin(all_dist)]
+            if possibles_cluster_idx.size ==0:
+                cluster_idx = -1
+                shift = None
+            else:
+                channel_adjacency = self.channels_adjacency[chan_ind]
+                s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  
+                                                        #~ self.sparse_mask, 
+                                                        possibles_cluster_idx, rms_waveform_channel,channel_adjacency)
+                                                        
+
+                                                        #~ channel_distances,
+                                                        #~ adjacency_radius_um, chan_ind)
+                                                        #~ possibles_cluster_idx, self.channels_adjacency[chan_ind])
+                
+                cluster_idx = possibles_cluster_idx[np.argmin(s)]
+                #~ print('cluster_idx', cluster_idx)
+                shift = None
+                # explore shift
+                long_waveform = self.fifo_residuals[left_ind-self.maximum_jitter_shift:left_ind+self.peak_width+self.maximum_jitter_shift+1,:]
+                all_dist = numba_explore_shifts(long_waveform, self.catalogue['centers0'][cluster_idx, : , :],  self.sparse_mask[cluster_idx, :], self.maximum_jitter_shift)
+                shift = self.shifts[np.argmin(all_dist)]
             
                 #~ print('      shift', shift)
             
@@ -621,7 +630,7 @@ inline void atomic_add_float(volatile __global float *source, const float operan
 
 __kernel void waveform_distance(__global  float *one_waveform,
                                         __global  float *catalogue_center,
-                                        __global  uchar  *sparse_mask,
+                                        __global  uchar  *high_sparse_mask,
                                         __global  float *rms_waveform_channel,
                                         __global  float *waveform_distance,
                                         __global  float *channel_distances,
@@ -634,7 +643,7 @@ __kernel void waveform_distance(__global  float *one_waveform,
     
     
     // the chan_ind do not overlap spatialy this cluster
-    if (sparse_mask[nb_channel*cluster_idx+chan_ind] == 0){
+    if (high_sparse_mask[nb_channel*cluster_idx+chan_ind] == 0){
         if (c==0){
             waveform_distance[cluster_idx] = FLT_MAX;
         }
@@ -648,7 +657,7 @@ __kernel void waveform_distance(__global  float *one_waveform,
     
     barrier(CLK_GLOBAL_MEM_FENCE);
     
-    if (sparse_mask[nb_channel*cluster_idx+chan_ind] == 0){
+    if (high_sparse_mask[nb_channel*cluster_idx+chan_ind] == 0){
         return;
     }
     
@@ -657,14 +666,18 @@ __kernel void waveform_distance(__global  float *one_waveform,
     float d;
     
     if (channel_distances[c * nb_channel + chan_ind] < *adjacency_radius_um){
-        if (sparse_mask[nb_channel*cluster_idx+c]>0){
-            for (int s=0; s<peak_width; ++s){
-                d = one_waveform[nb_channel*s+c] - catalogue_center[wf_size*cluster_idx+nb_channel*s+c];
-                sum += d*d;
-            }
-        }
-        else{
-            sum = rms_waveform_channel[c];
+//        if (sparse_mask[nb_channel*cluster_idx+c]>0){
+//            for (int s=0; s<peak_width; ++s){
+//                d = one_waveform[nb_channel*s+c] - catalogue_center[wf_size*cluster_idx+nb_channel*s+c];
+//                sum += d*d;
+//            }
+//        }
+//        else{
+//            sum = rms_waveform_channel[c];
+//        }
+        for (int s=0; s<peak_width; ++s){
+            d = one_waveform[nb_channel*s+c] - catalogue_center[wf_size*cluster_idx+nb_channel*s+c];
+            sum += d*d;
         }
         atomic_add_float(&waveform_distance[cluster_idx], sum);
     }

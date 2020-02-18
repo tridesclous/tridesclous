@@ -124,6 +124,7 @@ class PeelerEngineBase(OpenCL_Helper):
             # TODO use less memory
             self.sparse_mask = np.any(np.abs(centers)>sparse_threshold_mad, axis=1)
             thresh = self.catalogue['peak_detector_params']['relative_threshold']
+            thresh = thresh - 2
             self.high_sparse_mask = np.any(np.abs(centers)>thresh, axis=1)
             
             #~ print(self.sparse_mask.shape)
