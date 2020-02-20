@@ -123,14 +123,21 @@ class PeelerEngineBase(OpenCL_Helper):
             #~ print(centers.shape)
             # TODO use less memory
             self.sparse_mask = np.any(np.abs(centers)>sparse_threshold_mad, axis=1)
+            thresh = self.catalogue['peak_detector_params']['relative_threshold']
+            thresh = thresh - 2
+            self.high_sparse_mask = np.any(np.abs(centers)>thresh, axis=1)
+            
             #~ print(self.sparse_mask.shape)
             #~ print(self.sparse_mask.sum(axis=0))
             #~ fig, ax = plt.subplots()
             #~ ax.matshow(self.sparse_mask, cmap='Greens')
+            #~ fig, ax = plt.subplots()
+            #~ ax.matshow(self.high_sparse_mask, cmap='Greens')
             #~ plt.show()
 
         else:
             self.sparse_mask = np.ones((centers.shape[0], centers.shape[2]), dtype='bool')
+            
         
         #~ print('self.sparse_mask.shape', self.sparse_mask.shape)
         self.weight_per_template = {}
@@ -194,7 +201,8 @@ class PeelerEngineBase(OpenCL_Helper):
         
         assert self.chunksize > (self.extra_size+1), 'chunksize is too small because of n_size'
         
-        self.alien_value_threshold = self.catalogue['clean_waveforms_params']['alien_value_threshold']
+        self.alien_value_threshold = self.catalogue['clean_peaks_params']['alien_value_threshold']
+        #~ self.alien_value_threshold = None
         
         self.total_spike = 0
         

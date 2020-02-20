@@ -243,7 +243,7 @@ def plot_waveforms(cataloguecconstructor, labels=None, nb_max=50, alpha=0.4,
     
     kargs['alpha'] = alpha
     
-    all_wfs = cc.some_waveforms
+    all_wfs = cc.get_some_waveforms()
     kargs['waveforms'] = all_wfs
     kargs['channels'] = channels
     kargs['geometry'] = geometry
@@ -389,7 +389,9 @@ def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
         # take waveforms
         #~ ind = cc.index_of_label(label)
         spike_labels = cc.all_peaks['cluster_label'][cc.some_peaks_index]
-        wf = cc.some_waveforms[spike_labels==label]
+        #~ wf = cc.some_waveforms[spike_labels==label]
+        ind, = np.nonzero(cc.all_peaks['cluster_label'] == label)
+        wf = cc.get_some_waveforms(peak_index=ind)
         wf = wf[:, :, channels]
         if units in ('uV', 'μV'):
             wf = wf * cc.signals_mads[channels][None, None, :] * dataio.datasource.bit_to_microVolt

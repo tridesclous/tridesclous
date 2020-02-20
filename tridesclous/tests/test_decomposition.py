@@ -33,7 +33,7 @@ def test_all_decomposition():
     print(dataio)
     print(cc)
     
-    methods = ['global_pca', 'pca_by_channel', 'peak_max','neighborhood_pca' ] #'neighborhood_pca', 'tsne', 'pca_by_channel_then_tsne'
+    methods = ['global_pca', 'pca_by_channel', 'peak_max', ] #'neighborhood_pca', 'tsne', 'pca_by_channel_then_tsne'
     for method in methods:
         t0 = time.perf_counter()
         cc.extract_some_features(method=method)
@@ -59,8 +59,8 @@ def debug_one_decomposition():
     t0 = time.perf_counter()
     #~ cc.extract_some_features(method='global_pca', n_components=7)
     #~ cc.extract_some_features(method='peak_max')
-    #~ cc.extract_some_features(method='pca_by_channel', n_components_by_channel=3)
-    cc.extract_some_features(method='neighborhood_pca', n_components_by_neighborhood=3, radius_um=500)
+    cc.extract_some_features(method='pca_by_channel', n_components_by_channel=3)
+    #~ cc.extract_some_features(method='neighborhood_pca', n_components_by_neighborhood=3, radius_um=500)
     
     print(cc.channel_to_features)
     print(cc.channel_to_features.shape)
@@ -74,8 +74,8 @@ def debug_one_decomposition():
 
 
 if __name__ == '__main__':
-    setup_module()
-    test_all_decomposition()
+    #~ setup_module()
+    #~ test_all_decomposition()
     
-    #~ debug_one_decomposition()
+    debug_one_decomposition()
 

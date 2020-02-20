@@ -27,6 +27,7 @@ def test_catalogue_constructor():
     
     for memory_mode in ['ram', 'memmap']:
         for mode in ['dense', 'sparse']:
+        
             print('*'*5)
             print('memory_mode', memory_mode, 'mode', mode)
 
@@ -42,7 +43,7 @@ def test_catalogue_constructor():
             cc.set_global_params(chunksize=1024,
                                             memory_mode=memory_mode,
                                             mode=mode,
-                                            adjacency_radius_um=adjacency_radius_um,
+                                            #~ adjacency_radius_um=adjacency_radius_um,
                                             )
             
             cc.set_preprocessor_params(
@@ -77,44 +78,30 @@ def test_catalogue_constructor():
             
             # redetect peak
             cc.re_detect_peak(method=peak_method, engine=peak_engine,
-                                                peak_sign='-', relative_threshold=5, peak_span_ms=0.2,
+                                                peak_sign='-', relative_threshold=5, peak_span_ms=0.7,
                                                 adjacency_radius_um=adjacency_radius_um)
             for seg_num in range(dataio.nb_segment):
                 mask = cc.all_peaks['segment']==seg_num
                 print('seg_num', seg_num, 'nb peak',  np.sum(mask))
 
-            
-            
-            t1 = time.perf_counter()
-            #~ cc.extract_some_waveforms(n_left=-25, n_right=40, mode='rand', nb_max=5000)
-            cc.extract_some_waveforms(wf_left_ms=-2.5, wf_right_ms=4.0, mode='rand', nb_max=5000)
-            t2 = time.perf_counter()
-            print('extract_some_waveforms rand', t2-t1)
-            print(cc.some_waveforms.shape)
-
-            #~ t1 = time.perf_counter()
-            #~ cc.find_good_limits()
-            #~ t2 = time.perf_counter()
-            #~ print('find_good_limits', t2-t1)
-            #~ print(cc.some_waveforms.shape)
-            
-            t1 = time.perf_counter()
-            cc.clean_waveforms()
-            t2 = time.perf_counter()
-            print('find_good_limits', t2-t1)
-            
-            
+            cc.set_waveform_extractor_params(n_left=-25, n_right=40)
 
             t1 = time.perf_counter()
-            cc.extract_some_waveforms(n_left=None, n_right=None, mode='rand', nb_max=5000)
+            cc.clean_peaks(alien_value_threshold=100, mode='extremum_amplitude')
             t2 = time.perf_counter()
-            print('extract_some_waveforms rand', t2-t1)
-            print(cc.some_waveforms.shape)
+            print('clean_peaks extremum_amplitude', t2-t1)
+
+            t1 = time.perf_counter()
+            cc.clean_peaks(alien_value_threshold=100, mode='full_waveform')
+            t2 = time.perf_counter()
+            print('clean_peaks full_waveforms', t2-t1)
             
             t1 = time.perf_counter()
-            cc.clean_waveforms(alien_value_threshold=60.)
+            cc.sample_some_peaks( mode='rand', nb_max=5000)
             t2 = time.perf_counter()
-            print('clean_waveforms', t2-t1)
+            print('sample_some_peaks', t2-t1)
+            
+            
             
             print(cc)
             
@@ -124,33 +111,37 @@ def test_catalogue_constructor():
             t2 = time.perf_counter()
             print('extract_some_noise', t2-t1)
             
-            # PCA
-            t1 = time.perf_counter()
-            cc.project(method='global_pca', n_components=7, batch_size=16384)
-            t2 = time.perf_counter()
-            print('project pca', t2-t1)
-
-            # peak_max
-            #~ t1 = time.perf_counter()
-            #~ cc.project(method='peak_max')
-            #~ t2 = time.perf_counter()
-            #~ print('project peak_max', t2-t1)
-            #~ print(cc.some_features.shape)
-
-            #~ t1 = time.perf_counter()
-            #~ cc.extract_some_waveforms(index=np.arange(1000))
-            #~ t2 = time.perf_counter()
-            #~ print('extract_some_waveforms others', t2-t1)
-            #~ print(cc.some_waveforms.shape)
-
             
-            # cluster
-            t1 = time.perf_counter()
-            cc.find_clusters(method='kmeans', n_clusters=11)
-            t2 = time.perf_counter()
-            print('find_clusters', t2-t1)
+            if mode == 'dense':
+                # PCA
+                t1 = time.perf_counter()
+                cc.extract_some_features(method='global_pca', n_components=12)
+                t2 = time.perf_counter()
+                print('project pca', t2-t1)
+
+                # cluster
+                t1 = time.perf_counter()
+                cc.find_clusters(method='kmeans', n_clusters=11)
+                t2 = time.perf_counter()
+                print('find_clusters', t2-t1)
+            
+            elif mode == 'sparse':
+            
+                # PCA
+                t1 = time.perf_counter()
+                cc.extract_some_features(method='pca_by_channel', n_components_by_channel=3)
+                t2 = time.perf_counter()
+                print('project pca', t2-t1)
+
+                # cluster
+                t1 = time.perf_counter()
+                cc.find_clusters(method='pruningshears')
+                t2 = time.perf_counter()
+                print('find_clusters', t2-t1)
             
             print(cc)
+
+            
             
             # similarity
             #~ cc.compute_centroid()
@@ -182,41 +173,64 @@ def compare_nb_waveforms():
     dataio.add_one_channel_group(channels=range(14), chan_grp=0)
 
 
-    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    cc = CatalogueConstructor(dataio=dataio)
 
-    catalogueconstructor.set_preprocessor_params(chunksize=1024,
-            
-                                #signal preprocessor
-                                highpass_freq=300.,
-                                lowpass_freq=5000.,
-                                lostfront_chunksize=128,
-                                
-                                #peak detector
-                                peak_sign='-', relative_threshold=7, peak_span_ms=0.5,
-                                )
+    cc.set_global_params(chunksize=1024,
+                                    memory_mode='ram',
+                                    mode='dense',
+                                    #~ adjacency_radius_um=None,
+                                    )
+    
+    cc.set_preprocessor_params(
+            #signal preprocessor
+            highpass_freq=300,
+            lowpass_freq=5000.,
+            common_ref_removal=False,
+            smooth_size=0,
+            lostfront_chunksize = None)
+    
+    
+    cc.set_peak_detector_params(
+            #peak detector
+            method='global', engine='numpy',
+            peak_sign='-', relative_threshold=7, peak_span_ms=0.5,
+            #~ adjacency_radius_um=None,
+            )
     
     t1 = time.perf_counter()
-    catalogueconstructor.estimate_signals_noise(seg_num=0, duration=10.)
+    cc.estimate_signals_noise(seg_num=0, duration=10.)
     t2 = time.perf_counter()
     print('estimate_signals_noise', t2-t1)
     
     t1 = time.perf_counter()
-    catalogueconstructor.run_signalprocessor()
+    cc.run_signalprocessor()
     t2 = time.perf_counter()
     print('run_signalprocessor', t2-t1)
     
-    print(catalogueconstructor)
+    print(cc)
     
     fig, axs = plt.subplots(nrows=2)
+
+
+    cc.set_waveform_extractor_params(wf_left_ms=-2.0, wf_right_ms=3.0)
     
-    colors = ['r', 'g', 'b']
-    for i, nb_max in enumerate([100, 1000, 10000]):
+    t1 = time.perf_counter()
+    cc.sample_some_peaks( mode='rand', nb_max=5000)
+    t2 = time.perf_counter()
+    print('sample_some_peaks', t2-t1)
+    
+    colors = ['r', 'g', 'b', 'y']
+    for i, nb_max in enumerate([100, 500, 1000, 2000]):
+        
+        cc.sample_some_peaks( mode='rand', nb_max=nb_max)
+        #~ catalogueconstructor.extract_some_waveforms(wf_left_ms=-2.0, wf_right_ms=3.0,  nb_max=nb_max)
+        #~ print(catalogueconstructor.some_waveforms.shape)
         t1 = time.perf_counter()
-        catalogueconstructor.extract_some_waveforms(wf_left_ms=-2.0, wf_right_ms=3.0,  nb_max=nb_max)
+        wf = cc.get_some_waveforms()
         t2 = time.perf_counter()
-        print('extract_some_waveforms', nb_max,  t2-t1)
-        print(catalogueconstructor.some_waveforms.shape)
-        wf = catalogueconstructor.some_waveforms
+        print('get_some_waveforms', nb_max,  t2-t1)
+        
+        #~ wf = catalogueconstructor.some_waveforms
         wf = wf.swapaxes(1,2).reshape(wf.shape[0], -1)
         axs[0].plot(np.median(wf, axis=0), color=colors[i], label='nb_max {}'.format(nb_max))
         
@@ -226,7 +240,9 @@ def compare_nb_waveforms():
     axs[0].set_title('median')
     axs[1].set_title('mean')
     plt.show()        
-    
+
+
+
 
 def test_make_catalogue():
     dataio = DataIO(dirname='test_catalogueconstructor')
@@ -234,7 +250,7 @@ def test_make_catalogue():
     cc = CatalogueConstructor(dataio=dataio)
 
     #~ cc.make_catalogue()
-    cc.make_catalogue_for_peeler()
+    cc.make_catalogue_for_peeler(max_per_cluster=1000)
     
     #~ for i, k in cc.catalogue['label_to_index'].items():
     
@@ -269,11 +285,13 @@ def debug_interp_centers0():
     catalogue = catalogueconstructor.make_catalogue()
     centers = catalogue['centers0']
     interp_centers = catalogue['interp_centers0']
-    fig, ax = plt.subplots()
-    ax.plot(centers[0])
-    ax.plot(np.arange(interp_centers[0].shape[0])/20. - 0.5, interp_centers[0])
+    subsample_ratio = catalogue['subsample_ratio']
     
-    plt.show()
+    #~ fig, ax = plt.subplots()
+    #~ ax.plot(centers[0])
+    #~ ax.plot(np.arange(interp_centers[0].shape[0])/subsample_ratio - 0.5, interp_centers[0])
+    
+    #~ plt.show()
 
     
 if __name__ == '__main__':
@@ -281,10 +299,10 @@ if __name__ == '__main__':
     
     #~ compare_nb_waveforms()
     
-    test_make_catalogue()
-    test_ratio_amplitude()
+    #~ test_make_catalogue()
+    #~ test_ratio_amplitude()
     
-    test_create_savepoint_catalogue_constructor()
+    #~ test_create_savepoint_catalogue_constructor()
     
     #~ debug_interp_centers0()
 

@@ -26,48 +26,9 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     
     Usage:
       
-      catalogueconstructor = CatalogueConstructor(dataio, chan_grp=0)
-      
-    params = {
-        'duration': 300.,
-        'preprocessor': {
-            'highpass_freq': 300.,
-            'lowpass_freq': 5000.,
-            'smooth_size': 0,
-            'chunksize': 1024,
-            'lostfront_chunksize': -1,   # this auto
-            'engine': 'numpy',
-            'common_ref_removal':False,
-        },
-        'peak_detector': {
-            'method' : 'global',
-            'engine': 'numpy',
-            'peak_sign': '-',
-            'relative_threshold': 5.,
-            'peak_span_ms': .7,
-        },
-        'noise_snippet': {
-            'nb_snippet': 300,
-        },
-        'extract_waveforms': {
-            'wf_left_ms': -1.5,
-            'wf_right_ms': 2.5,
-            'mode': 'rand',
-            'nb_max': 20000.,
-            'align_waveform': False,
-        },
-        'clean_waveforms': {
-            'alien_value_threshold': 100.,
-        },
-        'feature_method': 'peak_max',
-        'feature_kargs': {},
-        'cluster_method': 'sawchaincut',
-        'cluster_kargs': {'kde_bandwith': 1.},
-        'clean_cluster' : False,
-        'clean_cluster_kargs' : {},
-    }
-      
-      apply_all_catalogue_steps(catalogueconstructor, params)
+      cc = CatalogueConstructor(dataio, chan_grp=0)
+      params = get_auto_params_for_catalogue(dataio, chan_grp=0)
+      apply_all_catalogue_steps(cc, params)
     """
     #~ if verbose:
         #~ print('apply all catalogue steps')
@@ -76,7 +37,7 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     cc = catalogueconstructor
     
     # global params
-    d = {k:params[k] for k in ('chunksize', 'mode', 'adjacency_radius_um')}
+    d = {k:params[k] for k in ('chunksize', 'mode', 'memory_mode')}
     
     cc.set_global_params(**d)
     
@@ -105,25 +66,37 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     if verbose:
         print('run_signalprocessor', t2-t1)
 
-    t1 = time.perf_counter()
-    cc.extract_some_waveforms(**params['extract_waveforms'], recompute_all_centroid=False)
-    t2 = time.perf_counter()
-    if verbose:
-        print('extract_some_waveforms', t2-t1)
+    #~ t1 = time.perf_counter()
+    #~ cc.extract_some_waveforms(**params['extract_waveforms'], recompute_all_centroid=False)
+    #~ t2 = time.perf_counter()
+    #~ if verbose:
+        #~ print('extract_some_waveforms', t2-t1)
     
-    t1 = time.perf_counter()
-    #~ duration = d['duration'] if d['limit_duration'] else None
-    #~ d['clean_waveforms']
-    cc.clean_waveforms(**params['clean_waveforms'], recompute_all_centroid=False)
-    t2 = time.perf_counter()
-    if verbose:
-        print('clean_waveforms', t2-t1)
+    #~ t1 = time.perf_counter()
+    #~ cc.clean_waveforms(**params['clean_waveforms'], recompute_all_centroid=False)
+    #~ t2 = time.perf_counter()
+    #~ if verbose:
+        #~ print('clean_waveforms', t2-t1)
     
     #~ t1 = time.perf_counter()
     #~ n_left, n_right = cc.find_good_limits(mad_threshold = 1.1,)
     #~ t2 = time.perf_counter()
     #~ print('find_good_limits', t2-t1)
 
+    cc.set_waveform_extractor_params(**params['extract_waveforms'])
+    
+    t1 = time.perf_counter()
+    cc.clean_peaks(**params['clean_peaks'])
+    t2 = time.perf_counter()
+    if verbose:
+        print('clean_peaks', t2-t1)
+    
+    t1 = time.perf_counter()
+    cc.sample_some_peaks(**params['peak_sampler'])
+    t2 = time.perf_counter()
+    if verbose:
+        print('sample_some_peaks', t2-t1)
+    
     t1 = time.perf_counter()
     cc.extract_some_noise(**params['noise_snippet'])
     t2 = time.perf_counter()
@@ -136,7 +109,7 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     cc.extract_some_features(method=params['feature_method'], **params['feature_kargs'])
     t2 = time.perf_counter()
     if verbose:
-        print('project', t2-t1)
+        print('extract_some_features', t2-t1)
     
     t1 = time.perf_counter()
     cc.find_clusters(method=params['cluster_method'], **params['cluster_kargs'])
@@ -159,8 +132,8 @@ _default_catalogue_params = {
     
     'chunksize': 1024,
     'mode': 'dense', # 'sparse'
-    'adjacency_radius_um': None, # None when sparse
     'sparse_threshold': None, # 1.5
+    'memory_mode': 'memmap',
     
     'preprocessor': {
         'highpass_freq': 300.,
@@ -178,6 +151,8 @@ _default_catalogue_params = {
         'relative_threshold': 5.,
         'peak_span_ms': .7,
         'adjacency_radius_um' : None,
+        'smooth_radius_um' : None,
+        
     },
     'noise_snippet': {
         'nb_snippet': 300,
@@ -185,15 +160,22 @@ _default_catalogue_params = {
     'extract_waveforms': {
         'wf_left_ms': -1.5,
         'wf_right_ms': 2.5,
+    },
+    'clean_peaks': {
+        'alien_value_threshold': None,
+        'mode': 'extremum_amplitude',
+    },
+    'peak_sampler': {
         'mode': 'rand',
         'nb_max': 20000,
+        'nb_max_by_channel': None,
     },
-    'clean_waveforms': {
-        'alien_value_threshold': None,
-    },
-    'feature_method': 'peak_max',
+    #~ 'clean_waveforms': {
+        #~ 'alien_value_threshold': None,
+    #~ },
+    'feature_method': 'pca_by_channel',
     'feature_kargs': {},
-    'cluster_method': 'sawchaincut',
+    'cluster_method': 'pruningshears',
     'cluster_kargs': {},
     
     'clean_cluster' : False,
@@ -231,8 +213,32 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
     if params['duration'] * 2 > seg0_duration:
         params['duration'] = seg0_duration
     
+    #~ if nb_chan == 1:
+        #~ params['mode'] = 'dense'
+        #~ params['adjacency_radius_um'] = 0.
+        #~ params['sparse_threshold'] = 1.5
+        
+        #~ params['peak_detector']['method'] = 'global'
+        #~ params['peak_detector']['engine'] = 'numpy'
+        #~ params['peak_detector']['smooth_radius_um' ] = None
+
+
+        #~ params['peak_sampler']['mode'] = 'rand'
+        #~ params['peak_sampler']['nb_max'] = 20000
+        
+        #~ params['feature_method'] = 'global_pca'
+        #~ params['feature_kargs'] = {'n_components' : 4 }
+        
+        #~ params['cluster_method'] = 'dbscan_with_noise'
+        #~ params['cluster_kargs'] = {}
+        
+
+        #~ params['clean_cluster'] = True
+        #~ params['clean_cluster_kargs'] = {'too_small' : 20 }        
     
+    #~ elif nb_chan <=4:
     if nb_chan <=4:
+    #~ if nb_chan <=8:
     
         params['mode'] = 'dense'
         params['adjacency_radius_um'] = 0.
@@ -240,10 +246,11 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         
         params['peak_detector']['method'] = 'global'
         params['peak_detector']['engine'] = 'numpy'
+        params['peak_detector']['smooth_radius_um' ] = None
 
 
-        params['extract_waveforms']['mode'] = 'rand'
-        params['extract_waveforms']['nb_max'] = 20000
+        params['peak_sampler']['mode'] = 'rand'
+        params['peak_sampler']['nb_max'] = 20000
         
         params['feature_method'] = 'global_pca'
         if nb_chan in (1,2):
@@ -256,6 +263,8 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['cluster_method'] = 'pruningshears'
         params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 10)
         params['cluster_kargs']['min_cluster_size'] = 20
+        params['cluster_kargs']['adjacency_radius_um'] = 0.
+        params['cluster_kargs']['high_adjacency_radius_um'] = 0.
         
 
         params['clean_cluster'] = True
@@ -272,18 +281,23 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
 
         params['peak_detector']['method'] = 'geometrical'
         params['peak_detector']['adjacency_radius_um'] = params['adjacency_radius_um']
+        #~ params['peak_detector']['smooth_radius_um' ] = 10
+        params['peak_detector']['smooth_radius_um' ] = None
+        
         
         if HAVE_PYOPENCL:
             params['peak_detector']['engine'] = 'opencl'
         elif HAVE_NUMBA:
-            print('WARNING : peakdetector will be slow install opencl')
             params['peak_detector']['engine'] = 'numba'
         else:
-            print('WARNING : peakdetector will be slow install opencl')
+            print('WARNING : peakdetector will be slow install opencl or numba')
             params['peak_detector']['engine'] = 'numpy'
         
-        params['extract_waveforms']['mode'] = 'rand_by_channel'
-        params['extract_waveforms']['nb_max_by_channel'] = 700
+        params['peak_sampler']['mode'] = 'rand_by_channel'
+        #~ params['extract_waveforms']['nb_max_by_channel'] = 700
+        params['peak_sampler']['nb_max_by_channel'] = 1000
+        #~ params['peak_sampler']['nb_max_by_channel'] = 1500
+        
         
         params['feature_method'] = 'pca_by_channel'
         # TODO change n_components_by_channel depending on channel density
@@ -293,6 +307,8 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['cluster_method'] = 'pruningshears'
         params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 20)
         params['cluster_kargs']['min_cluster_size'] = 20
+        params['cluster_kargs']['adjacency_radius_um'] = 50.
+        params['cluster_kargs']['high_adjacency_radius_um'] = 30.
 
     
     

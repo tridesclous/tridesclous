@@ -30,19 +30,7 @@ def teardown_module():
 
 
 def test_sawchaincut():
-    #~ dirname = 'test_catalogueconstructor'
-    #~ dirname = '/home/samuel/Documents/projet/tridesclous/example/tridesclous_locust/'
-
-    #~ dirname = '/home/samuel/Documents/projet/DataSpikeSorting/GT 252/tdc_20170623_patch1/'
-    #~ dirname = '/home/samuel/Documents/projet/tridesclous/example/tridesclous_locust/'
-    #~ dirname = '/home/samuel/Documents/projet/tridesclous/example/tridesclous_olfactory_bulb/'
-    #~ dirname = '/home/samuel/Documents/projet/tridesclous/example/tridesclous_olfactory_bulb/'
-    #~ dirname = '/home/samuel/Documents/projet/DataSpikeSorting/kampff/tdc_2015_09_03_Cell9.0/'
-    #~ dirname = '/home/samuel/Documents/projet/DataSpikeSorting/spikesortingtest/tdc_silico_0/'
-    #~ dirname = '/home/samuel/Documents/projet/tridesclous/example/tridesclous_purkinje/'
-    
     dirname = 'test_cluster'
-    
     
     dataio = DataIO(dirname=dirname)
     cc = CatalogueConstructor(dataio=dataio)
@@ -74,7 +62,7 @@ def test_pruningshears():
     print(dataio)
     cc = CatalogueConstructor(dataio=dataio)
     
-    cc.extract_some_features(method='pca_by_channel')
+    #~ cc.extract_some_features(method='pca_by_channel')
     #~ print(dataio)
     #~ print(cc)
     
@@ -83,9 +71,16 @@ def test_pruningshears():
     t1 = time.perf_counter()
     print('cluster', t1-t0)
 
+    if __name__ == '__main__':
+        app = mkQApp()
+        win = CatalogueWindow(cc)
+        win.show()
+        app.exec_()
+    
+
 
 if __name__ == '__main__':
-    #~ setup_module()
+    setup_module()
     #~ test_sawchaincut()
     test_pruningshears()
     

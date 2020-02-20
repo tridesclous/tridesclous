@@ -1,0 +1,14 @@
+tridesclous release notes 1.5.0
+===============================
+
+**2020-02-20**
+
+  * remove extract waveform in a big array. waveform are extracted on the fly. (slower but less memory)
+  * strong refactoring in the catalogueconstructor + gui due to waveform less
+  * small improvements prunningshears 
+  * small change in peeler
+  * numba peak detector fix.
+  * expose different adjacency radius parameters at diffrents steps
+  * fix string bug in opencl peakdetector geometrical
+
+

@@ -175,10 +175,13 @@ def test_FeatureTimeViewer():
 def test_CatalogueWindow():
     dataio = DataIO(dirname='test_cataloguewindow')
 
-    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    cc = CatalogueConstructor(dataio=dataio)
+    
+    #~ sel = cc.all_peaks['cluster_label'] == -9
+    #~ print(np.sum(sel))
     
     app = mkQApp()
-    win = CatalogueWindow(catalogueconstructor)
+    win = CatalogueWindow(cc)
     win.show()
     
     if __name__ == '__main__':
@@ -189,7 +192,7 @@ def test_CatalogueWindow():
     
     
 if __name__ == '__main__':
-    setup_module()
+    #~ setup_module()
     
     #~ test_CatalogueController()
     

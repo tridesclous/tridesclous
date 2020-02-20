@@ -43,16 +43,42 @@ Waveform extraction
      Note that if you use tridesclous with the script/notebook method you can also choose by yourself which peak are 
      choosen for waveform extraction. This can be usefull to avoid electrical/optical stimlation periods or force peak around
      stimulus periods.
-  * nb_max (int): for 'rand' mode this is the number of peak extracted. This number must be carrefully choosen.
-    This highly depend on : the duration on which the catalogue constructor is done + the number of channel (and so the number
-    of cells) + the density (firing rate) fo each cluster. Since this can't be known in advance, the user must explore cluster and
-    extract again while changing this number given dense enough clusters. This have a strong imptact of the CPU and RAM.
-    So do not choose to big number.
 
-Waveform clean
--------------------------
+
+Clean peaks
+-------------------
 
   * alien_value_threshold (float): units=one mad. above this threshold the waveforms is tag as "Alien" and not use for features and clustering
+  * mode 'extremum_amplitude' or 'full_waveform': use only the peak value (fast) or the whole waevform (slower)
+
+  * 
+
+    {'name':'extract_waveforms', 'type':'group', 'children' : waveforms_params},
+    {'name':'clean_peaks', 'type':'group', 'children' : clean_peaks_params},
+    {'name':'peak_sampler', 'type':'group', 'children' : peak_sampler_params},
+
+    {'name': 'alien_value_threshold', 'type': 'float', 'value':100.},
+    {'name': 'mode', 'type': 'list', 'values':[, ]}, # full_waveform
+]
+
+Peak sampler
+--------------------
+
+This step must be carrefully inspected. It select some peak mongs all peaks to make features and clustering.
+This highly depend on : the duration on which the catalogue constructor is done + the number of channel (and so the number
+of cells) + the density (firing rate) fo each cluster. Since this can't be known in advance, the user must explore cluster and
+extract again while changing theses parameters given dense enough clusters.
+This have a strong imptact of the CPU and RAM. So do not choose too big numbers.
+But you there are too few spikes, cluster could be not detected.
+    
+  * mode : 'rand', 'rand_by_channel' or 'all' Startegy to select some peak to then make feature and clustering.
+         'rand' take a global number of spike indepently of channels detection
+         'rand_by_channel' take a random number of spike per channel
+         'all' take all spike
+         internally with script 'force' allow to select manually which spike we want. For instance to force
+         when there is a stimulus.
+  * nb_max: when mode='rand'
+  * nb_max_by_channel when mode='rand_by_channel'
 
 Noise snippet extraction
 --------------------------------------
@@ -66,20 +92,17 @@ Features extraction
 Several methods possible. See :ref:`important_details`.
 
 
-  * **global_pca**:
+  * **global_pca**: good option for tetrode.
   
     * n_components (int): number of components of the pca for all the channel.
+    
 
-  * **peak_max** no parameters
+  * **peak_max** : good options when clustering is **sawchaincut**
   
-  * **pca_by_channel**:
-  
+  * **pca_by_channel**: good option for high channel counts
+
     * n_components_by_channel (int): number of component for each channel.
 
-  * **neighborhood_pca**:
-  
-    * n_components_by_neighborhood (int): number of component by channel and its neighborhood
-    * radius_um (float): radius around the channel in mircometers.
 
 Cluster
 -----------
@@ -148,14 +171,25 @@ peak_detector_params = [
 waveforms_params = [
     {'name': 'wf_left_ms', 'type': 'float', 'value':-2.0, 'suffix': 'ms', 'step': .1,},
     {'name': 'wf_right_ms', 'type': 'float', 'value': 3.0,  'suffix': 'ms','step': .1,},
+
+]
+
+
+clean_peaks_params = [
+    {'name': 'alien_value_threshold', 'type': 'float', 'value':100.},
+    {'name': 'mode', 'type': 'list', 'values':['extremum_amplitude', 'full_waveform']}, # 
+]
+
+
+peak_sampler_params = [
     {'name': 'mode', 'type': 'list', 'values':['rand', 'rand_by_channel', 'all']},
     {'name': 'nb_max', 'type': 'int', 'value':20000},
     {'name': 'nb_max_by_channel', 'type': 'int', 'value':600},
 ]
 
-clean_waveforms_params =[
-    {'name': 'alien_value_threshold', 'type': 'float', 'value':100.},
-]
+#~ clean_waveforms_params =[
+    #~ {'name': 'alien_value_threshold', 'type': 'float', 'value':100.},
+#~ ]
 
 
 
@@ -172,14 +206,20 @@ clean_cluster_params = [
 features_params_by_methods = OrderedDict([
     ('global_pca',  [{'name' : 'n_components', 'type' : 'int', 'value' : 5}]),
     ('peak_max',  []),
-    ('pca_by_channel',  [{'name' : 'n_components_by_channel', 'type' : 'int', 'value' : 3}]),
-    ('neighborhood_pca',  [{'name' : 'n_components_by_neighborhood', 'type' : 'int', 'value' : 3}, 
-                                        {'name' : 'radius_um', 'type' : 'float', 'value' : 300., 'step':50.}, 
-                                        ]),
+    ('pca_by_channel',  [{'name' : 'n_components_by_channel', 'type' : 'int', 'value' : 3},
+                                     {'name':'adjacency_radius_um', 'type': 'float', 'value':150., 'suffix': 'µm', 'siPrefix': False},
+                                    ]),
+    #~ ('neighborhood_pca',  [{'name' : 'n_components_by_neighborhood', 'type' : 'int', 'value' : 3}, 
+                                        #~ {'name' : 'radius_um', 'type' : 'float', 'value' : 300., 'step':50.}, 
+                                        #~ ]),
 ])
 
 
 cluster_params_by_methods = OrderedDict([
+    ('pruningshears', [{'name' : 'min_cluster_size', 'type' : 'int', 'value' : 20},
+                                {'name':'adjacency_radius_um', 'type': 'float', 'value':50., 'suffix': 'µm', 'siPrefix': False},
+                                {'name':'high_adjacency_radius_um', 'type': 'float', 'value':30., 'suffix': 'µm', 'siPrefix': False},
+                                ]),
     ('kmeans', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5}]),
     ('onecluster', []),
     ('gmm', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5},
@@ -200,15 +240,8 @@ cluster_params_by_methods = OrderedDict([
                                 {'name' : 'auto_merge_threshold', 'type' : 'float', 'value' : 2., 'step':0.1},
                                 {'name':'print_debug', 'type': 'bool', 'value':False},
                             ]),
-    ('pruningshears', [{'name' : 'min_cluster_size', 'type' : 'int', 'value' : 20}]),
+    
 ])
-
-#~ split_params_by_methods = OrderedDict([
-    #~ ('kmeans', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5}]),
-    #~ ('gmm', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5},
-                    #~ {'name' : 'covariance_type', 'type' : 'list', 'values' : ['full']},
-                    #~ {'name' : 'n_init', 'type' : 'int', 'value' : 10}]),
-#~ ])
 
 
 fullchain_params = [
@@ -217,7 +250,7 @@ fullchain_params = [
     {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
     
     {'name' : 'mode', 'type' : 'list', 'values' : ['dense', 'sparse']},
-    {'name':'adjacency_radius_um', 'type': 'float', 'value':200., 'suffix': 'µm', 'siPrefix': False},
+
     {'name':'sparse_threshold', 'type': 'float', 'value':1.5},
     
     
@@ -225,7 +258,8 @@ fullchain_params = [
     {'name':'peak_detector', 'type':'group', 'children': peak_detector_params},
     {'name':'noise_snippet', 'type':'group', 'children': noise_snippet_params},
     {'name':'extract_waveforms', 'type':'group', 'children' : waveforms_params},
-    {'name':'clean_waveforms', 'type':'group', 'children' : clean_waveforms_params},
+    {'name':'clean_peaks', 'type':'group', 'children' : clean_peaks_params},
+    {'name':'peak_sampler', 'type':'group', 'children' : peak_sampler_params},
     
     {'name':'clean_cluster', 'type': 'bool', 'value':True},
     {'name':'clean_cluster_kargs', 'type':'group', 'children' : clean_cluster_params},

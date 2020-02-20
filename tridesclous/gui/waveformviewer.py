@@ -93,8 +93,9 @@ class WaveformViewerBase(WidgetBase):
 
     def initialize_plot(self):
         #~ print('WaveformViewer.initialize_plot', self.controller.some_waveforms)
-        if self.controller.get_waveforms_shape() is None:
+        if self.controller.get_waveform_left_right()[0] is None:
             return
+            
         self.viewBox1 = MyViewBox()
         self.viewBox1.disableAutoRange()
 
@@ -133,11 +134,13 @@ class WaveformViewerBase(WidgetBase):
                 self.xvect = None
             else:
 
-                shape = self.controller.get_waveforms_shape()
-                width = shape[0]
+                n_left, n_right = self.controller.get_waveform_left_right()
+                width = n_right - n_left
+                nb_channel = self.controller.nb_channel
                 
                 #~ self.xvect = np.zeros(shape[0]*shape[1], dtype='float32')
-                self.xvect = np.zeros((shape[1], shape[0]), dtype='float32')
+                #~ self.xvect = np.zeros((shape[1], shape[0]), dtype='float32')
+                self.xvect = np.zeros((nb_channel, width), dtype='float32')
 
                 self.arr_geometry = []
                 for i, chan in enumerate(self.controller.channel_indexes):
@@ -290,11 +293,15 @@ class WaveformViewerBase(WidgetBase):
         elif self.params['metrics']=='mean/std':
             key1, key2 = 'mean', 'std'
         
-        shape = self.controller.get_waveforms_shape()
-        if shape is None:
+        #~ shape = self.controller.get_waveforms_shape()
+        #~ if shape is None:
+            #~ return
+        n_left, n_right = self.controller.get_waveform_left_right()
+        if n_left is None:
             return
-        
-        shape = (shape[0], len(common_channels))
+        width = n_right - n_left
+
+        shape = (width, len(common_channels))
         xvect = np.arange(shape[0]*shape[1])
         
         #~ for i,k in enumerate(self.controller.centroids):
@@ -380,14 +387,20 @@ class WaveformViewerBase(WidgetBase):
         #~ else:
             #~ common_channels = self.controller.channels
         
-        shape = self.controller.get_waveforms_shape()
-        if shape is None:
+        
+        n_left, n_right = self.controller.get_waveform_left_right()
+        if n_left is None:
             return
+        width = n_right - n_left
+        #~ shape = self.controller.get_waveforms_shape()
+        #~ if shape is None:
+            #~ return
         
         # if n_left/n_right have change need new xvect
-        if self.xvect.size != shape[0] * shape[1]:
+        #~ if self.xvect.size != shape[0] * shape[1]:
+            #~ self.initialize_plot()
+        if width != self.xvect.shape[1]:
             self.initialize_plot()
-        
         #~ shape = (shape[0], len(common_channels))
         
         self.plot1.addItem(self.curve_one_waveform)

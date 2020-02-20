@@ -133,14 +133,28 @@ class CatalogueController(ControllerBase):
     def some_peaks_index(self):
         return self.cc.some_peaks_index
 
-    @property
-    def some_waveforms(self):
-        return self.cc.some_waveforms
+    #~ @property
+    #~ def some_waveforms(self):
+        #~ return self.cc.some_waveforms
     
-    def get_waveforms_shape(self):
-        if self.cc.some_waveforms is not None:
-            shape = self.cc.some_waveforms.shape[1:]
-            return shape
+    #~ def get_waveforms_shape(self):
+        #~ if self.cc.some_waveforms is not None:
+            #~ shape = self.cc.some_waveforms.shape[1:]
+            #~ return shape
+
+    def get_waveform_left_right(self):
+        if 'waveform_extractor_params' in self.cc.info:
+            d = self.cc.info['waveform_extractor_params']
+            return d['n_left'], d['n_right']
+        else:
+            return None, None
+    
+    def get_peak_sign(self):
+        d = self.cc.info['peak_detector_params']
+        return d['peak_sign']
+    
+    def get_some_waveforms(self, **kargs):
+        return self.cc.get_some_waveforms(**kargs)
     
     def get_sparse_channels(self, label):
         ind = self.cc.index_of_label(label)
@@ -185,9 +199,6 @@ class CatalogueController(ControllerBase):
             wf_max = 0.
         return wf_min, wf_max
 
-    def get_waveform_left_right(self):
-        d = self.cc.info['waveform_extractor_params']
-        return d['n_left'], d['n_right']
         
     @property
     def some_noise_snippet(self):
@@ -306,9 +317,7 @@ class CatalogueController(ControllerBase):
         mask = np.zeros(self.spike_label.size, dtype='bool')
         for k in labels_to_merge:
             mask |= (self.spike_label == k)
-        print('ici')
         self.change_spike_label(mask, new_label)
-        print('la')
     
     def tag_same_cell(self, labels_to_group):
         self.cc.tag_same_cell(labels_to_group)

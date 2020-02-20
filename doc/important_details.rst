@@ -283,10 +283,10 @@ The approach in tridesclous is to let the user choose the method but validate ma
 the CatalogueWindow. The user eye and intuition is better a weapon than a pre parametrised algotihm.
 
 As we are lazy, we did not implement any of theses methods but use them from `sklean <http://scikit-learn.org>`_ package.
-However, one home made method is implemented here: **sawchaincut**, be curious and test it. **sawchaincut** is
-more or less what all we want : a full automated clustering, this works rather well on dense multi-electrode
+However, two home made methods are implemented here: **sawchaincut** and **prunningshears**, be curious and test then. 
+**sawchaincut** and **pruninsheass** is more or less what all we want : a full automated clustering, this works rather well on dense multi-electrode
 array when there is a high spatial redundancy (a spike is seen by several channels) but need some manual curation
-(like every automated clustering algorithm).
+(like every automated clustering algorithm). **pruninsheass** is the most recent and give better results.
 
 The actual method list is:
   * **kmeans** super classic, super fast but we need to decide **n_cluster**
@@ -294,12 +294,14 @@ The actual method list is:
   * **agglomerative** for trying, we need to decide **n_cluster**
   * **dbscan** density based algorithm n_cluster should be automatic. But **eps** parameters
     play a role in the results.
-  * **hdbscan** identique with withous **eps**
-  * **isosplit** : develop by Jeremy Maglang for moutainsort
+  * **hdbscan** identic with without **eps**. Very usefull for low channel count.
+  * **isosplit** : develop by Jeremy Maglang for moutainsort, very impressive on tetrode datasets.
+     Unfortunatly works only on linux and sometimes unstable. Must installed separately.
   * **sawchaincut** this is a home made, full automatic, not so good, not so bad, dirty, secret algorithm.
-    It is density based. If you don't known which one to choose and you are in a hurry, take this one.
-    Most beautiful and well isolated clusters should be captured by this one.
-  * **pruningshears** this is also a home made stuff. Internal it use hdbscan but localy.
+    It is density based. Most beautiful and well isolated clusters should be captured by this one.
+  * **pruningshears** this is also a home made stuff. Internal it use hdbscan but have a slow
+    and but efficient strategy to explore sub space based on spatial (geometry) information.
+    If you don't known which one to choose and you are in a hurry, take this one.
 
 
 In between sample interpolation

@@ -73,6 +73,8 @@ def test_peeler_geometry():
                                 use_sparse_template=True,
                                 sparse_threshold_mad=1.5,
                                 argmin_method='numba')
+                                #~ argmin_method='opencl')
+                                
                                 
 
     t1 = time.perf_counter()
@@ -341,13 +343,13 @@ def debug_compare_peeler_engines():
     
     
 if __name__ =='__main__':
-    #~ setup_module()
+    setup_module()
     
     #~ open_catalogue_window()
     
-    #~ test_peeler_classic()
+    test_peeler_classic()
     
-    test_peeler_geometry()
+    #~ test_peeler_geometry()
     
     #~ test_peeler_cl()
     

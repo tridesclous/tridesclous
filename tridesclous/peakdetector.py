@@ -40,8 +40,8 @@ except ImportError:
 
 
 
-def detect_peaks_in_chunk(sig, n_span, thresh, peak_sign, spatial_matrix=None):
-    sum_rectified = make_sum_rectified(sig, thresh, peak_sign, spatial_matrix)
+def detect_peaks_in_chunk(sig, n_span, thresh, peak_sign, spatial_smooth_kernel=None):
+    sum_rectified = make_sum_rectified(sig, thresh, peak_sign, spatial_smooth_kernel)
     mask_peaks = detect_peaks_in_rectified(sum_rectified, n_span, thresh, peak_sign)
     time_ind_peaks,  = np.nonzero(mask_peaks)
     time_ind_peaks += n_span
@@ -68,6 +68,7 @@ class BasePeakDetector:
         self.peak_sign = peak_sign
         self.relative_threshold = relative_threshold
         
+        #~ print('peak_span_ms', peak_span_ms)
         if peak_span_ms is None:
             # kept for compatibility with previous version
             assert peak_span is not None
@@ -80,15 +81,18 @@ class BasePeakDetector:
         self.n_span = int(self.sample_rate * self.peak_span_ms / 1000.)//2
         #~ print('self.n_span', self.n_span)
         self.n_span = max(1, self.n_span)
+        #~ print('self.n_span', self.n_span)
         
         self.smooth_radius_um = smooth_radius_um
+
         if self.smooth_radius_um is None or self.smooth_radius_um <= 0.:
-            self.spatial_kernel = None
+            self.spatial_smooth_kernel = None
         else:
             d = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
-            self.spatial_kernel = np.exp(-d/self.smooth_radius_um)
+            self.spatial_smooth_kernel = np.exp(-d/self.smooth_radius_um)
             # make it sparse
-            self.spatial_kernel[self.spatial_kernel<0.01] = 0.
+            self.spatial_smooth_kernel[self.spatial_smooth_kernel<0.01] = 0.
+        
         
         self.cl_platform_index = cl_platform_index
         self.cl_device_index = cl_device_index
@@ -106,11 +110,11 @@ class BasePeakDetector:
 
 
 
-def make_sum_rectified(sig, thresh, peak_sign, spatial_matrix):
-    if spatial_matrix is None:
+def make_sum_rectified(sig, thresh, peak_sign, spatial_smooth_kernel):
+    if spatial_smooth_kernel is None:
         sig = sig.copy()
     else:
-        sig = np.dot(sig, spatial_matrix)
+        sig = np.dot(sig, spatial_smooth_kernel)
     
     
     if peak_sign == '+':
@@ -151,7 +155,7 @@ class PeakDetectorGlobalNumpy(BasePeakDetector):
         # this is used by catalogue constructor
         # here the fifo is only the rectified sum
         
-        sum_rectified = make_sum_rectified(newbuf, self.relative_threshold, self.peak_sign, self.spatial_kernel)
+        sum_rectified = make_sum_rectified(newbuf, self.relative_threshold, self.peak_sign, self.spatial_smooth_kernel)
         self.fifo_sum_rectified.new_chunk(sum_rectified, pos)
         
         #~ if pos-(newbuf.shape[0]+2*self.n_span)<0:
@@ -169,14 +173,14 @@ class PeakDetectorGlobalNumpy(BasePeakDetector):
         
         if time_ind_peaks.size>0:
             time_ind_peaks = time_ind_peaks + pos - newbuf.shape[0] -2*self.n_span
-            return time_ind_peaks, chan_ind_peaks
+            return time_ind_peaks, chan_ind_peaks, None
 
-        return None, None
+        return None, None, None
     
     def get_mask_peaks_in_chunk(self, fifo_residuals):
         # this is used by peeler which handle externaly
         # a fifo residual
-        sum_rectified = make_sum_rectified(fifo_residuals, self.relative_threshold, self.peak_sign, self.spatial_kernel)
+        sum_rectified = make_sum_rectified(fifo_residuals, self.relative_threshold, self.peak_sign, self.spatial_smooth_kernel)
         mask_peaks = detect_peaks_in_rectified(sum_rectified, self.n_span, self.relative_threshold, self.peak_sign)
         return mask_peaks        
     
@@ -212,9 +216,9 @@ class PeakDetectorGlobalOpenCL(BasePeakDetector, OpenCL_Helper):
         if time_ind_peaks.size>0:
             time_ind_peaks += pos - self.chunksize - self.n_span
             chan_ind_peaks = None# not in this method
-            return time_ind_peaks, chan_ind_peaks
+            return time_ind_peaks, chan_ind_peaks, None
         
-        return None, None
+        return None, None, None
     
     def reset_fifo_index(self):
         pass
@@ -349,7 +353,6 @@ def get_mask_spatiotemporal_peaks(sigs, n_span, thresh, peak_sign, neighbours):
     elif peak_sign == '-':
         mask_peaks = sig_center<-thresh
         for chan in range(sigs.shape[1]):
-            #~ print('chan', chan, 'neigh', neighbours[chan, :])
             for neighbour in neighbours[chan, :]:
                 if neighbour<0:
                     continue
@@ -373,14 +376,21 @@ class PeakDetectorGeometricalNumpy(BasePeakDetector):
         
         
         sigs = self.fifo_sigs.get_data(pos-(newbuf.shape[0]+2*self.n_span), pos)
+
+        if self.spatial_smooth_kernel is None:
+            sigs = sigs
+        else:
+            sigs = np.dot(sigs, self.spatial_smooth_kernel)
+        
         mask_peaks = self.get_mask_peaks_in_chunk(sigs)
         time_ind_peaks, chan_ind_peaks = np.nonzero(mask_peaks)
+        peak_val_peaks = sigs[time_ind_peaks+self.n_span, chan_ind_peaks]
 
         if time_ind_peaks.size>0:
             time_ind_peaks += (pos - newbuf.shape[0] - self.n_span)
-            return time_ind_peaks, chan_ind_peaks
+            return time_ind_peaks, chan_ind_peaks, peak_val_peaks
 
-        return None, None
+        return None, None, None
     
     def get_mask_peaks_in_chunk(self, fifo_residuals):
         
@@ -391,7 +401,6 @@ class PeakDetectorGeometricalNumpy(BasePeakDetector):
     
     def change_params(self, adjacency_radius_um=200., **kargs):
         BasePeakDetector.change_params(self,  **kargs)
-        assert self.smooth_radius_um is None, 'Not implemented yet'
         
         self.adjacency_radius_um = adjacency_radius_um
         
@@ -408,7 +417,7 @@ class PeakDetectorGeometricalNumpy(BasePeakDetector):
             neighb, = np.nonzero(neighbour_mask[c, :])
             self.neighbours[c, :neighb.size] = neighb
         
-        print('self.nb_max_neighbour', self.nb_max_neighbour)
+        #~ print('self.nb_max_neighbour', self.nb_max_neighbour)
         
         self.fifo_sigs = FifoBuffer((self.chunksize+2*self.n_span, self.nb_channel), self.dtype)
     
@@ -431,6 +440,9 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
             newbuf2[-newbuf.shape[0]:, :] = newbuf
             newbuf = newbuf2
 
+        if self.spatial_smooth_kernel is not None:
+            newbuf = np.dot(newbuf, self.spatial_smooth_kernel)
+        
         self.fifo_sigs.new_chunk(newbuf, pos)
         
         #~ if pos-(newbuf.shape[0]+2*self.n_span)<0:
@@ -441,13 +453,14 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
         
         mask_peaks = self.get_mask_peaks_in_chunk(sigs)
         time_ind_peaks, chan_ind_peaks = np.nonzero(mask_peaks)
-
+        peak_val_peaks = sigs[time_ind_peaks+self.n_span, chan_ind_peaks]
 
         if time_ind_peaks.size>0:
             time_ind_peaks += (pos - newbuf.shape[0] - self.n_span)
-            return time_ind_peaks, chan_ind_peaks
+            
+            return time_ind_peaks, chan_ind_peaks, peak_val_peaks
 
-        return None, None
+        return None, None, None
     
     def get_mask_peaks_in_chunk(self, fifo_residuals):
 
@@ -491,7 +504,6 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
         
         #~ print('self.global_size', self.global_size, 'self.chunksize', self.chunksize)
         
-        assert self.smooth_radius_um is None, 'Not implemented yet'
         
         self._make_gpu_buffer()
         
@@ -554,7 +566,7 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
             }
             
             if (peak == 1){
-                for (int neighbour=0; neighbour<=nb_neighbour; neighbour++){
+                for (int neighbour=0; neighbour<nb_neighbour; neighbour++){
                     // when neighbour then chan==chan_neigh (itself)
                     chan_neigh = neighbours[chan * nb_neighbour +neighbour];
                     
