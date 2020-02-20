@@ -353,7 +353,6 @@ def get_mask_spatiotemporal_peaks(sigs, n_span, thresh, peak_sign, neighbours):
     elif peak_sign == '-':
         mask_peaks = sig_center<-thresh
         for chan in range(sigs.shape[1]):
-            #~ print('chan', chan, 'neigh', neighbours[chan, :])
             for neighbour in neighbours[chan, :]:
                 if neighbour<0:
                     continue
@@ -567,7 +566,7 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
             }
             
             if (peak == 1){
-                for (int neighbour=0; neighbour<=nb_neighbour; neighbour++){
+                for (int neighbour=0; neighbour<nb_neighbour; neighbour++){
                     // when neighbour then chan==chan_neigh (itself)
                     chan_neigh = neighbours[chan * nb_neighbour +neighbour];
                     

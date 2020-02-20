@@ -109,7 +109,7 @@ def test_compare_offline_online_engines():
     engine_names = [
         ('global', 'numpy'),
         ('geometrical', 'numpy'),
-        #~ ('geometrical', 'numba'),
+        ('geometrical', 'numba'),
     ]
     
     if HAVE_PYOPENCL:
@@ -407,8 +407,8 @@ def test_peak_sign_symetry():
         
         
         # TODO this should be totally equal
-        # assert np.array_equal(online_peaks['geometrical', 'numpy', '-'], online_peaks['geometrical', 'opencl', '-'])
-        # assert np.array_equal(online_peaks['geometrical', 'numba', '-'], online_peaks['geometrical', 'opencl', '-'])
+        assert np.array_equal(online_peaks['geometrical', 'numpy', '-'], online_peaks['geometrical', 'opencl', '-'])
+        assert np.array_equal(online_peaks['geometrical', 'numba', '-'], online_peaks['geometrical', 'opencl', '-'])
 
     
 

@@ -72,12 +72,12 @@ def numba_explore_shifts(long_waveform, one_center,  one_mask, maximum_jitter_sh
     return all_dist
 
 
-
-
 @jit(parallel=True)
 def peak_loop_plus(sigs, sig_center, mask_peaks, n_span, thresh, peak_sign, neighbours):
     for chan in prange(sig_center.shape[1]):
         for s in range(mask_peaks.shape[0]):
+            if not mask_peaks[s, chan]:
+                continue
             for neighbour in neighbours[chan, :]:
                 if neighbour<0:
                     continue
@@ -86,16 +86,19 @@ def peak_loop_plus(sigs, sig_center, mask_peaks, n_span, thresh, peak_sign, neig
                         mask_peaks[s, chan] &= sig_center[s, chan] >= sig_center[s, neighbour]
                     mask_peaks[s, chan] &= sig_center[s, chan] > sigs[s+i, neighbour]
                     mask_peaks[s, chan] &= sig_center[s, chan]>=sigs[n_span+s+i+1, neighbour]
-                    if mask_peaks[s, chan] == 0:
+                    if not mask_peaks[s, chan]:
                         break
-                if mask_peaks[s, chan] == 0:
+                if not mask_peaks[s, chan]:
                     break
     return mask_peaks
+
 
 @jit(parallel=True)
 def peak_loop_minus(sigs, sig_center, mask_peaks, n_span, thresh, peak_sign, neighbours):
     for chan in prange(sig_center.shape[1]):
         for s in range(mask_peaks.shape[0]):
+            if not mask_peaks[s, chan]:
+                continue
             for neighbour in neighbours[chan, :]:
                 if neighbour<0:
                     continue
@@ -104,9 +107,9 @@ def peak_loop_minus(sigs, sig_center, mask_peaks, n_span, thresh, peak_sign, nei
                         mask_peaks[s, chan] &= sig_center[s, chan] <= sig_center[s, neighbour]
                     mask_peaks[s, chan] &= sig_center[s, chan] < sigs[s+i, neighbour]
                     mask_peaks[s, chan] &= sig_center[s, chan]<=sigs[n_span+s+i+1, neighbour]                        
-                    if mask_peaks[s, chan] == 0:
+                    if not mask_peaks[s, chan]:
                         break
-                if mask_peaks[s, chan] == 0:
+                if not mask_peaks[s, chan]:
                     break
     return mask_peaks
 
