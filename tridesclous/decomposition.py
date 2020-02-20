@@ -112,7 +112,7 @@ class PeakMaxOnChannel:
 
 
 class PcaByChannel:
-    def __init__(self, catalogueconstructor=None, n_components_by_channel=3, **params):
+    def __init__(self, catalogueconstructor=None, n_components_by_channel=3, adjacency_radius_um=200, **params):
         cc = catalogueconstructor
         
         thresh = cc.info['peak_detector_params']['relative_threshold']
@@ -122,6 +122,7 @@ class PcaByChannel:
         
         #~ self.waveforms = waveforms
         self.n_components_by_channel = n_components_by_channel
+        self.adjacency_radius_um = adjacency_radius_um
         
         some_peaks = cc.all_peaks[cc.some_peaks_index]
         self.pcas = []
@@ -164,8 +165,9 @@ class PcaByChannel:
         some_peaks = cc.all_peaks[cc.some_peaks_index]
 
         if cc.mode == 'sparse':
-            channel_adjacency = cc.dataio.get_channel_adjacency(chan_grp=cc.chan_grp, adjacency_radius_um=cc.adjacency_radius_um)
             assert cc.info['peak_detector_params']['method'] == 'geometrical'
+            #~ adjacency_radius_um = cc.info['peak_detector_params']['adjacency_radius_um']
+            channel_adjacency = cc.dataio.get_channel_adjacency(chan_grp=cc.chan_grp, adjacency_radius_um=self.adjacency_radius_um)
         
         for chan, pca in enumerate(self.pcas):
             if pca is None:
@@ -179,7 +181,6 @@ class PcaByChannel:
                 #~ print('dense', wf_chan.shape)
                 features[:, chan*n:(chan+1)*n] = pca.transform(wf_chan)
             elif cc.mode == 'sparse':
-                adj = channel_adjacency[chan]
                 sel = np.in1d(some_peaks['channel'], channel_adjacency[chan])
                 wf_chan = cc.get_some_waveforms(peaks_index=cc.some_peaks_index[sel], channel_indexes=[chan])
                 wf_chan = wf_chan[:, :, 0]

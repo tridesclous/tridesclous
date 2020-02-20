@@ -36,18 +36,24 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
     
     if dataset_name=='olfactory_bulb':
-        channels = [5, 6, 7, 8, 9]
+        channels = [4, 5, 6, 7, 8, 9]
         mode = 'sparse'
         adjacency_radius_um = 350
         peak_method = 'geometrical'
         peak_engine = 'numpy'
         
+        feature_method = 'pca_by_channel'
+        feature_kargs = {'n_components_by_channel': 3}
     else:
         channels = [0,1,2,3]
         mode = 'dense'
         adjacency_radius_um = None
         peak_method = 'global'
         peak_engine = 'numpy'
+        
+        feature_method = 'global_pca'
+        feature_kargs = {'n_components': 5}
+
     dataio.add_one_channel_group(channels=channels)
     
     
@@ -58,7 +64,6 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
         'duration' : 60.,
         'chunksize': 1024,
         'mode': mode,
-        'adjacency_radius_um': adjacency_radius_um,
         'memory_mode': 'memmap',
         
         'preprocessor' : {
@@ -90,8 +95,8 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
         'noise_snippet' : {
             'nb_snippet' : 300,
         },
-        'feature_method': 'global_pca', 
-        'feature_kargs':{'n_components': 5},
+        'feature_method': feature_method,
+        'feature_kargs':feature_kargs,
         #~ 'cluster_method' : 'kmeans', 
         #~ 'cluster_kargs' : {'n_clusters': 12},
         'cluster_method' : 'pruningshears', 

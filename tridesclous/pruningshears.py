@@ -41,13 +41,12 @@ class PruningShears:
                         noise_features,
                         n_left, n_right,
                         peak_sign, threshold,
-                        adjacency_radius_um,
                         geometry,
-                        #~ channel_adjacency,
-                        #~ channel_distances,
                         dense_mode,
                         catalogueconstructor, # for get_some_waveform TODO find better
                         
+                        
+                        adjacency_radius_um=50,
                         high_adjacency_radius_um = 30,
                         
                         min_cluster_size=20,
@@ -72,8 +71,7 @@ class PruningShears:
         self.width = n_right - n_left
         self.peak_sign = peak_sign
         self.threshold = threshold
-        #~ self.adjacency_radius_um = adjacency_radius_um
-        self.adjacency_radius_um = 50
+        
         self.geometry = geometry
         self.dense_mode =  dense_mode
         self.catalogueconstructor = catalogueconstructor
@@ -82,7 +80,9 @@ class PruningShears:
         
         
         #user params
+        self.adjacency_radius_um = adjacency_radius_um
         self.high_adjacency_radius_um = high_adjacency_radius_um
+        
         self.min_cluster_size = min_cluster_size
         self.max_loop = max_loop
         self.break_nb_remain = break_nb_remain
@@ -238,7 +238,7 @@ class PruningShears:
         #   * template peak is center on self.n_left
         #   * cluster size is bug enoutgh
         
-        local_channels = self.channel_adjacency[actual_chan]
+        
         
         #~ candidate_labels = []
         peak_is_on_chan = []
@@ -270,6 +270,7 @@ class PruningShears:
                 centroid = np.median(wfs, axis=0)
             else:
                 #~ centroid = np.median(self.waveforms[ind, :, :][:, :, local_channels], axis=0)
+                local_channels = self.channel_adjacency[actual_chan]
                 wfs = self.cc.get_some_waveforms( peaks_index=self.peak_index[ind], channel_indexes=local_channels)
                 centroid = np.median(wfs, axis=0)
             
@@ -450,9 +451,11 @@ class PruningShears:
                     
             
             self.log('actual_chan', actual_chan)
-            adjacency = self.channel_adjacency[actual_chan]
-            high_adjacency = self.channel_high_adjacency[actual_chan]
-            self.log('adjacency', adjacency, 'high_adjacency', high_adjacency)
+            
+            if not self.dense_mode:
+                adjacency = self.channel_adjacency[actual_chan]
+                high_adjacency = self.channel_high_adjacency[actual_chan]
+                self.log('adjacency', adjacency, 'high_adjacency', high_adjacency)
             
             
             mask_thresh = np.zeros(mask_loop.size, dtype='bool')

@@ -43,7 +43,7 @@ from . import labelcodes
 
 
 
-_global_params_attr = ('chunksize', 'memory_mode', 'internal_dtype', 'mode', 'adjacency_radius_um', 'sparse_threshold')
+_global_params_attr = ('chunksize', 'memory_mode', 'internal_dtype', 'mode', 'sparse_threshold') # 'adjacency_radius_um'
 
 _persistent_metrics = ('spike_waveforms_similarity', 'cluster_similarity',
                         'cluster_ratio_similarity', 'spike_silhouette')
@@ -317,7 +317,7 @@ class CatalogueConstructor:
             memory_mode='memmap',   # 'memmap' or 'ram' 
             internal_dtype = 'float32',  # TODO "int16"
             mode='dense',
-            adjacency_radius_um=None,
+            #~ adjacency_radius_um=None,
             sparse_threshold=1.5,
             ):
         """
@@ -341,23 +341,23 @@ class CatalogueConstructor:
             When mode='sparse' then this must not be None.
         """
 
-        if mode == 'sparse':
-            assert adjacency_radius_um is not None
-            assert adjacency_radius_um > 0. 
-        elif mode == 'dense':
-            # chosse a radius that connect all channels
-            if self.dataio.nb_channel(self.chan_grp) >1:
-                channel_distances = self.dataio.get_channel_distances(chan_grp=self.chan_grp)
-                # important more than 2 times because
-                # adjacency_radius_um is use for waveform with this radius
-                # but also in pruningshears with half radius
-                adjacency_radius_um = np.max(channel_distances) * 2.5
+        #~ if mode == 'sparse':
+            #~ assert adjacency_radius_um is not None
+            #~ assert adjacency_radius_um > 0. 
+        #~ elif mode == 'dense':
+            #~ # chosse a radius that connect all channels
+            #~ if self.dataio.nb_channel(self.chan_grp) >1:
+                #~ channel_distances = self.dataio.get_channel_distances(chan_grp=self.chan_grp)
+                #~ # important more than 2 times because
+                #~ # adjacency_radius_um is use for waveform with this radius
+                #~ # but also in pruningshears with half radius
+                #~ adjacency_radius_um = np.max(channel_distances) * 2.5
         
         self.info['chunksize'] = chunksize
         self.info['memory_mode'] = memory_mode
         self.info['internal_dtype'] = internal_dtype
         self.info['mode'] = mode
-        self.info['adjacency_radius_um'] = adjacency_radius_um
+        #~ self.info['adjacency_radius_um'] = adjacency_radius_um
         self.info['sparse_threshold'] = sparse_threshold
 
         self.flush_info()

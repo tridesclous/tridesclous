@@ -135,9 +135,11 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         geometry = cc.dataio.get_geometry(chan_grp=cc.chan_grp)
         
         
-        adjacency_radius_um = cc.adjacency_radius_um * 0.5 # TODO wokr on this
-        channel_adjacency = cc.dataio.get_channel_adjacency(chan_grp=cc.chan_grp, adjacency_radius_um=adjacency_radius_um)
-        channel_distances = cc.dataio.get_channel_distances(chan_grp=cc.chan_grp)
+        #~ adjacency_radius_um = cc.adjacency_radius_um * 0.5 # TODO wokr on this
+        
+        
+        #~ channel_adjacency = cc.dataio.get_channel_adjacency(chan_grp=cc.chan_grp, adjacency_radius_um=adjacency_radius_um)
+        #~ channel_distances = cc.dataio.get_channel_distances(chan_grp=cc.chan_grp)
         
         noise_features = cc.some_noise_features
         channel_to_features = cc.channel_to_features
@@ -151,7 +153,7 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         #~ adjacency_radius_um = 200
         pruningshears = PruningShears(features, channel_to_features, peaks, peak_index,
                             noise_features, n_left, n_right, peak_sign, relative_threshold, 
-                            adjacency_radius_um, geometry, dense_mode, cc, **kargs)
+                            geometry, dense_mode, cc, **kargs)
         
         #~ from .pruningshears import PruningShears_1_4_1
         #~ pruningshears = PruningShears_1_4_1(waveforms, features, noise_features, n_left, n_right, peak_sign, relative_threshold,

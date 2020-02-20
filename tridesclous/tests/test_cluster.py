@@ -62,7 +62,7 @@ def test_pruningshears():
     print(dataio)
     cc = CatalogueConstructor(dataio=dataio)
     
-    cc.extract_some_features(method='pca_by_channel')
+    #~ cc.extract_some_features(method='pca_by_channel')
     #~ print(dataio)
     #~ print(cc)
     
@@ -80,7 +80,7 @@ def test_pruningshears():
 
 
 if __name__ == '__main__':
-    #~ setup_module()
+    setup_module()
     #~ test_sawchaincut()
     test_pruningshears()
     

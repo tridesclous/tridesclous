@@ -37,7 +37,7 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     cc = catalogueconstructor
     
     # global params
-    d = {k:params[k] for k in ('chunksize', 'mode', 'adjacency_radius_um', 'memory_mode')}
+    d = {k:params[k] for k in ('chunksize', 'mode', 'memory_mode')}
     
     cc.set_global_params(**d)
     
@@ -132,7 +132,6 @@ _default_catalogue_params = {
     
     'chunksize': 1024,
     'mode': 'dense', # 'sparse'
-    'adjacency_radius_um': None, # None when sparse
     'sparse_threshold': None, # 1.5
     'memory_mode': 'memmap',
     
@@ -264,6 +263,8 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['cluster_method'] = 'pruningshears'
         params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 10)
         params['cluster_kargs']['min_cluster_size'] = 20
+        params['cluster_kargs']['adjacency_radius_um'] = 0.
+        params['cluster_kargs']['high_adjacency_radius_um'] = 0.
         
 
         params['clean_cluster'] = True
@@ -306,6 +307,8 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['cluster_method'] = 'pruningshears'
         params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 20)
         params['cluster_kargs']['min_cluster_size'] = 20
+        params['cluster_kargs']['adjacency_radius_um'] = 50.
+        params['cluster_kargs']['high_adjacency_radius_um'] = 30.
 
     
     

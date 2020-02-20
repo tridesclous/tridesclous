@@ -206,15 +206,20 @@ clean_cluster_params = [
 features_params_by_methods = OrderedDict([
     ('global_pca',  [{'name' : 'n_components', 'type' : 'int', 'value' : 5}]),
     ('peak_max',  []),
-    ('pca_by_channel',  [{'name' : 'n_components_by_channel', 'type' : 'int', 'value' : 3}]),
-    ('neighborhood_pca',  [{'name' : 'n_components_by_neighborhood', 'type' : 'int', 'value' : 3}, 
-                                        {'name' : 'radius_um', 'type' : 'float', 'value' : 300., 'step':50.}, 
-                                        ]),
+    ('pca_by_channel',  [{'name' : 'n_components_by_channel', 'type' : 'int', 'value' : 3},
+                                     {'name':'adjacency_radius_um', 'type': 'float', 'value':150., 'suffix': 'µm', 'siPrefix': False},
+                                    ]),
+    #~ ('neighborhood_pca',  [{'name' : 'n_components_by_neighborhood', 'type' : 'int', 'value' : 3}, 
+                                        #~ {'name' : 'radius_um', 'type' : 'float', 'value' : 300., 'step':50.}, 
+                                        #~ ]),
 ])
 
 
 cluster_params_by_methods = OrderedDict([
-    ('pruningshears', [{'name' : 'min_cluster_size', 'type' : 'int', 'value' : 20}]),
+    ('pruningshears', [{'name' : 'min_cluster_size', 'type' : 'int', 'value' : 20},
+                                {'name':'adjacency_radius_um', 'type': 'float', 'value':50., 'suffix': 'µm', 'siPrefix': False},
+                                {'name':'high_adjacency_radius_um', 'type': 'float', 'value':30., 'suffix': 'µm', 'siPrefix': False},
+                                ]),
     ('kmeans', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5}]),
     ('onecluster', []),
     ('gmm', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5},
@@ -238,13 +243,6 @@ cluster_params_by_methods = OrderedDict([
     
 ])
 
-#~ split_params_by_methods = OrderedDict([
-    #~ ('kmeans', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5}]),
-    #~ ('gmm', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5},
-                    #~ {'name' : 'covariance_type', 'type' : 'list', 'values' : ['full']},
-                    #~ {'name' : 'n_init', 'type' : 'int', 'value' : 10}]),
-#~ ])
-
 
 fullchain_params = [
     {'name':'duration', 'type': 'float', 'value':300., 'suffix': 's', 'siPrefix': True},
@@ -252,7 +250,7 @@ fullchain_params = [
     {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
     
     {'name' : 'mode', 'type' : 'list', 'values' : ['dense', 'sparse']},
-    {'name':'adjacency_radius_um', 'type': 'float', 'value':200., 'suffix': 'µm', 'siPrefix': False},
+
     {'name':'sparse_threshold', 'type': 'float', 'value':1.5},
     
     

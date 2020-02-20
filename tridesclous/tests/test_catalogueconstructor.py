@@ -43,7 +43,7 @@ def test_catalogue_constructor():
             cc.set_global_params(chunksize=1024,
                                             memory_mode=memory_mode,
                                             mode=mode,
-                                            adjacency_radius_um=adjacency_radius_um,
+                                            #~ adjacency_radius_um=adjacency_radius_um,
                                             )
             
             cc.set_preprocessor_params(
@@ -178,7 +178,7 @@ def compare_nb_waveforms():
     cc.set_global_params(chunksize=1024,
                                     memory_mode='ram',
                                     mode='dense',
-                                    adjacency_radius_um=None,
+                                    #~ adjacency_radius_um=None,
                                     )
     
     cc.set_preprocessor_params(
@@ -194,7 +194,7 @@ def compare_nb_waveforms():
             #peak detector
             method='global', engine='numpy',
             peak_sign='-', relative_threshold=7, peak_span_ms=0.5,
-            adjacency_radius_um=None,
+            #~ adjacency_radius_um=None,
             )
     
     t1 = time.perf_counter()
