@@ -37,7 +37,7 @@ class PruningShears:
                         features,
                         channel_to_features,
                         peaks,
-                        peak_index,
+                        peak_index, # in catalogue constructor size
                         noise_features,
                         n_left, n_right,
                         peak_sign, threshold,
@@ -46,7 +46,7 @@ class PruningShears:
                         #~ channel_adjacency,
                         #~ channel_distances,
                         dense_mode,
-                        catalogueconstructor, # for get_some_waveform TODO find betetr
+                        catalogueconstructor, # for get_some_waveform TODO find better
                         
                         high_adjacency_radius_um = 30,
                         

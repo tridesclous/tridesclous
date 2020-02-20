@@ -116,13 +116,14 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         labels = ms.fit_predict(features)
         
     elif method == 'sawchaincut':
-        raise NotImplementedError
-        #~ n_left = cc.info['waveform_extractor_params']['n_left']
-        #~ n_right = cc.info['waveform_extractor_params']['n_right']
-        #~ peak_sign = cc.info['peak_detector_params']['peak_sign']
-        #~ relative_threshold = cc.info['peak_detector_params']['relative_threshold']
-        #~ sawchaincut = SawChainCut(waveforms, n_left, n_right, peak_sign, relative_threshold, **kargs)
-        #~ labels = sawchaincut.do_the_job()
+        
+        n_left = cc.info['waveform_extractor_params']['n_left']
+        n_right = cc.info['waveform_extractor_params']['n_right']
+        peak_sign = cc.info['peak_detector_params']['peak_sign']
+        relative_threshold = cc.info['peak_detector_params']['relative_threshold']
+        waveforms = cc.get_some_waveforms()
+        sawchaincut = SawChainCut(waveforms, n_left, n_right, peak_sign, relative_threshold, **kargs)
+        labels = sawchaincut.do_the_job()
         
     elif method == 'pruningshears':
         n_left = cc.info['waveform_extractor_params']['n_left']
