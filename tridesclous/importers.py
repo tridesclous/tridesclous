@@ -214,7 +214,7 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_clust
     cc = CatalogueConstructor(dataio=dataio)
 
     # global params
-    d = {k:params[k] for k in ('chunksize', 'mode', 'adjacency_radius_um')}
+    d = {k:params[k] for k in ('chunksize', 'mode', )}
     cc.set_global_params(**d)
 
     # params preprocessor
