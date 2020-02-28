@@ -118,7 +118,12 @@ class PruningShears:
             print(*args, **kargs)
     
     def do_the_job(self):
+        t0 = time.perf_counter()
         cluster_labels = self.explore_split_loop()
+        t1 = time.perf_counter()
+        self.log('explore_split_loop', t1-t0)
+        
+        
         t0 = time.perf_counter()
         cluster_labels = self.try_oversplit(cluster_labels)
         t1 = time.perf_counter()
@@ -1074,12 +1079,13 @@ class PruningShears:
                     cluster_labels2[cluster_labels2 == k] = -1
                     labels[ind] = -1
                 
-                    #~ fig, ax = plt.subplots()
-                    #~ ax.plot(centroid.T.flatten())
-                    #~ for i in range(centroids.shape[2]):
-                        #~ ax.axvline(i*self.width-self.n_left)
-                    #~ ax.set_title('delete')
-                    #~ plt.show()
+                    if self.debug_plot:
+                        fig, ax = plt.subplots()
+                        ax.plot(centroid.T.flatten())
+                        for i in range(centroids.shape[2]):
+                            ax.axvline(i*self.width-self.n_left)
+                        ax.set_title('delete')
+                        plt.show()
                 
             
             n_shift = 2
@@ -1102,11 +1108,14 @@ class PruningShears:
                             self.log('merge', k1, k2)
                             cluster_labels2[cluster_labels2==k2] = k1
                             nb_merge += 1
-                            #~ fig, ax = plt.subplots()
-                            #~ ax.plot(wf1.T.flatten())
-                            #~ ax.plot(wf2.T.flatten())
-                            #~ ax.set_title('merge')
-                            #~ plt.show()
+                            
+                            if self.debug_plot:
+                                fig, ax = plt.subplots()
+                                ax.plot(wf1.T.flatten())
+                                ax.plot(wf2.T.flatten())
+                                ax.set_title('merge')
+                                plt.show()
+                            
                             break
                     
                     

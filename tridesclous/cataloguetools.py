@@ -297,6 +297,7 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         #~ params['extract_waveforms']['nb_max_by_channel'] = 700
         params['peak_sampler']['nb_max_by_channel'] = 1000
         #~ params['peak_sampler']['nb_max_by_channel'] = 1500
+        #~ params['peak_sampler']['nb_max_by_channel'] = 3000
         
         
         params['feature_method'] = 'pca_by_channel'
