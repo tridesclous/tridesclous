@@ -20,7 +20,9 @@ import sklearn.metrics
 
 
 import matplotlib.pyplot as plt
+
 from .dip import diptest
+from .waveformtools import equal_template
 
 
 import hdbscan
@@ -112,12 +114,16 @@ class PruningShears:
         #~ self.debug_plot = False
         #~ self.debug_plot = True
         self.debug_plot = debug_plot
+        
+        
 
     def log(self, *args, **kargs):
         if self.print_debug:
             print(*args, **kargs)
     
     def do_the_job(self):
+        self.centroids = {}
+        
         t0 = time.perf_counter()
         cluster_labels = self.explore_split_loop()
         t1 = time.perf_counter()
@@ -899,7 +905,7 @@ class PruningShears:
         
         m = np.max(labels) + 1
         
-        #~ max_per_cluster= 300 
+        
         for label in np.unique(labels):
             #~ print()
             #~ print('label', label)
@@ -941,29 +947,37 @@ class PruningShears:
                 sub_labels = clusterer.fit_predict(feats[:, :2])
                 unique_sub_labels = np.unique(sub_labels)
                 if unique_sub_labels.size ==  1 and unique_sub_labels[0] == -1:
-                    pass
                     unique_sub_labels = []
+                    self.centroids[label] = centroid
+                    
                 else:
                     possible_labels, candidate_mask, elsewhere_mask, best_chan_peak_values, best_chan,\
                         peak_is_aligned, peak_is_on_chan, local_centroids = self.check_candidate_labels(ind_keep, sub_labels, extremum_channel)
                     
                     self.log('possible_labels',possible_labels)
                     
+                    # TODO to avoid split then merge check equal_template
+                    #~ n_shift = 2
+                    #~ for i in range(unique_sub_labels.size):
+                        #~ k1 = unique_sub_labels[i]
+                        #~ for j in range(i+1, unique_sub_labels.size):
+                            #~ k2 = unique_sub_labels[j]
+                            
+                            #~ thresh = max(extremum_amplitude[k1], extremum_amplitude[k2]) * amplitude_factor_thresh
+                            #~ thresh = max(thresh, self.auto_merge_threshold)
+                            #~ if equal_template(local_centroids[k1], local_centroids[k2], thresh=thresh, n_shift=n_shift):
                     
+                    valid_sub_labels = possible_labels[peak_is_aligned]
                     
                     for sub_label in unique_sub_labels:
                         sub_mask = sub_labels == sub_label
                         
-                        valid = sub_label in possible_labels[peak_is_aligned]
-                        
+                        valid = sub_label in valid_sub_labels
                         #~ print('sub_label', 'valid', valid)
                         
-                        
-                        
-                        if sub_label == -1:
+                        if sub_label == -1 or not valid:
                             cluster_labels[ind_keep[sub_mask]] = -1
                         else:
-                            # TODO check if peak center and size OK
                             cluster_labels[ind_keep[sub_mask]] = sub_label + m 
                     
                     if np.max(unique_sub_labels) >=0:
@@ -977,14 +991,9 @@ class PruningShears:
                     colors = {unique_sub_labels[l]:colors(l) for l in range(len(unique_sub_labels))}
                     colors[-1] = 'k'
                     
-                    #~ ax = axs[0]
-                    #~ ax.plot(wf_flat.T, color='k', alpha=0.1)
-                    #~ print(sub_labels.shape, wf_flat.shape, waveforms.shape)
                     for sub_label in unique_sub_labels:
                         valid = sub_label in possible_labels[peak_is_aligned]
-                        
                         sub_mask = sub_labels == sub_label
-                        
                         if valid:
                             ls = '-'
                             color = colors[sub_label]
@@ -999,9 +1008,6 @@ class PruningShears:
                         if sub_label>=0:
                             ax.plot(np.median(wf_flat[sub_mask], axis=0), color=color, lw=2, ls=ls)
                     
-
-                    
-                    #~ ax.plot(feats.T, color='k', alpha=0.1)
                     for sub_label in unique_sub_labels:
                         valid = sub_label in possible_labels[peak_is_aligned]
                         sub_mask = sub_labels == sub_label
@@ -1012,16 +1018,15 @@ class PruningShears:
                             color = 'k'
                         ax = axs[1]
                         ax.plot(feats[sub_mask].T, color=color, alpha=0.1)
-                        
-                        
                     
                         ax = axs[2]
                         ax.scatter(feats[sub_mask][:, 0], feats[sub_mask][:, 1], color=color)
-                    
-                    
-                
                     plt.show()
-            
+
+            else:
+                # Not over spplit
+                self.centroids[label] = centroid
+                
         return cluster_labels
 
 
@@ -1035,6 +1040,13 @@ class PruningShears:
         
         cluster_labels2 = cluster_labels.copy()
         
+        
+        # self.centroids already computed before
+        
+        extremum_channel = {}
+        extremum_index = {}
+        extremum_amplitude = {}
+        
         while True:
             self.log('')
             self.log('new loop')
@@ -1043,82 +1055,110 @@ class PruningShears:
             n = labels.size
             self.log(labels)
             
-            centroids = np.zeros((labels.size, self.width, self.nb_channel))
-                        
             for ind, k in enumerate(labels):
-                ind_keep,  = np.nonzero(cluster_labels2 == k)
-                if ind_keep.size > self.max_per_cluster_for_median:
-                    sub_sel = np.random.choice(ind_keep.size, self.max_per_cluster_for_median, replace=False)
-                    ind_keep = ind_keep[sub_sel]
-                #~ centroids[ind,:,:] = np.median(self.waveforms[ind_keep, :, :], axis=0)
-                waveforms = self.cc.get_some_waveforms(self.peak_index[ind_keep], channel_indexes=None)
-                centroids[ind,:,:] = np.median(waveforms, axis=0)
+                if k not in self.centroids:
+                    ind_keep,  = np.nonzero(cluster_labels2 == k)
+                    if ind_keep.size > self.max_per_cluster_for_median:
+                        sub_sel = np.random.choice(ind_keep.size, self.max_per_cluster_for_median, replace=False)
+                        ind_keep = ind_keep[sub_sel]
+                    
+                    waveforms = self.cc.get_some_waveforms(self.peak_index[ind_keep], channel_indexes=None)
+                    centroid = np.median(waveforms, axis=0)
+                    self.centroids[k] = centroid
+                
+                if k not in extremum_index:
+                    centroid = self.centroids[k]
+                    
+                    if self.peak_sign == '-':
+                        chan_peak = np.argmin(np.min(centroid, axis=0))
+                        pos_peak = np.argmin(centroid[:, chan_peak])
+                        peak_val = centroid[-self.n_left, chan_peak]
+                    elif self.peak_sign == '+':
+                        chan_peak = np.argmax(np.max(centroid, axis=0))
+                        pos_peak = np.argmax(centroid[:, chan_peak])
+                        peak_val = centroid[-self.n_left, chan_peak]
+                    extremum_index[k] = pos_peak
+                    extremum_channel[k] = chan_peak
+                    extremum_amplitude[k] = np.abs(peak_val)
+            
             
             #eliminate when best peak not aligned
             # eliminate when peak value is too small
             # TODO move this in the main loop!!!!!
             for ind, k in enumerate(labels):
-                centroid = centroids[ind,:,:]
-                if self.peak_sign == '-':
-                    chan_peak = np.argmin(np.min(centroid, axis=0))
-                    pos_peak = np.argmin(centroid[:, chan_peak])
-                    #~ print(centroid.shape, -self.n_left, chan_peak)
-                    peak_val = centroid[-self.n_left, chan_peak]
-                elif self.peak_sign == '+':
-                    chan_peak = np.argmax(np.max(centroid, axis=0))
-                    pos_peak = np.argmax(centroid[:, chan_peak])
-                    peak_val = centroid[-self.n_left, chan_peak]
                 
-                if np.abs(-self.n_left - pos_peak)>2:
+                if np.abs(-self.n_left - extremum_index[k])>2:
                     self.log('remove not aligned peak', 'k', k)
                     #delete
                     cluster_labels2[cluster_labels2 == k] = -1
                     labels[ind] = -1
-                if np.abs(peak_val) < self.threshold + 0.5:
-                    self.log('remove small peak', 'k', k, 'peak_val', peak_val)
+                    self.centroids.pop(k)
+                    #~ extremum_index.pop(k) # usefull ?
+                    #~ extremum_channel.pop(k) # usefull ?
+                    #~ extremum_amplitude.pop(k) # usefull ?
+                    continue
+                
+                # TODO check if this is really  relevant
+                if np.abs(extremum_amplitude[k]) < self.threshold + 0.5:
+                    self.log('remove small peak', 'k', k, 'peak_val', extremum_amplitude[k])
                     cluster_labels2[cluster_labels2 == k] = -1
                     labels[ind] = -1
-                
+                    self.centroids.pop(k)
+                    #~ extremum_index.pop(k) # usefull ?
+                    #~ extremum_channel.pop(k) # usefull ?
+                    #~ extremum_amplitude.pop(k) # usefull ?
+
                     if self.debug_plot:
                         fig, ax = plt.subplots()
                         ax.plot(centroid.T.flatten())
-                        for i in range(centroids.shape[2]):
+                        for i in range(self.centroids[k].shape[1]):
                             ax.axvline(i*self.width-self.n_left)
                         ax.set_title('delete')
                         plt.show()
+                    
+                    continue
                 
             
             n_shift = 2
             nb_merge = 0
+            amplitude_factor_thresh = 0.2
+            
+            pop_from_centroids = []
             for i in range(n):
                 k1 = labels[i]
                 if k1 == -1:
+                    # this can have been removed yet
                     continue
-                wf1 = centroids[i, n_shift:-n_shift, :]
+                
                 for j in range(i+1, n):
                     k2 = labels[j]
                     if k2 == -1:
+                        # this can have been removed yet
                         continue
+                    
+                    thresh = max(extremum_amplitude[k1], extremum_amplitude[k2]) * amplitude_factor_thresh
+                    thresh = max(thresh, self.auto_merge_threshold)
+                    #~ print('thresh', thresh)
+                    
+                    if equal_template(self.centroids[k1], self.centroids[k2], thresh=thresh, n_shift=n_shift):
+                        self.log('merge', k1, k2)
+                        cluster_labels2[cluster_labels2==k2] = k1
+                        nb_merge += 1
                         
-                    for shift in range(n_shift*2+1):
-                        wf2 = centroids[j, shift:wf1.shape[0]+shift, :]
-                        d = np.max(np.abs(wf1-wf2))
-                        if d<self.auto_merge_threshold:
-                            self.log('d', d)
-                            self.log('merge', k1, k2)
-                            cluster_labels2[cluster_labels2==k2] = k1
-                            nb_merge += 1
-                            
-                            if self.debug_plot:
-                                fig, ax = plt.subplots()
-                                ax.plot(wf1.T.flatten())
-                                ax.plot(wf2.T.flatten())
-                                ax.set_title('merge')
-                                plt.show()
-                            
-                            break
-                    
-                    
+                        # remove from centroid doct to recompute it
+                        pop_from_centroids.append(k1)
+                        pop_from_centroids.append(k2)
+                        
+                        if self.debug_plot:
+                            fig, ax = plt.subplots()
+                            ax.plot(centroids[i].T.flatten())
+                            ax.plot(centroids[j].T.flatten())
+                            ax.set_title('merge')
+                            plt.show()
+            
+            for k in np.unique(pop_from_centroids):
+                if k in self.centroids:
+                    self.centroids.pop(k)
             
             self.log('nb_merge', nb_merge)
             if nb_merge == 0:
@@ -1126,28 +1166,4 @@ class PruningShears:
         
         return cluster_labels2
 
-# TODO : 
-# pour aller vite prendre seulement le dernier percentile quand beaucoup de spike et grand percentile.
-# adjency à 2 niveau pour eviter les flat sur les bort  >>>>>> adjency_radius * 0.5
-# nettoyage quand le max n'est pas sur n_left
-# over merge
-
-# quand chan_max diffrent actual_chan alors on recommence sur chan_max
-
-# nouvelle idee : idem avant mais garde le max meme si pas aligné!!!
-
-
-# nouvelle idée global:
-# hdbscan sur PCA channel + bruit
-# garde meilleur peak
-# si template max_chan==actual_chan alors pca sur voisinage uniquement sel + bruit
-
-# TODO
-# faire un dip test avant le level2 local
-
-
-# TODO new
-# si len(possible_labels_l0) == 0 alors on garde quand meme DONE
-# si pas aligne plus que n_shift_merged et un seul cluster alors trash
-# elsewhere candiate avec size
 

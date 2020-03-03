@@ -207,7 +207,7 @@ features_params_by_methods = OrderedDict([
     ('global_pca',  [{'name' : 'n_components', 'type' : 'int', 'value' : 5}]),
     ('peak_max',  []),
     ('pca_by_channel',  [{'name' : 'n_components_by_channel', 'type' : 'int', 'value' : 3},
-                                     {'name':'adjacency_radius_um', 'type': 'float', 'value':150., 'suffix': 'µm', 'siPrefix': False},
+                                     {'name':'adjacency_radius_um', 'type': 'float', 'value':50., 'suffix': 'µm', 'siPrefix': False},
                                     ]),
     #~ ('neighborhood_pca',  [{'name' : 'n_components_by_neighborhood', 'type' : 'int', 'value' : 3}, 
                                         #~ {'name' : 'radius_um', 'type' : 'float', 'value' : 300., 'step':50.}, 

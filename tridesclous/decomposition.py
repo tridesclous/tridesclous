@@ -10,6 +10,7 @@ from . import tools
 
 import joblib
 
+import time
 
 def project_waveforms(method='pca_by_channel', catalogueconstructor=None, **params):
     """
@@ -124,6 +125,8 @@ class PcaByChannel:
         self.n_components_by_channel = n_components_by_channel
         self.adjacency_radius_um = adjacency_radius_um
         
+        
+        #~ t1 = time.perf_counter()
         some_peaks = cc.all_peaks[cc.some_peaks_index]
         self.pcas = []
         for chan in range(cc.nb_channel):
@@ -140,6 +143,10 @@ class PcaByChannel:
             else:
                 pca = None
             self.pcas.append(pca)
+
+        #~ t2 = time.perf_counter()
+        #~ print('pca fit', t2-t1)
+            
 
 
             
@@ -169,6 +176,7 @@ class PcaByChannel:
             #~ adjacency_radius_um = cc.info['peak_detector_params']['adjacency_radius_um']
             channel_adjacency = cc.dataio.get_channel_adjacency(chan_grp=cc.chan_grp, adjacency_radius_um=self.adjacency_radius_um)
         
+        #~ t1 = time.perf_counter()
         for chan, pca in enumerate(self.pcas):
             if pca is None:
                 continue
@@ -182,10 +190,14 @@ class PcaByChannel:
                 features[:, chan*n:(chan+1)*n] = pca.transform(wf_chan)
             elif cc.mode == 'sparse':
                 sel = np.in1d(some_peaks['channel'], channel_adjacency[chan])
+                #~ print(chan, np.sum(sel))
                 wf_chan = cc.get_some_waveforms(peaks_index=cc.some_peaks_index[sel], channel_indexes=[chan])
                 wf_chan = wf_chan[:, :, 0]
                 #~ print('sparse', wf_chan.shape)
                 features[:, chan*n:(chan+1)*n][sel, :] = pca.transform(wf_chan)
+
+        #~ t2 = time.perf_counter()
+        #~ print('pca transform', t2-t1)
             
             
         return features

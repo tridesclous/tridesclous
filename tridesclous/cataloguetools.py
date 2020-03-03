@@ -303,7 +303,9 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['feature_method'] = 'pca_by_channel'
         # TODO change n_components_by_channel depending on channel density
         #~ params['feature_kargs'] = {'n_components_by_channel':5}
-        params['feature_kargs'] = {'n_components_by_channel': 3}
+        params['feature_kargs'] = {'n_components_by_channel': 3,
+                                                        'adjacency_radius_um' :50.,  # this should be greater than cluster 'adjacency_radius_um'
+                                                        }
         
         params['cluster_method'] = 'pruningshears'
         params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 20)

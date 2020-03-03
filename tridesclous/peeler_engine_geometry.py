@@ -137,9 +137,6 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                                                         chunksize, self.internal_dtype, self.geometry)
         self.peakdetector.change_params(**p)
         
-        # DEBUG
-        #~ p['nb_neighbour'] = 4
-
         self.channel_distances = sklearn.metrics.pairwise.euclidean_distances(self.geometry).astype('float32')
         self.channels_adjacency = {}
         for c in range(self.nb_channel):
@@ -148,32 +145,12 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         
         if self.argmin_method == 'opencl'  and self.catalogue['centers0'].size>0:
             self.channel_distances_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.channel_distances)
-            
-            
             self.all_distance = np.zeros((self.shifts.size, ), dtype='float32')
             self.all_distance_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.all_distance)
             
-            
-            
-        
-        #~ self.peakdetector = PeakDetectorGeometricalNumpy(self.sample_rate, self.nb_channel,
-                        #~ self.fifo_size-2*self.n_span, self.internal_dtype, self.geometry)
-        
-        #~ # TODO size fido
-        #~ self.peakdetector = PeakDetectorGeometricalOpenCL(self.sample_rate, self.nb_channel,
-                                                        #~ self.fifo_size-2*self.n_span, self.internal_dtype, self.geometry)
-        #~ self.peakdetector.change_params(**p)
-
-        
         self.mask_not_already_tested = np.ones((self.fifo_size - 2 * self.n_span,self.nb_channel),  dtype='bool')
 
-
-    def OLD_detect_local_peaks_before_peeling_loop(self):
-    #~ def detect_local_peaks_before_peeling_loop(self):
-        self.mask_not_already_tested[:] = True
-        self.local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
         
-    #~ def NEW_detect_local_peaks_before_peeling_loop(self):
     def detect_local_peaks_before_peeling_loop(self):
         mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
         local_peaks_indexes, chan_indexes  = np.nonzero(mask)
@@ -183,21 +160,6 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         self.pending_peaks = list(zip(local_peaks_indexes[order], chan_indexes[order]))
         self.already_tested = []
     
-    def OLD_select_next_peak(self):
-    #~ def select_next_peak(self):
-        local_peaks_indexes, chan_indexes  = np.nonzero(self.local_peaks_mask & self.mask_not_already_tested)
-        
-        if local_peaks_indexes.size>0:
-            local_peaks_indexes += self.n_span
-            amplitudes = np.abs(self.fifo_residuals[local_peaks_indexes, chan_indexes])
-            ind = np.argmax(amplitudes)
-            peak_ind = local_peaks_indexes[ind]
-            chan_ind = chan_indexes[ind]
-            return peak_ind, chan_ind
-        else:
-            return LABEL_NO_MORE_PEAK, None
-
-    #~ def NEW_select_next_peak(self):
     def select_next_peak(self):
         #~ print(len(self.pending_peaks))
         if len(self.pending_peaks)>0:
@@ -217,14 +179,8 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         # this prevent search peaks in the zone until next "reset_to_not_tested"
         self.set_already_tested_spike_zone(spike.index, cluster_idx)
 
-    def OLD_set_already_tested_spike_zone(self, peak_ind, cluster_idx):
-    #~ def set_already_tested_spike_zone(self, peak_ind, cluster_idx):
-        mask = self.sparse_mask[cluster_idx, :]
-        for c in np.nonzero(mask)[0]:
-            self.mask_not_already_tested[peak_ind + self.n_left - self.n_span:peak_ind + self.n_right- self.n_span, c] = False
-
-    #~ def NEW_set_already_tested_spike_zone(self, peak_ind, cluster_idx):
     def set_already_tested_spike_zone(self, peak_ind, cluster_idx):
+        # TODO test with high_sparse_masks!!!!!
         mask = self.sparse_mask[cluster_idx, :]
         #~ keep = [not((ind == peak_ind) and (mask[chan_ind])) for ind, chan_ind in self.pending_peaks]
         #~ keep = [(ind != peak_ind) and not(mask[chan_ind]) for ind, chan_ind in self.pending_peaks]
@@ -240,38 +196,22 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                 pending_peaks_.append((ind, chan_ind))
         self.pending_peaks = pending_peaks_
     
-    def OLD_set_already_tested(self, peak_ind, peak_chan):
-    #~ def set_already_tested(self, peak_ind, peak_chan):
-        self.mask_not_already_tested[peak_ind - self.n_span, peak_chan] = False
-    
-    #~ def NEW_set_already_tested(self, peak_ind, peak_chan):
     def set_already_tested(self, peak_ind, peak_chan):
         #~ self.mask_not_already_tested[peak_ind - self.n_span, peak_chan] = False
         #~ self.pending_peaks = [p for p in self.pending_peaks if (p[0]!=peak_ind) and (peak_chan!=p[1])]
         self.already_tested.append((peak_ind, peak_chan))
 
-    def OLDreset_to_not_tested(self, good_spikes):
-    #~ def reset_to_not_tested(self, good_spikes):
-        #TODO : more efficient only local !!!!
-        self.local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
-
-        for spike in good_spikes:
-            peak_ind = spike.index
-            cluster_idx = self.catalogue['label_to_index'][spike.cluster_label]
-            mask = self.sparse_mask[cluster_idx, :]
-            for c in np.nonzero(mask)[0]:
-                self.mask_not_already_tested[peak_ind + self.n_left - self.n_span:peak_ind + self.n_right- self.n_span, c] = True
-
-    
-    #~ def NEW_reset_to_not_tested(self, good_spikes):
     def reset_to_not_tested(self, good_spikes):
+        #~ print('reset_to_not_tested', len(good_spikes))
         #~ self.already_tested = []
+        #~ print('self.already_tested', len(self.already_tested))
         for spike in good_spikes:
+            # each good spike can remove from
             cluster_idx = self.catalogue['label_to_index'][spike.cluster_label]
             mask = self.sparse_mask[cluster_idx, :]
             self.already_tested = [ p for p in self.already_tested if not(((p[0]-spike.index)<self.peak_width)  and mask[p[1]] ) ]
-        
-        # BAD IDEA because all peak are tested again and again after loop
+        #~ print('self.already_tested reduced', len(self.already_tested))
+        # 
         mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
         local_peaks_indexes, chan_indexes  = np.nonzero(mask)
         local_peaks_indexes += self.n_span
@@ -284,6 +224,8 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #~ ok = all((peak[0] != p[0]) and (peak[1] != p[1]) for p in self.already_tested)
             if peak not in self.already_tested:
                 self.pending_peaks.append(peak)
+
+        #~ print('self.pending_peaks', len(self.pending_peaks))
 
     def get_no_label_peaks(self):
         mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)

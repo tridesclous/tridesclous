@@ -31,7 +31,8 @@ import matplotlib.pyplot as plt
 
 
 class PeelerEngineBase(OpenCL_Helper):
-    def change_params(self, catalogue=None, chunksize=1024, 
+    def change_params(self, catalogue=None,
+                                        chunksize=1024, 
                                         internal_dtype='float32', 
                                         use_sparse_template=False,
                                         sparse_threshold_mad=1.5,
@@ -267,25 +268,22 @@ class PeelerEngineGeneric(PeelerEngineBase):
         
         good_spikes = []
         
-        n_loop = 0
-        t3 = time.perf_counter()
 
         if self._plot_debug:
             self._plot_before_peeling_loop()
+
+        n_loop = 0
+        t3 = time.perf_counter()
         
         while True:
-            #~ print('*** peeler level +1')
+            if self._plot_debug:
+                print('** peeler level +1 **')
             nb_good_spike = 0
             peak_ind, peak_chan = self.select_next_peak()
             
-            #~ print('start inner loop')
             while peak_ind != LABEL_NO_MORE_PEAK:
             
-                #~ print('  peak_ind', peak_ind)
-                #~ t2 = time.perf_counter()
-                #~ print('  select_next_peak', (t2-t1)*1000)
-                
-                t1 = time.perf_counter()
+                #~ t1 = time.perf_counter()
                 spike = self.classify_and_align_next_spike(peak_ind, peak_chan)
                 #~ t2 = time.perf_counter()
                 #~ print('  classify_and_align_next_spike', (t2-t1)*1000)
@@ -306,13 +304,21 @@ class PeelerEngineGeneric(PeelerEngineBase):
                     nb_good_spike+=1
                     
                     # remove from residulals
+                    #~ t1 = time.perf_counter()
                     self.on_accepted_spike(spike)
+                    #~ t2 = time.perf_counter()
+                    #~ print('  on_accepted_spike', (t2-t1)*1000)
                 else:
                     
+                    #~ t1 = time.perf_counter()
                     self.set_already_tested(peak_ind, peak_chan)
-                    
-
+                    #~ t2 = time.perf_counter()
+                    #~ print('  set_already_tested', (t2-t1)*1000)
+                
+                #~ t1 = time.perf_counter()
                 peak_ind, peak_chan = self.select_next_peak()
+                #~ t2 = time.perf_counter()
+                #~ print('  select_next_peak', (t2-t1)*1000)
                 
                 #~ # debug
                 n_loop +=1 
@@ -323,19 +329,18 @@ class PeelerEngineGeneric(PeelerEngineBase):
             if nb_good_spike == 0:
                 break
             else:
-                
+                #~ t1 = time.perf_counter()
                 self.reset_to_not_tested(good_spikes[-nb_good_spike:])
-                
                 #~ t2 = time.perf_counter()
-                #~ print('  update mask', (t2-t1)*1000)
+                #~ print('Reset_to_not_tested', (t2-t1)*1000)
         
         
         if self._plot_debug:
+            t4 = time.perf_counter()
+            print('mainloop classify_and_align ', len(good_spikes), ' spike', (t4-t3)*1000, 'ms', 'in', n_loop)
             self._plot_after_peeling_loop(good_spikes)
         
         #~ print(self._debug_nb_accept_tempate)
-        #~ t4 = time.perf_counter()
-        #~ print('mainloop classify_and_align some spike', (t4-t3)*1000)
         #~ if  len(good_spikes)>0:
             #~ print('nb_good_spike', len(good_spikes), 'n_loop', n_loop, 'per spike', (t4-t3)*1000/len(good_spikes))
         

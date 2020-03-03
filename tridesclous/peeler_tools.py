@@ -82,6 +82,10 @@ def get_auto_params_for_peelers(dataio, chan_grp=0):
     nb_chan = dataio.nb_channel(chan_grp=chan_grp)
     params = {}
     
+    
+    #~ params['chunksize'] = int(dataio.sample_rate * 0.5)
+    params['chunksize'] = int(dataio.sample_rate * 0.1)
+    #~ params['chunksize'] = int(dataio.sample_rate * 0.033)
 
     params['inter_sample_oversampling'] = True
     #~ if dataio.sample_rate < 25000.:

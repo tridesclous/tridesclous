@@ -71,3 +71,39 @@ def extract_chunks(signals, peak_sample_indexes, width,
 
     return chunks
 
+
+
+def equal_template(centroid0, centroid1, thresh=2.0, n_shift = 2):
+    """
+    Check if two centroid are mor or less equal for some jitter.
+    """
+    wf0 = centroid0[n_shift:-n_shift, :]
+    
+    equal = False
+    for shift in range(n_shift*2+1):
+        wf1 = centroid1[shift:wf0.shape[0]+shift, :]
+        
+        d = np.max(np.abs(wf1 - wf0))
+
+        #~ print('shift', shift, 'd', d)
+
+        #~ import matplotlib.pyplot as plt
+        #~ fig, ax = plt.subplots()
+        #~ ax.plot(centroid0.T.flatten())
+        #~ ax.plot(centroid1.T.flatten())
+        #~ ax.set_title(f'shift {shift} thresh {thresh:0.2f} d {d:0.2f} merge ' + str(d<thresh))
+        #~ plt.show()
+        
+        if d<thresh:
+            equal = True
+                
+            #~ import matplotlib.pyplot as plt
+            #~ fig, ax = plt.subplots()
+            #~ ax.plot(centroid0.T.flatten())
+            #~ ax.plot(centroid1.T.flatten())
+            #~ ax.set_title(f'shift {shift} thresh {thresh:0.2f} d {d:0.2f} merge ' + str(d<thresh))
+            #~ plt.show()
+            
+            break
+    
+    return equal
