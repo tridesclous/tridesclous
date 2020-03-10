@@ -169,15 +169,19 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         else:
             return LABEL_NO_MORE_PEAK, None
 
-    def on_accepted_spike(self, spike):
+    #~ def on_accepted_spike(self, spike):
+    def on_accepted_spike(self, peak_ind, cluster_idx, jitter):
         # remove spike prediction from fifo residuals
-        left_ind = spike.index + self.n_left
-        cluster_idx = self.catalogue['label_to_index'][spike.cluster_label]
-        pos, pred = make_prediction_one_spike(spike.index, cluster_idx, spike.jitter, self.fifo_residuals.dtype, self.catalogue)
+        #~ left_ind = spike.index + self.n_left
+        #~ cluster_idx = self.catalogue['label_to_index'][spike.cluster_label]
+        #~ peak_index = spike.index
+        #~ pos, pred = make_prediction_one_spike(spike.index, cluster_idx, spike.jitter, self.fifo_residuals.dtype, self.catalogue)
+        pos, pred = make_prediction_one_spike(peak_ind, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
         self.fifo_residuals[pos:pos+self.peak_width, :] -= pred
         
         # this prevent search peaks in the zone until next "reset_to_not_tested"
-        self.set_already_tested_spike_zone(spike.index, cluster_idx)
+        #~ self.set_already_tested_spike_zone(spike.index, cluster_idx)
+        self.set_already_tested_spike_zone(peak_ind, cluster_idx)
 
     def set_already_tested_spike_zone(self, peak_ind, cluster_idx):
         # TODO test with high_sparse_masks!!!!!

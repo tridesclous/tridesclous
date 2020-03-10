@@ -90,6 +90,33 @@ def test_peeler_geometry():
     print(count_by_label)
 
 
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
+def test_peeler_geometry_cl():
+    dataio = DataIO(dirname='test_peeler')
+    catalogue = dataio.load_catalogue(chan_grp=0)
+
+    peeler = Peeler(dataio)
+
+    peeler.change_params(engine='geometrical_opencl',
+                                catalogue=catalogue,
+                                chunksize=1024,
+                                use_sparse_template=True,
+                                sparse_threshold_mad=1.5,
+                                argmin_method='opencl')
+
+    t1 = time.perf_counter()
+    peeler.run(progressbar=False)
+    t2 = time.perf_counter()
+    print('peeler.run_loop', t2-t1)
+
+    spikes = dataio.get_spikes(chan_grp=0).copy()
+    labels = catalogue['clusters']['cluster_label']
+    count_by_label = [np.sum(spikes['cluster_label'] == label) for label in labels]
+    print(labels)
+    print(count_by_label)
+    
+
+
 
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_peeler_argmin_methods():
@@ -265,19 +292,6 @@ def test_export_spikes():
 
 
 
-#~ def test_peeler_cl():
-    #~ dataio = DataIO(dirname='test_peeler')
-    #~ initial_catalogue = dataio.load_catalogue(chan_grp=0)
-
-    #~ peeler = Peeler(dataio)
-    
-    #~ peeler.change_params(engine='classic_opencl', catalogue=initial_catalogue,chunksize=1024)
-    
-    #~ t1 = time.perf_counter()
-    #~ peeler.run(progressbar=False)
-    #~ t2 = time.perf_counter()
-    #~ print('peeler_cl.run_loop', t2-t1)
-
 
 
 
@@ -343,15 +357,15 @@ def debug_compare_peeler_engines():
     
     
 if __name__ =='__main__':
-    setup_module()
+    #~ setup_module()
     
     #~ open_catalogue_window()
     
     test_peeler_classic()
     
-    #~ test_peeler_geometry()
+    test_peeler_geometry()
     
-    #~ test_peeler_cl()
+    #~ test_peeler_geometry_cl()
     
     #~ test_peeler_argmin_methods()
     
