@@ -9,6 +9,6 @@ tridesclous release notes 1.5.0
   * small change in peeler
   * numba peak detector fix.
   * expose different adjacency radius parameters at diffrents steps
-  * fix string bug in opencl peakdetector geometrical
+  * fix strong bug in opencl peakdetector geometrical
 
 
