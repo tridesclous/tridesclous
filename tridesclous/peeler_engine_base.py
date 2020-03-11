@@ -158,16 +158,14 @@ class PeelerEngineBase(OpenCL_Helper):
             #~ ax.axhline(sparse_threshold_mad)
             #~ ax.axhline(-sparse_threshold_mad)
             #~ plt.show()
-
-
-    def initialize_before_each_segment(self, sample_rate=None, nb_channel=None, source_dtype=None, geometry=None, already_processed=False):
-        
+    
+    def initialize(self, sample_rate=None, nb_channel=None, source_dtype=None, geometry=None, already_processed=False):
         self.nb_channel = nb_channel
         self.sample_rate = sample_rate
         self.source_dtype = source_dtype
         self.geometry = geometry
-        self.already_processed = already_processed
-        
+        self.already_processed = already_processed # this is globally set but can be change segment per segment
+
         if not self.already_processed:
             # signal processor class
             p = dict(self.catalogue['signal_preprocessor_params'])
@@ -186,8 +184,7 @@ class PeelerEngineBase(OpenCL_Helper):
             # no need
             self.signalpreprocessor = None
             self.internal_dtype = source_dtype
-        
-        
+
         # peak detector class
         self.peak_sign = self.catalogue['peak_detector_params']['peak_sign']
         self.relative_threshold = self.catalogue['peak_detector_params']['relative_threshold']
@@ -210,7 +207,16 @@ class PeelerEngineBase(OpenCL_Helper):
         self.near_border_good_spikes = []
         
         self.fifo_residuals = np.zeros((self.fifo_size, nb_channel), dtype=self.internal_dtype)
-
+    
+    def initialize_before_each_segment(self, already_processed=False):
+        self.total_spike = 0
+        self.near_border_good_spikes = []
+        self.fifo_residuals = np.zeros((self.fifo_size, self.nb_channel), dtype=self.internal_dtype)
+        
+        if self.signalpreprocessor is not None:
+            self.signalpreprocessor.reset_fifo_index()
+        
+        self.already_processed = already_processed
 
     def get_remaining_spikes(self):
         if len(self.near_border_good_spikes)>0:

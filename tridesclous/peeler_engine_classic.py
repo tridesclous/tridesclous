@@ -78,8 +78,8 @@ class PeelerEngineClassic(PeelerEngineGeneric):
             #~ self.cl_local_size = (1, centers.shape[2])
 
 
-    def initialize_before_each_segment(self, **kargs):
-        PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
+    def initialize(self, **kargs):
+        PeelerEngineGeneric.initialize(self, **kargs)
         
         # force engine to global
         p = dict(self.catalogue['peak_detector_params'])
@@ -96,7 +96,12 @@ class PeelerEngineClassic(PeelerEngineGeneric):
         self.peakdetector.change_params(**p)
         
         self.mask_not_already_tested = np.ones(self.fifo_size - 2 * self.n_span, dtype='bool')
-        
+    
+    def initialize_before_each_segment(self, **kargs):
+        PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
+        self.peakdetector.reset_fifo_index()
+        self.mask_not_already_tested[:] = 1
+    
 
     def detect_local_peaks_before_peeling_loop(self):
         # negative mask 1: not tested 0: already tested

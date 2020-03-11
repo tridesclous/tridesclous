@@ -111,11 +111,9 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             # to check if distance is valid is a coeff (because maxfloat on opencl)
             #~ self.max_float32 = np.finfo('float32').max * 0.8
 
+    def initialize(self, **kargs):
+        PeelerEngineGeneric.initialize(self, **kargs)
 
-
-    def initialize_before_each_segment(self, **kargs):
-        PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
-        
         p = dict(self.catalogue['peak_detector_params'])
         p.pop('engine')
         p.pop('method')
@@ -148,9 +146,15 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             self.all_distance = np.zeros((self.shifts.size, ), dtype='float32')
             self.all_distance_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.all_distance)
             
-        self.mask_not_already_tested = np.ones((self.fifo_size - 2 * self.n_span,self.nb_channel),  dtype='bool')
-
+        #~ self.mask_not_already_tested = np.ones((self.fifo_size - 2 * self.n_span,self.nb_channel),  dtype='bool')
         
+
+    def initialize_before_each_segment(self, **kargs):
+        PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
+        self.peakdetector.reset_fifo_index()
+        #~ self.mask_not_already_tested[:] = 1
+
+
     def detect_local_peaks_before_peeling_loop(self):
         mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
         local_peaks_indexes, chan_indexes  = np.nonzero(mask)

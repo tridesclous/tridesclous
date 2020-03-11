@@ -139,7 +139,12 @@ class SignalPreprocessor_base:
         if self.normalize:
             assert self.signals_medians is not None
             assert self.signals_mads is not None
-            
+
+    def reset_fifo_index(self):
+        # must be for each new segment when index 
+        # start back
+        raise(NotImplmentedError)
+
 
 
 class SignalPreprocessor_Numpy(SignalPreprocessor_base):
@@ -222,7 +227,10 @@ class SignalPreprocessor_Numpy(SignalPreprocessor_base):
         
         return pos2, data2
     
-
+    def reset_fifo_index(self):
+        self.forward_buffer.reset()
+        self.zi[:] = 0
+    
         
         
 
@@ -255,7 +263,7 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base, OpenCL_Helper):
                             self.fifo_input_backward_cl, self.signals_medians_cl, self.signals_mads_cl,  self.output_backward_cl)
         event.wait()
         
-        
+         
         
         
         #~ event.wait()
@@ -347,8 +355,20 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base, OpenCL_Helper):
 
 
         self.kern_forward_backward_filter = getattr(self.opencl_prg, 'forward_backward_filter')
+
+    def reset_fifo_index(self):
+        self.output_forward[:] = 0
+        event = pyopencl.enqueue_copy(self.queue,  self.output_backward_cl, self.output_backward)
+        event.wait()
         
-        
+        self.zi1[:] = 0
+        event = pyopencl.enqueue_copy(self.queue,  self.zi1_cl, self.zi1)
+        event.wait()
+
+        self.zi2[:] = 0
+        event = pyopencl.enqueue_copy(self.queue,  self.zi2_cl, self.zi2)
+        event.wait()
+
 
 processor_kernel = """
 #define forward_chunksize %(forward_chunksize)d

@@ -80,6 +80,10 @@ class FifoBuffer:
         assert start>=0
         assert stop<=self.buffer.shape[0]
         return self.buffer[start:stop]
+    
+    def reset(self):
+        self.last_index = None
+        self.buffer[:] = 0
 
 
 def get_neighborhood(geometry, radius_um):

@@ -915,6 +915,7 @@ class PruningShears:
                 #~ waveforms = self.waveforms.take(ind_keep, axis=0)
                 waveforms = self.cc.get_some_waveforms(self.peak_index[ind_keep], channel_indexes=None)
                 extremum_channel = 0
+                centroid = np.median(waveforms, axis=0)
             else:
                 #~ centroid = np.median(self.waveforms[ind_keep, :, :], axis=0)
                 waveforms = self.cc.get_some_waveforms(self.peak_index[ind_keep], channel_indexes=None)

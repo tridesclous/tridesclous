@@ -12,7 +12,7 @@ from .cltools import HAVE_PYOPENCL, OpenCL_Helper
 from .peeler_engine_base import PeelerEngineGeneric
 
 
-from signalpreprocessor import processor_kernel, 
+from .signalpreprocessor import processor_kernel
 
 try:
     import pyopencl
