@@ -1,18 +1,21 @@
 import time
 import numpy as np
 
+import sklearn.metrics
+
 from .peeler_tools import *
 from .peeler_tools import _dtype_spike
 from . import signalpreprocessor
 
 from .cltools import HAVE_PYOPENCL, OpenCL_Helper
 
-#from .signalpreprocessor import signalpreprocessor_engines, processor_kernel
 
 from .peeler_engine_base import PeelerEngineGeneric
 
+# import kernels
+#~ from .signalpreprocessor import processor_kernel
+from .peakdetector import opencl_kernel_geometrical_part2
 
-from .signalpreprocessor import processor_kernel
 
 try:
     import pyopencl
@@ -36,100 +39,142 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
         self.shifts = np.arange(-self.maximum_jitter_shift, self.maximum_jitter_shift+1)
         
-        if  self.catalogue['centers0'].size>0:
-        #~ if self.use_opencl_with_sparse and self.catalogue['centers0'].size>0:
+
+
+    def initialize(self, **kargs):
+        if self.argmin_method == 'opencl':
             OpenCL_Helper.initialize_opencl(self, cl_platform_index=self.cl_platform_index, cl_device_index=self.cl_device_index)
-            
-            centers = self.catalogue['centers0']
-            nb_channel = centers.shape[2]
-            peak_width = centers.shape[1]
-            nb_cluster = centers.shape[0]
-            kernel = kernel_opencl%{'nb_channel': nb_channel,'peak_width':peak_width,
-                                                    'wf_size':peak_width*nb_channel,'nb_cluster' : nb_cluster, 
-                                                    'maximum_jitter_shift': self.maximum_jitter_shift}
-            #~ print(kernel)
-            prg = pyopencl.Program(self.ctx, kernel)
-            opencl_prg = prg.build(options='-cl-mad-enable')
-            self.kern_waveform_distance = getattr(opencl_prg, 'waveform_distance')
-            self.kern_explore_shifts = getattr(opencl_prg, 'explore_shifts')
-            
-            self.fifo_residuals_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.fifo_residuals)
-            
-            wf_shape = centers.shape[1:]
-            one_waveform = np.zeros(wf_shape, dtype='float32')
-            self.one_waveform_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=one_waveform)
-            
-            long_waveform = np.zeros((wf_shape[0]+self.shifts.size, wf_shape[1]) , dtype='float32')
-            self.long_waveform_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=long_waveform)
-            
+        
+        PeelerEngineGeneric.initialize(self, **kargs)
+        
+        
+        # make neighbours for peak detector CL
+        d = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
+        neighbour_mask = d<=self.catalogue['peak_detector_params']['adjacency_radius_um']
+        nb_neighbour_per_channel = np.sum(neighbour_mask, axis=0)
+        nb_max_neighbour = np.max(nb_neighbour_per_channel)
+        self.nb_max_neighbour = nb_max_neighbour # include itself
+        self.neighbours = np.zeros((self.nb_channel, nb_max_neighbour), dtype='int32')
+        self.neighbours[:] = -1
+        for c in range(self.nb_channel):
+            neighb, = np.nonzero(neighbour_mask[c, :])
+            self.neighbours[c, :neighb.size] = neighb
+        
+        
+        # debug to check same ctx and queue as processor
+        if self.signalpreprocessor is not None:
+            assert self.ctx is self.signalpreprocessor.ctx
+        
+        # make kernels
+        centers = self.catalogue['centers0']
+        nb_channel = centers.shape[2]
+        self.peak_width = centers.shape[1]
+        
+        self.n_cluster = self.catalogue['centers0'].shape[0]
+        wf_size = self.catalogue['centers0'].shape[1]*self.catalogue['centers0'].shape[2]
 
-            self.catalogue_center_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=centers)
+        kernel_formated = kernel_peeler_cl % dict(
+                    chunksize=self.chunksize,
+                    n_span=self.n_span,
+                    nb_channel=self.nb_channel,
+                    relative_threshold=self.relative_threshold,
+                    peak_sign={'+':1, '-':-1}[self.peak_sign],
+                    extra_size=self.extra_size,
+                    fifo_size=self.fifo_size,
+                    n_left=self.n_left,
+                    n_right=self.n_right,
+                    peak_width=self.peak_width,
+                    maximum_jitter_shift=self.maximum_jitter_shift,
+                    n_cluster=self.n_cluster,
+                    wf_size=wf_size,
+                    subsample_ratio=self.catalogue['subsample_ratio'],
+                    nb_neighbour=self.nb_max_neighbour)
+        #~ print(kernel_formated)
+        prg = pyopencl.Program(self.ctx, kernel_formated)
+        self.opencl_prg = prg.build(options='-cl-mad-enable')
+        
+        self.kern_add_fifo_residuals = getattr(self.opencl_prg, 'add_fifo_residuals')
+        self.kern_get_mask_spatiotemporal_peaks = getattr(self.opencl_prg, 'get_mask_spatiotemporal_peaks')
+        
+        exit()
 
-            self.waveform_distance = np.zeros((nb_cluster), dtype='float32')
-            self.waveform_distance_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance)
+        # create CL buffers
+        self.fifo_residuals_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.fifo_residuals)
+        self.channel_distances_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.channel_distances)
+        
+        self.waveform_distance_shifts = np.zeros((self.shifts.size, ), dtype='float32')
+        self.waveform_distance_shifts_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance_shifts)
 
-            #~ mask[:] = 0
-            self.sparse_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask.astype('u1'))
-            self.high_sparse_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.high_sparse_mask.astype('u1'))
-            
-            rms_waveform_channel = np.zeros(nb_channel, dtype='float32')
-            self.rms_waveform_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=rms_waveform_channel)
-            
-            
-            
-            self.adjacency_radius_um_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=np.array([self.adjacency_radius_um], dtype='float32'))
-            
-            
-            self.cl_global_size = (centers.shape[0], centers.shape[2])
-            #~ self.cl_local_size = None
-            self.cl_local_size = (centers.shape[0], 1) # faster a GPU because of memory access
-            #~ self.cl_local_size = (1, centers.shape[2])
+        self.mask_not_already_tested = np.ones((self.fifo_size - 2 * self.n_span,self.nb_channel),  dtype='bool')
+        self.mask_not_already_tested_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.mask_not_already_tested)
 
-            self.cl_global_size2 = (len(self.shifts), centers.shape[2])
-            #~ self.cl_local_size = None
-            self.cl_local_size2 = (len(self.shifts), 1) # faster a GPU because of memory access
-            #~ self.cl_local_size = (1, centers.shape[2])
-            
-            # to check if distance is valid is a coeff (because maxfloat on opencl)
-            #~ self.max_float32 = np.finfo('float32').max * 0.8
+        
+        self.fifo_residuals_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.fifo_residuals)
+        
+        wf_shape = centers.shape[1:]
+        one_waveform = np.zeros(wf_shape, dtype='float32')
+        self.one_waveform_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=one_waveform)
+        
+        long_waveform = np.zeros((wf_shape[0]+self.shifts.size, wf_shape[1]) , dtype='float32')
+        self.long_waveform_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=long_waveform)
+        
+
+        self.catalogue_center_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=centers)
+
+        self.waveform_distance = np.zeros((nb_cluster), dtype='float32')
+        self.waveform_distance_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance)
+
+        #~ mask[:] = 0
+        self.sparse_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask.astype('u1'))
+        self.high_sparse_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.high_sparse_mask.astype('u1'))
+        
+        rms_waveform_channel = np.zeros(nb_channel, dtype='float32')
+        self.rms_waveform_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=rms_waveform_channel)
+        
+        self.adjacency_radius_um_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=np.array([self.adjacency_radius_um], dtype='float32'))
+        
+        # attention : label in CL is the label index
+        self.spike = np.zeros(1, dtype=[('peak_index', 'int32'), ('label_index', 'int32'), ('jitter', 'float32')])
+        self.spike_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.spike)
+
+        self.catalogue_center0_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['centers0'])
+        self.catalogue_center1_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['centers1'])
+        self.catalogue_center2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['centers2'])
+        self.catalogue_inter_center0_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['interp_centers0'])
+        
+        
+        self.extremum_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['extremum_channel'].astype('int32'))
+        self.wf1_norm2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['wf1_norm2'].astype('float32'))
+        self.wf2_norm2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['wf2_norm2'].astype('float32'))
+        self.wf1_dot_wf2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['wf1_dot_wf2'].astype('float32'))
+
+        self.weight_per_template = np.zeros((self.n_cluster, self.nb_channel), dtype='float32')
+        centers = self.catalogue['centers0']
+        for i, k in enumerate(self.catalogue['cluster_labels']):
+            mask = self.sparse_mask[i, :]
+            wf = centers[i, :, :][:, mask]
+            self.weight_per_template[i, mask] = np.sum(wf**2, axis=0)
+        self.weight_per_template_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.weight_per_template)
+        
+
+        
+        
+        
+        #~ self.cl_global_size = (centers.shape[0], centers.shape[2])
+        #~ self.cl_local_size = (centers.shape[0], 1) # faster a GPU because of memory access
+
+        #~ self.cl_global_size2 = (len(self.shifts), centers.shape[2])
+        #~ self.cl_local_size2 = (len(self.shifts), 1) # faster a GPU because of memory access
+        
+
 
     def initialize_before_each_segment(self, **kargs):
         PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
+        self.peakdetector.reset_fifo_index()
+        #~ self.mask_not_already_tested[:] = 1
         
-        #~ p = dict(self.catalogue['peak_detector_params'])
-        #~ p.pop('engine')
-        #~ p.pop('method')
-        
-        #~ self.peakdetector_method = 'geometrical'
-        
-        #~ if HAVE_PYOPENCL:
-            #~ self.peakdetector_engine = 'opencl'
-        #~ elif HAVE_NUMBA:
-            #~ self.peakdetector_engine = 'numba'
-        #~ else:
-            #~ self.peakdetector_engine = 'numpy'
-            #~ print('WARNING peak detetcor will slow : install opencl')
-        
-        #~ PeakDetector_class = get_peak_detector_class(self.peakdetector_method, self.peakdetector_engine)
-        
-        chunksize = self.fifo_size-2*self.n_span # not the real chunksize here
-        #~ self.peakdetector = PeakDetector_class(self.sample_rate, self.nb_channel,
-                                                        #~ chunksize, self.internal_dtype, self.geometry)
-        #~ self.peakdetector.change_params(**p)
-        
-        self.channel_distances = sklearn.metrics.pairwise.euclidean_distances(self.geometry).astype('float32')
-        self.channels_adjacency = {}
-        for c in range(self.nb_channel):
-            nearest, = np.nonzero(self.channel_distances[c, :]<self.adjacency_radius_um)
-            self.channels_adjacency[c] = nearest
-        
-        if self.catalogue['centers0'].size>0:
-            self.channel_distances_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.channel_distances)
-            self.all_distance = np.zeros((self.shifts.size, ), dtype='float32')
-            self.all_distance_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.all_distance)
+
             
-        self.mask_not_already_tested = np.ones((self.fifo_size - 2 * self.n_span,self.nb_channel),  dtype='bool')
-        self.mask_not_already_tested_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.mask_not_already_tested)
     
     
     def apply_processor(self, pos, sigs_chunk):
@@ -155,12 +200,14 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
         return abs_head_index, preprocessed_chunk 
 
+    #~ def detect_local_peaks_before_peeling_loop(self):
     
     #~ def classify_and_align_next_spike(self):
         
+    #~ def reset_to_not_tested(self):
 
 
-kernel_opencl = """
+kernel_peeler_cl = """
 #define chunksize %(chunksize)d
 #define n_span %(n_span)d
 #define nb_channel %(nb_channel)d
@@ -175,6 +222,8 @@ kernel_opencl = """
 #define n_cluster %(n_cluster)d
 #define wf_size %(wf_size)d
 #define subsample_ratio %(subsample_ratio)d
+#define nb_neighbour %(nb_neighbour)d
+
 
 
 #define LABEL_LEFT_LIMIT -11
@@ -210,5 +259,91 @@ __kernel void add_fifo_residuals(__global  float *fifo_residuals, __global  floa
 }
 
 
+inline void atomic_add_float(volatile __global float *source, const float operand) {
+    union {
+        unsigned int intVal;
+        float floatVal;
+    } newVal;
+    union {
+        unsigned int intVal;
+        float floatVal;
+    } prevVal;
+    do {
+        prevVal.floatVal = *source;
+        newVal.floatVal = prevVal.floatVal + operand;
+    } while (atomic_cmpxchg((volatile __global unsigned int *)source, prevVal.intVal, newVal.intVal) != prevVal.intVal);
+}
+
+
+__kernel void estimate_one_jitter(int left_ind, int cluster, __local float *jitter,
+                                        __global int *extremum_channel,
+                                        __global float *fifo_residuals,
+                                        
+                                        __global float *catalogue_center0,
+                                        __global float *catalogue_center1,
+                                        __global float *catalogue_center2,
+                                        
+                                        __global float *wf1_norm2,
+                                        __global float *wf2_norm2,
+                                        __global float *wf1_dot_wf2){
+
+    int cluster_idx = get_global_id(0);
+    int chan = get_global_id(1);
+    
+    int chan_max;
+    if ((cluster_idx!=0) || (chan!=0)){
+        // nomally this is never call
+        *jitter =0.0f;
+    } else {
+    
+        
+        chan_max= extremum_channel[cluster];
+        
+        
+        float h, wf1, wf2;
+        
+        float h0_norm2 = 0.0f;
+        float h_dot_wf1 =0.0f;
+        for (int s=0; s<peak_width; ++s){
+            h = fifo_residuals[(left_ind+s)*nb_channel + chan_max] - catalogue_center0[wf_size*cluster+nb_channel*s+chan_max];
+            h0_norm2 +=  h*h;
+            wf1 = catalogue_center1[wf_size*cluster+nb_channel*s+chan_max];
+            h_dot_wf1 += h * wf1;
+            
+        }
+        
+        *jitter = h_dot_wf1/wf1_norm2[cluster];
+        
+        float h1_norm2;
+        h1_norm2 = 0.0f;
+        for (int s=0; s<peak_width; ++s){
+            h = fifo_residuals[(left_ind+s)*nb_channel + chan_max] - catalogue_center0[wf_size*cluster+nb_channel*s+chan_max];
+            wf1 = catalogue_center1[wf_size*cluster+nb_channel*s+chan_max];
+            h1_norm2 += (h - *jitter * wf1) * (h - (*jitter) * wf1);
+        }
+        
+        if (h0_norm2 > h1_norm2){
+            float h_dot_wf2 =0.0f;
+            float rss_first, rss_second;
+            for (int s=0; s<peak_width; ++s){
+                h = fifo_residuals[(left_ind+s)*nb_channel + chan_max] - catalogue_center0[wf_size*cluster+nb_channel*s+chan_max];
+                wf2 = catalogue_center2[wf_size*cluster+nb_channel*s+chan_max];
+                h_dot_wf2 += h * wf2;
+            }
+            rss_first = -2*h_dot_wf1 + 2*(*jitter)*(wf1_norm2[cluster] - h_dot_wf2) + pown(3* (*jitter), 2)*wf1_dot_wf2[cluster] + pown((*jitter),3)*wf2_norm2[cluster];
+            rss_second = 2*(wf1_norm2[cluster] - h_dot_wf2) + 6* (*jitter)*wf1_dot_wf2[cluster] + 3*pown((*jitter), 2) * wf2_norm2[cluster];
+            *jitter = (*jitter) - rss_first/rss_second;
+        } else{
+            *jitter = 0.0f;
+        }
+    }
+}
+
+
+
 
 """
+
+
+kernel_peeler_cl = kernel_peeler_cl + opencl_kernel_geometrical_part2
+

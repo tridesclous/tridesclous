@@ -40,13 +40,17 @@ class PeelerEngineClassic(PeelerEngineGeneric):
     def change_params(self, **kargs):
         PeelerEngineGeneric.change_params(self, **kargs)
 
-        if self.argmin_method == 'opencl'  and self.catalogue['centers0'].size>0:
-        #~ if self.use_opencl_with_sparse and self.catalogue['centers0'].size>0:
+
+
+    def initialize(self, **kargs):
+        if self.argmin_method == 'opencl':
             OpenCL_Helper.initialize_opencl(self, cl_platform_index=self.cl_platform_index, cl_device_index=self.cl_device_index)
+        
+        PeelerEngineGeneric.initialize(self, **kargs)
+
+        if self.argmin_method == 'opencl'  and self.catalogue['centers0'].size>0:
             
-            #~ self.ctx = pyopencl.create_some_context(interactive=False)
-            #~ self.queue = pyopencl.CommandQueue(self.ctx)
-            
+            # make kernel
             centers = self.catalogue['centers0']
             nb_channel = centers.shape[2]
             peak_width = centers.shape[1]
@@ -56,7 +60,8 @@ class PeelerEngineClassic(PeelerEngineGeneric):
             prg = pyopencl.Program(self.ctx, kernel)
             opencl_prg = prg.build(options='-cl-mad-enable')
             self.kern_waveform_distance = getattr(opencl_prg, 'waveform_distance')
-
+            
+            # create CL buffers
             wf_shape = centers.shape[1:]
             one_waveform = np.zeros(wf_shape, dtype='float32')
             self.one_waveform_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=one_waveform)
@@ -66,20 +71,13 @@ class PeelerEngineClassic(PeelerEngineGeneric):
             self.waveform_distance = np.zeros((nb_cluster), dtype='float32')
             self.waveform_distance_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance)
 
-            #~ mask[:] = 0
             self.sparse_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask.astype('u1'))
 
             rms_waveform_channel = np.zeros(nb_channel, dtype='float32')
             self.rms_waveform_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=rms_waveform_channel)
             
             self.cl_global_size = (centers.shape[0], centers.shape[2])
-            #~ self.cl_local_size = None
             self.cl_local_size = (centers.shape[0], 1) # faster a GPU because of memory access
-            #~ self.cl_local_size = (1, centers.shape[2])
-
-
-    def initialize(self, **kargs):
-        PeelerEngineGeneric.initialize(self, **kargs)
         
         # force engine to global
         p = dict(self.catalogue['peak_detector_params'])

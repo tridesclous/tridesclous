@@ -478,7 +478,8 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
         
     def _make_gpu_buffer(self):
         # TODO fifo size should be : chunksize+2*self.n_span
-        self.fifo_sigs = FifoBuffer((self.chunksize + 2*self.n_span, self.nb_channel), self.dtype)
+        self.fifo_size = self.chunksize + 2*self.n_span
+        self.fifo_sigs = FifoBuffer((self.fifo_size, self.nb_channel), self.dtype)
         self.mask_peaks = np.zeros((self.chunksize, self.nb_channel), dtype='uint8')  # bool
         
         #GPU buffers
@@ -517,8 +518,9 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
         self.neighbours_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.neighbours)
         self.mask_peaks_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.mask_peaks)
         
-        
-        kernel = self.kernel%dict(chunksize=self.chunksize, nb_channel=self.nb_channel, n_span=self.n_span,
+        kernel_ = opencl_kernel_geometrical_part1 + opencl_kernel_geometrical_part2
+
+        kernel = kernel_ % dict(fifo_size=self.fifo_size, nb_channel=self.nb_channel, n_span=self.n_span,
                     relative_threshold=self.relative_threshold, peak_sign={'+':1, '-':-1}[self.peak_sign], nb_neighbour=self.nb_max_neighbour)
         
         prg = pyopencl.Program(self.ctx, kernel)
@@ -527,83 +529,86 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
         
         self.kern_get_mask_spatiotemporal_peaks = getattr(self.opencl_prg, 'get_mask_spatiotemporal_peaks')
 
-    kernel = """
-    #define chunksize %(chunksize)d
-    #define n_span %(n_span)d
-    #define nb_channel %(nb_channel)d
-    #define relative_threshold %(relative_threshold)d
-    #define peak_sign %(peak_sign)d
-    #define nb_neighbour %(nb_neighbour)d
     
-    __kernel void get_mask_spatiotemporal_peaks(__global  float *sigs,
-                                                __global  int *neighbours,
-                                                __global  uchar *mask_peak){
+opencl_kernel_geometrical_part1 =  """
+#define fifo_size %(fifo_size)d
+#define n_span %(n_span)d
+#define nb_channel %(nb_channel)d
+#define relative_threshold %(relative_threshold)d
+#define peak_sign %(peak_sign)d
+#define nb_neighbour %(nb_neighbour)d
+"""
+
+opencl_kernel_geometrical_part2 =  """
+__kernel void get_mask_spatiotemporal_peaks(__global  float *sigs,
+                                            __global  int *neighbours,
+                                            __global  uchar *mask_peak){
+
+    int pos = get_global_id(0);
     
-        int pos = get_global_id(0);
-        
-        if (pos>=chunksize){
-            return;
+    if (pos>=(fifo_size - (2 * n_span))){
+        return;
+    }
+    
+
+    float v;
+    uchar peak;
+    int chan_neigh;
+
+    
+    for (int chan=0; chan<nb_channel; chan++){
+    
+        v = sigs[(pos + n_span)*nb_channel + chan];
+
+    
+        if(peak_sign==1){
+            if (v>relative_threshold){peak=1;}
+            else if (v<=relative_threshold){peak=0;}
+        }
+        else if(peak_sign==-1){
+            if (v<-relative_threshold){peak=1;}
+            else if (v>=-relative_threshold){peak=0;}
         }
         
-
-        float v;
-        uchar peak;
-        int chan_neigh;
-
-        
-        for (int chan=0; chan<nb_channel; chan++){
-        
-            v = sigs[(pos + n_span)*nb_channel + chan];
-
-        
-            if(peak_sign==1){
-                if (v>relative_threshold){peak=1;}
-                else if (v<=relative_threshold){peak=0;}
-            }
-            else if(peak_sign==-1){
-                if (v<-relative_threshold){peak=1;}
-                else if (v>=-relative_threshold){peak=0;}
-            }
-            
-            if (peak == 1){
-                for (int neighbour=0; neighbour<nb_neighbour; neighbour++){
-                    // when neighbour then chan==chan_neigh (itself)
-                    chan_neigh = neighbours[chan * nb_neighbour +neighbour];
-                    
-                    if (chan_neigh<0){continue;}
-                    
-                    if (chan != chan_neigh){
-                        if(peak_sign==1){
-                            peak = peak && (v>=sigs[(pos + n_span)*nb_channel + chan_neigh]);
-                        }
-                        else if(peak_sign==-1){
-                            peak = peak && (v<=sigs[(pos + n_span)*nb_channel + chan_neigh]);
-                        }
-                    }
-                    
-                    if (peak==0){break;}
-                    
+        if (peak == 1){
+            for (int neighbour=0; neighbour<nb_neighbour; neighbour++){
+                // when neighbour then chan==chan_neigh (itself)
+                chan_neigh = neighbours[chan * nb_neighbour +neighbour];
+                
+                if (chan_neigh<0){continue;}
+                
+                if (chan != chan_neigh){
                     if(peak_sign==1){
-                        for (int i=1; i<=n_span; i++){
-                            peak = peak && (v>sigs[(pos + n_span - i)*nb_channel + chan_neigh]) && (v>=sigs[(pos + n_span + i)*nb_channel + chan_neigh]);
-                            if (peak==0){break;}
-                        }
+                        peak = peak && (v>=sigs[(pos + n_span)*nb_channel + chan_neigh]);
                     }
                     else if(peak_sign==-1){
-                        for (int i=1; i<=n_span; i++){
-                            peak = peak && (v<sigs[(pos + n_span - i)*nb_channel + chan_neigh]) && (v<=sigs[(pos + n_span + i)*nb_channel + chan_neigh]);
-                            if (peak==0){break;}
-                        }
+                        peak = peak && (v<=sigs[(pos + n_span)*nb_channel + chan_neigh]);
                     }
-                
                 }
+                
+                if (peak==0){break;}
+                
+                if(peak_sign==1){
+                    for (int i=1; i<=n_span; i++){
+                        peak = peak && (v>sigs[(pos + n_span - i)*nb_channel + chan_neigh]) && (v>=sigs[(pos + n_span + i)*nb_channel + chan_neigh]);
+                        if (peak==0){break;}
+                    }
+                }
+                else if(peak_sign==-1){
+                    for (int i=1; i<=n_span; i++){
+                        peak = peak && (v<sigs[(pos + n_span - i)*nb_channel + chan_neigh]) && (v<=sigs[(pos + n_span + i)*nb_channel + chan_neigh]);
+                        if (peak==0){break;}
+                    }
+                }
+            
             }
-            
-            mask_peak[pos * nb_channel + chan] = peak;
-            
         }
+        
+        mask_peak[pos * nb_channel + chan] = peak;
+        
     }
-    """
+}
+"""
 
 
 # TODO atomic_inc for spatiotemporal_opencl

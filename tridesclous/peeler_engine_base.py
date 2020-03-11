@@ -5,7 +5,7 @@ from .peeler_tools import _dtype_spike
 from .tools import make_color_dict
 
 from .signalpreprocessor import signalpreprocessor_engines
-from .peakdetector import get_peak_detector_class
+#~ from .peakdetector import get_peak_detector_class
 
 
 from .cltools import HAVE_PYOPENCL, OpenCL_Helper
@@ -175,6 +175,15 @@ class PeelerEngineBase(OpenCL_Helper):
             p['normalize'] = True
             p['signals_medians'] = self.catalogue['signals_medians']
             p['signals_mads'] = self.catalogue['signals_mads']
+            
+            if hasattr('ctx') and self.ctx is not None:
+                # use local ctx and queue if exists for processor
+                print('yep', self.ctx)
+                p['cl_platform_index'] = None
+                p['cl_device_index'] = None
+                p['ctx'] = self.ctx
+                p['queue'] = self.queue
+            
             self.signalpreprocessor.change_params(**p)
             self.internal_dtype = self.signalpreprocessor.output_dtype
             
@@ -273,10 +282,9 @@ class PeelerEngineGeneric(PeelerEngineBase):
             # loop : one more peeler level
             while True: 
                 #~ t1 = time.perf_counter()
-                #~ spike = self.classify_and_align_next_spike(peak_ind, peak_chan)
                 spike = self.classify_and_align_next_spike()
                 #~ t2 = time.perf_counter()
-                #~ print('  classify_and_align_next_spike', (t2-t1)*1000)
+                #~ print('  classify_and_align_next_spike', (t2-t1)*1000, spike)
                 #~ if spike.cluster_label <0:
                     #~ print('   spike.label', spike.cluster_label, 'peak_ind, peak_chan', peak_ind, peak_chan)
 
