@@ -539,10 +539,11 @@ opencl_kernel_geometrical_part1 =  """
 #define nb_neighbour %(nb_neighbour)d
 """
 
+
 opencl_kernel_geometrical_part2 =  """
 __kernel void get_mask_spatiotemporal_peaks(__global  float *sigs,
                                             __global  int *neighbours,
-                                            __global  uchar *mask_peak){
+                                            __global  uchar *mask_peaks){
 
     int pos = get_global_id(0);
     
@@ -604,7 +605,7 @@ __kernel void get_mask_spatiotemporal_peaks(__global  float *sigs,
             }
         }
         
-        mask_peak[pos * nb_channel + chan] = peak;
+        mask_peaks[pos * nb_channel + chan] = peak;
         
     }
 }

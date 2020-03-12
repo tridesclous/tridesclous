@@ -50,6 +50,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
         # make neighbours for peak detector CL
         d = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
+        self.channel_distances = d.astype('float32')
         neighbour_mask = d<=self.catalogue['peak_detector_params']['adjacency_radius_um']
         nb_neighbour_per_channel = np.sum(neighbour_mask, axis=0)
         nb_max_neighbour = np.max(nb_neighbour_per_channel)
@@ -60,6 +61,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             neighb, = np.nonzero(neighbour_mask[c, :])
             self.neighbours[c, :neighb.size] = neighb
         
+        self.mask_peaks = np.zeros((self.fifo_size - 2 * self.n_span, self.nb_channel), dtype='uint8')  # bool
         
         # debug to check same ctx and queue as processor
         if self.signalpreprocessor is not None:
@@ -69,6 +71,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         centers = self.catalogue['centers0']
         nb_channel = centers.shape[2]
         self.peak_width = centers.shape[1]
+        self.nb_cluster = centers.shape[0]
         
         self.n_cluster = self.catalogue['centers0'].shape[0]
         wf_size = self.catalogue['centers0'].shape[1]*self.catalogue['centers0'].shape[2]
@@ -93,14 +96,16 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         prg = pyopencl.Program(self.ctx, kernel_formated)
         self.opencl_prg = prg.build(options='-cl-mad-enable')
         
-        self.kern_add_fifo_residuals = getattr(self.opencl_prg, 'add_fifo_residuals')
-        self.kern_get_mask_spatiotemporal_peaks = getattr(self.opencl_prg, 'get_mask_spatiotemporal_peaks')
         
-        exit()
+        
 
         # create CL buffers
         self.fifo_residuals_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.fifo_residuals)
         self.channel_distances_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.channel_distances)
+
+        self.neighbours_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.neighbours)
+        self.mask_peaks_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.mask_peaks)
+
         
         self.waveform_distance_shifts = np.zeros((self.shifts.size, ), dtype='float32')
         self.waveform_distance_shifts_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance_shifts)
@@ -121,7 +126,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
 
         self.catalogue_center_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=centers)
 
-        self.waveform_distance = np.zeros((nb_cluster), dtype='float32')
+        self.waveform_distance = np.zeros((self.nb_cluster), dtype='float32')
         self.waveform_distance_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance)
 
         #~ mask[:] = 0
@@ -156,26 +161,33 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             self.weight_per_template[i, mask] = np.sum(wf**2, axis=0)
         self.weight_per_template_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.weight_per_template)
         
+        
+        # TODO
+        nb_max_emnding_peaks = self.nb_channel * self.fifo_size
+        print('nb_max_emnding_peaks', nb_max_emnding_peaks)
+        
+        self.pending_peaks = np.zeros(nb_max_emnding_peaks, dtype=[('peak_index', 'int32'), ('peak_chan', 'int32'), ('peak_value', 'float32')])
+        self.pending_peaks_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.pending_peaks)
+        
+        self.nb_pending_peaks = np.zeros(1, dtype='int32')
+        self.nb_pending_peaks_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.nb_pending_peaks)
+
+        # kernel calls
+        self.kern_add_fifo_residuals = getattr(self.opencl_prg, 'add_fifo_residuals')
+        
+        self.kern_detect_local_peaks = getattr(self.opencl_prg, 'detect_local_peaks')
+        self.kern_detect_local_peaks.set_args(self.fifo_residuals_cl, self.neighbours_cl, self.mask_peaks_cl, self.pending_peaks_cl, self.nb_pending_peaks_cl)
 
         
-        
-        
-        #~ self.cl_global_size = (centers.shape[0], centers.shape[2])
-        #~ self.cl_local_size = (centers.shape[0], 1) # faster a GPU because of memory access
+        exit()
 
-        #~ self.cl_global_size2 = (len(self.shifts), centers.shape[2])
-        #~ self.cl_local_size2 = (len(self.shifts), 1) # faster a GPU because of memory access
         
 
 
     def initialize_before_each_segment(self, **kargs):
         PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
-        self.peakdetector.reset_fifo_index()
         #~ self.mask_not_already_tested[:] = 1
-        
 
-            
-    
     
     def apply_processor(self, pos, sigs_chunk):
         if self.already_processed:
@@ -200,7 +212,10 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
         return abs_head_index, preprocessed_chunk 
 
-    #~ def detect_local_peaks_before_peeling_loop(self):
+    def detect_local_peaks_before_peeling_loop(self):
+        
+        self.kern_get_mask_spatiotemporal_peaks
+        
     
     #~ def classify_and_align_next_spike(self):
         
@@ -243,6 +258,13 @@ typedef struct st_spike{
     int label;
     float jitter;
 } st_spike;
+
+typedef struct st_peak{
+    int peak_index;
+    int peak_chan;
+    float peak_value;
+} st_peak;
+
 
 
 __kernel void add_fifo_residuals(__global  float *fifo_residuals, __global  float *sigs_chunk, int fifo_roll_size){
@@ -337,6 +359,161 @@ __kernel void estimate_one_jitter(int left_ind, int cluster, __local float *jitt
             *jitter = 0.0f;
         }
     }
+}
+
+
+__kernel void detect_local_peaks(
+                        __global  float *sigs,
+                        __global  int *neighbours,
+                        __global  uchar *mask_peaks,
+                        __global  st_peak *pending_peaks,
+                        volatile __global int *nb_pending_peaks
+                ){
+    int pos = get_global_id(0);
+    
+    if (pos>=(fifo_size - (2 * n_span))){
+        return;
+    }
+    
+
+    float v;
+    uchar peak;
+    int chan_neigh;
+    
+    int i_peak;
+
+    
+    for (int chan=0; chan<nb_channel; chan++){
+    
+        v = sigs[(pos + n_span)*nb_channel + chan];
+
+    
+        if(peak_sign==1){
+            if (v>relative_threshold){peak=1;}
+            else if (v<=relative_threshold){peak=0;}
+        }
+        else if(peak_sign==-1){
+            if (v<-relative_threshold){peak=1;}
+            else if (v>=-relative_threshold){peak=0;}
+        }
+        
+        if (peak == 1){
+            for (int neighbour=0; neighbour<nb_neighbour; neighbour++){
+                // when neighbour then chan==chan_neigh (itself)
+                chan_neigh = neighbours[chan * nb_neighbour +neighbour];
+                
+                if (chan_neigh<0){continue;}
+                
+                if (chan != chan_neigh){
+                    if(peak_sign==1){
+                        peak = peak && (v>=sigs[(pos + n_span)*nb_channel + chan_neigh]);
+                    }
+                    else if(peak_sign==-1){
+                        peak = peak && (v<=sigs[(pos + n_span)*nb_channel + chan_neigh]);
+                    }
+                }
+                
+                if (peak==0){break;}
+                
+                if(peak_sign==1){
+                    for (int i=1; i<=n_span; i++){
+                        peak = peak && (v>sigs[(pos + n_span - i)*nb_channel + chan_neigh]) && (v>=sigs[(pos + n_span + i)*nb_channel + chan_neigh]);
+                        if (peak==0){break;}
+                    }
+                }
+                else if(peak_sign==-1){
+                    for (int i=1; i<=n_span; i++){
+                        peak = peak && (v<sigs[(pos + n_span - i)*nb_channel + chan_neigh]) && (v<=sigs[(pos + n_span + i)*nb_channel + chan_neigh]);
+                        if (peak==0){break;}
+                    }
+                }
+            
+            }
+            
+        }
+        
+        if (peak==1){
+            //append to 
+            i_peak = atomic_inc(nb_pending_peaks);
+            pending_peaks[i_peak].peak_index = pos;
+            pending_peaks[i_peak].peak_chan = chan;
+            pending_peaks[i_peak].peak_value = fabs(v);
+        }
+    }
+    
+}
+
+
+void select_next_peak(__local st_peak *peak,
+                        __global  st_peak *pending_peaks,
+                        volatile __global int *nb_pending_peaks){
+    
+    
+    
+    int i_peak = -1;
+    float best_value = 0.0;
+    
+    for (int i=1; i<=n_span; i++){
+        if (pending_peaks[i].peak_value > best_value){
+            i_peak = i;
+            best_value = pending_peaks[i].peak_value;
+        }
+    }
+    
+    if (i_peak == -1){
+        peak->peak_index = LABEL_NO_MORE_PEAK;
+        peak->peak_chan = -1;
+        peak->peak_value = 0.0;
+    }else{
+        peak->peak_index = pending_peaks[i_peak].peak_index;
+        peak->peak_chan = pending_peaks[i_peak].peak_chan;
+        peak->peak_value = pending_peaks[i_peak].peak_value;
+        
+        // make this peak not selectable for next choice
+        pending_peaks[i_peak].peak_value = 0.0;
+        
+    }
+    
+    
+}
+
+
+__kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
+                                                                __global st_spike *spike,
+
+
+                                                                __global  st_peak *pending_peaks,
+                                                                volatile __global int *nb_pending_peaks,
+                                                                
+                                                                
+                                                                __global  uchar *mask_already_tested,
+                                                                __global  float *catalogue_center0,
+                                                                __global  float *catalogue_center1,
+                                                                __global  float *catalogue_center2,
+                                                                __global  float *catalogue_inter_center0,
+                                                                __global  uchar  *sparse_mask,
+                                                                __global  float *rms_waveform_channel,
+                                                                __global  float *waveform_distance,
+                                                                __global int *extremum_channel,
+                                                                __global float *wf1_norm2,
+                                                                __global float *wf2_norm2,
+                                                                __global float *wf1_dot_wf2,
+                                                                __global float *weight_per_template,
+                                                                float alien_value_threshold){
+
+    int cluster_idx = get_global_id(0);
+    int chan = get_global_id(1);
+    
+    int left_ind;
+    __local float jitter;
+    __local float new_jitter;
+    
+    __local st_peak peak;
+    
+    select_next_peak(&peak, pending_peaks, nb_pending_peaks);
+    
+    
+
 }
 
 
