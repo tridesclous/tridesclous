@@ -265,6 +265,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
 
         
         if self.argmin_method == 'opencl':
+            #TODO remove this rms_waveform_channel no more usefull
             rms_waveform_channel = np.sum(waveform**2, axis=0).astype('float32')
             
             pyopencl.enqueue_copy(self.queue,  self.one_waveform_cl, waveform)
@@ -310,6 +311,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #~ shift = None
         
         elif self.argmin_method == 'numba':
+            #TODO remove this rms_waveform_channel no more usefull
             rms_waveform_channel = np.sum(waveform**2, axis=0).astype('float32')
             
             #~ possibles_cluster_idx, = np.nonzero(self.sparse_mask[:, chan_ind])
@@ -607,7 +609,7 @@ __kernel void waveform_distance(__global  float *one_waveform,
     else {
         // candidate initialize sum by cluster
         if (c==0){
-            waveform_distance[cluster_idx] = 0;
+            waveform_distance[cluster_idx] = 0.0f;
         }
     }
     

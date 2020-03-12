@@ -35,7 +35,7 @@ def numba_loop_sparse_dist_with_geometry(waveform, centers,  possibles_cluster_i
     nb_total_clus, width, nb_chan = centers.shape
     nb_clus = possibles_cluster_idx.size
     
-    rms_waveform_channel = np.sum(waveform**2, axis=0)#.astype('float32')
+    #rms_waveform_channel = np.sum(waveform**2, axis=0)#.astype('float32')
     waveform_distance = np.zeros((nb_clus,), dtype=np.float32)
     
     for clus in prange(len(possibles_cluster_idx)):

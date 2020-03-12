@@ -136,7 +136,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         rms_waveform_channel = np.zeros(nb_channel, dtype='float32')
         self.rms_waveform_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=rms_waveform_channel)
         
-        self.adjacency_radius_um_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=np.array([self.adjacency_radius_um], dtype='float32'))
+        #~ self.adjacency_radius_um_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=np.array([self.adjacency_radius_um], dtype='float32'))
         
         # attention : label in CL is the label index
         self.spike = np.zeros(1, dtype=[('peak_index', 'int32'), ('label_index', 'int32'), ('jitter', 'float32')])
@@ -435,7 +435,8 @@ __kernel void detect_local_peaks(
         if (peak==1){
             //append to 
             i_peak = atomic_inc(nb_pending_peaks);
-            pending_peaks[i_peak].peak_index = pos;
+            // peak_index is LOCAL to fifo
+            pending_peaks[i_peak].peak_index = pos + n_span;
             pending_peaks[i_peak].peak_chan = chan;
             pending_peaks[i_peak].peak_value = fabs(v);
         }
@@ -448,6 +449,7 @@ void select_next_peak(__local st_peak *peak,
                         __global  st_peak *pending_peaks,
                         volatile __global int *nb_pending_peaks){
     
+    // take max amplitude
     
     
     int i_peak = -1;
@@ -492,6 +494,7 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
                                                                 __global  float *catalogue_center2,
                                                                 __global  float *catalogue_inter_center0,
                                                                 __global  uchar  *sparse_mask,
+                                                                __global  uchar  *high_sparse_mask,
                                                                 __global  float *rms_waveform_channel,
                                                                 __global  float *waveform_distance,
                                                                 __global int *extremum_channel,
@@ -499,6 +502,10 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
                                                                 __global float *wf2_norm2,
                                                                 __global float *wf1_dot_wf2,
                                                                 __global float *weight_per_template,
+                                                                
+                                                                __global float *channel_distances,
+                                                                float adjacency_radius_um,
+                                                                
                                                                 float alien_value_threshold){
 
     int cluster_idx = get_global_id(0);
@@ -509,8 +516,104 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
     __local float new_jitter;
     
     __local st_peak peak;
+
     
-    select_next_peak(&peak, pending_peaks, nb_pending_peaks);
+
+    // non parralel code only for first worker
+    if ((cluster_idx==0) && (chan==0)){
+        
+        select_next_peak(&peak, pending_peaks, nb_pending_peaks);
+        
+        if (spike->peak_index == LABEL_NO_MORE_PEAK){
+            spike->label = LABEL_NO_MORE_PEAK;
+            spike->jitter = 0.0f;
+        } else if (left_ind+peak_width+maximum_jitter_shift+1>=fifo_size){
+            spike->label = LABEL_RIGHT_LIMIT;
+        } else if (left_ind<=maximum_jitter_shift){
+            spike->label = LABEL_LEFT_LIMIT;
+        } else if (n_cluster==0){
+            spike->label  = LABEL_UNCLASSIFIED;
+        }else {
+            spike->label = LABEL_NOT_YET;
+            if (alien_value_threshold>0){
+                for (int s=1; s<=(wf_size); s++){
+                    if ((fifo_residuals[left_ind*nb_channel +s]>alien_value_threshold) || (fifo_residuals[left_ind*nb_channel +s]<-alien_value_threshold)){
+                        spike->label = LABEL_ALIEN;
+                        spike->jitter = 0.0f;
+                    }
+                }
+            }
+        }
+        
+    }
+    
+    barrier(CLK_GLOBAL_MEM_FENCE);
+    
+    if (spike->label==LABEL_NOT_YET) {
+
+        //initialize parralel on cluster_idx
+        if (chan==0){
+            // the peak_chan do not overlap spatialy this cluster
+            if (high_sparse_mask[nb_channel*cluster_idx+peak.peak_chan] == 0){
+                if (chan==0){
+                    waveform_distance[cluster_idx] = FLT_MAX;
+                }
+            }
+            else {
+                // candidate initialize sum by cluster
+                if (chan==0){
+                    waveform_distance[cluster_idx] = 0.0f;
+                }
+            }
+        }
+        
+        barrier(CLK_GLOBAL_MEM_FENCE);
+        
+        // this is parralel (cluster_idx, chan)
+        if (high_sparse_mask[nb_channel*cluster_idx+peak.peak_chan] == 1){
+        
+            if (channel_distances[chan * nb_channel + peak.peak_chan] < adjacency_radius_um){
+                float sum = 0;
+                float d;
+                for (int s=0; s<peak_width; ++s){
+                    d =  fifo_residuals[(left_ind+s)*nb_channel + chan] - catalogue_center0[wf_size*cluster_idx+nb_channel*s+chan];
+                    sum += d*d;
+                }
+                atomic_add_float(&waveform_distance[cluster_idx], sum);
+            }
+        }
+        
+        barrier(CLK_GLOBAL_MEM_FENCE);
+        // not parralel zone only first worker
+        if ((chan==0) && (cluster_idx==0)){
+            //argmin  not paralel
+            float min_dist = MAXFLOAT;
+            spike->label = -1;
+            
+            for (int clus=0; clus<n_cluster; ++clus){
+                if (waveform_distance[clus]<min_dist){
+                    spike->label = clus;
+                    min_dist = waveform_distance[clus];
+                }
+            }
+            
+            // explore shifts
+            int shift;
+            
+            
+            
+            int ok;
+            
+            int int_jitter;
+        
+        }
+        
+        
+        
+        
+    
+    }
+
     
     
 
