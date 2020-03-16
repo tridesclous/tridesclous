@@ -91,7 +91,9 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                     n_cluster=self.n_cluster,
                     wf_size=wf_size,
                     subsample_ratio=self.catalogue['subsample_ratio'],
-                    nb_neighbour=self.nb_max_neighbour)
+                    nb_neighbour=self.nb_max_neighbour, 
+                    inter_sample_oversampling=int(self.inter_sample_oversampling),
+                    )
         #~ print(kernel_formated)
         prg = pyopencl.Program(self.ctx, kernel_formated)
         self.opencl_prg = prg.build(options='-cl-mad-enable')
@@ -238,6 +240,7 @@ kernel_peeler_cl = """
 #define wf_size %(wf_size)d
 #define subsample_ratio %(subsample_ratio)d
 #define nb_neighbour %(nb_neighbour)d
+#define inter_sample_oversampling %(inter_sample_oversampling)d
 
 
 
@@ -455,7 +458,7 @@ void select_next_peak(__local st_peak *peak,
     int i_peak = -1;
     float best_value = 0.0;
     
-    for (int i=1; i<=n_span; i++){
+    for (int i=1; i<=*nb_pending_peaks; i++){
         if (pending_peaks[i].peak_value > best_value){
             i_peak = i;
             best_value = pending_peaks[i].peak_value;
@@ -478,6 +481,63 @@ void select_next_peak(__local st_peak *peak,
     
     
 }
+
+
+int accept_tempate(int left_ind, int cluster, float jitter,
+                                        __global float *fifo_residuals,
+                                        __global uchar *sparse_mask,
+                                        __global float *catalogue_center0,
+                                        __global float *catalogue_center1,
+                                        __global float *catalogue_center2,
+                                        __global float *weight_per_template){
+
+
+    int cluster_idx = get_global_id(0);
+    int chan = get_global_id(1);
+    
+    //not parallel
+    if ((cluster_idx!=0) || (chan!=0)){
+        // nomally this is never call
+        return 0;
+    }
+    
+    float v;
+    float pred;
+    
+    float chan_in_mask = 0.0f;
+    float chan_with_criteria = 0.0f;
+    int idx;
+
+    float wf_nrj = 0.0f;
+    float res_nrj = 0.0f;
+    
+    for (int c=0; c<nb_channel; ++c){
+        if (sparse_mask[cluster*nb_channel + c] == 1){
+            for (int s=0; s<peak_width; ++s){
+                v = fifo_residuals[(left_ind+s)*nb_channel + c];
+                wf_nrj += v*v;
+                
+                idx = wf_size*cluster+nb_channel*s+c;
+                pred = catalogue_center0[idx] + jitter*catalogue_center1[idx] + jitter*jitter/2*catalogue_center2[idx];
+                v = fifo_residuals[(left_ind+s)*nb_channel + c] - pred;
+                res_nrj += v*v;
+            }
+            
+            chan_in_mask += weight_per_template[cluster*nb_channel + c];
+            if (wf_nrj>res_nrj){
+                chan_with_criteria += weight_per_template[cluster*nb_channel + c];
+            }
+        }
+    }
+    
+    if (chan_with_criteria>(chan_in_mask*0.9f)){
+        return 1;
+    }else{
+        return 0;
+    }
+
+}
+
 
 
 __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
@@ -514,9 +574,10 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
     int left_ind;
     __local float jitter;
     __local float new_jitter;
-    
     __local st_peak peak;
-
+    __local int shift;
+    __local int ok;
+    
     
 
     // non parralel code only for first worker
@@ -551,7 +612,8 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
     
     if (spike->label==LABEL_NOT_YET) {
 
-        //initialize parralel on cluster_idx
+        //initialize distance
+        //parralel on cluster_idx
         if (chan==0){
             // the peak_chan do not overlap spatialy this cluster
             if (high_sparse_mask[nb_channel*cluster_idx+peak.peak_chan] == 0){
@@ -569,6 +631,7 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
         
         barrier(CLK_GLOBAL_MEM_FENCE);
         
+        // compute distance
         // this is parralel (cluster_idx, chan)
         if (high_sparse_mask[nb_channel*cluster_idx+peak.peak_chan] == 1){
         
@@ -584,29 +647,141 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
         }
         
         barrier(CLK_GLOBAL_MEM_FENCE);
+        // argmin on distance
         // not parralel zone only first worker
         if ((chan==0) && (cluster_idx==0)){
             //argmin  not paralel
             float min_dist = MAXFLOAT;
             spike->label = -1;
-            
+            ok = 0;
             for (int clus=0; clus<n_cluster; ++clus){
                 if (waveform_distance[clus]<min_dist){
                     spike->label = clus;
                     min_dist = waveform_distance[clus];
+                    ok = 1;
+                }
+            }
+        }
+        
+        barrier(CLK_GLOBAL_MEM_FENCE);
+        // explore shifts
+        // parrallel on (cluster_idx, )  cluster_idx = shift here
+        if ((chan==0) && cluster_idx < (2 * maximum_jitter_shift + 1) && (ok == 1)){
+            waveform_distance[cluster_idx] = 0.0f;
+        }
+        barrier(CLK_GLOBAL_MEM_FENCE);
+        // parrallel on (cluster_idx, chan)  cluster_idx = shift here
+        if (cluster_idx < (2 * maximum_jitter_shift + 1)  && (ok == 1)){
+            int explore_shift = cluster_idx - maximum_jitter_shift;
+            if (channel_distances[chan * nb_channel + peak.peak_chan] < adjacency_radius_um){
+                float sum = 0;
+                float d;
+                for (int s=0; s<peak_width; ++s){
+                    d =  fifo_residuals[(left_ind+s+explore_shift)*nb_channel + chan] - catalogue_center0[wf_size*spike->label+nb_channel*s+chan];
+                    sum += d*d;
+                }
+                atomic_add_float(&waveform_distance[cluster_idx], sum);
+            }
+        }
+        barrier(CLK_GLOBAL_MEM_FENCE);
+        // argmin on distance
+        // not parralel zone only first worker
+        if ((chan==0) && (cluster_idx==0) && (ok == 1)){
+            //argmin  not paralel
+            float min_dist = MAXFLOAT;
+            spike->label = -1;
+            
+            for (int s=0; s<(2 * maximum_jitter_shift + 1); ++s){
+                if (waveform_distance[s]<min_dist){
+                    shift = s - maximum_jitter_shift;
+                    min_dist = waveform_distance[s];
+                }
+            }
+            left_ind = left_ind + shift;
+        }
+        
+        // not parallel
+        if ((chan==0) && (cluster_idx==0) && (ok == 1)){
+            
+            // estimate jitter
+            if (inter_sample_oversampling){
+                estimate_one_jitter(left_ind, spike->label, &jitter,
+                                        extremum_channel, fifo_residuals,
+                                        catalogue_center0, catalogue_center1, catalogue_center2,
+                                        wf1_norm2, wf2_norm2, wf1_dot_wf2);
+            } else {
+                jitter = 0.0f;
+            }
+            
+            // accept template
+            ok = accept_tempate(left_ind, spike->label, jitter,
+                                        fifo_residuals, sparse_mask,
+                                        catalogue_center0, catalogue_center1, catalogue_center2,
+                                        weight_per_template);
+        }
+        
+        
+        // not parallel
+        if ((chan==0) && (cluster_idx==0)){
+            if (ok == 0){
+                spike->label = LABEL_UNCLASSIFIED;
+                spike->jitter = 0.0f;
+            } else {
+                // test when jitter is more than one sample
+                shift = - ((int) round(jitter));
+                if ((fabs(jitter) > 0.5f) && ((left_ind+shift+peak_width)<fifo_size) && ((left_ind + shift) >= 0) ){
+                    estimate_one_jitter(left_ind+shift, spike->label, &new_jitter,
+                                                        extremum_channel, fifo_residuals,
+                                                        catalogue_center0, catalogue_center1, catalogue_center2,
+                                                        wf1_norm2, wf2_norm2, wf1_dot_wf2);
+                    ok = accept_tempate(left_ind+shift, spike->label, new_jitter,
+                                                        fifo_residuals, sparse_mask,
+                                                        catalogue_center0, catalogue_center1, catalogue_center2,
+                                                        weight_per_template);
+                    if ((fabs(new_jitter)<fabs(jitter)) && (ok==1)){
+                        jitter = new_jitter;
+                        left_ind += shift;
+                    }
+                }
+                
+                if (abs(shift) >maximum_jitter_shift){
+                    spike->label = LABEL_MAXIMUM_SHIFT;
+                } else if ((left_ind+shift+peak_width) >= fifo_size){
+                    spike->label = LABEL_RIGHT_LIMIT;
+                } else if ((left_ind+shift)<0) {
+                    spike->label = LABEL_LEFT_LIMIT;
+                }
+            }
+
+            // security check for borders
+            if (spike->label >= 0){
+                int left_ind_check;
+                left_ind_check = left_ind - ((int) round(jitter));
+                if (left_ind_check < 0){
+                    spike->label = LABEL_LEFT_LIMIT;
+                } else if ((left_ind_check+peak_width) >= fifo_size){
+                    spike->label = LABEL_RIGHT_LIMIT;
                 }
             }
             
-            // explore shifts
-            int shift;
             
+            // final
+            if (spike->label < 0){
+                spike->peak_index = peak.peak_index;
+                // TODO set already tested
+            } else{
+                shift = - ((int) round(jitter));
+                if (shift !=0){
+                    jitter = jitter + shift;
+                    left_ind = left_ind + shift;
+                }
+                spike->jitter = jitter;
+                spike->peak_index = left_ind - n_left;
+                //TODO on_accepted_spike
+            }
             
-            
-            int ok;
-            
-            int int_jitter;
-        
         }
+        
         
         
         
@@ -614,7 +789,6 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
     
     }
 
-    
     
 
 }
@@ -625,5 +799,5 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
 """
 
 
-kernel_peeler_cl = kernel_peeler_cl + opencl_kernel_geometrical_part2
+kernel_peeler_cl = kernel_peeler_cl # + opencl_kernel_geometrical_part2
 
