@@ -220,7 +220,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             # each good spike can remove from
             cluster_idx = self.catalogue['label_to_index'][spike.cluster_label]
             mask = self.sparse_mask[cluster_idx, :]
-            self.already_tested = [ p for p in self.already_tested if not(((p[0]-spike.index)<self.peak_width)  and mask[p[1]] ) ]
+            self.already_tested = [ p for p in self.already_tested if not((np.abs(p[0]-spike.index)<self.peak_width)  and mask[p[1]] ) ]
         #~ print('self.already_tested reduced', len(self.already_tested))
         # 
         mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
