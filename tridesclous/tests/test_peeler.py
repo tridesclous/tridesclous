@@ -98,13 +98,19 @@ def test_peeler_geometry_cl():
     catalogue = dataio.load_catalogue(chan_grp=0)
 
     peeler = Peeler(dataio)
-
+    
+    catalogue['clean_peaks_params']['alien_value_threshold'] = None
+    
+    
     peeler.change_params(engine='geometrical_opencl',
                                 catalogue=catalogue,
                                 chunksize=1024,
                                 use_sparse_template=True,
                                 sparse_threshold_mad=1.5,
-                                argmin_method='opencl')
+                                argmin_method='opencl',
+                                #~ inter_sample_oversampling=False,
+                                inter_sample_oversampling=True,
+                                )
 
     t1 = time.perf_counter()
     peeler.run(progressbar=False)
@@ -365,7 +371,7 @@ if __name__ =='__main__':
     
     #~ test_peeler_classic()
     
-    #~ test_peeler_geometry()
+    test_peeler_geometry()
     
     test_peeler_geometry_cl()
     

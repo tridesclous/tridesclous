@@ -42,6 +42,8 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
 
 
     def initialize(self, **kargs):
+        assert not self.save_bad_label
+        
         if self.argmin_method == 'opencl':
             OpenCL_Helper.initialize_opencl(self, cl_platform_index=self.cl_platform_index, cl_device_index=self.cl_device_index)
         
@@ -69,13 +71,13 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
         # make kernels
         centers = self.catalogue['centers0']
-        nb_channel = centers.shape[2]
-        self.peak_width = centers.shape[1]
         self.nb_cluster = centers.shape[0]
+        self.peak_width = centers.shape[1]
+        self.nb_channel = centers.shape[2]
         
-        self.n_cluster = self.catalogue['centers0'].shape[0]
-        wf_size = self.catalogue['centers0'].shape[1]*self.catalogue['centers0'].shape[2]
-
+        wf_size = self.peak_width * self.nb_channel
+        
+        
         kernel_formated = kernel_peeler_cl % dict(
                     chunksize=self.chunksize,
                     n_span=self.n_span,
@@ -89,7 +91,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                     n_right=self.n_right,
                     peak_width=self.peak_width,
                     maximum_jitter_shift=self.maximum_jitter_shift,
-                    n_cluster=self.n_cluster,
+                    n_cluster=self.nb_cluster,
                     wf_size=wf_size,
                     subsample_ratio=self.catalogue['subsample_ratio'],
                     nb_neighbour=self.nb_max_neighbour, 
@@ -145,7 +147,10 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         #~ self.adjacency_radius_um_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=np.array([self.adjacency_radius_um], dtype='float32'))
         
         # attention : label in CL is the label index
-        self.spike = np.zeros(1, dtype=[('peak_index', 'int32'), ('cluster_idx', 'int32'), ('jitter', 'float32')])
+        
+        dtype_spike = [('peak_index', 'int32'), ('cluster_idx', 'int32'), ('jitter', 'float32')]
+        
+        self.spike = np.zeros(1, dtype=dtype_spike)
         self.spike_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.spike)
 
         self.catalogue_center0_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['centers0'])
@@ -159,7 +164,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         self.wf2_norm2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['wf2_norm2'].astype('float32'))
         self.wf1_dot_wf2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['wf1_dot_wf2'].astype('float32'))
 
-        self.weight_per_template = np.zeros((self.n_cluster, self.nb_channel), dtype='float32')
+        self.weight_per_template = np.zeros((self.nb_cluster, self.nb_channel), dtype='float32')
         centers = self.catalogue['centers0']
         for i, k in enumerate(self.catalogue['cluster_labels']):
             mask = self.sparse_mask[i, :]
@@ -169,8 +174,8 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
         
         # TODO
-        nb_max_emnding_peaks = self.nb_channel * self.fifo_size
-        print('nb_max_emnding_peaks', nb_max_emnding_peaks)
+        nb_max_spike_in_chunk = self.nb_channel * self.fifo_size
+        print('nb_max_spike_in_chunk', nb_max_spike_in_chunk)
         
         
         dtype_peak = [('peak_index', 'int32'), ('peak_chan', 'int32'), ('peak_value', 'float32')]
@@ -178,11 +183,19 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         self.next_peak = np.zeros(1, dtype=dtype_peak)
         self.next_peak_cl =  pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.next_peak)
         
-        self.pending_peaks = np.zeros(nb_max_emnding_peaks, dtype=dtype_peak)
+        self.pending_peaks = np.zeros(nb_max_spike_in_chunk, dtype=dtype_peak)
         self.pending_peaks_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.pending_peaks)
         
         self.nb_pending_peaks = np.zeros(1, dtype='int32')
         self.nb_pending_peaks_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.nb_pending_peaks)
+
+        self.good_spikes = np.zeros(nb_max_spike_in_chunk, dtype=dtype_spike)
+        self.good_spikes_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.good_spikes)
+
+        self.nb_good_spikes = np.zeros(1, dtype='int32')
+        self.nb_good_spikes_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.nb_good_spikes)
+        
+        
         
         
         self.mask_already_tested = np.zeros((self.fifo_size, self.nb_channel), dtype='uint8') # bool
@@ -205,6 +218,12 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                                                                 self.nb_pending_peaks_cl)
         
         
+        if self.alien_value_threshold is None:
+            alien_value_threshold = np.float32(0)
+        else:
+            alien_value_threshold = np.float32(self.alien_value_threshold)
+        #~ print('alien_value_threshold', alien_value_threshold)
+        
         self.kern_classify_and_align_next_spike = getattr(self.opencl_prg, 'classify_and_align_next_spike')
         self.kern_classify_and_align_next_spike.set_args(
                                                                 self.fifo_residuals_cl,
@@ -212,6 +231,8 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                                                                 self.pending_peaks_cl,
                                                                 self.nb_pending_peaks_cl,
                                                                 self.next_peak_cl,
+                                                                self.good_spikes_cl,
+                                                                self.nb_good_spikes_cl,
                                                                 self.mask_already_tested_cl,
                                                                 self.catalogue_center0_cl,
                                                                 self.catalogue_center1_cl,
@@ -220,6 +241,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                                                                 self.sparse_mask_cl,
                                                                 self.high_sparse_mask_cl,
                                                                 self.waveform_distance_cl,
+                                                                self.waveform_distance_shifts_cl,
                                                                 self.extremum_channel_cl,
                                                                 self.wf1_norm2_cl,
                                                                 self.wf2_norm2_cl,
@@ -227,13 +249,20 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                                                                 self.weight_per_template_cl,
                                                                 self.channel_distances_cl,
                                                                 np.float32(self.adjacency_radius_um),
-                                                                np.float32(self.alien_value_threshold),
+                                                                alien_value_threshold,
                                                                 )
 
+        self.kern_reset_tested_zone = getattr(self.opencl_prg, 'reset_tested_zone')
+        self.kern_reset_tested_zone.set_args(
+                                                self.mask_already_tested_cl,
+                                                self.good_spikes_cl,
+                                                self.nb_good_spikes_cl,
+                                                self.sparse_mask_cl,
+                                                )
+
         
-        
-        self._debug_cl = True
-        #~ self._debug_cl = False
+        #~ self._debug_cl = True
+        self._debug_cl = False
 
     def initialize_before_each_segment(self, **kargs):
         PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
@@ -241,7 +270,8 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
 
     
     def apply_processor(self, pos, sigs_chunk):
-        print('apply_processor')
+        if self._debug_cl:
+            print('apply_processor')
         assert sigs_chunk.shape[0]==self.chunksize
         
         if not sigs_chunk.flags['C_CONTIGUOUS'] or sigs_chunk.dtype!=self.internal_dtype:
@@ -278,7 +308,8 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         return abs_head_index, preprocessed_chunk 
 
     def detect_local_peaks_before_peeling_loop(self):
-        print('detect_local_peaks_before_peeling_loop')
+        if self._debug_cl:
+            print('detect_local_peaks_before_peeling_loop')
 
         #~ self.global_size =  (self.max_wg_size * n, )
         #~ self.local_size = (self.max_wg_size,)
@@ -301,7 +332,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         else:
             global_size = (gsize, )
             local_size = (gsize, )
-        print('global_size', global_size, 'local_size', local_size)
+        #~ print('global_size', global_size, 'local_size', local_size)
         
         event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_detect_local_peaks, global_size, local_size,)
 
@@ -315,10 +346,14 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
     
     def classify_and_align_next_spike(self):
-        print('classify_and_align_next_spike')
-
-        global_size = (self.nb_cluster, self.nb_channel)
-        local_size = (self.nb_cluster, 1)
+        if self._debug_cl:
+            print('classify_and_align_next_spike')
+        
+        n = max(self.maximum_jitter_shift*2+1, self.nb_cluster)
+        #~ print('n', n, 'self.nb_cluster', self.nb_cluster)
+        
+        global_size = (n, self.nb_channel)
+        local_size = (n, 1)
         # TODO self.max_wg_size
         
         #~ print('global_size', global_size, 'local_size', local_size)
@@ -326,26 +361,175 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_classify_and_align_next_spike, global_size, local_size,)
         
         event = pyopencl.enqueue_copy(self.queue,  self.spike, self.spike_cl)
-        print(self.spike)
+        
         #~ exit()
         
         
-        #~ if self._debug_cl:
+        if self._debug_cl:
+            event = pyopencl.enqueue_copy(self.queue,  self.next_peak, self.next_peak_cl)
+            print(self.next_peak)
+            print(self.spike)
         
         
         # TODO :  kernel classify_and_align_next_spike
+        cluster_idx = self.spike[0]['cluster_idx']
+        if self.spike[0]['cluster_idx'] >= 0:
+            label = self.catalogue['cluster_labels'][cluster_idx]
+        else:
+            label = cluster_idx
         
-        return Spike(self.spike[0]['peak_index'], self.spike[0]['cluster_idx'], self.spike[0]['jitter'])
+        return Spike(self.spike[0]['peak_index'], label, self.spike[0]['jitter'])
         
         
     def reset_to_not_tested(self, good_spikes):
-        print('reset_to_not_tested')
-        print(good_spikes)
-        raise NotImplemenentedError
-        # TODO kernel reset_tested_zone  + detect_local_peaks + set nb_pending_peaks to zero
+        #~ print('reset_to_not_tested')
+        #~ print(good_spikes)
+        
+        # TODO self.max_wg_size
+        global_size = (len(good_spikes), )
+        local_size = (len(good_spikes), )
+        
+        event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_reset_tested_zone, global_size, local_size,)
+        
+        # mask_already_tested must NOT be reset here!!!
+
+        gsize = self.fifo_size - (2 * self.n_span)
+        if gsize > self.max_wg_size:
+            n = int(np.ceil(gsize / self.max_wg_size))
+            global_size =  (self.max_wg_size * n, )
+            local_size = (self.max_wg_size,)
+        else:
+            global_size = (gsize, )
+            local_size = (gsize, )
+        #~ print('global_size', global_size, 'local_size', local_size)
+        
+        event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_detect_local_peaks, global_size, local_size,)
+    
+    
+    def get_no_label_peaks(self):
+        raise NotImplementedError
+        # TODO
+        #~ gsize = self.fifo_size - (2 * self.n_span)
+        #~ if gsize > self.max_wg_size:
+            #~ n = int(np.ceil(gsize / self.max_wg_size))
+            #~ global_size =  (self.max_wg_size * n, )
+            #~ local_size = (self.max_wg_size,)
+        #~ else:
+            #~ global_size = (gsize, )
+            #~ local_size = (gsize, )
+        
+        #~ event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_detect_local_peaks, global_size, local_size,)
+        
+        #~ nolabel_indexes += self.n_span
+        #~ nolabel_indexes = nolabel_indexes[nolabel_indexes<(self.chunksize+self.n_span)]
+        bad_spikes = np.zeros(0, dtype=_dtype_spike)
+        #~ bad_spikes['index'] = nolabel_indexes
+        bad_spikes['cluster_label'] = LABEL_UNCLASSIFIED
+        return bad_spikes
+        
     
     def _plot_before_peeling_loop(self):
-        pass
+        pyopencl.enqueue_copy(self.queue,  self.fifo_residuals, self.fifo_residuals_cl)
+        plot_sigs = self.fifo_residuals.copy()
+        self._plot_sigs_before = plot_sigs
+    
+    def _plot_after_peeling_loop(self, good_spikes):
+        pyopencl.enqueue_copy(self.queue,  self.fifo_residuals, self.fifo_residuals_cl)
+
+        gsize = self.fifo_size - (2 * self.n_span)
+        if gsize > self.max_wg_size:
+            n = int(np.ceil(gsize / self.max_wg_size))
+            global_size =  (self.max_wg_size * n, )
+            local_size = (self.max_wg_size,)
+        else:
+            global_size = (gsize, )
+            local_size = (gsize, )
+        event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_detect_local_peaks, global_size, local_size,)
+        pyopencl.enqueue_copy(self.queue,  self.nb_pending_peaks, self.nb_pending_peaks_cl)
+        pyopencl.enqueue_copy(self.queue,  self.pending_peaks, self.pending_peaks_cl)
+        pending_peaks =  self.pending_peaks[:self.nb_pending_peaks[0]]
+        #~ print(pending_peaks)
+
+
+        
+        #~ self._plot_sigs_before = plot_sigs
+        #~ chan_order = np.argsort(self.channel_distances[0, :])
+        
+        fig, ax = plt.subplots()
+        
+        plot_sigs = self._plot_sigs_before.copy()
+        
+        for c in range(self.nb_channel):
+            plot_sigs[:, c] += c*30
+        ax.plot(plot_sigs, color='b')
+        
+        plot_sigs = self.fifo_residuals.copy()
+        
+        
+        for c in range(self.nb_channel):
+            plot_sigs[:, c] += c*30
+        
+        ax.plot(plot_sigs, color='k')
+
+        ax.axvline(self.fifo_size - self.n_right, color='r')
+        ax.axvline(-self.n_left, color='r')
+
+        #~ mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+        #~ peak_inds, chan_inds= np.nonzero(mask)
+        #~ peak_inds += self.n_span
+        peak_inds = pending_peaks['peak_index']
+        chan_inds = pending_peaks['peak_chan']
+
+        ax.scatter(peak_inds, plot_sigs[peak_inds, chan_inds], color='r')
+        
+        plt.show()
+        
+        #~ self._plot_sigs_before = self.fifo_residuals.copy()
+
+        
+    def _plot_after_inner_peeling_loop(self):
+        return
+        #~ pyopencl.enqueue_copy(self.queue,  self.nb_pending_peaks, self.nb_pending_peaks_cl)
+        #~ pyopencl.enqueue_copy(self.queue,  self.pending_peaks, self.pending_peaks_cl)
+        pyopencl.enqueue_copy(self.queue,  self.fifo_residuals, self.fifo_residuals_cl)
+
+
+
+        
+        #~ self._plot_sigs_before = plot_sigs
+        #~ chan_order = np.argsort(self.channel_distances[0, :])
+        
+        fig, ax = plt.subplots()
+        
+        plot_sigs = self._plot_sigs_before.copy()
+        
+        for c in range(self.nb_channel):
+            plot_sigs[:, c] += c*30
+        ax.plot(plot_sigs, color='b')
+        
+        plot_sigs = self.fifo_residuals.copy()
+        
+        
+        for c in range(self.nb_channel):
+            plot_sigs[:, c] += c*30
+        
+        ax.plot(plot_sigs, color='k')
+
+        ax.axvline(self.fifo_size - self.n_right, color='r')
+        ax.axvline(-self.n_left, color='r')
+
+        #~ mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+        #~ peak_inds, chan_inds= np.nonzero(mask)
+        #~ peak_inds += self.n_span
+        
+        #~ ax.scatter(peak_inds, plot_sigs[peak_inds, chan_inds], color='r')
+        #~ ax.plot(self.fifo_residuals)
+        plt.show()
+        
+        self._plot_sigs_before = self.fifo_residuals.copy()
+
+
+
 
 kernel_peeler_cl = """
 #define chunksize %(chunksize)d
@@ -676,6 +860,11 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
                                                                 volatile __global int *nb_pending_peaks,
                                                                 __global  st_peak *next_peak,
                                                                 
+                                                                __global  st_spike *good_spikes,
+                                                                __global int *nb_good_spikes,
+                                                                
+                                                                
+                                                                
                                                                 __global  uchar *mask_already_tested,
                                                                 __global  float *catalogue_center0,
                                                                 __global  float *catalogue_center1,
@@ -684,6 +873,7 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
                                                                 __global  uchar  *sparse_mask,
                                                                 __global  uchar  *high_sparse_mask,
                                                                 __global  float *waveform_distance,
+                                                                __global  float *waveform_distance_shifts,
                                                                 __global int *extremum_channel,
                                                                 __global float *wf1_norm2,
                                                                 __global float *wf2_norm2,
@@ -736,9 +926,10 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
             spike->cluster_idx = LABEL_NOT_YET;
             if (alien_value_threshold>0){
                 for (int s=1; s<=(wf_size); s++){
-                    if ((fifo_residuals[left_ind*nb_channel +s]>alien_value_threshold) || (fifo_residuals[left_ind*nb_channel +s]<-alien_value_threshold)){
+                    if ((fifo_residuals[(left_ind+s)*nb_channel + next_peak->peak_chan]>alien_value_threshold) || (fifo_residuals[(left_ind+s)*nb_channel + next_peak->peak_chan]<-alien_value_threshold)){
                         spike->cluster_idx = LABEL_ALIEN;
                         spike->jitter = 0.0f;
+                        spike->peak_index = next_peak->peak_index;
                     }
                 }
             }
@@ -806,27 +997,27 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
         }
         barrier(CLK_GLOBAL_MEM_FENCE);
         
-        if (spike->cluster_idx>0){ok = 1;}
+        if (spike->cluster_idx>=0){ok = 1;}
         else {ok = 0;}
         
         // explore shifts
         // parrallel on (cluster_idx, )  cluster_idx = shift here
-        if ((chan==0) && cluster_idx < (2 * maximum_jitter_shift + 1) && (ok == 1)){
-            waveform_distance[cluster_idx] = 0.0f;
+        if ((cluster_idx < (2 * maximum_jitter_shift + 1)) && (chan==0)  && (ok == 1)){
+            waveform_distance_shifts[cluster_idx] = 0.0f;
         }
         barrier(CLK_GLOBAL_MEM_FENCE);
         
-        // parrallel on (cluster_idx, chan)  cluster_idx = shift here
+        // parrallel on (cluster_idx, chan)  cluster_idx = explore_shift here
         if ((cluster_idx < (2 * maximum_jitter_shift + 1))  && (chan<nb_channel) && (ok == 1)){
             int explore_shift = cluster_idx - maximum_jitter_shift;
-            if (channel_distances[chan * nb_channel + peak.peak_chan] < adjacency_radius_um){
+            if (sparse_mask[nb_channel*spike->cluster_idx + chan]>0){
                 float sum = 0;
                 float d;
                 for (int s=0; s<peak_width; ++s){
                     d =  fifo_residuals[(left_ind+s+explore_shift)*nb_channel + chan] - catalogue_center0[wf_size*spike->cluster_idx+nb_channel*s+chan];
                     sum += d*d;
                 }
-                atomic_add_float(&waveform_distance[cluster_idx], sum);
+                atomic_add_float(&waveform_distance_shifts[cluster_idx], sum);
             }
         }
         barrier(CLK_GLOBAL_MEM_FENCE);
@@ -836,14 +1027,18 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
         // not parralel zone only first worker
         if ((chan==0) && (cluster_idx==0) && (ok == 1)){
         
-            // argmin on distance
+            // argmin for shifts
             float min_dist = MAXFLOAT;
             for (int s=0; s<(2 * maximum_jitter_shift + 1); ++s){
-                if (waveform_distance[s]<min_dist){
+                if (waveform_distance_shifts[s]<min_dist){
                     shift = s - maximum_jitter_shift;
-                    min_dist = waveform_distance[s];
+                    min_dist = waveform_distance_shifts[s];
                 }
             }
+            
+            //DEBUG
+            //shift = 0;
+            
             left_ind = left_ind + shift;
         
             
@@ -865,9 +1060,6 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
                                         fifo_residuals, sparse_mask,
                                         catalogue_center0, catalogue_center1, catalogue_center2,
                                         weight_per_template);
-            
-            // DEBUG
-            ok = 1;
             
             if (ok == 0){
                 spike->cluster_idx = LABEL_UNCLASSIFIED;
@@ -949,18 +1141,15 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
                         }
                     }
                 }
-
+                
+                //add spike to good_spike stack
+                good_spikes[*nb_good_spikes] = *spike;
+                *nb_good_spikes = *nb_good_spikes + 1;
                 
                 
             }
-            
         }
         
-        
-        
-        
-        
-    
     }
 
     
@@ -969,25 +1158,29 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
 
 
 __kernel void reset_tested_zone(__global  uchar *mask_already_tested,
-                __global st_spike *good_spike,
-                __global uchar *sparse_mask,
-                int nb_good_spike){
+                __global st_spike *good_spikes,
+                __global int *nb_good_spikes,
+                __global uchar *sparse_mask
+                ){
     
     int n = get_global_id(0);
     
     // reset tested zone around each spike
     for (int chan=0; chan<nb_channel; ++chan){
-        if (sparse_mask[good_spike[n].cluster_idx * nb_channel + chan]==1){
+        if (sparse_mask[good_spikes[n].cluster_idx * nb_channel + chan]==1){
             for (int s=-peak_width; s<=peak_width; ++s){
-                mask_already_tested[(good_spike[n].peak_index + s) * nb_channel + chan] = 0;
+                mask_already_tested[(good_spikes[n].peak_index + s) * nb_channel + chan] = 0;
             }
         }
     }
     
+    if (n == 0){
+        *nb_good_spikes = 0;
+    }
 }
 
 
-//reset_to_not_tested
+
 
 
 """

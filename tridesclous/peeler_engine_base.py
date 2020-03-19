@@ -39,6 +39,7 @@ class PeelerEngineBase(OpenCL_Helper):
                                         argmin_method='numpy',
                                         inter_sample_oversampling=True,
                                         maximum_jitter_shift = 4,
+                                        save_bad_label=False,
                                         
                                         cl_platform_index=None,
                                         cl_device_index=None,
@@ -81,6 +82,7 @@ class PeelerEngineBase(OpenCL_Helper):
         self.argmin_method = argmin_method
         self.inter_sample_oversampling =inter_sample_oversampling
         self.maximum_jitter_shift = maximum_jitter_shift
+        self.save_bad_label = save_bad_label
 
         self.cl_platform_index=None
         self.cl_device_index=None
@@ -247,8 +249,8 @@ class PeelerEngineGeneric(PeelerEngineBase):
             #~ self._plot_debug = True
         #~ else:
             #~ self._plot_debug = False
-        #~ self._plot_debug = False
-        self._plot_debug = True
+        self._plot_debug = False
+        #~ self._plot_debug = True
         
         if self._plot_debug:
             print('*'*10)
@@ -307,6 +309,9 @@ class PeelerEngineGeneric(PeelerEngineBase):
                 self.reset_to_not_tested(good_spikes[-nb_good_spike:])
                 #~ t2 = time.perf_counter()
                 #~ print('Reset_to_not_tested', (t2-t1)*1000)
+            
+            if self._plot_debug:
+                self._plot_after_inner_peeling_loop()
         
         
         if self._plot_debug:
@@ -318,8 +323,10 @@ class PeelerEngineGeneric(PeelerEngineBase):
         #~ if  len(good_spikes)>0:
             #~ print('nb_good_spike', len(good_spikes), 'n_loop', n_loop, 'per spike', (t4-t3)*1000/len(good_spikes))
         
-        bad_spikes = self.get_no_label_peaks()
-        bad_spikes['index'] += to_local_shift
+        if self.save_bad_label:
+            bad_spikes = self.get_no_label_peaks()
+            bad_spikes['index'] += to_local_shift
+        
         
         if len(good_spikes)>0:
             # TODO remove from peak the very begining of the signal because of border filtering effects
@@ -329,11 +336,19 @@ class PeelerEngineGeneric(PeelerEngineBase):
             near_border = (good_spikes['index'] - to_local_shift)>=(self.chunksize+self.n_span)
             near_border_good_spikes = good_spikes[near_border].copy()
             good_spikes = good_spikes[~near_border]
-
-            all_spikes = np.concatenate([good_spikes] + [bad_spikes] + self.near_border_good_spikes)
+            
+            if self.save_bad_label:
+                all_spikes = np.concatenate([good_spikes] + [bad_spikes] + self.near_border_good_spikes)
+            else:
+                all_spikes = np.concatenate([good_spikes] + self.near_border_good_spikes)
             self.near_border_good_spikes = [near_border_good_spikes] # for next chunk
         else:
-            all_spikes = np.concatenate([bad_spikes] + self.near_border_good_spikes)
+            if self.save_bad_label:
+                all_spikes = np.concatenate([bad_spikes] + self.near_border_good_spikes)
+            elif len(self.near_border_good_spikes) > 0:
+                all_spikes = np.concatenate(self.near_border_good_spikes)
+            else:
+                all_spikes = np.array([], dtype=_dtype_spike)
             self.near_border_good_spikes = []
         
         # all_spikes = all_spikes[np.argsort(all_spikes['index'])]

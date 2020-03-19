@@ -480,7 +480,10 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         
         
         return accept_template
-
+    
+    
+    def _plot_after_inner_peeling_loop(self):
+        pass
 
     def _plot_before_peeling_loop(self):
         fig, ax = plt.subplots()
