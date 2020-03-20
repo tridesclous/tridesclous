@@ -525,10 +525,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         plot_sigs = self.fifo_residuals.copy()
         
         
-        #~ chan_order = np.argsort(self.channel_distances[0, :])
-        
         for c in range(self.nb_channel):
-        #~ for c in chan_order:
             plot_sigs[:, c] += c*30
         ax.plot(plot_sigs, color='k')
         
@@ -537,9 +534,6 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         ax.axvline(self.fifo_size - self.n_right, color='r')
         ax.axvline(-self.n_left, color='r')
 
-        #~ for ind in np.nonzero(~self.mask_not_already_tested)[0] + self.n_span:
-            #~ ax.axvline(ind, ls='-', color='g')
-
         mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
         peak_inds, chan_inds= np.nonzero(mask)
         peak_inds += self.n_span
@@ -547,13 +541,10 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         
         
         
-        #~ ax.scatter(nolabel_indexes, plot_sigs[nolabel_indexes, chan_indexes], color='r')
-        
         good_spikes = np.array(good_spikes, dtype=_dtype_spike)
         pred = make_prediction_signals(good_spikes, self.internal_dtype, plot_sigs.shape, self.catalogue, safe=True)
         plot_pred = pred.copy()
         for c in range(self.nb_channel):
-        #~ for c in chan_order:
             plot_pred[:, c] += c*30
         
         ax.plot(plot_pred, color='m')

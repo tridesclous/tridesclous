@@ -108,8 +108,8 @@ def test_peeler_geometry_cl():
                                 use_sparse_template=True,
                                 sparse_threshold_mad=1.5,
                                 argmin_method='opencl',
-                                #~ inter_sample_oversampling=False,
-                                inter_sample_oversampling=True,
+                                inter_sample_oversampling=False,
+                                #~ inter_sample_oversampling=True,
                                 )
 
     t1 = time.perf_counter()
@@ -363,7 +363,7 @@ def debug_compare_peeler_engines():
         #~ assert np.all(all_spikes[0]['cluster_label'] == spikes['cluster_label'])
         #~ assert np.all(np.abs(all_spikes[0]['jitter'] - spikes['jitter'])<0.0001)
     
-    
+
 if __name__ =='__main__':
     #~ setup_module()
     
@@ -371,9 +371,10 @@ if __name__ =='__main__':
     
     #~ test_peeler_classic()
     
-    test_peeler_geometry()
+    #~ test_peeler_geometry()
     
     test_peeler_geometry_cl()
+    
     
     #~ test_peeler_argmin_methods()
     

@@ -112,8 +112,8 @@ def get_auto_params_for_peelers(dataio, chan_grp=0):
         
         if HAVE_PYOPENCL:
             params['argmin_method'] = 'opencl'
-            #~ params['engine'] = 'geometrical'
-            params['engine'] = 'geometrical_opencl' # Still experimental
+            params['engine'] = 'geometrical'
+            #~ params['engine'] = 'geometrical_opencl' # Still experimental
         elif HAVE_NUMBA:
             params['argmin_method'] = 'numba'
             params['engine'] = 'geometrical'

@@ -249,8 +249,9 @@ class PeelerEngineGeneric(PeelerEngineBase):
             #~ self._plot_debug = True
         #~ else:
             #~ self._plot_debug = False
-        self._plot_debug = False
-        #~ self._plot_debug = True
+        #~ self._plot_debug = False
+        self._plot_debug = True
+        
         
         if self._plot_debug:
             print('*'*10)
@@ -378,10 +379,12 @@ class PeelerEngineGeneric(PeelerEngineBase):
         
         
         if self._plot_debug:
-            print('classify_and_align_next_spike', proposed_peak_ind, peak_chan)
+            print('classify_and_align_next_spike')
         
         proposed_peak_ind, peak_chan = self.select_next_peak()
-        
+        if self._plot_debug:        
+            print('peak ', 'index',  proposed_peak_ind, 'chan', peak_chan)
+            
         if proposed_peak_ind == LABEL_NO_MORE_PEAK:
             return Spike(0, LABEL_NO_MORE_PEAK, 0)
         
