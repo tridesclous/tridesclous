@@ -116,12 +116,14 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
 
         self.neighbours_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.neighbours)
         
-        self.waveform_distance_shifts = np.zeros((self.shifts.size, ), dtype='float32')
-        self.waveform_distance_shifts_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance_shifts)
 
 
         self.waveform_distance = np.zeros((self.nb_cluster), dtype='float32')
         self.waveform_distance_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance)
+        
+        self.waveform_distance_shifts = np.zeros((self.shifts.size, ), dtype='float32')
+        self.waveform_distance_shifts_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance_shifts)
+        
 
         self.sparse_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask.astype('u1'))
         self.high_sparse_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.high_sparse_mask.astype('u1'))
@@ -318,10 +320,16 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             print('classify_and_align_next_spike')
         
         n = max(self.maximum_jitter_shift*2+1, self.nb_cluster)
-        #~ print('n', n, 'self.nb_cluster', self.nb_cluster)
+        print('n', n, 'self.nb_cluster', self.nb_cluster)
         
         global_size = (n, self.nb_channel)
-        local_size = (n, 1)
+        #~ local_size = (n, 1)
+        #~ local_size = (1, self.nb_channel)
+        local_size = (n, self.nb_channel)
+        
+        print('self.max_wg_size', self.max_wg_size)
+        print('nb_channel', self.nb_channel)
+        #~ print('n', n)
         # TODO self.max_wg_size
         
         #~ print('global_size', global_size, 'local_size', local_size)
@@ -339,7 +347,6 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             print(self.spike)
         
         
-        # TODO :  kernel classify_and_align_next_spike
         cluster_idx = self.spike[0]['cluster_idx']
         if self.spike[0]['cluster_idx'] >= 0:
             label = self.catalogue['cluster_labels'][cluster_idx]
@@ -427,6 +434,9 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
     
     def _plot_after_peeling_loop(self, good_spikes):
         pyopencl.enqueue_copy(self.queue,  self.fifo_residuals, self.fifo_residuals_cl)
+        
+        self.mask_already_tested[:] = 0
+        event = pyopencl.enqueue_copy(self.queue,  self.mask_already_tested_cl, self.mask_already_tested)
 
         gsize = self.fifo_size - (2 * self.n_span)
         if gsize > self.max_wg_size:
@@ -689,8 +699,6 @@ __kernel void detect_local_peaks(
 }
 
 
-//                        __global  uchar *mask_already_tested
-// && (mask_already_tested[pending_peaks[i].peak_index * nb_channel + pending_peaks[i].peak_chan]==0)
 
 void select_next_peak(__global st_peak *peak,
                         __global  st_peak *pending_peaks,
@@ -844,7 +852,7 @@ int accept_tempate(int left_ind, int cluster_idx, float jitter,
 
 
 __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
-                                                                __global st_spike *spike,
+                                                                __global st_spike *next_spike,
 
 
                                                                 __global  st_peak *pending_peaks,
@@ -863,8 +871,8 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
                                                                 __global  float *catalogue_inter_center0,
                                                                 __global  uchar  *sparse_mask,
                                                                 __global  uchar  *high_sparse_mask,
-                                                                volatile __global  float *waveform_distance,
-                                                                volatile __global  float *waveform_distance_shifts,
+                                                                __global  float *waveform_distance,
+                                                                __global  float *waveform_distance_shifts,
                                                                 __global int *extremum_channel,
                                                                 __global float *wf1_norm2,
                                                                 __global float *wf2_norm2,
@@ -881,46 +889,40 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
     
     // each worker
     int left_ind;
+    st_spike spike;
     st_peak peak;
-    int ok;
-    
-    // only  first worker
-    int shift;
     
     
-    
-    
-    
-
     // non parralel code only for first worker
     if ((cluster_idx==0) && (chan==0)){
         
         select_next_peak(next_peak, pending_peaks, nb_pending_peaks);
+        peak = *next_peak;
         
-        left_ind = next_peak->peak_index + n_left;
+        left_ind = peak.peak_index + n_left;
         
         if (next_peak->peak_index == LABEL_NO_MORE_PEAK){
-            spike->peak_index = next_peak->peak_index;
-            spike->cluster_idx = LABEL_NO_MORE_PEAK;
-            spike->jitter = 0.0f;
+            next_spike->peak_index = peak.peak_index;
+            next_spike->cluster_idx = LABEL_NO_MORE_PEAK;
+            next_spike->jitter = 0.0f;
         } else if (left_ind+peak_width+maximum_jitter_shift+1>=fifo_size){
-            spike->peak_index = next_peak->peak_index;
-            spike->cluster_idx = LABEL_RIGHT_LIMIT;
-            spike->jitter = 0.0f;
+            next_spike->peak_index = peak.peak_index;
+            next_spike->cluster_idx = LABEL_RIGHT_LIMIT;
+            next_spike->jitter = 0.0f;
         } else if (left_ind<=maximum_jitter_shift){
-            spike->peak_index = next_peak->peak_index;
-            spike->cluster_idx = LABEL_LEFT_LIMIT;
-            spike->jitter = 0.0f;
+            next_spike->peak_index = peak.peak_index;
+            next_spike->cluster_idx = LABEL_LEFT_LIMIT;
+            next_spike->jitter = 0.0f;
         } else if (n_cluster==0){
-            spike->cluster_idx  = LABEL_UNCLASSIFIED;
+            next_spike->cluster_idx  = LABEL_UNCLASSIFIED;
         }else {
-            spike->cluster_idx = LABEL_NOT_YET;
+            next_spike->cluster_idx = LABEL_NOT_YET;
             if (alien_value_threshold>0){
                 for (int s=0; s<peak_width; ++s){
-                    if ((fifo_residuals[(left_ind+s)*nb_channel + next_peak->peak_chan]>alien_value_threshold) || (fifo_residuals[(left_ind+s)*nb_channel + next_peak->peak_chan]<-alien_value_threshold)){
-                        spike->cluster_idx = LABEL_ALIEN;
-                        spike->jitter = 0.0f;
-                        spike->peak_index = next_peak->peak_index;
+                    if ((fifo_residuals[(left_ind+s)*nb_channel + peak.peak_chan]>alien_value_threshold) || (fifo_residuals[(left_ind+s)*nb_channel + peak.peak_chan]<-alien_value_threshold)){
+                        next_spike->cluster_idx = LABEL_ALIEN;
+                        next_spike->jitter = 0.0f;
+                        next_spike->peak_index = peak.peak_index;
                     }
                 }
             }
@@ -929,11 +931,14 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
     }
     
     barrier(CLK_GLOBAL_MEM_FENCE);
+    spike = *next_spike;
     
     
-    if (spike->cluster_idx==LABEL_NOT_YET) {
+    if (spike.cluster_idx==LABEL_NOT_YET) {
+        int ok;
     
         peak = *next_peak;
+        
         left_ind = peak.peak_index + n_left;
     
 
@@ -942,15 +947,11 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
         if ((chan==0) && (cluster_idx<nb_cluster)){
             // the peak_chan do not overlap spatialy this cluster
             if (high_sparse_mask[nb_channel*cluster_idx+peak.peak_chan] == 0){
-                if (chan==0){
-                    waveform_distance[cluster_idx] = FLT_MAX;
-                }
+                waveform_distance[cluster_idx] = FLT_MAX;
             }
             else {
                 // candidate initialize sum by cluster
-                if (chan==0){
-                    waveform_distance[cluster_idx] = 0.0f;
-                }
+                waveform_distance[cluster_idx] = 0.0f;
             }
         }
         barrier(CLK_GLOBAL_MEM_FENCE);
@@ -968,6 +969,8 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
                         sum += d*d;
                     }
                     atomic_add_float(&waveform_distance[cluster_idx], sum);
+                    //volatile __global float * v = &waveform_distance[cluster_idx];
+                    //atomic_add_float(v, sum);
                 }
             }
         }
@@ -977,38 +980,46 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
         // not parralel zone only first worker
         if ((chan==0) && (cluster_idx==0)){
             //argmin  not paralel
-            float min_dist = MAXFLOAT;
-            spike->cluster_idx = -1;
+            float min_dist;
+            min_dist = MAXFLOAT;
+            spike.cluster_idx = -1;
             for (int clus=0; clus<n_cluster; ++clus){
                 if (waveform_distance[clus]<min_dist){
-                    spike->cluster_idx = clus;
+                    spike.cluster_idx = clus;
                     min_dist = waveform_distance[clus];
                 }
             }
+            *next_spike = spike;
         }
         barrier(CLK_GLOBAL_MEM_FENCE);
-        
-        if (spike->cluster_idx>=0){ok = 1;}
-        else {ok = 0;}
+        spike = *next_spike;
+
+        //if (spike->cluster_idx>=0){ok = 1;}
+        //else {ok = 0;}        
         
         // explore shifts
         // parrallel on (cluster_idx, )  cluster_idx = shift here
-        if ((cluster_idx < (2 * maximum_jitter_shift + 1)) && (chan==0)  && (ok == 1)){
+        if ((cluster_idx < (2 * maximum_jitter_shift + 1)) && (chan==0)){
             waveform_distance_shifts[cluster_idx] = 0.0f;
         }
         barrier(CLK_GLOBAL_MEM_FENCE);
         
+        
         // parrallel on (cluster_idx, chan)  cluster_idx = explore_shift here
-        if ((cluster_idx < (2 * maximum_jitter_shift + 1))  && (chan<nb_channel) && (ok == 1)){
-            int explore_shift = cluster_idx - maximum_jitter_shift;
-            if (sparse_mask[nb_channel*spike->cluster_idx + chan]>0){
+        if ((cluster_idx < (2 * maximum_jitter_shift + 1))  && (chan<nb_channel)){
+            if (sparse_mask[nb_channel*spike.cluster_idx + chan] == 1){
+                int explore_shift;
+                explore_shift = cluster_idx - maximum_jitter_shift;
                 float sum = 0;
                 float d;
                 for (int s=0; s<peak_width; ++s){
-                    d =  fifo_residuals[(left_ind+s+explore_shift)*nb_channel + chan] - catalogue_center0[wf_size*spike->cluster_idx+nb_channel*s+chan];
+                    d =  fifo_residuals[(left_ind+s+explore_shift)*nb_channel + chan] - catalogue_center0[wf_size*spike.cluster_idx+nb_channel*s+chan];
                     sum += d*d;
                 }
+                
                 atomic_add_float(&waveform_distance_shifts[cluster_idx], sum);
+                //volatile __global float *v = &waveform_distance_shifts[cluster_idx];
+                //atomic_add_float(v, sum);
             }
         }
         barrier(CLK_GLOBAL_MEM_FENCE);
@@ -1016,14 +1027,19 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
         
         
         // not parralel zone only first worker
-        if ((chan==0) && (cluster_idx==0) && (ok == 1)){
-        
+        if ((chan==0) && (cluster_idx==0)){
+            int shift;
+            shift = 0;
+            
             // argmin for shifts
-            float min_dist = MAXFLOAT;
-            for (int s=0; s<(2 * maximum_jitter_shift + 1); ++s){
-                if (waveform_distance_shifts[s]<min_dist){
-                    shift = s - maximum_jitter_shift;
-                    min_dist = waveform_distance_shifts[s];
+            float min_dist;
+            min_dist = MAXFLOAT;
+            int n;
+            n = 2 * maximum_jitter_shift + 1;
+            for (int i=0; i<n; ++i){
+                if (waveform_distance_shifts[i]<min_dist){
+                    shift = i - maximum_jitter_shift;
+                    min_dist = waveform_distance_shifts[i];
                 }
             }
             //DebUG
@@ -1037,7 +1053,7 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
             float new_jitter;
             
             if (inter_sample_oversampling){
-                jitter = estimate_one_jitter(left_ind, spike->cluster_idx,
+                jitter = estimate_one_jitter(left_ind, spike.cluster_idx,
                                         extremum_channel, fifo_residuals,
                                         catalogue_center0, catalogue_center1, catalogue_center2,
                                         wf1_norm2, wf2_norm2, wf1_dot_wf2);
@@ -1046,7 +1062,7 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
             }
             
             // accept template
-            ok = accept_tempate(left_ind, spike->cluster_idx, jitter,
+            ok = accept_tempate(left_ind, spike.cluster_idx, jitter,
                                         fifo_residuals, sparse_mask,
                                         catalogue_center0, catalogue_center1, catalogue_center2,
                                         weight_per_template);
@@ -1055,20 +1071,23 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
             //ok = 1;
             
             if (ok == 0){
-                //spike->jitter = 0.0f;
-                //spike->jitter = (float) spike->cluster_idx;
-                spike->jitter = jitter;
-                spike->cluster_idx = LABEL_UNCLASSIFIED;
+                //spike.jitter = 0.0f;
+                //spike.jitter = (float) spike.cluster_idx;
+                spike.jitter = (float) shift;
+                //spike.jitter = waveform_distance_shifts[0];
+                //spike.jitter = waveform_distance[3];
+                //spike.jitter = jitter;
+                spike.cluster_idx = LABEL_UNCLASSIFIED;
             } else {
                 // test when jitter is more than one sample
                 shift = - ((int) round(jitter));
                 if (inter_sample_oversampling && (fabs(jitter) > 0.5f) && ((left_ind+shift+peak_width)<fifo_size) && ((left_ind + shift) >= 0) ){
                     int ok2;
-                    new_jitter = estimate_one_jitter(left_ind+shift, spike->cluster_idx,
+                    new_jitter = estimate_one_jitter(left_ind+shift, spike.cluster_idx,
                                                         extremum_channel, fifo_residuals,
                                                         catalogue_center0, catalogue_center1, catalogue_center2,
                                                         wf1_norm2, wf2_norm2, wf1_dot_wf2);
-                    ok2 = accept_tempate(left_ind+shift, spike->cluster_idx, new_jitter,
+                    ok2 = accept_tempate(left_ind+shift, spike.cluster_idx, new_jitter,
                                                         fifo_residuals, sparse_mask,
                                                         catalogue_center0, catalogue_center1, catalogue_center2,
                                                         weight_per_template);
@@ -1079,29 +1098,29 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
                 }
                 
                 if (abs(shift) >maximum_jitter_shift){
-                    spike->cluster_idx = LABEL_MAXIMUM_SHIFT;
+                    spike.cluster_idx = LABEL_MAXIMUM_SHIFT;
                 } else if ((left_ind+shift+peak_width) >= fifo_size){
-                    spike->cluster_idx = LABEL_RIGHT_LIMIT;
+                    spike.cluster_idx = LABEL_RIGHT_LIMIT;
                 } else if ((left_ind+shift)<0) {
-                    spike->cluster_idx = LABEL_LEFT_LIMIT;
+                    spike.cluster_idx = LABEL_LEFT_LIMIT;
                 }
             }
 
             // security check for borders
-            if (spike->cluster_idx >= 0){
+            if (spike.cluster_idx >= 0){
                 int left_ind_check;
                 left_ind_check = left_ind - ((int) round(jitter));
                 if (left_ind_check < 0){
-                    spike->cluster_idx = LABEL_LEFT_LIMIT;
+                    spike.cluster_idx = LABEL_LEFT_LIMIT;
                 } else if ((left_ind_check+peak_width) >= fifo_size){
-                    spike->cluster_idx = LABEL_RIGHT_LIMIT;
+                    spike.cluster_idx = LABEL_RIGHT_LIMIT;
                 }
             }
             
             
             // final
-            if (spike->cluster_idx < 0){
-                spike->peak_index = peak.peak_index;
+            if (spike.cluster_idx < 0){
+                spike.peak_index = peak.peak_index;
                 
                 // set already tested
                 mask_already_tested[peak.peak_index * nb_channel + peak.peak_chan] =1;
@@ -1112,8 +1131,8 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
                     jitter = jitter + shift;
                     left_ind = left_ind + shift;
                 }
-                spike->jitter = jitter;
-                spike->peak_index = left_ind - n_left;
+                spike.jitter = jitter;
+                spike.peak_index = left_ind - n_left;
                 
                 // on_accepted_spike
                 int int_jitter;
@@ -1122,7 +1141,7 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
                 int_jitter = (int) ((jitter) * subsample_ratio) + (subsample_ratio / 2 );
                 for (int s=0; s<peak_width; ++s){
                     for (int c=0; c<nb_channel; ++c){
-                        fifo_residuals[(left_ind+s)*nb_channel + c] -= catalogue_inter_center0[subsample_ratio*wf_size*spike->cluster_idx + nb_channel*(s*subsample_ratio+int_jitter) + c];
+                        fifo_residuals[(left_ind+s)*nb_channel + c] -= catalogue_inter_center0[subsample_ratio*wf_size*spike.cluster_idx + nb_channel*(s*subsample_ratio+int_jitter) + c];
                     }
                 }
                 
@@ -1130,21 +1149,25 @@ __kernel void classify_and_align_next_spike(__global  float *fifo_residuals,
                 for (int i=0; i<*nb_pending_peaks; i++){
                     if (pending_peaks[i].peak_value > 0.0){
                         if (
-                                (pending_peaks[i].peak_index  > (spike->peak_index+ n_left)) && 
-                                (pending_peaks[i].peak_index < (spike->peak_index+ n_right)) && 
-                                (sparse_mask[spike->cluster_idx * nb_channel + pending_peaks[i].peak_chan] == 1) ){
+                                (pending_peaks[i].peak_index  > (spike.peak_index+ n_left)) && 
+                                (pending_peaks[i].peak_index < (spike.peak_index+ n_right)) && 
+                                (sparse_mask[spike.cluster_idx * nb_channel + pending_peaks[i].peak_chan] == 1) ){
                             pending_peaks[i].peak_value = 0;
                         }
                     }
                 }
                 
                 //add spike to good_spike stack
-                good_spikes[*nb_good_spikes] = *spike;
+                good_spikes[*nb_good_spikes] = spike;
                 *nb_good_spikes = *nb_good_spikes + 1;
                 
                 
             }
+            
+            *next_spike = spike ;
         }
+        
+        
         
     }
 

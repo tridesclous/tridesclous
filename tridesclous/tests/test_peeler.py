@@ -108,8 +108,8 @@ def test_peeler_geometry_cl():
                                 use_sparse_template=True,
                                 sparse_threshold_mad=1.5,
                                 argmin_method='opencl',
-                                inter_sample_oversampling=False,
-                                #~ inter_sample_oversampling=True,
+                                #~ inter_sample_oversampling=False,
+                                inter_sample_oversampling=True,
                                 )
 
     t1 = time.perf_counter()

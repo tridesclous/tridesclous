@@ -107,9 +107,6 @@ def get_auto_params_for_peelers(dataio, chan_grp=0):
         params['use_sparse_template'] = True
         params['sparse_threshold_mad'] = 1.5
         
-        
-        
-        
         if HAVE_PYOPENCL:
             params['argmin_method'] = 'opencl'
             params['engine'] = 'geometrical'
@@ -122,5 +119,4 @@ def get_auto_params_for_peelers(dataio, chan_grp=0):
             params['engine'] = 'geometrical'
 
     return params
-    
-    
+
