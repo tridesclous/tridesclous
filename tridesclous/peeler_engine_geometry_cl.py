@@ -378,8 +378,6 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         local_size = (1, )
         event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_select_next_peak, global_size, local_size,)
         
-        #TODO play with this!!!!!! local_size is very important for memory fence
-        
         global_size = (self.nb_cluster, self.nb_channel)
         #~ local_size = (1, self.nb_channel)
         local_size = (self.nb_cluster, 1)   ####  commes gemotrical
@@ -783,7 +781,8 @@ __kernel void select_next_peak(
     int i_peak = -1;
     float best_value = 0.0;
     
-    for (int i=0; i<*nb_pending_peaks; i++){
+    int n = *nb_pending_peaks;
+    for (int i=0; i<n; i++){
         if ((pending_peaks[i].peak_value > best_value)){
             i_peak = i;
             best_value = pending_peaks[i].peak_value;
@@ -794,6 +793,7 @@ __kernel void select_next_peak(
         next_peak->peak_index = LABEL_NO_MORE_PEAK;
         next_peak->peak_chan = -1;
         next_peak->peak_value = 0.0;
+        
         next_spike->peak_index = LABEL_NO_MORE_PEAK;
         next_spike->cluster_idx = LABEL_NO_MORE_PEAK;
         next_spike->jitter = 0.0f;
@@ -979,7 +979,6 @@ __kernel void explore_templates(__global  float *fifo_residuals,
     
     
     if (spike.cluster_idx==LABEL_NOT_YET) {
-        int ok;
         
         peak = *next_peak;
         
@@ -1065,30 +1064,9 @@ __kernel void explore_shifts(__global  float *fifo_residuals,
     
     if (spike.cluster_idx==LABEL_NOT_YET) {
         st_peak peak;
-        int left_ind;
-
-        
         peak = *next_peak;
-        left_ind = peak.peak_index + n_left;
-    
-    
-        // argmin on distance
-        // not parralel zone only first worker
-        if ((chan==0) && (shift_ind==0)){
-            //argmin  not paralel
-            float min_dist;
-            min_dist = MAXFLOAT;
-            spike.cluster_idx = LABEL_UNCLASSIFIED;
-            for (int clus=0; clus<n_cluster; ++clus){
-                if (waveform_distance[clus]<min_dist){
-                    spike.cluster_idx = clus;
-                    min_dist = waveform_distance[clus];
-                }
-            }
-            *next_spike = spike;
-        }
-        barrier(CLK_GLOBAL_MEM_FENCE);
-        spike = *next_spike;
+        
+        int left_ind = peak.peak_index + n_left;
         
         // can be LABEL_UNCLASSIFIED when no cluster
         // have sparse mask on channel
