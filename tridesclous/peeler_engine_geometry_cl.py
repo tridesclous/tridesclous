@@ -216,8 +216,8 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                                                             alien_value_threshold,
                                                             )
     
-        self.kern_get_template_distances = getattr(self.opencl_prg, 'get_template_distances')
-        self.kern_get_template_distances.set_args(self.fifo_residuals_cl,
+        self.kern_explore_templates = getattr(self.opencl_prg, 'explore_templates')
+        self.kern_explore_templates.set_args(self.fifo_residuals_cl,
                                                         self.next_spike_cl,
                                                         self.next_peak_cl,
                                                         self.catalogue_center0_cl,
@@ -227,6 +227,11 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                                                         np.float32(self.adjacency_radius_um),
                                                         )
         
+        self.kern_get_best_template = getattr(self.opencl_prg, 'get_best_template')
+        self.kern_get_best_template.set_args(self.next_spike_cl,
+                                                                self.waveform_distance_cl,
+                                                                )
+
         self.kern_explore_shifts = getattr(self.opencl_prg, 'explore_shifts')
         self.kern_explore_shifts.set_args(self.fifo_residuals_cl,
                                                         self.next_spike_cl,
@@ -377,11 +382,13 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
         global_size = (self.nb_cluster, self.nb_channel)
         #~ local_size = (1, self.nb_channel)
-        local_size = (self.nb_cluster, 1)   ####  comme gemotrical
+        local_size = (self.nb_cluster, 1)   ####  commes gemotrical
         #~ local_size = (self.nb_cluster, self.nb_channel)
-        event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_get_template_distances, global_size, local_size,)
+        event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_explore_templates, global_size, local_size,)
         
-        # TODO ajouter un kernel pour argmin  ICI pour armin distances
+        global_size = (1, )
+        local_size = (1, )
+        event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_get_best_template, global_size, local_size,)
         
         global_size = (self.nb_shift, self.nb_channel)
         #~ local_size = (1, self.nb_channel)    ### marche pas
@@ -944,7 +951,7 @@ int accept_tempate(int left_ind, int cluster_idx, float jitter,
 
 
 
-__kernel void get_template_distances(__global  float *fifo_residuals,
+__kernel void explore_templates(__global  float *fifo_residuals,
                                                                 __global st_spike *next_spike,
                                                                 __global  st_peak *next_peak,
 
@@ -1009,7 +1016,33 @@ __kernel void get_template_distances(__global  float *fifo_residuals,
         }
     }
 }
-        
+
+
+__kernel void get_best_template(
+                                            __global st_spike *next_spike,
+                                            __global  float *waveform_distance
+                                        ){
+    
+    st_spike spike;
+    spike = *next_spike;
+
+    // argmin on distance
+    if (spike.cluster_idx==LABEL_NOT_YET) {
+        float min_dist = MAXFLOAT;
+        spike.cluster_idx = LABEL_UNCLASSIFIED;
+        for (int clus=0; clus<n_cluster; ++clus){
+            if (waveform_distance[clus]<min_dist){
+                spike.cluster_idx = clus;
+                min_dist = waveform_distance[clus];
+            }
+        }
+        *next_spike = spike;
+    }
+}
+
+
+
+
 __kernel void explore_shifts(__global  float *fifo_residuals,
                                             __global st_spike *next_spike,
                                             __global  st_peak *next_peak,
