@@ -334,8 +334,8 @@ class CatalogueController(ControllerBase):
         self.cc.order_clusters()
         self.check_plot_attributes()
     
-    def project(self, method='global_pca', selection=None, **kargs):
-        self.cc.project(method=method, selection=selection, **kargs)
+    def extract_some_features(self, method='global_pca', selection=None, **kargs):
+        self.cc.extract_some_features(method=method, selection=selection, **kargs)
     
     def split_cluster(self, *args,  **kargs):
         #~ print('controller.split_cluster', args, kargs)

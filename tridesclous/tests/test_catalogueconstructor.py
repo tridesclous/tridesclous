@@ -293,9 +293,20 @@ def debug_interp_centers0():
     
     #~ plt.show()
 
+def test_feature_with_lda_selection():
+    dataio = DataIO(dirname='test_catalogueconstructor')
+    cc = CatalogueConstructor(dataio=dataio)
+    print(cc)
+    
+    selection = np.in1d(cc.all_peaks['cluster_label'], [1, 2, 3, 4])
+    print(np.sum(selection), '/', cc.all_peaks.size)
+    
+    cc.extract_some_features(method='global_lda',  selection=selection)
+    print(cc.some_features.shape)
+    print(cc.some_features)
     
 if __name__ == '__main__':
-    test_catalogue_constructor()
+    #~ test_catalogue_constructor()
     
     #~ compare_nb_waveforms()
     
@@ -305,5 +316,7 @@ if __name__ == '__main__':
     #~ test_create_savepoint_catalogue_constructor()
     
     #~ debug_interp_centers0()
+    
+    test_feature_with_lda_selection()
 
 

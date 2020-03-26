@@ -307,15 +307,23 @@ class ClusterPeakList(ClusterBaseList):
         self.spike_label_changed.emit()
     
     def pc_project_all(self, selection=None):
-        method, kargs = open_dialog_methods(gui_params.features_params_by_methods, self)
         
-        if method is None: return
+        params = gui_params.features_params_by_methods
+        if selection is not None:
+            params = params.copy()
+            params['global_lda'] = []
         
-        self.controller.project(method=method, selection=selection, **kargs)
+        method, kargs = open_dialog_methods(params, self)
+        
+        if method is None:
+            return
+        
+        self.controller.extract_some_features(method=method, selection=selection, **kargs)
         self.refresh()
         self.spike_label_changed.emit()
     
     def pc_project_selection(self):
+        print('pc_project_selection', np.sum(self._selected_spikes()))
         self.pc_project_all(selection=self._selected_spikes())
     
     def move_cluster_selection_to_trash(self):

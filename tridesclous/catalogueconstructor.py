@@ -1172,20 +1172,22 @@ class CatalogueConstructor:
             self.some_noise_snippet[n, :, :] = snippet
                 #~ n +=1
 
-    def extract_some_features(self, method='global_pca',  **params): #n_components=5, 
+    def extract_some_features(self, method='global_pca',  selection=None, **params):
         """
         Extract feature from waveforms.
-        """
-        assert 'selection' not in params
         
-
+        If selection is None then all peak from some_peak_index are taken.
+        
+        Else selection is mask bool size all_peaks used for fit and  then the tranform is applied on all.
+        
+        """
 
         # global feature log it
         self.info['feature_method'] = method
         self.info['feature_kargs'] = params
         self.flush_info()
         
-        features, channel_to_features, self.projector = decomposition.project_waveforms(catalogueconstructor=self,method=method, **params)
+        features, channel_to_features, self.projector = decomposition.project_waveforms(catalogueconstructor=self,method=method, selection=selection, **params)
         
         if features is None:
             for name in ['some_features', 'channel_to_features', 'some_noise_features']:
@@ -1220,6 +1222,7 @@ class CatalogueConstructor:
         """
         Find cluster for peaks that have a waveform and feature.
         
+        selection is mask bool size all_peaks
         """
         #done in a separate module cluster.py
 

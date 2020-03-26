@@ -284,7 +284,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
             
             # loop : one more peeler level
             while True: 
-                #~ t1 = time.perf_counter()
+                t1 = time.perf_counter()
                 spike = self.classify_and_align_next_spike()
                 #~ t2 = time.perf_counter()
                 #~ print('  classify_and_align_next_spike', (t2-t1)*1000, spike)
@@ -316,9 +316,10 @@ class PeelerEngineGeneric(PeelerEngineBase):
         
         
         if self._plot_debug:
+        #~ if True:
             t4 = time.perf_counter()
-            print('mainloop classify_and_align ', len(good_spikes), ' spike', (t4-t3)*1000, 'ms', 'in', n_loop)
-            self._plot_after_peeling_loop(good_spikes)
+            print('mainloop classify_and_align ', len(good_spikes), ' spike', (t4-t3)*1000, 'ms', 'n_loop', n_loop)
+            #~ self._plot_after_peeling_loop(good_spikes)
         
         #~ print(self._debug_nb_accept_tempate)
         #~ if  len(good_spikes)>0:
