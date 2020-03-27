@@ -619,7 +619,7 @@ class CatalogueConstructor:
                 
             self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num, chan_grp=self.chan_grp,
                             i_start=pos2-preprocessed_chunk.shape[0], i_stop=pos2, signal_type='processed')
-
+        
         self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=self.chan_grp, processed_length=int(pos2))
     
     
@@ -639,15 +639,28 @@ class CatalogueConstructor:
         Parameters
         ----------
         duration: float
-            duration in seconds for each segment
+            total duration in seconds for all segment
         detect_peak: bool (default True)
             Also detect peak.
         
         """
-        self.arrays.initialize_array('all_peaks', self.memory_mode,  _dtype_peak, (-1, ))        
+        self.arrays.initialize_array('all_peaks', self.memory_mode,  _dtype_peak, (-1, ))
+        
+        duration_per_segment = []
+        total_duration = duration
+        for seg_num in range(self.dataio.nb_segment):
+            dur = self.dataio.get_segment_length(seg_num=seg_num) / self.dataio.sample_rate
+            if total_duration ==0:
+                duration_per_segment.append(0.)
+            elif dur <=total_duration:
+                duration_per_segment.append(dur)
+                total_duration -= dur
+            else:
+                duration_per_segment.append(total_duration)
+                total_duration = 0.
         
         for seg_num in range(self.dataio.nb_segment):
-            self.run_signalprocessor_loop_one_segment(seg_num=seg_num, duration=duration, detect_peak=detect_peak)
+            self.run_signalprocessor_loop_one_segment(seg_num=seg_num, duration=duration_per_segment[seg_num], detect_peak=detect_peak)
         
         # flush peaks
         self.arrays.finalize_array('all_peaks')
