@@ -56,7 +56,7 @@ class CatalogueController(ControllerBase):
             if k not in self.cluster_visible:
                 self.cluster_visible[k] = True
         for k in list(self.cluster_visible.keys()):
-            if k not in self.cluster_labels and k>0:
+            if k not in self.cluster_labels and k>=0:
                 self.cluster_visible.pop(k)
         
         if labelcodes.LABEL_NOISE not in self.cluster_visible:

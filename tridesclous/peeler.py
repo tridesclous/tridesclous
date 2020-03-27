@@ -179,9 +179,8 @@ class Peeler:
         else:
             kargs['source_dtype'] = self.dataio.source_dtype
         kargs['geometry'] = self.dataio.get_geometry(chan_grp)
-        kargs['already_processed'] =  any(already_processed_segs)
+        kargs['already_processed'] =  all(already_processed_segs)
         self.peeler_engine.initialize(**kargs)
-        
         
         for seg_num in range(self.dataio.nb_segment):
             self.run_offline_loop_one_segment(seg_num=seg_num, duration=duration, progressbar=progressbar)

@@ -178,9 +178,9 @@ class PeelerEngineBase(OpenCL_Helper):
             p['signals_medians'] = self.catalogue['signals_medians']
             p['signals_mads'] = self.catalogue['signals_mads']
             
-            if hasattr('ctx') and self.ctx is not None:
+            if hasattr(self, 'ctx') and self.ctx is not None and self.signalpreprocessor_engine == 'opencl':
                 # use local ctx and queue if exists for processor
-                print('yep', self.ctx)
+                #~ print('yep', self.ctx)
                 p['cl_platform_index'] = None
                 p['cl_device_index'] = None
                 p['ctx'] = self.ctx
