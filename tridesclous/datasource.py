@@ -76,6 +76,7 @@ class RawDataSource(DataSourceBase):
         {'name': 'total_channel', 'type': 'int', 'value':1},
         {'name': 'sample_rate', 'type': 'float', 'value':10000., 'step': 1000., 'suffix': 'Hz', 'siPrefix': True},
         {'name': 'offset', 'type': 'int', 'value':0},
+        {'name': 'bit_to_microVolt', 'type': 'float', 'value':0.5 },        
     ]
     
     def __init__(self, filenames=[], dtype='int16', total_channel=0,
