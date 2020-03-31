@@ -5,7 +5,7 @@ import joblib
 
 
 
-def extract_chunks(signals, peak_sample_indexes, width, 
+def extract_chunks(signals, left_sample_indexes, width, 
                 channel_indexes=None, channel_adjacency=None, 
                 peak_channel_indexes=None, chunks=None):
     """
@@ -17,7 +17,7 @@ def extract_chunks(signals, peak_sample_indexes, width,
     ---------------
     signals: np.ndarray 
         shape (nb_campleXnb_channel)
-    peak_sample_indexes: np.ndarray
+    left_sample_indexes: np.ndarray
         sample postion of the first sample
     width: int
         Width in sample of chunks.
@@ -35,7 +35,7 @@ def extract_chunks(signals, peak_sample_indexes, width,
     Returns
     -----------
     chunks : np.ndarray
-        shape = (peak_sample_indexes.size, width, signals.shape[1], )
+        shape = (left_sample_indexes.size, width, signals.shape[1], )
     
     """
     if channel_adjacency is not None:
@@ -44,27 +44,27 @@ def extract_chunks(signals, peak_sample_indexes, width,
     
     if chunks is None:
         if channel_indexes is None:
-            chunks = np.empty((peak_sample_indexes.size, width, signals.shape[1]), dtype = signals.dtype)
+            chunks = np.empty((left_sample_indexes.size, width, signals.shape[1]), dtype = signals.dtype)
         else:
-            chunks = np.empty((peak_sample_indexes.size, width, len(channel_indexes)), dtype = signals.dtype)
+            chunks = np.empty((left_sample_indexes.size, width, len(channel_indexes)), dtype = signals.dtype)
         
-    keep = (peak_sample_indexes>=0) & (peak_sample_indexes<(signals.shape[0] - width))
-    peak_sample_indexes2 = peak_sample_indexes[keep]
+    keep = (left_sample_indexes>=0) & (left_sample_indexes<(signals.shape[0] - width))
+    left_sample_indexes2 = left_sample_indexes[keep]
     if peak_channel_indexes is not None:
         peak_channel_indexes2 = peak_channel_indexes[keep]
     
     if channel_indexes is None and channel_adjacency is None:
         # all channels
-        for i, ind in enumerate(peak_sample_indexes2):
+        for i, ind in enumerate(left_sample_indexes2):
             chunks[i,:,:] = signals[ind:ind+width,:]
     elif channel_indexes is not None:
-        for i, ind in enumerate(peak_sample_indexes2):
+        for i, ind in enumerate(left_sample_indexes2):
             chunks[i,:,:] = signals[ind:ind+width,:][:, channel_indexes]
             
     elif channel_adjacency is not None:
         # sparse
         assert peak_channel_indexes is not None
-        for i, ind in enumerate(peak_sample_indexes2):
+        for i, ind in enumerate(left_sample_indexes2):
             chan = peak_channel_indexes2[i]
             chans = channel_adjacency[chan]
             chunks[i,:,:][:, chans] = signals[ind:ind+width,:][:, chans]

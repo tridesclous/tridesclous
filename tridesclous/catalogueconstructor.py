@@ -914,29 +914,13 @@ class CatalogueConstructor:
 
         peak_mask = np.zeros(self.nb_peak, dtype='bool')
         peak_mask[peaks_index] = True
-        seg_nums = np.unique(self.all_peaks['segment'])
         
-        n = 0
-        for seg_num in seg_nums:
-            insegment_peaks  = self.all_peaks[peak_mask & (self.all_peaks['segment']==seg_num)]
-            
-            peak_sample_indexes = insegment_peaks['index']
-            if peak_sample_indexes.size == 0:
-                continue
-            
-            #~ if self.mode == 'sparse':
-                #~ channel_indexes = insegment_peaks['channel']
-                #~ for i, chan in enumerate(channel_indexes):
-                    #~ adj_chans = channel_adjacency[chan]
-                    #~ self.some_waveforms_sparse_mask[i+n, :][adj_chans] = True
-            #~ else:
-                #~ channel_indexes = None
-            
-            waveforms = some_waveforms[n:n+peak_sample_indexes.size] # this avoid a copy
-            self.dataio.get_some_waveforms(seg_num=seg_num, chan_grp=self.chan_grp,
-                                                    peak_sample_indexes=peak_sample_indexes, n_left=n_left, n_right=n_right,
-                                                    waveforms=waveforms, channel_indexes=channel_indexes)
-            n += peak_sample_indexes.size
+        
+        seg_nums = self.all_peaks[peak_mask]['segment']
+        peak_sample_indexes = self.all_peaks[peak_mask]['index']
+        self.dataio.get_some_waveforms(seg_nums=seg_nums, chan_grp=self.chan_grp,
+                                                peak_sample_indexes=peak_sample_indexes, n_left=n_left, n_right=n_right,
+                                                waveforms=some_waveforms, channel_indexes=channel_indexes)
         
         return some_waveforms
 
@@ -1160,6 +1144,8 @@ class CatalogueConstructor:
             for peak in peaks:
                 possibles[peak['index']+n_left-n_right:peak['index']+n_right-n_left]
             possible_indexes, = np.nonzero(possibles)
+            if possible_indexes.size == 0:
+                continue
             noise_index = np.zeros(n_by_seg, dtype=_dtype_peak)
             noise_index['index'] = possible_indexes[np.sort(np.random.choice(possible_indexes.size, size=n_by_seg))]
             noise_index['cluster_label'] = labelcodes.LABEL_NOISE
@@ -1832,6 +1818,10 @@ class CatalogueConstructor:
         self.catalogue['centers1'] = centers1 # median of first derivative of wavforms
         self.catalogue['centers2'] = centers2 # median of second derivative of wavforms
         
+        #~ print(sparse_mask)
+        #~ print(sparse_mask.shape)
+        #~ exit()
+        
         if subsample_ratio == 'auto':
             # upsample to 200kHz
             subsample_ratio = int(np.ceil(200000/self.dataio.sample_rate))
@@ -1844,6 +1834,7 @@ class CatalogueConstructor:
         self.catalogue['subsample_ratio'] = subsample_ratio
         interp_centers0 = np.zeros((len(cluster_labels), subsample_ratio*catalogue_width, self.nb_channel), dtype=self.info['internal_dtype'])
         self.catalogue['interp_centers0'] = interp_centers0
+        self.catalogue['distance_limit'] = np.zeros(len(cluster_labels), dtype=self.info['internal_dtype'])
         
         #~ print('peak_width', self.catalogue['peak_width'])
         
@@ -1875,6 +1866,7 @@ class CatalogueConstructor:
             #median and
             #eliminate margin because of border effect of derivative and reshape
             center0 = np.median(wf0, axis=0)
+            center0 = center0
             centers0[i,:,:] = center0[2:-2, :]
             centers1[i,:,:] = np.median(wf1, axis=0)[2:-2, :]
             centers2[i,:,:] = np.median(wf2, axis=0)[2:-2, :]
@@ -1907,6 +1899,37 @@ class CatalogueConstructor:
             #~ sl = slice(i1, i2)
             #~ ax.plot(subsample_time[sl],oversampled_center[:, extremum_channel][sl], color='r', ls='--')
             #~ plt.show()
+
+            
+            #~ center0 = center0[2:-2, :]
+            
+            sparse_threshold_mad = 1.5
+            sparse_mask = np.any(np.abs(center0)>sparse_threshold_mad, axis=0)
+            #~ print(sparse_mask)
+            #~ print(sparse_mask.shape)
+            
+            
+            
+            #~ print(wf0.shape, center0.shape)
+            distances = np.sum(np.sum((wf0[:, 2:-2, :][:, :, sparse_mask] - center0[2:-2, :][:, sparse_mask])**2, axis=1), axis=1)
+            limit = np.quantile(distances, 0.9)
+            self.catalogue['distance_limit'][i] = limit
+            #~ print(distances)
+            #~ count, bins = np.histogram(distances, bins=10)
+            #~ fig, ax = plt.subplots()
+            #~ ax.plot(bins[:-1], count)
+            #~ ax.axvline(limit)
+            
+            #~ fig, ax = plt.subplots()
+            #~ ax.plot(wf0[:, 2:-2, :][:, :, sparse_mask].swapaxes(1, 2).reshape(wf0.shape[0], -1).T, color='k', alpha=.4)
+            #~ ax.plot(center0[2:-2, :][:, sparse_mask].T.flatten(), color='m')
+            
+            #~ plt.show()
+            #~ exit()
+
+
+            
+            
         
         #params propagation
         self.catalogue['signal_preprocessor_params'] = dict(self.info['signal_preprocessor_params'])

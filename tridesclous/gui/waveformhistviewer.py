@@ -128,8 +128,8 @@ class WaveformHistViewer(WidgetBase):
         self.refresh()
     
     def initialize_plot(self):
-        if self.controller.some_peaks_index is None:
-            return
+        #~ if self.controller.some_peaks_index is None:
+            #~ return
         
         self.viewBox = MyViewBox()
         self.viewBox.doubleclicked.connect(self.open_settings)
@@ -256,30 +256,23 @@ class WaveformHistViewer(WidgetBase):
             self.image.hide()
             return
         
-        #~ if  len(visibles)==1:
-            #~ self.curve2.hide()
-        
-        
-        if self.controller.some_peaks_index is None:
-            self.image.hide()
-            return
-
-        labels = self.controller.spike_label[self.controller.some_peaks_index]
-        keep = np.in1d(labels, visibles)
-        ind_keep,  = np.nonzero(keep)
-        
-        if ind_keep.size > self.params['max_per_cluster']:
-            sub_sel = np.random.choice(ind_keep.size, self.params['max_per_cluster'], replace=False)
-            ind_keep = ind_keep[sub_sel]
+        keep = np.zeros(self.controller.spikes.size, dtype='bool')
+        for label in visibles:
+            ind_keep, = np.nonzero(self.controller.spikes['cluster_label'] == label)
+            if ind_keep.size > self.params['max_per_cluster']:
+                sub_sel = np.random.choice(ind_keep.size, self.params['max_per_cluster'], replace=False)
+                ind_keep = ind_keep[sub_sel]
+            keep[ind_keep] = True
+        ind_keep, = np.nonzero(keep)
         
         if self.params['data']=='waveforms':
-            #~ wf = self.controller.some_waveforms
-            #~ if wf is None:
-            if self.controller.some_peaks_index is None:
+            if ind_keep.size == 0:
                 self.plot.clear()
                 return
-            #~ data_kept = wf[ind_keep,:,:][:, :, common_channels]#.copy()
-            data_kept = self.controller.get_some_waveforms(peaks_index=self.controller.some_peaks_index[ind_keep], channel_indexes=common_channels)
+            seg_nums = self.controller.spikes['segment'][ind_keep]
+            peak_sample_indexes = self.controller.spikes['index'][ind_keep]
+            data_kept = self.controller.get_some_waveforms(seg_nums, peak_sample_indexes, channel_indexes=common_channels)
+            
             if data_kept.size == 0:
                 self.plot.clear()
                 return
@@ -287,6 +280,13 @@ class WaveformHistViewer(WidgetBase):
         
         elif self.params['data']=='features':
             data = self.controller.some_features
+            if data is None:
+                self.plot.clear()
+                return
+
+            labels = self.controller.spike_label[self.controller.some_peaks_index]
+            keep = np.in1d(labels, visibles)
+            ind_keep,  = np.nonzero(keep)
             
             nb_feature_by_channel = data.shape[1] // self.controller.nb_channel
             mask_feat = np.zeros(data.shape[1], dtype='bool')
@@ -294,7 +294,7 @@ class WaveformHistViewer(WidgetBase):
                 mask_feat[common_channels*nb_feature_by_channel+i] = True
             
             data_kept = data[ind_keep, :][:, mask_feat]
-            if data is None:
+            if data_kept.size == 0:
                 self.plot.clear()
                 return
         
@@ -324,7 +324,8 @@ class WaveformHistViewer(WidgetBase):
         for d in data_bined:
             hist2d[indexes0, d] += 1
         
-        if self.controller.cluster_visible[labelcodes.LABEL_NOISE] and self.controller.some_noise_snippet is not None:
+        # for catalogue window only
+        if self.controller.cluster_visible.get(labelcodes.LABEL_NOISE, False) and self.controller.some_noise_snippet is not None:
             #~ print('labelcodes.LABEL_NOISE in cluster_visible', labelcodes.LABEL_NOISE in cluster_visible, cluster_visible)
             if self.params['data']=='waveforms':
                 noise = self.controller.some_noise_snippet[:, :, common_channels]
@@ -333,7 +334,6 @@ class WaveformHistViewer(WidgetBase):
                 noise_bined = noise_bined.clip(0, bins.size-1)
                 for d in noise_bined:
                     hist2d[indexes0, d] += 1
-            #~ elif self.params['data']=='features':
             
 
         self.image.setImage(hist2d, lut=self.lut)#, levels=[0, self._max])

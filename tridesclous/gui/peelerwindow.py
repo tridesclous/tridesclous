@@ -9,6 +9,7 @@ from .peelercontroller import PeelerController
 from .traceviewer import PeelerTraceViewer
 from .spikelists import SpikeList, ClusterSpikeList
 from .waveformviewer import PeelerWaveformViewer
+from .waveformhistviewer import WaveformHistViewer
 from .isiviewer import ISIViewer
 from .crosscorrelogramviewer import CrossCorrelogramViewer
 
@@ -33,6 +34,7 @@ class PeelerWindow(QT.QMainWindow):
         self.spikelist = SpikeList(controller=self.controller)
         self.clusterlist = ClusterSpikeList(controller=self.controller)
         self.waveformviewer = PeelerWaveformViewer(controller=self.controller)
+        self.waveformhistviewer = WaveformHistViewer(controller=self.controller)
         self.isiviewer = ISIViewer(controller=self.controller)
         self.crosscorrelogramviewer = CrossCorrelogramViewer(controller=self.controller)
         
@@ -54,10 +56,16 @@ class PeelerWindow(QT.QMainWindow):
         #~ self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['waveformviewer'])
         self.tabifyDockWidget(docks['crosscorrelogramviewer'], docks['waveformviewer'])
         
+        docks['waveformhistviewer'] = QT.QDockWidget('waveformhistviewer',self)
+        docks['waveformhistviewer'].setWidget(self.waveformhistviewer)
+        #~ self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['waveformviewer'])
+        self.tabifyDockWidget(docks['waveformviewer'], docks['waveformhistviewer'])
+        
+        
         docks['traceviewer'] = QT.QDockWidget('traceviewer',self)
         docks['traceviewer'].setWidget(self.traceviewer)
         #~ self.addDockWidget(QT.Qt.RightDockWidgetArea, docks['traceviewer'])
-        self.tabifyDockWidget(docks['waveformviewer'], docks['traceviewer'])
+        self.tabifyDockWidget(docks['waveformhistviewer'], docks['traceviewer'])
 
         docks['spikelist'] = QT.QDockWidget('spikelist',self)
         docks['spikelist'].setWidget(self.spikelist)

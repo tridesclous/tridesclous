@@ -153,8 +153,12 @@ class CatalogueController(ControllerBase):
         d = self.cc.info['peak_detector_params']
         return d['peak_sign']
     
-    def get_some_waveforms(self, **kargs):
-        return self.cc.get_some_waveforms(**kargs)
+    def get_some_waveforms(self, seg_nums, peak_sample_indexes, channel_indexes):
+        n_left, n_right = self.get_waveform_left_right()
+        waveforms = self.dataio.get_some_waveforms(seg_nums=seg_nums, chan_grp=self.chan_grp, 
+                            peak_sample_indexes=peak_sample_indexes,
+                            n_left=n_left, n_right=n_right, channel_indexes=channel_indexes)
+        return waveforms
     
     def get_sparse_channels(self, label):
         ind = self.cc.index_of_label(label)
