@@ -127,7 +127,7 @@ class PeelerEngineBase(OpenCL_Helper):
             # TODO use less memory
             self.sparse_mask = np.any(np.abs(centers)>sparse_threshold_mad, axis=1)
             thresh = self.catalogue['peak_detector_params']['relative_threshold']
-            thresh = thresh - 2
+            thresh = thresh - 2 # TODO put this params in catalogue
             self.high_sparse_mask = np.any(np.abs(centers)>thresh, axis=1)
             
             #~ print(self.sparse_mask.shape)
@@ -142,10 +142,13 @@ class PeelerEngineBase(OpenCL_Helper):
             self.sparse_mask = np.ones((centers.shape[0], centers.shape[2]), dtype='bool')
             
         
+        self.distance_limit = self.catalogue['distance_limit']
+        
         #~ print('self.sparse_mask.shape', self.sparse_mask.shape)
         self.weight_per_template = {}
         for i, k in enumerate(self.catalogue['cluster_labels']):
-            mask = self.sparse_mask[i, :]
+            #~ mask = self.sparse_mask[i, :]
+            mask = self.high_sparse_mask[i, :]
             wf = centers[i, :, :][:, mask]
             self.weight_per_template[k] = np.sum(wf**2, axis=0)
             #~ print(wf.shape, self.weight_per_template[k].shape)
@@ -319,7 +322,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
         #~ if True:
             t4 = time.perf_counter()
             print('mainloop classify_and_align ', len(good_spikes), ' spike', (t4-t3)*1000, 'ms', 'n_loop', n_loop)
-            #~ self._plot_after_peeling_loop(good_spikes)
+            self._plot_after_peeling_loop(good_spikes)
         
         #~ print(self._debug_nb_accept_tempate)
         #~ if  len(good_spikes)>0:
@@ -446,79 +449,58 @@ class PeelerEngineGeneric(PeelerEngineBase):
 
                 
                 if cluster_idx<0:
-                    ok = False
+                    label  = LABEL_UNCLASSIFIED
+                    jitter = 0
+                    if self._plot_debug:
+                        self._plot_label_unclassified(left_ind, peak_chan, cluster_idx, jitter)
+                    
                 else:
+                    label = None
                     t1 = time.perf_counter()
                     #~ print('left_ind', left_ind, 'proposed_peak_ind', proposed_peak_ind)
                     if self.inter_sample_oversampling:
                         jitter = self.estimate_jitter(left_ind, cluster_idx)
+                        shift = -int(np.round(jitter))
+                        
+                        if (np.abs(jitter) > 0.5) and \
+                                        (left_ind+shift+self.peak_width<self.fifo_size) and\
+                                        ((left_ind + shift) >= 0):
+                            # try better jitter
+                            new_jitter = self.estimate_jitter(left_ind + shift, cluster_idx)
+                            if np.abs(new_jitter)<np.abs(jitter):
+                                jitter = new_jitter
+                                left_ind += shift
+                                shift = -int(np.round(new_jitter))
+                        
+                        # security to not be outside the fifo
+                        if np.abs(shift) >self.maximum_jitter_shift:
+                            label = LABEL_MAXIMUM_SHIFT
+                            if self._plot_debug:
+                                print('LABEL_MAXIMUM_SHIFT', proposed_peak_ind, peak_chan)
+                        elif (left_ind+shift+self.peak_width)>=self.fifo_size:
+                            # normally this should be resolve in the next chunk
+                            label = LABEL_RIGHT_LIMIT
+                            if self._plot_debug:
+                                print('LABEL_RIGHT_LIMIT 2', proposed_peak_ind, peak_chan)
+                        elif (left_ind + shift) < 0:
+                            label = LABEL_LEFT_LIMIT
+                            if self._plot_debug:
+                                print('LABEL_LEFT_LIMIT 2', proposed_peak_ind, peak_chan)
                     else:
                         jitter = None
-                    #~ t2 = time.perf_counter()
-                    #~ print('    estimate_jitter', (t2-t1)*1000)
-                    #~ print('    jitter', jitter)
                     
-                    t1 = time.perf_counter()
-                    ok = self.accept_tempate(left_ind, cluster_idx, jitter)
-                    #~ t2 = time.perf_counter()
-                    #~ print('    accept_tempate', (t2-t1)*1000)
-
-                if  not ok:
-                    if self._plot_debug:
-                        self._plot_label_unclassified(left_ind, peak_chan, cluster_idx, jitter)
-                    label  = LABEL_UNCLASSIFIED
-                    jitter = 0
-                
-                elif jitter is not None:
-                    shift = -int(np.round(jitter))
-                    if (np.abs(jitter) > 0.5) and \
-                            (left_ind+shift+self.peak_width<self.fifo_size) and\
-                            ((left_ind + shift) >= 0):
-                        
+                    if label is None:
                         t1 = time.perf_counter()
-                        new_jitter = self.estimate_jitter(left_ind + shift, cluster_idx)
-                        #~ t2 = time.perf_counter()
-                        #~ print('      estimate_jitter 2', (t2-t1)*1000)
-                        t1 = time.perf_counter()
-                        ok = self.accept_tempate(left_ind+shift, cluster_idx, new_jitter)
-                        #~ t2 = time.perf_counter()
-                        #~ print('      accept_tempate 2', (t2-t1)*1000)
-                        
-                        if ok and np.abs(new_jitter)<np.abs(jitter):
-                            jitter = new_jitter
-                            left_ind += shift
-                            shift = -int(np.round(jitter))
-                    
-                    # ensure jitter in range [-0.5, 0.5]
-                    # WRONG IDEA because the mask_not_already_tested will not updated at the good place
-                    #~ if shift !=0:
-                        #~ jitter = jitter + shift
-                        #~ left_ind = left_ind + shift
-                    
-                    # security to not be outside the fifo
-                    if np.abs(shift) >self.maximum_jitter_shift:
-                        label = LABEL_MAXIMUM_SHIFT
-                        if self._plot_debug:
-                            print('LABEL_MAXIMUM_SHIFT', proposed_peak_ind, peak_chan)
-                    elif (left_ind+shift+self.peak_width)>=self.fifo_size:
-                        # normally this should be resolve in the next chunk
-                        label = LABEL_RIGHT_LIMIT
-                        if self._plot_debug:
-                            print('LABEL_RIGHT_LIMIT 2', proposed_peak_ind, peak_chan)
-                        
-                    elif (left_ind + shift) < 0:
-                        # TODO assign the previous label ???
-                        label = LABEL_LEFT_LIMIT
-                        if self._plot_debug:
-                            print('LABEL_LEFT_LIMIT 2', proposed_peak_ind, peak_chan)
-                        
-                    else:
-                        label = self.catalogue['cluster_labels'][cluster_idx]
-                
-                else:
-                    label = self.catalogue['cluster_labels'][cluster_idx]
-                    
-        #security if with jitter the index is out
+                        ok = self.accept_tempate(left_ind, cluster_idx, jitter)
+                        if ok:
+                            label = self.catalogue['cluster_labels'][cluster_idx]
+                        else:
+                            label  = LABEL_UNCLASSIFIED
+                            jitter = 0
+                            if self._plot_debug:
+                                self._plot_label_unclassified(left_ind, peak_chan, cluster_idx, jitter)
+        
+        # second security check for borders
         if label>=0 and jitter is not None:
             left_ind_check = left_ind - np.round(jitter).astype('int64')
             if left_ind_check<0:

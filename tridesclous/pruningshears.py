@@ -96,18 +96,27 @@ class PruningShears:
         self.nb_channel = self.channel_to_features.shape[0]
         
         self.channel_distances = sklearn.metrics.pairwise.euclidean_distances(geometry)
+        #~ print('self.channel_distances', self.channel_distances)
         
-        self.channel_adjacency = {}
-        for c in range(self.nb_channel):
-            nearest, = np.nonzero(self.channel_distances[c, :] < self.adjacency_radius_um)
-            self.channel_adjacency[c] = nearest
+        if self.dense_mode:
+            self.channel_adjacency = {c: np.arange(self.nb_channel) for c in range(self.nb_channel)}
+            self.channel_high_adjacency = {c: np.arange(self.nb_channel) for c in range(self.nb_channel)}
+            
+        else:
+            self.channel_adjacency = {}
+            for c in range(self.nb_channel):
+                nearest, = np.nonzero(self.channel_distances[c, :] < self.adjacency_radius_um)
+                self.channel_adjacency[c] = nearest
+            
+            self.channel_high_adjacency = {}
+            for c in range(self.nb_channel):
+                nearest, = np.nonzero(self.channel_distances[c, :] < self.high_adjacency_radius_um)
+                self.channel_high_adjacency[c] = nearest
         
-        self.channel_high_adjacency = {}
-        for c in range(self.nb_channel):
-            nearest, = np.nonzero(self.channel_distances[c, :] < self.high_adjacency_radius_um)
-            self.channel_high_adjacency[c] = nearest
+        #~ print('self.channel_adjacency', self.channel_adjacency)
+        #~ print('adjacency_radius_um', adjacency_radius_um)
         
-        
+        #~ exit()
 
 
         
@@ -216,9 +225,12 @@ class PruningShears:
         # clustering on one channel or one adjacency
         
         
-        n_components = min(local_data.shape[1], self.n_components_local_pca)
+        #~ n_components = min(local_data.shape[1], self.n_components_local_pca)
+        #~ pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, whiten=True)
         
-        pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, whiten=True)
+        n_components = min(local_data.shape[1]-1, self.n_components_local_pca)
+        pca =  sklearn.decomposition.TruncatedSVD(n_components=n_components)
+        
         local_features = pca.fit_transform(local_data)
         
         
@@ -767,8 +779,10 @@ class PruningShears:
                     ax.plot(m, color=color, alpha=1)
         
         ax = axs[0, 1]
-        n_components = min(local_wf_features.shape[1], self.n_components_local_pca)
-        pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, whiten=True)
+        #~ n_components = min(local_wf_features.shape[1], self.n_components_local_pca)
+        #~ pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, whiten=True)
+        n_components = min(local_wf_features.shape[1]-1, self.n_components_local_pca)
+        pca =  sklearn.decomposition.TruncatedSVD(n_components=n_components)
         reduced_features_l0 = pca.fit_transform(local_wf_features)
         #~ print('reduced_features_l0.shape', reduced_features_l0.shape)
         if possible_labels_l0 is not None:
@@ -801,7 +815,7 @@ class PruningShears:
         
         ax = axs[1, 0]
         adjacency = self.channel_adjacency[actual_chan]
-        
+        #~ print('plot actual_chan', actual_chan, 'adjacency', adjacency, )
         #~ wf_adj = self.waveforms[:,:, adjacency][ind_l0, :, :]
         wf_adj = self.cc.get_some_waveforms(self.peak_index[ind_l0], channel_indexes=adjacency)
         
@@ -1152,8 +1166,8 @@ class PruningShears:
                         
                         if self.debug_plot:
                             fig, ax = plt.subplots()
-                            ax.plot(centroids[i].T.flatten())
-                            ax.plot(centroids[j].T.flatten())
+                            ax.plot(self.centroids[i].T.flatten())
+                            ax.plot(self.centroids[j].T.flatten())
                             ax.set_title('merge')
                             plt.show()
             

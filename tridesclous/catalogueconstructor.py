@@ -1778,7 +1778,7 @@ class CatalogueConstructor:
         #~ self._reset_metrics()
         self._reset_arrays(_persistent_metrics)
 
-    def make_catalogue(self, max_per_cluster=_default_max_per_cluster, subsample_ratio='auto'):
+    def make_catalogue(self, max_per_cluster=_default_max_per_cluster*3, subsample_ratio='auto'):
         #TODO: offer possibility to resample some waveforms or choose the number
         
         t1 = time.perf_counter()
@@ -1903,7 +1903,8 @@ class CatalogueConstructor:
             
             #~ center0 = center0[2:-2, :]
             
-            sparse_threshold_mad = 1.5
+            #~ sparse_threshold_mad = 1.5
+            sparse_threshold_mad = self.info['peak_detector_params']['relative_threshold'] - 2 # put this in params
             sparse_mask = np.any(np.abs(center0)>sparse_threshold_mad, axis=0)
             #~ print(sparse_mask)
             #~ print(sparse_mask.shape)
@@ -1911,20 +1912,23 @@ class CatalogueConstructor:
             
             
             #~ print(wf0.shape, center0.shape)
-            distances = np.sum(np.sum((wf0[:, 2:-2, :][:, :, sparse_mask] - center0[2:-2, :][:, sparse_mask])**2, axis=1), axis=1)
+            distances = np.sum(np.sum((wf0[:, 2:-2, :][:, :, sparse_mask] - center0[np.newaxis, 2:-2, :][:, :, sparse_mask])**2, axis=1), axis=1)
+            #~ print(np.sum(sparse_mask))
             limit = np.quantile(distances, 0.9)
             self.catalogue['distance_limit'][i] = limit
             #~ print(distances)
-            #~ count, bins = np.histogram(distances, bins=10)
-            #~ fig, ax = plt.subplots()
-            #~ ax.plot(bins[:-1], count)
-            #~ ax.axvline(limit)
             
-            #~ fig, ax = plt.subplots()
-            #~ ax.plot(wf0[:, 2:-2, :][:, :, sparse_mask].swapaxes(1, 2).reshape(wf0.shape[0], -1).T, color='k', alpha=.4)
-            #~ ax.plot(center0[2:-2, :][:, sparse_mask].T.flatten(), color='m')
-            
-            #~ plt.show()
+            #~ if True:
+                #~ count, bins = np.histogram(distances, bins=10)
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(bins[:-1], count)
+                #~ ax.axvline(limit)
+                
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(wf0[:, 2:-2, :][:, :, sparse_mask].swapaxes(1, 2).reshape(wf0.shape[0], -1).T, color='k', alpha=.4)
+                #~ ax.plot(center0[2:-2, :][:, sparse_mask].T.flatten(), color='m')
+                
+                #~ plt.show()
             #~ exit()
 
 

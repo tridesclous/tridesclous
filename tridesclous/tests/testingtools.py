@@ -44,6 +44,10 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
         
         feature_method = 'pca_by_channel'
         feature_kargs = {'n_components_by_channel': 3}
+
+        cluster_method = 'pruningshears'
+        cluster_kargs = {'adjacency_radius_um' : 350 }
+        
     else:
         channels = [0,1,2,3]
         mode = 'dense'
@@ -52,7 +56,11 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
         peak_engine = 'numpy'
         
         feature_method = 'global_pca'
-        feature_kargs = {'n_components': 5}
+        feature_kargs = {'n_components': 6}
+
+        cluster_method = 'pruningshears'
+        cluster_kargs = {'adjacency_radius_um' : 150 }
+        
 
     dataio.add_one_channel_group(channels=channels)
     
@@ -97,10 +105,8 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
         },
         'feature_method': feature_method,
         'feature_kargs':feature_kargs,
-        #~ 'cluster_method' : 'kmeans', 
-        #~ 'cluster_kargs' : {'n_clusters': 12},
-        'cluster_method' : 'pruningshears', 
-        'cluster_kargs' : {},
+        'cluster_method' : cluster_method, 
+        'cluster_kargs' : cluster_kargs,
         'clean_cluster' : False,
         'clean_cluster_kargs' : {},
     }

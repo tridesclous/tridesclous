@@ -46,6 +46,9 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         
         self.adjacency_radius_um = adjacency_radius_um # for waveform distance
         #~ self.high_adjacency_radius_um = high_adjacency_radius_um # for possible template around
+        
+        #~ self.strict_template = True
+        self.strict_template = False
     
     def initialize(self, **kargs):
         if self.argmin_method == 'opencl':
@@ -407,11 +410,6 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         #~ return 0.
 
     def accept_tempate(self, left_ind, cluster_idx, jitter):
-        #~ self._debug_nb_accept_tempate += 1
-        
-        # criteria mono channel = old implementation
-        #~ keep_template = np.sum(wf**2) > np.sum((wf-(wf0+jitter1*wf1+jitter1**2/2*wf2))**2)
-
         if jitter is None:
             # this must have a jitter
             jitter = 0
@@ -420,10 +418,11 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             return False
         
         # criteria multi channel
-        mask = self.sparse_mask[cluster_idx]
+        #~ mask = self.sparse_mask[cluster_idx]
+        mask = self.high_sparse_mask[cluster_idx]
         full_wf0 = self.catalogue['centers0'][cluster_idx,: , :][:, mask]
-        full_wf1 = self.catalogue['centers1'][cluster_idx,: , :][:, mask]
-        full_wf2 = self.catalogue['centers2'][cluster_idx,: , :][:, mask]
+        #~ full_wf1 = self.catalogue['centers1'][cluster_idx,: , :][:, mask]
+        #~ full_wf2 = self.catalogue['centers2'][cluster_idx,: , :][:, mask]
         
         # waveform L2 on mask
         waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
@@ -431,53 +430,71 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         wf_nrj = np.sum(full_wf**2, axis=0)
         
         # prediction L2 on mask
+        #~ pred_wf = (full_wf0+jitter*full_wf1+jitter**2/2*full_wf2)
+        
+        # prediction with interpolation
+        _, pred_wf = make_prediction_one_spike(left_ind - self.n_left, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
+        pred_wf= pred_wf[:, mask]
+        
+        
+        if self.strict_template:
+            # experimental
+            if np.all(np.abs(pred_wf - full_wf)<5):
+                accept_template = True
+                debug_d = True
+            else:
+                accept_template = False
+        
+        else:
+                
+            
+            
+            
+            dist = (pred_wf - full_wf) ** 2
+            #~ print(np.sum(dist), self.distance_limit[cluster_idx])
+            #~ print(np.sum((full_wf0 - full_wf) ** 2), self.distance_limit[cluster_idx])
+            if np.sum(dist) < self.distance_limit[cluster_idx]:
+                #~ # distance is small enougth
+                debug_d = True
+                accept_template = True
+            else:
+                debug_d = False
+                residual_nrj_by_chan = np.sum(dist, axis=0)
+                
+                # criteria per channel
+                label = self.catalogue['cluster_labels'][cluster_idx]
+                weight = self.weight_per_template[label]
+                crietria_weighted = (wf_nrj>residual_nrj_by_chan).astype('float') * weight
+                #~ accept_template = np.sum(crietria_weighted) >= 0.9 * np.sum(weight)
+                accept_template = np.sum(crietria_weighted) >= 0.7 * np.sum(weight)
+        
+        
         label = self.catalogue['cluster_labels'][cluster_idx]
-        weight = self.weight_per_template[label]
-        pred_wf = (full_wf0+jitter*full_wf1+jitter**2/2*full_wf2)
-        
-        residual_nrj = np.sum((full_wf-pred_wf)**2, axis=0)
-        
-        # criteria per channel
-        crietria_weighted = (wf_nrj>residual_nrj).astype('float') * weight
-        #~ accept_template = np.sum(crietria_weighted) >= 0.9 * np.sum(weight)
-        accept_template = np.sum(crietria_weighted) >= 0.7 * np.sum(weight)
-
+        #~ if not accept_template and label in []:
         #~ if True:
-            
-            #~ max_chan_ind = self.catalogue['clusters'][cluster_idx]['extremum_channel']
-            #~ fig, ax = plt.subplots()
-            #~ ax.plot(self.fifo_residuals[:, max_chan_ind])
-            
-            #~ ax.scatter([left_ind-self.n_left], [self.fifo_residuals[left_ind-self.n_left, max_chan_ind]], color='r')
-            
-            #~ fig, axs = plt.subplots(nrows=2, sharex=True)
-            #~ axs[0].plot(full_wf.T.flatten(), color='b')
-            #~ if accept_template:
-                #~ axs[0].plot(pred_wf.T.flatten(), color='g')
-            #~ else:
-                #~ axs[0].plot(pred_wf.T.flatten(), color='r')
-            
-            #~ axs[0].plot((full_wf-pred_wf).T.flatten(), color='m')
-            
-            #~ plt.show()
-            
-
-
-
+        if False:
+        #~ nears = np.array([ 5813767,  5813767, 11200038, 11322540, 14989650, 14989673, 14989692, 14989710, 15119220, 15830377, 16138346, 16216666, 17078883])
+        #~ print(np.abs((left_ind - self.n_left) - nears))
+        #~ print(np.abs((left_ind - self.n_left) - nears) < 2)
+        #~ if label == 5 and np.any(np.abs((left_ind - self.n_left) - nears) < 50):
         
-        #DEBUG
-        #~ label = self.catalogue['cluster_labels'][cluster_idx]
-        #~ if label in (10, ):
+            if accept_template:
+                if debug_d:
+                    color = 'g'
+                else:
+                    color = 'c'
+            else:
+                color = 'r'
+            fig, ax = plt.subplots()
+            ax.plot(full_wf.T.flatten(), color='k')
+            ax.plot(pred_wf.T.flatten(), color=color)
             
-            #~ print('accept_tempate',accept_template, 'label', label)
-            #~ print(wf_nrj>res_nrj)
-            #~ print(weight)
-            #~ print(crietria_weighted)
-            #~ print(np.sum(crietria_weighted), np.sum(weight), np.sum(crietria_weighted)/np.sum(weight))
+            ax.plot( full_wf.T.flatten() - pred_wf.T.flatten(), color='b')
             
-            #~ print()
-        #~ #ENDDEBUG
-        
+            #~ ax.plot(full_wf0.T.flatten(), color='b')
+            
+            #~ ax.set_title('not accepted')
+            plt.show()
         
         return accept_template
     

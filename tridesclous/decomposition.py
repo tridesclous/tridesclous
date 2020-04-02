@@ -60,7 +60,8 @@ class GlobalPCA:
             #~ print('subset selection', waveforms.shape[0])
             
         flatten_waveforms = waveforms.reshape(waveforms.shape[0], -1)
-        self.pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, **params)
+        #~ self.pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, **params)
+        self.pca =  sklearn.decomposition.TruncatedSVD(n_components=n_components, **params)
         self.pca.fit(flatten_waveforms)
         
         
@@ -159,8 +160,10 @@ class PcaByChannel:
             wf_chan = wf_chan[:, :, 0]
             #~ print(wf_chan.shape)
             
-            if wf_chan.shape[0] > n_components_by_channel:
-                pca = sklearn.decomposition.IncrementalPCA(n_components=n_components_by_channel, **params)
+            if wf_chan.shape[0] - 1 > n_components_by_channel:
+                #~ pca = sklearn.decomposition.IncrementalPCA(n_components=n_components_by_channel, **params)
+                #~ print('PcaByChannel SVD')
+                pca = sklearn.decomposition.TruncatedSVD(n_components=n_components_by_channel, **params)
                 pca.fit(wf_chan)
             else:
                 pca = None
