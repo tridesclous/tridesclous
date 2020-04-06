@@ -119,39 +119,73 @@ class PeelerEngineBase(OpenCL_Helper):
         
         
         #~ print('self.use_sparse_template', self.use_sparse_template)
-        
+
+        # make kernels
         centers = self.catalogue['centers0']
+        self.nb_cluster = centers.shape[0]
+        self.peak_width = centers.shape[1]
+        self.nb_channel = centers.shape[2]
+        
+        
+        self.threshold = self.catalogue['peak_detector_params']['relative_threshold']
+        
         #~ print(centers.shape)
+        abs_centers = np.abs(centers)
         if self.use_sparse_template:
+            # sparse_mask_level1 : low mad (1.5)
+            #    * used to reset spike zone arroud spike
+            # sparse_mask_level2 : typically subthrehold (3)
+            #    * use to pre compute distance distribution in make_catalogue and limits (accept_template)
+            #    * use to explore shifts 
+            # sparse_mask_level3 : equal threhold
+            #    * used to compute distance spike<->centroid (get_best_template)
+            #    * use to reduce possible template list with detection channel
+            
             #~ print(centers.shape)
             # TODO use less memory
-            self.sparse_mask = np.any(np.abs(centers)>sparse_threshold_mad, axis=1)
-            thresh = self.catalogue['peak_detector_params']['relative_threshold']
-            thresh = thresh - 2 # TODO put this params in catalogue
-            self.high_sparse_mask = np.any(np.abs(centers)>thresh, axis=1)
+            #~ abs_centers = np.abs(centers)
             
-            #~ print(self.sparse_mask.shape)
-            #~ print(self.sparse_mask.sum(axis=0))
+            self.sparse_mask_level1 = np.any(abs_centers > sparse_threshold_mad, axis=1)
+            
+            thresh = self.catalogue['sparse_thresh_level2']
+            self.sparse_mask_level2 = np.any(abs_centers > thresh, axis=1)
+            
+            thresh = self.catalogue['peak_detector_params']['relative_threshold']
+            self.sparse_mask_level3 = np.any(np.abs(centers)>thresh, axis=1)
+            
+            #~ print(self.sparse_mask_level1.shape)
+            #~ print(self.sparse_mask_level1.sum(axis=0))
             #~ fig, ax = plt.subplots()
-            #~ ax.matshow(self.sparse_mask, cmap='Greens')
+            #~ ax.matshow(self.sparse_mask_level1, cmap='Greens')
             #~ fig, ax = plt.subplots()
-            #~ ax.matshow(self.high_sparse_mask, cmap='Greens')
+            #~ ax.matshow(self.sparse_mask_level3, cmap='Greens')
             #~ plt.show()
 
         else:
-            self.sparse_mask = np.ones((centers.shape[0], centers.shape[2]), dtype='bool')
+            dense_mask = np.ones((centers.shape[0], centers.shape[2]), dtype='bool')
+            self.sparse_mask_level1 = dense_mask
+            
+            # this must be the same as in make_catalogue
+            thresh = self.catalogue['sparse_thresh_level2']
+            self.sparse_mask_level2 = np.any(abs_centers > thresh, axis=1)
+            
+            self.sparse_mask_level3 = dense_mask
             
         
         self.distance_limit = self.catalogue['distance_limit']
         
-        #~ print('self.sparse_mask.shape', self.sparse_mask.shape)
-        self.weight_per_template = {}
+        # weight of template per channel masked with level3
+        self.weight_per_template = np.zeros((self.nb_cluster, self.nb_channel), dtype='float32')
+        self.weight_per_template_dict = {}
+        centers = self.catalogue['centers0']
         for i, k in enumerate(self.catalogue['cluster_labels']):
-            #~ mask = self.sparse_mask[i, :]
-            mask = self.high_sparse_mask[i, :]
+            mask = self.sparse_mask_level2[i, :]
             wf = centers[i, :, :][:, mask]
-            self.weight_per_template[k] = np.sum(wf**2, axis=0)
-            #~ print(wf.shape, self.weight_per_template[k].shape)
+            w = np.sum(wf**2, axis=0)
+            self.weight_per_template[i, mask] = w
+            self.weight_per_template_dict[i] = w
+
+
 
         #~ for i in range(centers.shape[0]):
             #~ fig, ax = plt.subplots()
@@ -252,8 +286,8 @@ class PeelerEngineGeneric(PeelerEngineBase):
             #~ self._plot_debug = True
         #~ else:
             #~ self._plot_debug = False
-        self._plot_debug = False
-        #~ self._plot_debug = True
+        #~ self._plot_debug = False
+        self._plot_debug = True
         
         
         if self._plot_debug:
@@ -436,7 +470,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
                 t1 = time.perf_counter()
                 #TODO try usewaveform to avoid new buffer ????
                 
-                cluster_idx, shift = self.get_best_template(left_ind, peak_chan)
+                cluster_idx, shift, distance = self.get_best_template(left_ind, peak_chan)
                 if shift is not None:
                     left_ind += shift
                 
@@ -491,7 +525,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
                     
                     if label is None:
                         t1 = time.perf_counter()
-                        ok = self.accept_tempate(left_ind, cluster_idx, jitter)
+                        ok = self.accept_tempate(left_ind, cluster_idx, jitter, distance)
                         if ok:
                             label = self.catalogue['cluster_labels'][cluster_idx]
                         else:

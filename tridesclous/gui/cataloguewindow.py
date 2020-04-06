@@ -279,6 +279,7 @@ class CatalogueWindow(QT.QMainWindow):
         method, kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self)
         if method is not None:
             self.catalogueconstructor.find_clusters(method=method, **kargs)
+            self.controller.check_plot_attributes()
             self.refresh()
     
     def compute_metrics(self):

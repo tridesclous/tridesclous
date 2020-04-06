@@ -864,7 +864,7 @@ class CatalogueConstructor:
         
     
     
-    def get_some_waveforms(self, peaks_index=None, channel_indexes=None):
+    def get_some_waveforms(self, peaks_index=None, channel_indexes=None, n_left=None, n_right=None):
         """
         Get waveforms accros segment based on internal self.some_peak_index
         forced peaks_index.
@@ -877,8 +877,11 @@ class CatalogueConstructor:
         
         nb = peaks_index.size
         
-        n_left = self.info['waveform_extractor_params']['n_left']
-        n_right = self.info['waveform_extractor_params']['n_right']
+        
+        if n_left is None:
+            n_left = self.info['waveform_extractor_params']['n_left']
+        if n_right is None:
+            n_right = self.info['waveform_extractor_params']['n_right']
         peak_width = n_right - n_left
         
         
@@ -1778,7 +1781,11 @@ class CatalogueConstructor:
         #~ self._reset_metrics()
         self._reset_arrays(_persistent_metrics)
 
-    def make_catalogue(self, max_per_cluster=_default_max_per_cluster*3, subsample_ratio='auto'):
+    def make_catalogue(self, max_per_cluster=1000,
+                            inter_sample_oversampling=True,
+                            subsample_ratio='auto',
+                            sparse_thresh_level2=3,
+                            ):
         #TODO: offer possibility to resample some waveforms or choose the number
         
         t1 = time.perf_counter()
@@ -1790,9 +1797,14 @@ class CatalogueConstructor:
         self.catalogue = {}
         self.catalogue['chan_grp'] = self.chan_grp
         # be carefull n_left/n_right are shorter in the catalogue due to derivative
-        self.catalogue['n_left'] = int(self.info['waveform_extractor_params']['n_left'] +2)
-        self.catalogue['n_right'] = int(self.info['waveform_extractor_params']['n_right'] -2)
+        #~ self.catalogue['n_left'] = int(self.info['waveform_extractor_params']['n_left'] +2)
+        #~ self.catalogue['n_right'] = int(self.info['waveform_extractor_params']['n_right'] -2)
+        self.catalogue['n_left'] = n_left
+        self.catalogue['n_right'] = n_right
         self.catalogue['peak_width'] = self.catalogue['n_right'] - self.catalogue['n_left']
+        
+        self.catalogue['sparse_thresh_level2'] = sparse_thresh_level2
+        
         
         #for colors
         self.refresh_colors(reset=False)
@@ -1807,11 +1819,13 @@ class CatalogueConstructor:
         
         #~ n, full_width, nchan = self.some_waveforms.shape
         #~ n = self.some_peaks_index.size
-        full_width = self.info['waveform_extractor_params']['n_right'] - self.info['waveform_extractor_params']['n_left']
-        catalogue_width = self.catalogue['n_right'] - self.catalogue['n_left']
+        #~ full_width = self.info['waveform_extractor_params']['n_right'] - self.info['waveform_extractor_params']['n_left']
+        
+        catalogue_width = n_right - n_left
+        full_width = catalogue_width + 4
         #~ nchan = self.nb_channel
         
-        centers0 = np.zeros((len(cluster_labels), full_width - 4, self.nb_channel), dtype=self.info['internal_dtype'])
+        centers0 = np.zeros((len(cluster_labels), catalogue_width, self.nb_channel), dtype=self.info['internal_dtype'])
         centers1 = np.zeros_like(centers0)
         centers2 = np.zeros_like(centers0)
         self.catalogue['centers0'] = centers0 # median of wavforms
@@ -1848,7 +1862,7 @@ class CatalogueConstructor:
                 keep = np.random.choice(selected.size, max_per_cluster, replace=False)
                 selected = selected[keep]
             
-            wf0 = self.get_some_waveforms(peaks_index=self.some_peaks_index[selected])
+            wf0 = self.get_some_waveforms(peaks_index=self.some_peaks_index[selected], n_left=n_left-2, n_right=n_right+2)
             
             # compute first and second derivative on dim=1 (time)
             # Note this was the old implementation but too slow
@@ -1865,9 +1879,9 @@ class CatalogueConstructor:
             
             #median and
             #eliminate margin because of border effect of derivative and reshape
-            center0 = np.median(wf0, axis=0)
-            center0 = center0
-            centers0[i,:,:] = center0[2:-2, :]
+            center0_large = np.median(wf0, axis=0)
+            center0 = center0_large[2:-2, :]
+            centers0[i,:,:] = center0
             centers1[i,:,:] = np.median(wf1, axis=0)[2:-2, :]
             centers2[i,:,:] = np.median(wf2, axis=0)[2:-2, :]
 
@@ -1875,7 +1889,7 @@ class CatalogueConstructor:
             self.catalogue['extremum_channel'][i] = extremum_channel
             
             #interpolate centers0 for reconstruction inbetween bsample when jitter is estimated
-            f = scipy.interpolate.interp1d(original_time, center0, axis=0, kind='cubic', )
+            f = scipy.interpolate.interp1d(original_time, center0_large, axis=0, kind='cubic', )
             oversampled_center = f(subsample_time)
             
             #~ factor = center0.shape[0]
@@ -1904,32 +1918,88 @@ class CatalogueConstructor:
             #~ center0 = center0[2:-2, :]
             
             #~ sparse_threshold_mad = 1.5
-            sparse_threshold_mad = self.info['peak_detector_params']['relative_threshold'] - 2 # put this in params
-            sparse_mask = np.any(np.abs(center0)>sparse_threshold_mad, axis=0)
+            #~ sparse_threshold_mad = self.info['peak_detector_params']['relative_threshold'] - 2 # put this in params
+            sparse_mask = np.any(np.abs(center0)>sparse_thresh_level2, axis=0)
             #~ print(sparse_mask)
             #~ print(sparse_mask.shape)
             
             
             
             #~ print(wf0.shape, center0.shape)
-            distances = np.sum(np.sum((wf0[:, 2:-2, :][:, :, sparse_mask] - center0[np.newaxis, 2:-2, :][:, :, sparse_mask])**2, axis=1), axis=1)
+            distances = np.sum(np.sum((wf0[:, 2:-2, :][:, :, sparse_mask] - center0[np.newaxis, :, :][:, :, sparse_mask])**2, axis=1), axis=1)
             #~ print(np.sum(sparse_mask))
-            limit = np.quantile(distances, 0.9)
+            limit0 = np.quantile(distances, 0.95)
+            
+            
+            noise_distances = np.sum(np.sum((self.some_noise_snippet[:, 2:-2, :][:, :, sparse_mask] - center0[np.newaxis, 2:-2, :][:, :, sparse_mask])**2, axis=1), axis=1)
+            limit1 = np.quantile(noise_distances, 0.05)
+            
+            
+            #~ limit2 = 
+            
+            # note the distance esperance is the numnber of sample because (MAD=1) and the max is around 1.5 * number of pixzl
+            # here a balance between this theorical stuff and quantilez 0.9
+            #~ print(limit, 1.5 * np.sum(sparse_mask) * catalogue_width)
+            #~ limit = max(limit, 1.5 * np.sum(sparse_mask) * catalogue_width)
+            
+            if limit0 < limit1:
+                limit = limit0
+            else:
+                limit = limit1
             self.catalogue['distance_limit'][i] = limit
+            
+            
+            
+            
+            
+            
+            
             #~ print(distances)
             
             #~ if True:
-                #~ count, bins = np.histogram(distances, bins=10)
-                #~ fig, ax = plt.subplots()
-                #~ ax.plot(bins[:-1], count)
-                #~ ax.axvline(limit)
+            if False:
+                bins = np.arange(0, 1, 1/100) * np.quantile(noise_distances, .98)
+                count, bins = np.histogram(distances, bins=bins)
+                count2, bins2 = np.histogram(noise_distances, bins=bins)
                 
-                #~ fig, ax = plt.subplots()
-                #~ ax.plot(wf0[:, 2:-2, :][:, :, sparse_mask].swapaxes(1, 2).reshape(wf0.shape[0], -1).T, color='k', alpha=.4)
-                #~ ax.plot(center0[2:-2, :][:, sparse_mask].T.flatten(), color='m')
+                n = len(cluster_labels)
+                colors_ = sns.color_palette('husl', n)
+                colors = {k: colors_[i] for i, k in enumerate(cluster_labels)}
                 
-                #~ plt.show()
-            #~ exit()
+                fig, ax = plt.subplots()
+                ax.plot(bins[:-1], count, color='g')
+                ax.plot(bins2[:-1], count2, color='r')
+                
+                ax.axvline(limit, color='k', lw=2)
+                ax.axvline(limit0, color='grey', lw=2)
+                ax.axvline(limit1, color='grey', lw=2)
+                
+                for k2 in cluster_labels:
+                    if k2 ==k:
+                        continue
+                    ind = self.index_of_label(k2)
+                    wf_other = self.centroids_median[ind, :, :]
+                    d = np.sum((wf_other[:, sparse_mask] - center0[:, sparse_mask]) ** 2)
+                    
+                    ax.axvline(d, color=colors[k2])
+
+                d = np.sum((center0[2:-2, :][:, sparse_mask]) ** 2)
+                ax.axvline(d, color='k', ls='--')
+
+                
+                fig, ax = plt.subplots()
+                #~ ax.plot(wf0[:, :, sparse_mask].swapaxes(1, 2).reshape(wf0.shape[0], -1).T, color='k', alpha=.4)
+                ax.plot(center0[:, sparse_mask].T.flatten(), color='k', lw=2)
+                
+                for k2 in cluster_labels:
+                    if k2 ==k:
+                        continue
+                    ind = self.index_of_label(k2)
+                    wf_other = self.centroids_median[ind, :, :]
+                    ax.plot(wf_other[:, sparse_mask].T.flatten(), color=colors[k2])
+                
+                
+                plt.show()
 
 
             

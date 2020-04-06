@@ -51,6 +51,10 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
         PeelerEngineGeneric.initialize(self, **kargs)
         
+
+        # some attrs
+        self.shifts = np.arange(-self.maximum_jitter_shift, self.maximum_jitter_shift+1)
+        self.nb_shift = self.shifts.size
         
         # make neighbours for peak detector CL
         d = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
@@ -71,13 +75,6 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         if self.signalpreprocessor is not None:
             assert self.ctx is self.signalpreprocessor.ctx
         
-        # make kernels
-        centers = self.catalogue['centers0']
-        self.nb_cluster = centers.shape[0]
-        self.peak_width = centers.shape[1]
-        self.nb_channel = centers.shape[2]
-        
-        self.nb_shift = self.shifts.size
         
         wf_size = self.peak_width * self.nb_channel
         
@@ -128,8 +125,13 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         self.waveform_distance_shifts_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance_shifts)
         
 
-        self.sparse_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask.astype('u1'))
-        self.high_sparse_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.high_sparse_mask.astype('u1'))
+        self.sparse_mask_level1_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask_level1.astype('u1'))
+        self.sparse_mask_level2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask_level2.astype('u1'))
+        self.sparse_mask_level3_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask_level3.astype('u1'))
+        
+        self.distance_limit_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.distance_limit.astype('float32'))
+        self.distance = np.zeros(1, dtype='float32')
+        self.distance_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.distance)
         
         
         dtype_spike = [('peak_index', 'int32'), ('cluster_idx', 'int32'), ('jitter', 'float32')]
@@ -148,13 +150,13 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         self.wf2_norm2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['wf2_norm2'].astype('float32'))
         self.wf1_dot_wf2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['wf1_dot_wf2'].astype('float32'))
 
-        self.weight_per_template = np.zeros((self.nb_cluster, self.nb_channel), dtype='float32')
-        centers = self.catalogue['centers0']
-        for i, k in enumerate(self.catalogue['cluster_labels']):
-            mask = self.sparse_mask[i, :]
-            wf = centers[i, :, :][:, mask]
-            self.weight_per_template[i, mask] = np.sum(wf**2, axis=0)
-        self.weight_per_template_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.weight_per_template)
+        #~ self.weight_per_template = np.zeros((self.nb_cluster, self.nb_channel), dtype='float32')
+        #~ centers = self.catalogue['centers0']
+        #~ for i, k in enumerate(self.catalogue['cluster_labels']):
+            #~ mask = self.sparse_mask_level3[i, :]
+            #~ wf = centers[i, :, :][:, mask]
+            #~ self.weight_per_template[i, mask] = np.sum(wf**2, axis=0)
+        self.weight_per_template_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.weight_per_template.astype('float32'))
         
         
         # TODO
@@ -221,7 +223,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                                                         self.next_spike_cl,
                                                         self.next_peak_cl,
                                                         self.catalogue_center0_cl,
-                                                        self.high_sparse_mask_cl,
+                                                        self.sparse_mask_level3_cl,
                                                         self.waveform_distance_cl,
                                                         self.channel_distances_cl,
                                                         np.float32(self.adjacency_radius_um),
@@ -237,7 +239,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                                                         self.next_spike_cl,
                                                         self.next_peak_cl,
                                                         self.catalogue_center0_cl,
-                                                        self.sparse_mask_cl,
+                                                        self.sparse_mask_level2_cl,
                                                         self.waveform_distance_cl,
                                                         self.waveform_distance_shifts_cl
                                                         )
@@ -255,13 +257,14 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                                                         self.catalogue_center1_cl,
                                                         self.catalogue_center2_cl,
                                                         self.catalogue_inter_center0_cl,
-                                                        self.sparse_mask_cl,
+                                                        self.sparse_mask_level2_cl,
                                                         self.waveform_distance_shifts_cl,
                                                         self.extremum_channel_cl,
                                                         self.wf1_norm2_cl,
                                                         self.wf2_norm2_cl,
                                                         self.wf1_dot_wf2_cl,
-                                                        self.weight_per_template_cl
+                                                        self.weight_per_template_cl,
+                                                        self.distance_cl,
                                                         )
 
         self.kern_finalize_next_spike = getattr(self.opencl_prg, 'finalize_next_spike')
@@ -277,13 +280,16 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                                                         self.catalogue_center1_cl,
                                                         self.catalogue_center2_cl,
                                                         self.catalogue_inter_center0_cl,
-                                                        self.sparse_mask_cl,
+                                                        self.sparse_mask_level1_cl,
+                                                        self.sparse_mask_level2_cl,
                                                         self.waveform_distance_shifts_cl,
                                                         self.extremum_channel_cl,
                                                         self.wf1_norm2_cl,
                                                         self.wf2_norm2_cl,
                                                         self.wf1_dot_wf2_cl,
-                                                        self.weight_per_template_cl
+                                                        self.weight_per_template_cl,
+                                                        self.distance_limit_cl,
+                                                        self.distance_cl,
                                                         )
 
 
@@ -294,7 +300,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                                                 self.mask_already_tested_cl,
                                                 self.good_spikes_cl,
                                                 self.nb_good_spikes_cl,
-                                                self.sparse_mask_cl,
+                                                self.sparse_mask_level1_cl,
                                                 )
 
         
@@ -398,14 +404,14 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         #~ event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_classify_and_align_next_spike, global_size, local_size,)
         
         
-        print()
+        #~ print()
         global_size = (1, )
         local_size = (1, )
         t0 = time.perf_counter()
         event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_select_next_peak, global_size, local_size,)
-        event.wait()
-        t1 = time.perf_counter()
-        print('kern_select_next_peak',( t1-t0)*1000)
+        #~ event.wait()
+        #~ t1 = time.perf_counter()
+        #~ print('kern_select_next_peak',( t1-t0)*1000)
         
         global_size = (self.nb_cluster, self.nb_channel)
         #~ local_size = (1, self.nb_channel)
@@ -413,17 +419,17 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         #~ local_size = (self.nb_cluster, self.nb_channel)
         t0 = time.perf_counter()
         event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_explore_templates, global_size, local_size,)
-        event.wait()
-        t1 = time.perf_counter()
-        print('kern_explore_templates',( t1-t0)*1000)
+        #~ event.wait()
+        #~ t1 = time.perf_counter()
+        #~ print('kern_explore_templates',( t1-t0)*1000)
         
         global_size = (1, )
         local_size = (1, )
         t0 = time.perf_counter()
         event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_get_best_template, global_size, local_size,)
-        event.wait()
-        t1 = time.perf_counter()
-        print('kern_get_best_template',( t1-t0)*1000)        
+        #~ event.wait()
+        #~ t1 = time.perf_counter()
+        #~ print('kern_get_best_template',( t1-t0)*1000)        
         
         global_size = (self.nb_shift, self.nb_channel)
         #~ local_size = (1, self.nb_channel)    ### marche pas
@@ -431,41 +437,44 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         #~ local_size = (self.nb_shift, self.nb_channel)  ## marche mais trop gros dans certain cas
         t0 = time.perf_counter()
         event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_explore_shifts, global_size, local_size,)
-        event.wait()
-        t1 = time.perf_counter()
-        print('kern_explore_shifts',( t1-t0)*1000)        
+        #~ event.wait()
+        #~ t1 = time.perf_counter()
+        #~ print('kern_explore_shifts',( t1-t0)*1000)        
         
 
         global_size = (1, )
         local_size = (1, )
         t0 = time.perf_counter()
         event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_best_shift_and_jitter, global_size, local_size,)
-        event.wait()
-        t1 = time.perf_counter()
-        print('kern_best_shift_and_jitter',( t1-t0)*1000)
+        #~ event.wait()
+        #~ t1 = time.perf_counter()
+        #~ print('kern_best_shift_and_jitter',( t1-t0)*1000)
 
         global_size = (1, )
         local_size = (1, )
         t0 = time.perf_counter()
         event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_finalize_next_spike, global_size, local_size,)
-        event.wait()
-        t1 = time.perf_counter()
-        print('kern_finalize_next_spike',( t1-t0)*1000)        
+        #~ event.wait()
+        #~ t1 = time.perf_counter()
+        #~ print('kern_finalize_next_spike',( t1-t0)*1000)        
         
         
         
         t0 = time.perf_counter()
         event = pyopencl.enqueue_copy(self.queue,  self.next_spike, self.next_spike_cl)
-        t1 = time.perf_counter()
-        print('enqueue_copy',( t1-t0)*1000)        
-        print(' self.next_spike',  self.next_spike)
+        #~ t1 = time.perf_counter()
+        #~ print('enqueue_copy',( t1-t0)*1000)        
+        #~ print(' self.next_spike',  self.next_spike)
         
         
         
         if self._plot_debug:
             event = pyopencl.enqueue_copy(self.queue,  self.next_peak, self.next_peak_cl)
+            event = pyopencl.enqueue_copy(self.queue,  self.distance, self.distance_cl)
+            event.wait()
             print(self.next_peak)
             print(self.next_spike)
+            print('self.distance', self.distance, self.distance_limit)
         
         #~ exit()
         
@@ -553,6 +562,8 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         ax.axvline(-self.n_left, color='r')
 
         ax.scatter(peak_inds, plot_sigs[peak_inds, chan_inds], color='r')
+        
+        plt.show()
     
     def _plot_after_peeling_loop(self, good_spikes):
         pyopencl.enqueue_copy(self.queue,  self.fifo_residuals, self.fifo_residuals_cl)
@@ -582,7 +593,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
         #~ for c in range(self.nb_channel):
             #~ plot_sigs[:, c] += c*30
-        #~ ax.plot(plot_sigs, color='k')
+        #~ ax.plot(plot_sigs, color='k')best_shift_and_jitter
         
         ax.plot(self._plot_sigs_before, color='b')
         
@@ -953,16 +964,26 @@ float estimate_one_jitter(int left_ind, int cluster_idx,
 
 int accept_tempate(int left_ind, int cluster_idx, float jitter,
                                         __global float *fifo_residuals,
-                                        __global uchar *sparse_mask,
+                                        __global uchar *sparse_mask_level2,
                                         __global float *catalogue_center0,
                                         __global float *catalogue_center1,
                                         __global float *catalogue_center2,
-                                        __global float *weight_per_template){
+                                        __global float *catalogue_inter_center0,
+                                        
+                                        
+                                        __global float *weight_per_template,
+                                        __global float *distance_limit,
+                                        __global float *distance
+                                        ){
 
 
     if (fabs(jitter) > (maximum_jitter_shift - 0.5)){
         return 0;
     }
+    
+    //if (*distance < distance_limit[cluster_idx]){
+    //    return 1;
+    //}
 
     float v;
     float pred;
@@ -972,10 +993,13 @@ int accept_tempate(int left_ind, int cluster_idx, float jitter,
     int idx;
     
     float w;
-
+    
+    
+    
+    int int_jitter = (int) ((jitter) * subsample_ratio) + (subsample_ratio / 2 );
     
     for (int c=0; c<nb_channel; ++c){
-        if (sparse_mask[cluster_idx*nb_channel + c] == 1){
+        if (sparse_mask_level2[cluster_idx*nb_channel + c] == 1){
 
             float wf_nrj = 0.0f;
             float res_nrj = 0.0f;
@@ -984,8 +1008,10 @@ int accept_tempate(int left_ind, int cluster_idx, float jitter,
                 v = fifo_residuals[(left_ind+s)*nb_channel + c];
                 wf_nrj += (v*v);
                 
-                idx = wf_size*cluster_idx+nb_channel*s+c;
-                pred = catalogue_center0[idx] + jitter*catalogue_center1[idx] + jitter*jitter/2*catalogue_center2[idx];
+                //idx = wf_size*cluster_idx+nb_channel*s+c;
+                //pred = catalogue_center0[idx] + jitter*catalogue_center1[idx] + jitter*jitter/2*catalogue_center2[idx];
+                pred = catalogue_inter_center0[subsample_ratio*wf_size*cluster_idx + nb_channel*(s*subsample_ratio+int_jitter) + c];
+                
                 v -= pred;
                 res_nrj += (v*v);
             }
@@ -1008,13 +1034,15 @@ int accept_tempate(int left_ind, int cluster_idx, float jitter,
 
 
 
+
+
 __kernel void explore_templates(__global  float *fifo_residuals,
                                                                 __global st_spike *next_spike,
                                                                 __global  st_peak *next_peak,
 
                                                                 __global  float *catalogue_center0,
                                                                 
-                                                                __global  uchar  *high_sparse_mask,
+                                                                __global  uchar  *sparse_mask_level3,
                                                                 __global  float *waveform_distance,
                                                                 
                                                                 __global float *channel_distances,
@@ -1047,7 +1075,7 @@ __kernel void explore_templates(__global  float *fifo_residuals,
         if (chan==0){
             for (int cluster_idx=0; cluster_idx<nb_cluster; ++cluster_idx){
                 // the peak_chan do not overlap spatialy this cluster
-                if (high_sparse_mask[nb_channel*cluster_idx+peak.peak_chan] == 0){
+                if (sparse_mask_level3[nb_channel*cluster_idx+peak.peak_chan] == 0){
                     waveform_distance[cluster_idx] = FLT_MAX;
                 }
                 else {
@@ -1059,7 +1087,7 @@ __kernel void explore_templates(__global  float *fifo_residuals,
         barrier(CLK_GLOBAL_MEM_FENCE);
         
         // compute distance
-        if (high_sparse_mask[nb_channel*cluster_idx+peak.peak_chan] == 1){
+        if (sparse_mask_level3[nb_channel*cluster_idx+peak.peak_chan] == 1){
             if (channel_distances[chan * nb_channel + peak.peak_chan] < adjacency_radius_um){
                 float sum = 0;
                 float d;
@@ -1104,7 +1132,7 @@ __kernel void explore_shifts(__global  float *fifo_residuals,
                                             __global  st_peak *next_peak,
 
                                             __global  float *catalogue_center0,
-                                            __global  uchar  *sparse_mask,
+                                            __global  uchar  *sparse_mask_level2,
                                             __global  float *waveform_distance,
                                             __global  float *waveform_distance_shifts
                                         ){
@@ -1135,7 +1163,7 @@ __kernel void explore_shifts(__global  float *fifo_residuals,
             }
             barrier(CLK_GLOBAL_MEM_FENCE);
 
-            if (sparse_mask[nb_channel*spike.cluster_idx + chan] == 1){
+            if (sparse_mask_level2[nb_channel*spike.cluster_idx + chan] == 1){
                 int shift;
                 shift = shift_ind - maximum_jitter_shift;
                 float sum = 0;
@@ -1170,13 +1198,14 @@ __kernel void best_shift_and_jitter(
                                             __global  float *catalogue_center1,
                                             __global  float *catalogue_center2,
                                             __global  float *catalogue_inter_center0,
-                                            __global  uchar  *sparse_mask,
+                                            __global  uchar  *sparse_mask_level2,
                                             __global  float *waveform_distance_shifts,
                                             __global int *extremum_channel,
                                             __global float *wf1_norm2,
                                             __global float *wf2_norm2,
                                             __global float *wf1_dot_wf2,
-                                            __global float *weight_per_template
+                                            __global float *weight_per_template,
+                                            __global float *distance
                                             ){
     
     st_spike spike;
@@ -1205,6 +1234,7 @@ __kernel void best_shift_and_jitter(
         }
         //DebUG
         //shift = 0;
+        distance[0] = min_dist;
         
         left_ind = left_ind + shift;
     
@@ -1245,6 +1275,8 @@ __kernel void best_shift_and_jitter(
             jitter = 0.0f;
         }
         spike.jitter = jitter;
+        
+        //
         *next_spike = spike ;
     }
     
@@ -1268,13 +1300,17 @@ __kernel void finalize_next_spike(
                                             __global  float *catalogue_center1,
                                             __global  float *catalogue_center2,
                                             __global  float *catalogue_inter_center0,
-                                            __global  uchar  *sparse_mask,
+                                            __global  uchar  *sparse_mask_level1,
+                                            __global  uchar  *sparse_mask_level2,
                                             __global  float *waveform_distance_shifts,
                                             __global int *extremum_channel,
                                             __global float *wf1_norm2,
                                             __global float *wf2_norm2,
                                             __global float *wf1_dot_wf2,
-                                            __global float *weight_per_template
+                                            __global float *weight_per_template,
+                                            __global float *distance_limit,
+                                            __global float *distance
+                                            
                                             ){
         
     st_spike spike;
@@ -1291,9 +1327,10 @@ __kernel void finalize_next_spike(
         int ok;
         // accept template
         ok = accept_tempate(left_ind, spike.cluster_idx, spike.jitter,
-                                    fifo_residuals, sparse_mask,
+                                    fifo_residuals, sparse_mask_level2,
                                     catalogue_center0, catalogue_center1, catalogue_center2,
-                                    weight_per_template);
+                                    catalogue_inter_center0,
+                                    weight_per_template, distance_limit, distance);
         if (ok == 0){
             spike.jitter = 0.0f;
             spike.cluster_idx = LABEL_UNCLASSIFIED;
@@ -1350,7 +1387,7 @@ __kernel void finalize_next_spike(
                     if (
                             (pending_peaks[i].peak_index  > (spike.peak_index+ n_left)) && 
                             (pending_peaks[i].peak_index < (spike.peak_index+ n_right)) && 
-                            (sparse_mask[spike.cluster_idx * nb_channel + pending_peaks[i].peak_chan] == 1) ){
+                            (sparse_mask_level1[spike.cluster_idx * nb_channel + pending_peaks[i].peak_chan] == 1) ){
                         pending_peaks[i].peak_value = 0;
                     }
                 }

@@ -80,6 +80,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         
         # some attrs
         self.shifts = np.arange(-self.maximum_jitter_shift, self.maximum_jitter_shift+1)
+        self.nb_shift = self.shifts.size
         
         self.channel_distances = sklearn.metrics.pairwise.euclidean_distances(self.geometry).astype('float32')
         self.channels_adjacency = {}
@@ -119,8 +120,9 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             self.waveform_distance = np.zeros((nb_cluster), dtype='float32')
             self.waveform_distance_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance)
 
-            self.sparse_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask.astype('u1'))
-            self.high_sparse_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.high_sparse_mask.astype('u1'))
+            self.sparse_mask_level1_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask_level1.astype('u1'))
+            self.sparse_mask_level2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask_level2.astype('u1'))
+            self.sparse_mask_level3_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask_level3.astype('u1'))
             
             rms_waveform_channel = np.zeros(nb_channel, dtype='float32')
             self.rms_waveform_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=rms_waveform_channel)
@@ -139,15 +141,14 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             
             self.kern_waveform_distance.set_args(
                         self.one_waveform_cl, self.catalogue_center_cl,
-                        #~ self.sparse_mask_cl,
-                        self.high_sparse_mask_cl,
+                        self.sparse_mask_level3_cl,
                         self.rms_waveform_channel_cl, self.waveform_distance_cl,  self.channel_distances_cl, 
                         self.adjacency_radius_um_cl, np.int32(0))
             
             self.kern_explore_shifts.set_args(
                                         self.long_waveform_cl,
                                         self.catalogue_center_cl,
-                                        self.sparse_mask_cl, 
+                                        self.sparse_mask_level2_cl, 
                                         self.waveform_distance_shifts_cl,
                                         np.int32(0))
             
@@ -194,8 +195,8 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         self.set_already_tested_spike_zone(peak_ind, cluster_idx)
 
     def set_already_tested_spike_zone(self, peak_ind, cluster_idx):
-        # TODO test with high_sparse_masks!!!!!
-        mask = self.sparse_mask[cluster_idx, :]
+        # TODO test with sparse_mask_level3s!!!!!
+        mask = self.sparse_mask_level1[cluster_idx, :]
         #~ keep = [not((ind == peak_ind) and (mask[chan_ind])) for ind, chan_ind in self.pending_peaks]
         #~ keep = [(ind != peak_ind) and not(mask[chan_ind]) for ind, chan_ind in self.pending_peaks]
         
@@ -222,7 +223,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         for spike in good_spikes:
             # each good spike can remove from
             cluster_idx = self.catalogue['label_to_index'][spike.cluster_label]
-            mask = self.sparse_mask[cluster_idx, :]
+            mask = self.sparse_mask_level1[cluster_idx, :]
             self.already_tested = [ p for p in self.already_tested if not((np.abs(p[0]-spike.index)<self.peak_width)  and mask[p[1]] ) ]
         #~ print('self.already_tested reduced', len(self.already_tested))
         # 
@@ -258,11 +259,11 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         
         waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
         
-        if not np.any(self.sparse_mask[:, chan_ind]):
+        if not np.any(self.sparse_mask_level3[:, chan_ind]):
             # no template near that channel
             cluster_idx = -1
             shift = None
-            return cluster_idx, shift
+            return cluster_idx, shift, None
             
         
 
@@ -275,7 +276,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             pyopencl.enqueue_copy(self.queue,  self.rms_waveform_channel_cl, rms_waveform_channel)
             #~ event = self.kern_waveform_distance(self.queue,  self.cl_global_size, self.cl_local_size,
                         #~ self.one_waveform_cl, self.catalogue_center_cl,
-                        #~ self.high_sparse_mask_cl,
+                        #~ self.sparse_mask_level3_cl,
                         #~ self.rms_waveform_channel_cl, self.waveform_distance_cl,  self.channel_distances_cl, 
                         #~ self.adjacency_radius_um_cl, np.int32(chan_ind))
             self.kern_waveform_distance.set_arg(7, np.int32(chan_ind))
@@ -292,13 +293,18 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                                         #~ self.queue,  self.cl_global_size2, self.cl_local_size2,
                                         #~ self.long_waveform_cl,
                                         #~ self.catalogue_center_cl,
-                                        #~ self.sparse_mask_cl, 
+                                        #~ self.sparse_mask_level2_cl, 
                                         #~ self.waveform_distance_shifts_cl,
                                         #~ np.int32(cluster_idx))
             self.kern_explore_shifts.set_arg(4, np.int32(cluster_idx))
             event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_explore_shifts, self.cl_global_size2, self.cl_local_size2,)
             pyopencl.enqueue_copy(self.queue,  self.waveform_distance_shifts, self.waveform_distance_shifts_cl)
-            shift = self.shifts[np.argmin(self.waveform_distance_shifts)]
+            #~ shift = self.shifts[np.argmin(self.waveform_distance_shifts)]
+
+            ind_min = np.argmin(self.waveform_distance_shifts)
+            shift = self.shifts[ind_min]
+            distance = self.waveform_distance_shifts[ind_min]
+            
 
             #~ fig, ax = plt.subplots()
             #~ ax.plot(self.shifts, self.waveform_distance_shifts, marker='o')
@@ -309,7 +315,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         
         #~ elif self.argmin_method == 'pythran':
             #~ s = pythran_tools.pythran_loop_sparse_dist(waveform, 
-                                #~ self.catalogue['centers0'],  self.sparse_mask)
+                                #~ self.catalogue['centers0'],  self.sparse_mask_level1)
             #~ cluster_idx = np.argmin(s)
             #~ shift = None
         
@@ -317,8 +323,8 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #TODO remove this rms_waveform_channel no more usefull
             rms_waveform_channel = np.sum(waveform**2, axis=0).astype('float32')
             
-            #~ possibles_cluster_idx, = np.nonzero(self.sparse_mask[:, chan_ind])
-            possibles_cluster_idx, = np.nonzero(self.high_sparse_mask[:, chan_ind])
+            #~ possibles_cluster_idx, = np.nonzero(self.sparse_mask_level1[:, chan_ind])
+            possibles_cluster_idx, = np.nonzero(self.sparse_mask_level3[:, chan_ind])
             
             if possibles_cluster_idx.size ==0:
                 cluster_idx = -1
@@ -326,7 +332,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             else:
                 channel_adjacency = self.channels_adjacency[chan_ind]
                 s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  
-                                                        #~ self.sparse_mask, 
+                                                        #~ self.sparse_mask_level1, 
                                                         possibles_cluster_idx, rms_waveform_channel,channel_adjacency)
                                                         
 
@@ -339,8 +345,10 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                 shift = None
                 # explore shift
                 long_waveform = self.fifo_residuals[left_ind-self.maximum_jitter_shift:left_ind+self.peak_width+self.maximum_jitter_shift+1,:]
-                all_dist = numba_explore_shifts(long_waveform, self.catalogue['centers0'][cluster_idx, : , :],  self.sparse_mask[cluster_idx, :], self.maximum_jitter_shift)
-                shift = self.shifts[np.argmin(all_dist)]
+                all_dist = numba_explore_shifts(long_waveform, self.catalogue['centers0'][cluster_idx, : , :],  self.sparse_mask_level2[cluster_idx, :], self.maximum_jitter_shift)
+                ind_min = np.argmin(all_dist)
+                shift = self.shifts[ind_min]
+                distance = all_dist[ind_min]
             
                 #~ print('      shift', shift)
             
@@ -354,7 +362,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #~ all_s = []
             #~ for shift in shifts:
                 #~ waveform = self.fifo_residuals[left_ind+shift:left_ind+self.peak_width+shift,:]
-                #~ s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask, possibles_cluster_idx, self.channels_adjacency[chan_ind])
+                #~ s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask_level1, possibles_cluster_idx, self.channels_adjacency[chan_ind])
                 #~ all_s.append(s)
             #~ all_s = np.array(all_s)
             #~ shift_ind, cluster_idx = np.unravel_index(np.argmin(all_s, axis=None), all_s.shape)
@@ -404,12 +412,12 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
 
         
         #~ label = self.catalogue['cluster_labels'][cluster_idx]
-        return cluster_idx, shift
+        return cluster_idx, shift, distance
     
     #~ def estimate_jitter(self, left_ind, cluster_idx):
         #~ return 0.
 
-    def accept_tempate(self, left_ind, cluster_idx, jitter):
+    def accept_tempate(self, left_ind, cluster_idx, jitter, distance):
         if jitter is None:
             # this must have a jitter
             jitter = 0
@@ -417,67 +425,68 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         if np.abs(jitter) > (self.maximum_jitter_shift - 0.5):
             return False
         
-        # criteria multi channel
-        #~ mask = self.sparse_mask[cluster_idx]
-        mask = self.high_sparse_mask[cluster_idx]
-        full_wf0 = self.catalogue['centers0'][cluster_idx,: , :][:, mask]
-        #~ full_wf1 = self.catalogue['centers1'][cluster_idx,: , :][:, mask]
-        #~ full_wf2 = self.catalogue['centers2'][cluster_idx,: , :][:, mask]
-        
-        # waveform L2 on mask
-        waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
-        full_wf = waveform[:, :][:, mask]
-        wf_nrj = np.sum(full_wf**2, axis=0)
-        
-        # prediction L2 on mask
-        #~ pred_wf = (full_wf0+jitter*full_wf1+jitter**2/2*full_wf2)
-        
-        # prediction with interpolation
-        _, pred_wf = make_prediction_one_spike(left_ind - self.n_left, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
-        pred_wf= pred_wf[:, mask]
-        
-        
         if self.strict_template:
-            # experimental
-            if np.all(np.abs(pred_wf - full_wf)<5):
-                accept_template = True
-                debug_d = True
-            else:
-                accept_template = False
+            return slef.accept_template_sctrict(left_ind, cluster_idx, jitter)
         
+        #~ print('distance', distance)
+        
+        if distance < self.distance_limit[cluster_idx]:
+            accept_template = True
+            debug_d = True
         else:
-                
+        
+            # criteria multi channel
+            #~ mask = self.sparse_mask_level1[cluster_idx]
+            mask = self.sparse_mask_level2[cluster_idx]
+            #~ full_wf0 = self.catalogue['centers0'][cluster_idx,: , :][:, mask]
+            #~ full_wf1 = self.catalogue['centers1'][cluster_idx,: , :][:, mask]
+            #~ full_wf2 = self.catalogue['centers2'][cluster_idx,: , :][:, mask]
             
+            # waveform L2 on mask
+            full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
+            wf = full_waveform[:, mask]
+            #~ wf_nrj = np.sum(full_wf**2, axis=0)
             
+            # prediction L2 on mask
+            #~ pred_wf = (full_wf0+jitter*full_wf1+jitter**2/2*full_wf2)
             
-            dist = (pred_wf - full_wf) ** 2
-            #~ print(np.sum(dist), self.distance_limit[cluster_idx])
-            #~ print(np.sum((full_wf0 - full_wf) ** 2), self.distance_limit[cluster_idx])
-            if np.sum(dist) < self.distance_limit[cluster_idx]:
-                #~ # distance is small enougth
-                debug_d = True
-                accept_template = True
-            else:
-                debug_d = False
-                residual_nrj_by_chan = np.sum(dist, axis=0)
-                
-                # criteria per channel
-                label = self.catalogue['cluster_labels'][cluster_idx]
-                weight = self.weight_per_template[label]
-                crietria_weighted = (wf_nrj>residual_nrj_by_chan).astype('float') * weight
-                #~ accept_template = np.sum(crietria_weighted) >= 0.9 * np.sum(weight)
-                accept_template = np.sum(crietria_weighted) >= 0.7 * np.sum(weight)
+            # prediction with interpolation
+            _, pred_wf = make_prediction_one_spike(left_ind - self.n_left, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
+            pred_wf = pred_wf[:, mask]
+        
+        
+            dist = (pred_wf - wf) ** 2
+        
+            debug_d = False
+            residual_nrj_by_chan = np.sum(dist, axis=0)
+            
+            wf_nrj = np.sum(wf**2, axis=0)
+            
+            # criteria per channel
+            weight = self.weight_per_template_dict[cluster_idx]
+            crietria_weighted = (wf_nrj>residual_nrj_by_chan).astype('float') * weight
+            #~ accept_template = np.sum(crietria_weighted) >= 0.9 * np.sum(weight)
+            accept_template = np.sum(crietria_weighted) >= 0.7 * np.sum(weight)
         
         
         label = self.catalogue['cluster_labels'][cluster_idx]
         #~ if not accept_template and label in []:
+        #~ if not accept_template:
         #~ if True:
         if False:
         #~ nears = np.array([ 5813767,  5813767, 11200038, 11322540, 14989650, 14989673, 14989692, 14989710, 15119220, 15830377, 16138346, 16216666, 17078883])
         #~ print(np.abs((left_ind - self.n_left) - nears))
         #~ print(np.abs((left_ind - self.n_left) - nears) < 2)
         #~ if label == 5 and np.any(np.abs((left_ind - self.n_left) - nears) < 50):
-        
+            
+            if debug_d:
+                mask = self.sparse_mask_level2[cluster_idx]
+                full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
+                wf = full_waveform[:, mask]
+                _, pred_wf = make_prediction_one_spike(left_ind - self.n_left, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
+                pred_wf = pred_wf[:, mask]
+    
+            
             if accept_template:
                 if debug_d:
                     color = 'g'
@@ -486,18 +495,44 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             else:
                 color = 'r'
             fig, ax = plt.subplots()
-            ax.plot(full_wf.T.flatten(), color='k')
+            ax.plot(wf.T.flatten(), color='k')
             ax.plot(pred_wf.T.flatten(), color=color)
             
-            ax.plot( full_wf.T.flatten() - pred_wf.T.flatten(), color='b')
+            ax.plot( wf.T.flatten() - pred_wf.T.flatten(), color=color, ls='--')
             
-            #~ ax.plot(full_wf0.T.flatten(), color='b')
+            print()
+            print(distance, self.distance_limit[cluster_idx])
+            if distance >= self.distance_limit[cluster_idx]:
+                print(crietria_weighted, weight)
+                print(np.sum(crietria_weighted),  np.sum(weight))
+            
+            #~ ax.plot(full_wf0.T.flatten(), color='y')
+            #~ ax.plot( full_wf.T.flatten() - full_wf0.T.flatten(), color='y')
             
             #~ ax.set_title('not accepted')
             plt.show()
         
         return accept_template
     
+    
+    def accept_template_sctrict(self, left_ind, cluster_idx, jitter):
+        # experimental
+        mask = self.sparse_mask_level2[cluster_idx]
+        
+        # waveform
+        waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
+        full_wf = waveform[:, mask]
+        
+        # prediction with interpolation
+        _, pred_wf = make_prediction_one_spike(left_ind - self.n_left, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
+        pred_wf= pred_wf[:, mask]
+
+        if np.all(np.abs(pred_wf - full_wf)<self.threshold):
+            accept_template = True
+            #~ debug_d = True
+        else:
+            accept_template = False        
+        return accept_template
     
     def _plot_after_inner_peeling_loop(self):
         pass
@@ -522,6 +557,8 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         peak_inds += self.n_span
         
         ax.scatter(peak_inds, plot_sigs[peak_inds, chan_inds], color='r')
+        
+        #~ 
         
     
     def _plot_label_unclassified(self, left_ind, peak_chan, cluster_idx, jitter):
@@ -599,7 +636,7 @@ inline void atomic_add_float(volatile __global float *source, const float operan
 
 __kernel void waveform_distance(__global  float *one_waveform,
                                         __global  float *catalogue_center,
-                                        __global  uchar  *high_sparse_mask,
+                                        __global  uchar  *sparse_mask_level3,
                                         __global  float *rms_waveform_channel,
                                         __global  float *waveform_distance,
                                         __global  float *channel_distances,
@@ -612,7 +649,7 @@ __kernel void waveform_distance(__global  float *one_waveform,
     
     
     // the chan_ind do not overlap spatialy this cluster
-    if (high_sparse_mask[nb_channel*cluster_idx+chan_ind] == 0){
+    if (sparse_mask_level3[nb_channel*cluster_idx+chan_ind] == 0){
         if (c==0){
             waveform_distance[cluster_idx] = FLT_MAX;
         }
@@ -626,7 +663,7 @@ __kernel void waveform_distance(__global  float *one_waveform,
     
     barrier(CLK_GLOBAL_MEM_FENCE);
     
-    if (high_sparse_mask[nb_channel*cluster_idx+chan_ind] == 0){
+    if (sparse_mask_level3[nb_channel*cluster_idx+chan_ind] == 0){
         return;
     }
     

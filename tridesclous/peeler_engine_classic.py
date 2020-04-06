@@ -290,13 +290,14 @@ class PeelerEngineClassic(PeelerEngineGeneric):
         
         
         #~ label = self.catalogue['cluster_labels'][cluster_idx]
-        return cluster_idx, shift
+        distance = None
+        return cluster_idx, shift, distance
 
     
     
 
 
-    def accept_tempate(self, left_ind, cluster_idx, jitter):
+    def accept_tempate(self, left_ind, cluster_idx, jitter, distance):
         #~ self._debug_nb_accept_tempate += 1
         #~ import matplotlib.pyplot as plt
         # criteria mono channel = old implementation
@@ -310,7 +311,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
             return False
         
         # criteria multi channel
-        mask = self.sparse_mask[cluster_idx]
+        mask = self.sparse_mask_level2[cluster_idx]
         full_wf0 = self.catalogue['centers0'][cluster_idx,: , :][:, mask]
         full_wf1 = self.catalogue['centers1'][cluster_idx,: , :][:, mask]
         full_wf2 = self.catalogue['centers2'][cluster_idx,: , :][:, mask]
@@ -321,8 +322,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
         wf_nrj = np.sum(full_wf**2, axis=0)
         
         # prediction L2 on mask
-        label = self.catalogue['cluster_labels'][cluster_idx]
-        weight = self.weight_per_template[label]
+        weight = self.weight_per_template_dict[cluster_idx]
         pred_wf = (full_wf0+jitter*full_wf1+jitter**2/2*full_wf2)
         
         residual_nrj = np.sum((full_wf-pred_wf)**2, axis=0)

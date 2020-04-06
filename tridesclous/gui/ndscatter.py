@@ -148,9 +148,9 @@ class NDScatter(WidgetBase):
         self.timer_tour = QT.QTimer(interval = 100)
         self.timer_tour.timeout.connect(self.new_tour_step)
         
-        if self.data is not None:
-            self.initialize()
-            self.refresh()
+        #~ if self.data is not None:
+        self.initialize()
+        self.refresh()
     
     def create_toolbar(self):
         
@@ -235,7 +235,8 @@ class NDScatter(WidgetBase):
 
     
     def initialize(self):
-        if self.data is None:
+        #~ if self.data is None:
+        if self.controller.some_features is None:
             return
         self.viewBox = MyViewBox()
         self.viewBox.gain_zoom.connect(self.gain_zoom)
@@ -349,7 +350,8 @@ class NDScatter(WidgetBase):
         return projected
     
     def refresh(self):
-        if self.data is None:
+        #~ if self.data is None:
+        if self.controller.some_features is None:
             if hasattr(self, 'plot'):
                 self.plot.clear()
             return
@@ -414,7 +416,8 @@ class NDScatter(WidgetBase):
             self.timer_tour.stop()
     
     def new_tour_step(self):
-        if self.data is None:
+        #~ if self.data is None:
+        if self.controller.some_features is None:
             return
         nb_step = self.params['nb_step']
         ndim = self.data.shape[1]
@@ -475,7 +478,8 @@ class NDScatter(WidgetBase):
         self.spike_selection_changed.emit()
     
     def auto_select_component(self):
-        if self.data is None:
+        #~ if self.data is None:
+        if self.controller.some_features is None:
             return
         
         # take all component that corespon to a channel max and neighborhood
@@ -506,7 +510,8 @@ class NDScatter(WidgetBase):
         #~ self.refresh()
     
     def on_cluster_visibility_changed(self):
-        if self.data is None:
+        #~ if self.data is None:
+        if self.controller.some_features is None:
             return
         
         if self.params['auto_select_component']:

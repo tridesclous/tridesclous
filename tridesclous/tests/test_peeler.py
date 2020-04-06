@@ -373,7 +373,7 @@ if __name__ =='__main__':
     
     test_peeler_geometry()
     
-    #~ test_peeler_geometry_cl()
+    test_peeler_geometry_cl()
     
     
     #~ test_peeler_argmin_methods()
