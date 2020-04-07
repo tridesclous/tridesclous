@@ -646,19 +646,20 @@ class CatalogueConstructor:
         """
         self.arrays.initialize_array('all_peaks', self.memory_mode,  _dtype_peak, (-1, ))
         
-        duration_per_segment = []
-        total_duration = duration
-        for seg_num in range(self.dataio.nb_segment):
-            dur = self.dataio.get_segment_length(seg_num=seg_num) / self.dataio.sample_rate
-            if total_duration ==0:
-                duration_per_segment.append(0.)
-            elif dur <=total_duration:
-                duration_per_segment.append(dur)
-                total_duration -= dur
-            else:
-                duration_per_segment.append(total_duration)
-                total_duration = 0.
-        
+        #~ duration_per_segment = []
+        #~ total_duration = duration
+        #~ for seg_num in range(self.dataio.nb_segment):
+            #~ dur = self.dataio.get_segment_length(seg_num=seg_num) / self.dataio.sample_rate
+            #~ if total_duration ==0:
+                #~ duration_per_segment.append(0.)
+            #~ elif dur <=total_duration:
+                #~ duration_per_segment.append(dur)
+                #~ total_duration -= dur
+            #~ else:
+                #~ duration_per_segment.append(total_duration)
+                #~ total_duration = 0.
+        duration_per_segment = self.dataio.get_duration_per_segments(duration)
+        #~ print(duration_per_segment)
         for seg_num in range(self.dataio.nb_segment):
             self.run_signalprocessor_loop_one_segment(seg_num=seg_num, duration=duration_per_segment[seg_num], detect_peak=detect_peak)
         
@@ -1785,6 +1786,7 @@ class CatalogueConstructor:
                             inter_sample_oversampling=True,
                             subsample_ratio='auto',
                             sparse_thresh_level2=3,
+                            #~ sparse_thresh_extremum=-5,
                             ):
         #TODO: offer possibility to resample some waveforms or choose the number
         
@@ -1803,7 +1805,7 @@ class CatalogueConstructor:
         self.catalogue['n_right'] = n_right
         self.catalogue['peak_width'] = self.catalogue['n_right'] - self.catalogue['n_left']
         
-        self.catalogue['sparse_thresh_level2'] = sparse_thresh_level2
+        #~ self.catalogue['sparse_thresh_level2'] = sparse_thresh_level2
         
         
         #for colors
@@ -1851,8 +1853,11 @@ class CatalogueConstructor:
         self.catalogue['distance_limit'] = np.zeros(len(cluster_labels), dtype=self.info['internal_dtype'])
         
         #~ print('peak_width', self.catalogue['peak_width'])
+        nb_cluster = cluster_labels.size
+        self.catalogue['extremum_channel'] = np.zeros(nb_cluster, dtype='int64')
+        self.catalogue['extremum_amplitude'] = np.zeros(nb_cluster, dtype='float32')
+        self.catalogue['sparse_mask_level2'] = np.zeros((nb_cluster,self.nb_channel),  dtype='bool')
         
-        self.catalogue['extremum_channel'] = np.zeros_like(self.catalogue['cluster_labels'])
         self.catalogue['label_to_index'] = {}
         for i, k in enumerate(cluster_labels):
             self.catalogue['label_to_index'][k] = i
@@ -1886,7 +1891,9 @@ class CatalogueConstructor:
             centers2[i,:,:] = np.median(wf2, axis=0)[2:-2, :]
 
             extremum_channel = np.argmax(np.abs(center0[-n_left,:]), axis=0)
+            extremum_amplitude = np.abs(center0[-n_left, extremum_channel])
             self.catalogue['extremum_channel'][i] = extremum_channel
+            self.catalogue['extremum_amplitude'][i] = extremum_amplitude
             
             #interpolate centers0 for reconstruction inbetween bsample when jitter is estimated
             f = scipy.interpolate.interp1d(original_time, center0_large, axis=0, kind='cubic', )
@@ -1920,6 +1927,11 @@ class CatalogueConstructor:
             #~ sparse_threshold_mad = 1.5
             #~ sparse_threshold_mad = self.info['peak_detector_params']['relative_threshold'] - 2 # put this in params
             sparse_mask = np.any(np.abs(center0)>sparse_thresh_level2, axis=0)
+            #~ sparse_mask = np.any(np.abs(center0)>(extremum_amplitude + sparse_thresh_extremum) , axis=0)
+            #~ print(sparse_mask)
+            self.catalogue['sparse_mask_level2'][i, :] = sparse_mask
+            
+            
             #~ print(sparse_mask)
             #~ print(sparse_mask.shape)
             
@@ -1928,7 +1940,9 @@ class CatalogueConstructor:
             #~ print(wf0.shape, center0.shape)
             distances = np.sum(np.sum((wf0[:, 2:-2, :][:, :, sparse_mask] - center0[np.newaxis, :, :][:, :, sparse_mask])**2, axis=1), axis=1)
             #~ print(np.sum(sparse_mask))
-            limit0 = np.quantile(distances, 0.95)
+            #~ limit0 = np.quantile(distances, 0.95)
+            #~ limit0 = np.quantile(distances, 0.8)
+            limit0 = np.quantile(distances, 0.9)
             
             
             noise_distances = np.sum(np.sum((self.some_noise_snippet[:, 2:-2, :][:, :, sparse_mask] - center0[np.newaxis, 2:-2, :][:, :, sparse_mask])**2, axis=1), axis=1)
@@ -1946,6 +1960,8 @@ class CatalogueConstructor:
                 limit = limit0
             else:
                 limit = limit1
+            #~ limit = 1.5 * np.sum(sparse_mask) * catalogue_width
+            
             self.catalogue['distance_limit'][i] = limit
             
             
@@ -1970,7 +1986,7 @@ class CatalogueConstructor:
                 ax.plot(bins[:-1], count, color='g')
                 ax.plot(bins2[:-1], count2, color='r')
                 
-                ax.axvline(limit, color='k', lw=2)
+                ax.axvline(limit, color='k', lw=3)
                 ax.axvline(limit0, color='grey', lw=2)
                 ax.axvline(limit1, color='grey', lw=2)
                 

@@ -147,8 +147,9 @@ class PeelerEngineBase(OpenCL_Helper):
             
             self.sparse_mask_level1 = np.any(abs_centers > sparse_threshold_mad, axis=1)
             
-            thresh = self.catalogue['sparse_thresh_level2']
-            self.sparse_mask_level2 = np.any(abs_centers > thresh, axis=1)
+            #~ thresh = self.catalogue['sparse_thresh_level2']
+            #~ self.sparse_mask_level2 = np.any(abs_centers > thresh, axis=1)
+            self.sparse_mask_level2 = self.catalogue['sparse_mask_level2']
             
             thresh = self.catalogue['peak_detector_params']['relative_threshold']
             self.sparse_mask_level3 = np.any(np.abs(centers)>thresh, axis=1)
@@ -286,8 +287,8 @@ class PeelerEngineGeneric(PeelerEngineBase):
             #~ self._plot_debug = True
         #~ else:
             #~ self._plot_debug = False
-        #~ self._plot_debug = False
-        self._plot_debug = True
+        self._plot_debug = False
+        #~ self._plot_debug = True
         
         
         if self._plot_debug:

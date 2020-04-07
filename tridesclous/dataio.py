@@ -477,6 +477,28 @@ class DataIO:
         shape = (full_shape[0], self.nb_channel(chan_grp))
         return shape
     
+    def get_duration_per_segments(self, total_duration=None):
+        duration_per_segment = []
+        
+        if total_duration is not None:
+            remain = float(total_duration)
+        
+        for seg_num in range(self.nb_segment):
+            dur = self.get_segment_length(seg_num=seg_num) / self.sample_rate
+            
+            if total_duration is None:
+                duration_per_segment.append(dur)
+            elif remain ==0:
+                duration_per_segment.append(0.)
+            elif dur <=remain:
+                duration_per_segment.append(dur)
+                remain -= dur
+            else:
+                duration_per_segment.append(remain)
+                remain = 0.
+        
+        return duration_per_segment
+    
     def get_signals_chunk(self, seg_num=0, chan_grp=0,
                 i_start=None, i_stop=None,
                 signal_type='initial'): #return_type='raw_numpy'

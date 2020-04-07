@@ -71,7 +71,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
             self.waveform_distance = np.zeros((nb_cluster), dtype='float32')
             self.waveform_distance_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance)
 
-            self.sparse_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask.astype('u1'))
+            self.sparse_mask_level1_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask_level1.astype('u1'))
 
             rms_waveform_channel = np.zeros(nb_channel, dtype='float32')
             self.rms_waveform_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=rms_waveform_channel)
@@ -213,7 +213,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
             pyopencl.enqueue_copy(self.queue,  self.one_waveform_cl, waveform)
             pyopencl.enqueue_copy(self.queue,  self.rms_waveform_channel_cl, rms_waveform_channel)
             event = self.kern_waveform_distance(self.queue,  self.cl_global_size, self.cl_local_size,
-                        self.one_waveform_cl, self.catalogue_center_cl, self.sparse_mask_cl, 
+                        self.one_waveform_cl, self.catalogue_center_cl, self.sparse_mask_level1_cl, 
                         self.rms_waveform_channel_cl, self.waveform_distance_cl)
             pyopencl.enqueue_copy(self.queue,  self.waveform_distance, self.waveform_distance_cl)
             cluster_idx = np.argmin(self.waveform_distance)

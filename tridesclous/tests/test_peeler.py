@@ -373,7 +373,7 @@ if __name__ =='__main__':
     
     test_peeler_geometry()
     
-    test_peeler_geometry_cl()
+    #~ test_peeler_geometry_cl()
     
     
     #~ test_peeler_argmin_methods()
@@ -387,6 +387,6 @@ if __name__ =='__main__':
     
     #~ debug_compare_peeler_engines()
     
-    #~ open_PeelerWindow()
+    open_PeelerWindow()
     
     #~ teardown_module()

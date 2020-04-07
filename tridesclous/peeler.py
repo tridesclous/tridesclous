@@ -161,12 +161,13 @@ class Peeler:
         
         chan_grp = self.catalogue['chan_grp']
         
+        duration_per_segment = self.dataio.get_duration_per_segments(duration)
+        #~ print(duration_per_segment)
+        
         already_processed_segs = []
         for seg_num in range(self.dataio.nb_segment):
-            if duration is not None:
-                length = int(duration*self.dataio.sample_rate)
-            else:
-                length = self.dataio.get_segment_length(seg_num)
+            length = int(duration_per_segment[seg_num]*self.dataio.sample_rate)
+            
             # check if the desired length is already computed or not
             already_processed = self.dataio.already_processed(seg_num=seg_num, chan_grp=chan_grp, length=length)
             already_processed_segs.append(already_processed)

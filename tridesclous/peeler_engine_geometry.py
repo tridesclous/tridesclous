@@ -48,7 +48,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         #~ self.high_adjacency_radius_um = high_adjacency_radius_um # for possible template around
         
         #~ self.strict_template = True
-        self.strict_template = False
+        #~ self.strict_template = False
     
     def initialize(self, **kargs):
         if self.argmin_method == 'opencl':
@@ -102,7 +102,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #~ print(kernel)
             prg = pyopencl.Program(self.ctx, kernel)
             opencl_prg = prg.build(options='-cl-mad-enable')
-            self.kern_waveform_distance = getattr(opencl_prg, 'waveform_distance')
+            self.kern_explore_templates = getattr(opencl_prg, 'explore_templates')
             self.kern_explore_shifts = getattr(opencl_prg, 'explore_shifts')
             
             # create CL buffers
@@ -117,8 +117,12 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
 
             self.catalogue_center_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=centers)
 
-            self.waveform_distance = np.zeros((nb_cluster), dtype='float32')
-            self.waveform_distance_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance)
+            self.distance_templates = np.zeros((nb_cluster), dtype='float32')
+            self.distance_templates_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.distance_templates)
+
+            self.distance_shifts = np.zeros((self.shifts.size, ), dtype='float32')
+            self.distance_shifts_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.distance_shifts)
+
 
             self.sparse_mask_level1_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask_level1.astype('u1'))
             self.sparse_mask_level2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask_level2.astype('u1'))
@@ -136,20 +140,19 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             self.cl_local_size2 = (len(self.shifts), 1) # faster a GPU because of memory access
             
             self.channel_distances_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.channel_distances)
-            self.waveform_distance_shifts = np.zeros((self.shifts.size, ), dtype='float32')
-            self.waveform_distance_shifts_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance_shifts)
             
-            self.kern_waveform_distance.set_args(
+            
+            self.kern_explore_templates.set_args(
                         self.one_waveform_cl, self.catalogue_center_cl,
                         self.sparse_mask_level3_cl,
-                        self.rms_waveform_channel_cl, self.waveform_distance_cl,  self.channel_distances_cl, 
+                        self.rms_waveform_channel_cl, self.distance_templates_cl,  self.channel_distances_cl, 
                         self.adjacency_radius_um_cl, np.int32(0))
             
             self.kern_explore_shifts.set_args(
                                         self.long_waveform_cl,
                                         self.catalogue_center_cl,
                                         self.sparse_mask_level2_cl, 
-                                        self.waveform_distance_shifts_cl,
+                                        self.distance_shifts_cl,
                                         np.int32(0))
             
             
@@ -270,20 +273,28 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         
         if self.argmin_method == 'opencl':
             #TODO remove this rms_waveform_channel no more usefull
-            rms_waveform_channel = np.sum(waveform**2, axis=0).astype('float32')
             
             pyopencl.enqueue_copy(self.queue,  self.one_waveform_cl, waveform)
-            pyopencl.enqueue_copy(self.queue,  self.rms_waveform_channel_cl, rms_waveform_channel)
-            #~ event = self.kern_waveform_distance(self.queue,  self.cl_global_size, self.cl_local_size,
+
+            self.distance_templates[:] = 0
+            event = pyopencl.enqueue_copy(self.queue,  self.distance_templates_cl, self.distance_templates)
+            self.distance_shifts[:] = 0
+            event = pyopencl.enqueue_copy(self.queue,  self.distance_shifts_cl, self.distance_shifts)
+            
+            #~ rms_waveform_channel = np.sum(waveform**2, axis=0).astype('float32')
+            #~ pyopencl.enqueue_copy(self.queue,  self.rms_waveform_channel_cl, rms_waveform_channel)
+            
+            
+            #~ event = self.kern_explore_templates(self.queue,  self.cl_global_size, self.cl_local_size,
                         #~ self.one_waveform_cl, self.catalogue_center_cl,
                         #~ self.sparse_mask_level3_cl,
-                        #~ self.rms_waveform_channel_cl, self.waveform_distance_cl,  self.channel_distances_cl, 
+                        #~ self.rms_waveform_channel_cl, self.distance_templates_cl,  self.channel_distances_cl, 
                         #~ self.adjacency_radius_um_cl, np.int32(chan_ind))
-            self.kern_waveform_distance.set_arg(7, np.int32(chan_ind))
-            event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_waveform_distance, self.cl_global_size, self.cl_local_size,)
-            pyopencl.enqueue_copy(self.queue,  self.waveform_distance, self.waveform_distance_cl)
+            self.kern_explore_templates.set_arg(7, np.int32(chan_ind))
+            event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_explore_templates, self.cl_global_size, self.cl_local_size,)
+            pyopencl.enqueue_copy(self.queue,  self.distance_templates, self.distance_templates_cl)
             
-            cluster_idx = np.argmin(self.waveform_distance)
+            cluster_idx = np.argmin(self.distance_templates)
             shift = None
             
             # TODO avoid double enqueue
@@ -294,20 +305,20 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                                         #~ self.long_waveform_cl,
                                         #~ self.catalogue_center_cl,
                                         #~ self.sparse_mask_level2_cl, 
-                                        #~ self.waveform_distance_shifts_cl,
+                                        #~ self.distance_shifts_cl,
                                         #~ np.int32(cluster_idx))
             self.kern_explore_shifts.set_arg(4, np.int32(cluster_idx))
             event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_explore_shifts, self.cl_global_size2, self.cl_local_size2,)
-            pyopencl.enqueue_copy(self.queue,  self.waveform_distance_shifts, self.waveform_distance_shifts_cl)
-            #~ shift = self.shifts[np.argmin(self.waveform_distance_shifts)]
+            pyopencl.enqueue_copy(self.queue,  self.distance_shifts, self.distance_shifts_cl)
+            #~ shift = self.shifts[np.argmin(self.distance_shifts)]
 
-            ind_min = np.argmin(self.waveform_distance_shifts)
+            ind_min = np.argmin(self.distance_shifts)
             shift = self.shifts[ind_min]
-            distance = self.waveform_distance_shifts[ind_min]
+            distance = self.distance_shifts[ind_min]
             
 
             #~ fig, ax = plt.subplots()
-            #~ ax.plot(self.shifts, self.waveform_distance_shifts, marker='o')
+            #~ ax.plot(self.shifts, self.distance_shifts, marker='o')
             #~ ax.set_title(f'{left_ind-self.n_left} {chan_ind} {shift}')
             #~ plt.show()            
             
@@ -425,12 +436,13 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         if np.abs(jitter) > (self.maximum_jitter_shift - 0.5):
             return False
         
-        if self.strict_template:
-            return slef.accept_template_sctrict(left_ind, cluster_idx, jitter)
+        #~ if self.strict_template:
+            #~ return slef.accept_template_sctrict(left_ind, cluster_idx, jitter)
         
         #~ print('distance', distance)
         
         if distance < self.distance_limit[cluster_idx]:
+        #~ if False:
             accept_template = True
             debug_d = True
         else:
@@ -634,11 +646,11 @@ inline void atomic_add_float(volatile __global float *source, const float operan
 }
 
 
-__kernel void waveform_distance(__global  float *one_waveform,
+__kernel void explore_templates(__global  float *one_waveform,
                                         __global  float *catalogue_center,
                                         __global  uchar  *sparse_mask_level3,
                                         __global  float *rms_waveform_channel,
-                                        __global  float *waveform_distance,
+                                        __global  float *distance_templates,
                                         __global  float *channel_distances,
                                         __global float * adjacency_radius_um,
                                         int chan_ind
@@ -651,13 +663,13 @@ __kernel void waveform_distance(__global  float *one_waveform,
     // the chan_ind do not overlap spatialy this cluster
     if (sparse_mask_level3[nb_channel*cluster_idx+chan_ind] == 0){
         if (c==0){
-            waveform_distance[cluster_idx] = FLT_MAX;
+            distance_templates[cluster_idx] = FLT_MAX;
         }
     }
     else {
         // candidate initialize sum by cluster
         if (c==0){
-            waveform_distance[cluster_idx] = 0.0f;
+            distance_templates[cluster_idx] = 0.0f;
         }
     }
     
@@ -685,7 +697,7 @@ __kernel void waveform_distance(__global  float *one_waveform,
             d = one_waveform[nb_channel*s+c] - catalogue_center[wf_size*cluster_idx+nb_channel*s+c];
             sum += d*d;
         }
-        atomic_add_float(&waveform_distance[cluster_idx], sum);
+        atomic_add_float(&distance_templates[cluster_idx], sum);
     }
 }
 

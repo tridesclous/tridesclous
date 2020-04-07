@@ -447,11 +447,13 @@ class MainWindow(QT.QMainWindow):
         if self.dataio is None: return
         
         #TODO find something better when several segment
-        lengths = [ self.dataio.datasource.get_segment_shape(i)[0] for i in range(self.dataio.nb_segment)]
-        max_duration = max(lengths)/self.dataio.sample_rate
+        #~ lengths = [ self.dataio.datasource.get_segment_shape(i)[0] for i in range(self.dataio.nb_segment)]
+        #~ max_duration = max(lengths)/self.dataio.sample_rate
+        
+        total_duration = sum(self.dataio.get_segment_length(seg_num=seg_num) / self.dataio.sample_rate for seg_num in range(self.dataio.nb_segment))
         
         for m in self.dialog_method_peeler.methods:
-            self.dialog_method_peeler.all_params[m]['duration'] = max_duration
+            self.dialog_method_peeler.all_params[m]['duration'] = total_duration
         
         
         #~ dia = ParamDialog(gui_params.peeler_params)
@@ -467,10 +469,12 @@ class MainWindow(QT.QMainWindow):
         #~ print('run_peeler')
         #~ print(engine)
         #~ print(d)
+        d['engine'] = engine
 
-        duration = d['duration'] if d['limit_duration'] else None
-        d.pop('limit_duration')
-        d.pop('duration')
+        #~ duration = d['duration'] if d['limit_duration'] else None
+        #~ d.pop('limit_duration')
+        duration = d.pop('duration')
+        print('duration', duration)
         
         errors = []
         for chan_grp in self.chan_grps:
@@ -487,6 +491,7 @@ Catalogue do not exists, please do:
                     errors.append(txt)
                     continue
                 
+                pprint(d)
                 peeler = Peeler(self.dataio)
                 peeler.change_params(catalogue=initial_catalogue, **d)
                 

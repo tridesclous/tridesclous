@@ -527,6 +527,8 @@ def inside_poly(data, vertices):
 
 
 def ensure_2d(feat):
+    if feat is None:
+        return None
     # ensure 2D
     if feat.shape[1] ==1:
         data = np.zeros((feat.shape[0], 2), dtype=feat.dtype)

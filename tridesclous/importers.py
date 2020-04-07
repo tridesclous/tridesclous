@@ -316,6 +316,9 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_clust
     t2 = time.perf_counter()
     print('sample_some_peaks', t2-t1)
     
+    cc.clean_peaks(alien_value_threshold=None)
+    
+    cc.extract_some_noise()
     
     cc.extract_some_features(method=params['feature_method'], **params['feature_kargs'])
     

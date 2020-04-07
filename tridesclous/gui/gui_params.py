@@ -275,7 +275,7 @@ metrics_params = [
 
 
 _common_peeler_params = [
-    {'name':'limit_duration', 'type': 'bool', 'value': False},
+    #~ {'name':'limit_duration', 'type': 'bool', 'value': False},
     {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
     {'name':'duration', 'type': 'float', 'value':60., 'suffix': 's', 'siPrefix': True},
     
