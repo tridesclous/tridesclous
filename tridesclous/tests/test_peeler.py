@@ -74,8 +74,8 @@ def test_peeler_geometry():
                                 chunksize=1024,
                                 use_sparse_template=True,
                                 sparse_threshold_mad=1.5,
-                                #~ argmin_method='numba')
-                                argmin_method='opencl')
+                                argmin_method='numba')
+                                #~ argmin_method='opencl')
                                 
                                 
 
@@ -387,6 +387,6 @@ if __name__ =='__main__':
     
     #~ debug_compare_peeler_engines()
     
-    open_PeelerWindow()
+    #~ open_PeelerWindow()
     
     #~ teardown_module()

@@ -60,7 +60,7 @@ def numba_explore_shifts(long_waveform, one_center,  one_mask, maximum_jitter_sh
     
     all_dist = np.zeros((n, ), dtype=np.float32)
     
-    for shift in range(n):
+    for shift in prange(n):
         sum = 0
         for c in range(nb_chan):
             if one_mask[c]:
