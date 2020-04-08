@@ -74,6 +74,8 @@ def test_peeler_geometry():
                                 chunksize=1024,
                                 use_sparse_template=True,
                                 sparse_threshold_mad=1.5,
+                                #~ inter_sample_oversampling=False,
+                                inter_sample_oversampling=True,
                                 argmin_method='numba')
                                 #~ argmin_method='opencl')
                                 
@@ -373,7 +375,7 @@ if __name__ =='__main__':
     
     test_peeler_geometry()
     
-    #~ test_peeler_geometry_cl()
+    test_peeler_geometry_cl()
     
     
     #~ test_peeler_argmin_methods()

@@ -380,10 +380,10 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #~ cluster_idx = possibles_cluster_idx[cluster_idx]
             #~ shift = shifts[shift_ind]
             
-            if self._plot_debug:
-                fig, ax = plt.subplots()
-                ax.plot(self.shifts, all_dist, marker='o')
-                ax.set_title(f'{left_ind-self.n_left} {chan_ind} {shift}')
+            #~ if self._plot_debug:
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(self.shifts, all_dist, marker='o')
+                #~ ax.set_title(f'{left_ind-self.n_left} {chan_ind} {shift}')
         
         #~ elif self.argmin_method == 'numpy':
             # replace by this (indentique but faster, a but)

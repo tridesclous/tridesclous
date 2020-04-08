@@ -292,8 +292,12 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                                                         self.best_distance_cl,
                                                         )
 
-
-
+        self.kern_remove_spike_from_fifo = getattr(self.opencl_prg, 'remove_spike_from_fifo')
+        self.kern_remove_spike_from_fifo.set_args(self.fifo_residuals_cl,
+                                                        self.next_spike_cl,
+                                                        self.catalogue_center0_cl,
+                                                        self.catalogue_inter_center0_cl,
+                                                        )
 
         self.kern_reset_tested_zone = getattr(self.opencl_prg, 'reset_tested_zone')
         self.kern_reset_tested_zone.set_args(
@@ -472,15 +476,26 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         #~ print('enqueue_copy',( t1-t0)*1000)        
         #~ print(' self.next_spike',  self.next_spike)
         
+        if self.next_spike[0]['cluster_idx'] >= 0:
+            global_size = (self.peak_width, )
+            local_size = (self.peak_width, )
+            t0 = time.perf_counter()
+            event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_remove_spike_from_fifo, global_size, local_size,)
+        #~ event.wait()
+        #~ t1 = time.perf_counter()
+        #~ print('kern_remove_spike_from_fifo',( t1-t0)*1000)        
+        
         
         
         if self._plot_debug:
+        #~ if True:
             event = pyopencl.enqueue_copy(self.queue,  self.next_peak, self.next_peak_cl)
             event = pyopencl.enqueue_copy(self.queue,  self.best_distance, self.best_distance_cl)
             event.wait()
             print(self.next_peak)
             print(self.next_spike)
-            print('self.best_distance', self.best_distance, self.distance_limit)
+            #~ print('self.best_distance', self.best_distance, self.distance_limit)
+            print()
         
         #~ exit()
         
@@ -893,8 +908,11 @@ __kernel void select_next_peak(
             next_spike->cluster_idx = LABEL_LEFT_LIMIT;
             next_spike->jitter = 0.0f;
         } else if (n_cluster==0){
+            next_spike->peak_index = peak.peak_index;
             next_spike->cluster_idx  = LABEL_UNCLASSIFIED;
+            next_spike->jitter = 0.0f;
         }else {
+            next_spike->peak_index = peak.peak_index;
             next_spike->cluster_idx = LABEL_NOT_YET;
             if (alien_value_threshold>0.0f){
                 for (int s=0; s<peak_width; ++s){
@@ -1073,9 +1091,8 @@ __kernel void explore_templates(__global  float *fifo_residuals,
         
         peak = *next_peak;
         
-        left_ind = peak.peak_index + n_left;
+        left_ind = spike.peak_index + n_left;
     
-
         // initialize distance
         //parralel on cluster_idx
         if (chan==0){
@@ -1149,15 +1166,18 @@ __kernel void explore_shifts(__global  float *fifo_residuals,
     if (shift_ind>=nb_shift){return;}
     if (chan>=nb_channel){return;}
     
+    int left_ind;
     
     st_spike spike;
     spike = *next_spike;
     
     if (spike.cluster_idx>=0) {
-        st_peak peak;
-        peak = *next_peak;
+        //st_peak peak;
+        //peak = *next_peak;
         
-        int left_ind = peak.peak_index + n_left;
+        //left_ind = peak.peak_index + n_left;
+        left_ind = spike.peak_index + n_left;
+        
         
         // can be LABEL_UNCLASSIFIED when no cluster
         // have sparse mask on channel
@@ -1218,15 +1238,16 @@ __kernel void best_shift_and_jitter(
     spike = *next_spike;
     
     int n;
+    int left_ind;
     
     if (spike.cluster_idx>=0) {
         
         st_peak peak;
-        int left_ind;
+        
 
         
         peak = *next_peak;
-        left_ind = peak.peak_index + n_left;
+        left_ind = spike.peak_index + n_left;
 
         int shift = 0;
         // argmin for shifts
@@ -1280,8 +1301,8 @@ __kernel void best_shift_and_jitter(
             jitter = 0.0f;
         }
         spike.jitter = jitter;
+        spike.peak_index = left_ind - n_left;
         
-        //
         *next_spike = spike ;
     }
     
@@ -1321,13 +1342,12 @@ __kernel void finalize_next_spike(
     st_spike spike;
     spike = *next_spike;
     
+    int left_ind;
+    
     if (spike.cluster_idx>=0) {
 
-        int left_ind;
-        st_peak peak;
         
-        peak = *next_peak;
-        left_ind = peak.peak_index + n_left;    
+        left_ind = spike.peak_index + n_left;    
         
         int ok;
         // accept template
@@ -1341,93 +1361,145 @@ __kernel void finalize_next_spike(
             spike.cluster_idx = LABEL_UNCLASSIFIED;
         }
         
-        // second security check for borders
-        if ((spike.cluster_idx >= 0) && inter_sample_oversampling){
-            int left_ind_check;
-            left_ind_check = left_ind - ((int) round(spike.jitter));
-            if (left_ind_check < 0){
-                spike.cluster_idx = LABEL_LEFT_LIMIT;
-            } else if ((left_ind_check+peak_width) >= fifo_size){
-                spike.cluster_idx = LABEL_RIGHT_LIMIT;
-            }
+
+    }
+
+    // second security check for borders
+    if ((spike.cluster_idx >= 0) && inter_sample_oversampling){
+        int left_ind_check;
+        left_ind_check = left_ind - ((int) round(spike.jitter));
+        if (left_ind_check < 0){
+            spike.cluster_idx = LABEL_LEFT_LIMIT;
+        } else if ((left_ind_check+peak_width) >= fifo_size){
+            spike.cluster_idx = LABEL_RIGHT_LIMIT;
         }
+    }    
+    
+    // final
+    if (spike.cluster_idx < 0){
+        st_peak peak;
+        peak = *next_peak;
+        spike.peak_index = peak.peak_index;
         
+        // set already tested
+        mask_already_tested[peak.peak_index * nb_channel + peak.peak_chan] =1;
         
-        
-        // final
-        if (spike.cluster_idx < 0){
-            spike.peak_index = peak.peak_index;
-            
-            // set already tested
-            mask_already_tested[peak.peak_index * nb_channel + peak.peak_chan] =1;
-            
-        } else{
+    } else{
+        if (inter_sample_oversampling){
             int shift;
             shift = - ((int) round(spike.jitter));
             if (shift !=0){
                 spike.jitter +=  shift;
                 left_ind += shift;
+                spike.peak_index = left_ind - n_left;
             }
-            spike.peak_index = left_ind - n_left;
-            
-            // on_accepted_spike
-            int int_jitter;
-            
-            // remove prediction from residual
-            int_jitter = (int) ((spike.jitter) * subsample_ratio) + (subsample_ratio / 2 );
-            //float v;
-            for (int s=0; s<peak_width; ++s){
-                for (int c=0; c<nb_channel; ++c){
-                    fifo_residuals[(left_ind+s)*nb_channel + c] -= catalogue_inter_center0[subsample_ratio*wf_size*spike.cluster_idx + nb_channel*(s*subsample_ratio+int_jitter) + c];
-                    //v = -catalogue_inter_center0[subsample_ratio*wf_size*spike.cluster_idx + nb_channel*(s*subsample_ratio+int_jitter) + c];
-                    //atomic_add_float(&fifo_residuals[(left_ind+s)*nb_channel + c], v);
+         }
+        
+        
+        // on_accepted_spike
+        int int_jitter;
+        
+        // remove prediction from residual
+        //int_jitter = (int) ((spike.jitter) * subsample_ratio) + (subsample_ratio / 2 );
+        //float v;
+        //for (int s=0; s<peak_width; ++s){
+        //    for (int c=0; c<nb_channel; ++c){
+        //        fifo_residuals[(left_ind+s)*nb_channel + c] -= catalogue_inter_center0[subsample_ratio*wf_size*spike.cluster_idx + nb_channel*(s*subsample_ratio+int_jitter) + c];
+        //        //v = -catalogue_inter_center0[subsample_ratio*wf_size*spike.cluster_idx + nb_channel*(s*subsample_ratio+int_jitter) + c];
+        //        //atomic_add_float(&fifo_residuals[(left_ind+s)*nb_channel + c], v);
+        //    }
+        //}
+        
+        // set_already_tested_spike_zone = remove spike in zone in pendings peaks
+        int n;
+        n = *nb_pending_peaks;
+        for (int i=0; i<n; i++){
+            if (pending_peaks[i].peak_value > 0.0){
+                if (
+                        (pending_peaks[i].peak_index  > (spike.peak_index+ n_left)) && 
+                        (pending_peaks[i].peak_index < (spike.peak_index+ n_right)) && 
+                        (sparse_mask_level1[spike.cluster_idx * nb_channel + pending_peaks[i].peak_chan] == 1) ){
+                    pending_peaks[i].peak_value = 0;
                 }
             }
-            
-            // set_already_tested_spike_zone = remove spike in zone in pendings peaks
-            int n;
-            n = *nb_pending_peaks;
-            for (int i=0; i<n; i++){
-                if (pending_peaks[i].peak_value > 0.0){
-                    if (
-                            (pending_peaks[i].peak_index  > (spike.peak_index+ n_left)) && 
-                            (pending_peaks[i].peak_index < (spike.peak_index+ n_right)) && 
-                            (sparse_mask_level1[spike.cluster_idx * nb_channel + pending_peaks[i].peak_chan] == 1) ){
-                        pending_peaks[i].peak_value = 0;
-                    }
-                }
-            }
-            
-            //add spike to good_spike stack
-            good_spikes[*nb_good_spikes] = spike;
-            *nb_good_spikes = *nb_good_spikes + 1;
-            
-            
         }
         
-        *next_spike = spike ;
+        //add spike to good_spike stack
+        good_spikes[*nb_good_spikes] = spike;
+        *nb_good_spikes = *nb_good_spikes + 1;
+        
+        
     }
+    
+    *next_spike = spike ;
+    
 
 }
+
+__kernel void remove_spike_from_fifo(
+                                            __global  float *fifo_residuals,
+                                            __global st_spike *next_spike,
+                                            __global  float *catalogue_center0,
+                                            __global  float *catalogue_inter_center0
+                                            ){
+                                            
+    
+    int s = get_global_id(0);
+    
+    if (s>=peak_width){
+        return;
+    }
+    
+    
+    st_spike spike;
+    spike = *next_spike;
+    int left_ind;
+    left_ind = spike.peak_index + n_left;
+    
+    // on_accepted_spike
+    float v;
+    
+    if (inter_sample_oversampling){
+        int int_jitter;
+        
+        int_jitter = (int) ((spike.jitter) * subsample_ratio) + (subsample_ratio / 2 );
+        
+        for (int c=0; c<nb_channel; ++c){
+            v = catalogue_inter_center0[subsample_ratio*wf_size*spike.cluster_idx + nb_channel*(s*subsample_ratio+int_jitter) + c];
+            fifo_residuals[(left_ind+s)*nb_channel + c] -= v;
+        }
+    } else{
+        for (int c=0; c<nb_channel; ++c){
+            v = catalogue_center0[wf_size*spike.cluster_idx + nb_channel*s + c];
+            fifo_residuals[(left_ind+s)*nb_channel + c] -= v;
+        }
+    }
+
+    
+    
+}
+
 
 
 __kernel void reset_tested_zone(__global  uchar *mask_already_tested,
                 __global st_spike *good_spikes,
                 __global int *nb_good_spikes,
-                __global uchar *sparse_mask
+                __global uchar *sparse_mask_level1
                 ){
     
     int n = get_global_id(0);
     
+    st_spike spike = good_spikes[n];
+    
     // reset tested zone around each spike
     for (int c=0; c<nb_channel; ++c){
-        if (sparse_mask[good_spikes[n].cluster_idx * nb_channel + c]==1){
+        if (sparse_mask_level1[spike.cluster_idx * nb_channel + c]==1){
             
             
             //for (int s=-peak_width; s<=peak_width; ++s){
             // TODO study this case 
             for (int s=n_left; s<=n_right; ++s){
-                mask_already_tested[(good_spikes[n].peak_index + s) * nb_channel + c] = 0;
+                mask_already_tested[(spike.peak_index + s) * nb_channel + c] = 0;
             }
         }
     }
