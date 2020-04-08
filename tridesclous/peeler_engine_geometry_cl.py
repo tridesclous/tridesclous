@@ -1397,18 +1397,6 @@ __kernel void finalize_next_spike(
         
         
         // on_accepted_spike
-        int int_jitter;
-        
-        // remove prediction from residual
-        //int_jitter = (int) ((spike.jitter) * subsample_ratio) + (subsample_ratio / 2 );
-        //float v;
-        //for (int s=0; s<peak_width; ++s){
-        //    for (int c=0; c<nb_channel; ++c){
-        //        fifo_residuals[(left_ind+s)*nb_channel + c] -= catalogue_inter_center0[subsample_ratio*wf_size*spike.cluster_idx + nb_channel*(s*subsample_ratio+int_jitter) + c];
-        //        //v = -catalogue_inter_center0[subsample_ratio*wf_size*spike.cluster_idx + nb_channel*(s*subsample_ratio+int_jitter) + c];
-        //        //atomic_add_float(&fifo_residuals[(left_ind+s)*nb_channel + c], v);
-        //    }
-        //}
         
         // set_already_tested_spike_zone = remove spike in zone in pendings peaks
         int n;
