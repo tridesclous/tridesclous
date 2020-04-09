@@ -1905,18 +1905,22 @@ class CatalogueConstructor:
             #~ oversampled_center = f(subsample, np.arange(center0.shape[1]))
             
             #find max  channel for each cluster for peak alignement
-            ind_max = np.argmax(np.abs(oversampled_center[(-n_left - 1)*subsample_ratio:(-n_left + 1)*subsample_ratio, extremum_channel]))
-            ind_max += (-n_left - 1)*subsample_ratio
-            i1 = int(ind_max + (n_left+1.5) * subsample_ratio)
+            #~ ind_max = np.argmax(np.abs(oversampled_center[(-n_left + 1)*subsample_ratio:(-n_left + 3)*subsample_ratio, extremum_channel]))
+            #~ print(oversampled_center[2:-2, :].shape)
+            #~ print(oversampled_center[2:-2, :][:, extremum_channel].shape)
+            #~ print(oversampled_center[2:-2, :][:, extremum_channel][(-n_left - 1)*subsample_ratio:(-n_left + 1)*subsample_ratio].shape)
+            ind_max = np.argmax(np.abs(oversampled_center[(-n_left + 1)*subsample_ratio:(-n_left + 3)*subsample_ratio, extremum_channel]))
+            ind_max += (-n_left +1)*subsample_ratio
+            i1 = int(ind_max + (n_left-0.5) * subsample_ratio)
             i2 = i1 + subsample_ratio*catalogue_width
             interp_centers0[i, :, :] = oversampled_center[i1:i2, :]
             
             #~ fig, ax = plt.subplots()
-            #~ ax.plot(np.arange(full_width-4) + 2, center0[2:-2, extremum_channel], color='b', marker='o')
+            #~ ax.plot(np.arange(catalogue_width) + 2, center0[:, extremum_channel], color='b', marker='o')
             #~ ax.plot(subsample_time,oversampled_center[:, extremum_channel], color='c')
-            #~ ax.axvspan(subsample_time[(-n_left - 1)*subsample_ratio], subsample_time[(-n_left + 1)*subsample_ratio], alpha=.2, color='g')
+            #~ ax.axvspan(subsample_time[(-n_left +1)*subsample_ratio], subsample_time[(-n_left + 3)*subsample_ratio], alpha=.2, color='g')
             #~ ax.axvline(subsample_time[ind_max], color='g')
-            #~ ax.axvline(subsample_time[-n_left*subsample_ratio], color='g')
+            #~ ax.axvline(subsample_time[(-n_left+2)*subsample_ratio], color='c')
             #~ sl = slice(i1, i2)
             #~ ax.plot(subsample_time[sl],oversampled_center[:, extremum_channel][sl], color='r', ls='--')
             #~ plt.show()

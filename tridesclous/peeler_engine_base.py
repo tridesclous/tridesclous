@@ -301,8 +301,12 @@ class PeelerEngineGeneric(PeelerEngineBase):
         to_local_shift = abs_head_index - self.fifo_size
         
         
-        
+        #~ t1 = time.perf_counter()
         self.detect_local_peaks_before_peeling_loop()
+        #~ t2 = time.perf_counter()
+        #~ print()
+        #~ print('  detect_local_peaks_before_peeling_loop', (t2-t1)*1000)
+        
         #~ self._debug_nb_accept_tempate = 0
         
         good_spikes = []
@@ -322,7 +326,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
             
             # loop : one more peeler level
             while True: 
-                t1 = time.perf_counter()
+                #~ t1 = time.perf_counter()
                 spike = self.classify_and_align_next_spike()
                 #~ t2 = time.perf_counter()
                 #~ print('  classify_and_align_next_spike', (t2-t1)*1000, spike)
@@ -347,7 +351,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
                 #~ t1 = time.perf_counter()
                 self.reset_to_not_tested(good_spikes[-nb_good_spike:])
                 #~ t2 = time.perf_counter()
-                #~ print('Reset_to_not_tested', (t2-t1)*1000)
+                #~ print('  reset_to_not_tested', (t2-t1)*1000)
             
             if self._plot_debug:
                 self._plot_after_inner_peeling_loop()

@@ -472,6 +472,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
         t0 = time.perf_counter()
         event = pyopencl.enqueue_copy(self.queue,  self.next_spike, self.next_spike_cl)
+        event.wait()
         #~ t1 = time.perf_counter()
         #~ print('enqueue_copy',( t1-t0)*1000)        
         #~ print(' self.next_spike',  self.next_spike)
@@ -481,9 +482,9 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             local_size = (self.peak_width, )
             t0 = time.perf_counter()
             event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_remove_spike_from_fifo, global_size, local_size,)
-        #~ event.wait()
-        #~ t1 = time.perf_counter()
-        #~ print('kern_remove_spike_from_fifo',( t1-t0)*1000)        
+            #~ event.wait()
+            #~ t1 = time.perf_counter()
+            #~ print('kern_remove_spike_from_fifo',( t1-t0)*1000)        
         
         
         
@@ -492,10 +493,10 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             event = pyopencl.enqueue_copy(self.queue,  self.next_peak, self.next_peak_cl)
             event = pyopencl.enqueue_copy(self.queue,  self.best_distance, self.best_distance_cl)
             event.wait()
-            print(self.next_peak)
-            print(self.next_spike)
+            #~ print(self.next_peak)
+            #~ print(self.next_spike)
             #~ print('self.best_distance', self.best_distance, self.distance_limit)
-            print()
+            #~ print()
         
         #~ exit()
         
@@ -1204,8 +1205,6 @@ __kernel void explore_shifts(__global  float *fifo_residuals,
     }
 }
 
-    
-    
 
 __kernel void best_shift_and_jitter(
                                             __global  float *fifo_residuals,
@@ -1237,7 +1236,6 @@ __kernel void best_shift_and_jitter(
     st_spike spike;
     spike = *next_spike;
     
-    int n;
     int left_ind;
     
     if (spike.cluster_idx>=0) {
@@ -1252,8 +1250,7 @@ __kernel void best_shift_and_jitter(
         int shift = 0;
         // argmin for shifts
         float min_dist = MAXFLOAT;
-        n = 2 * maximum_jitter_shift + 1;
-        for (int shift_ind=0; shift_ind<n; ++shift_ind){
+        for (int shift_ind=0; shift_ind<nb_shift; ++shift_ind){
             if (distance_shifts[shift_ind]<min_dist){
                 shift = shift_ind - maximum_jitter_shift;
                 min_dist = distance_shifts[shift_ind];
