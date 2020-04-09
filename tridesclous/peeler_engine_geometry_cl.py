@@ -202,7 +202,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
         
         if self.alien_value_threshold is None:
-            alien_value_threshold = np.float32(0)
+            alien_value_threshold = np.float32(-1.)
         else:
             alien_value_threshold = np.float32(self.alien_value_threshold)
         #~ print('alien_value_threshold', alien_value_threshold)
@@ -423,6 +423,12 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         #~ t1 = time.perf_counter()
         #~ print('kern_select_next_peak',( t1-t0)*1000)
         
+        #~ if True:
+            #~ event = pyopencl.enqueue_copy(self.queue,  self.nb_pending_peaks, self.nb_pending_peaks_cl)
+            #~ event = pyopencl.enqueue_copy(self.queue,  self.pending_peaks, self.pending_peaks_cl)
+            #~ nb = self.nb_pending_peaks[0]
+            #~ print(self.pending_peaks[:nb])
+        
         global_size = (self.nb_cluster, self.nb_channel)
         #~ local_size = (1, self.nb_channel)
         local_size = (self.nb_cluster, 1)   ####  commes gemotrical
@@ -473,6 +479,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         t0 = time.perf_counter()
         event = pyopencl.enqueue_copy(self.queue,  self.next_spike, self.next_spike_cl)
         event.wait()
+        
         #~ t1 = time.perf_counter()
         #~ print('enqueue_copy',( t1-t0)*1000)        
         #~ print(' self.next_spike',  self.next_spike)
@@ -493,10 +500,10 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             event = pyopencl.enqueue_copy(self.queue,  self.next_peak, self.next_peak_cl)
             event = pyopencl.enqueue_copy(self.queue,  self.best_distance, self.best_distance_cl)
             event.wait()
-            #~ print(self.next_peak)
-            #~ print(self.next_spike)
+            print(self.next_peak)
+            print(self.next_spike)
             #~ print('self.best_distance', self.best_distance, self.distance_limit)
-            #~ print()
+            print()
         
         #~ exit()
         
@@ -867,6 +874,9 @@ __kernel void select_next_peak(
                         ){
     
     // take max amplitude
+
+    st_spike spike;
+    st_peak peak;
     
     int i_peak = -1;
     float best_value = 0.0;
@@ -880,13 +890,14 @@ __kernel void select_next_peak(
     }
     
     if (i_peak == -1){
-        next_peak->peak_index = LABEL_NO_MORE_PEAK;
-        next_peak->peak_chan = -1;
-        next_peak->peak_value = 0.0;
+        peak.peak_index = LABEL_NO_MORE_PEAK;
+        peak.peak_chan = -1;
+        peak.peak_value = 0.0;
+        *next_peak = peak;
         
-        next_spike->peak_index = LABEL_NO_MORE_PEAK;
-        next_spike->cluster_idx = LABEL_NO_MORE_PEAK;
-        next_spike->jitter = 0.0f;
+        spike.peak_index = LABEL_NO_MORE_PEAK;
+        spike.cluster_idx = LABEL_NO_MORE_PEAK;
+        spike.jitter = 0.0f;
     }else{
         
         st_peak peak;
@@ -901,31 +912,35 @@ __kernel void select_next_peak(
         int left_ind = peak.peak_index + n_left;
         
         if (left_ind+peak_width+maximum_jitter_shift+1>=fifo_size){
-            next_spike->peak_index = peak.peak_index;
-            next_spike->cluster_idx = LABEL_RIGHT_LIMIT;
-            next_spike->jitter = 0.0f;
+            spike.peak_index = peak.peak_index;
+            spike.cluster_idx = LABEL_RIGHT_LIMIT;
+            spike.jitter = 0.0f;
         } else if (left_ind<=maximum_jitter_shift){
-            next_spike->peak_index = peak.peak_index;
-            next_spike->cluster_idx = LABEL_LEFT_LIMIT;
-            next_spike->jitter = 0.0f;
+            spike.peak_index = peak.peak_index;
+            spike.cluster_idx = LABEL_LEFT_LIMIT;
+            spike.jitter = 0.0f;
         } else if (n_cluster==0){
-            next_spike->peak_index = peak.peak_index;
-            next_spike->cluster_idx  = LABEL_UNCLASSIFIED;
-            next_spike->jitter = 0.0f;
+            spike.peak_index = peak.peak_index;
+            spike.cluster_idx  = LABEL_UNCLASSIFIED;
+            spike.jitter = 0.0f;
         }else {
-            next_spike->peak_index = peak.peak_index;
-            next_spike->cluster_idx = LABEL_NOT_YET;
+            spike.peak_index = peak.peak_index;
+            spike.cluster_idx = LABEL_NOT_YET;
+            spike.jitter = 0.0f;
             if (alien_value_threshold>0.0f){
                 for (int s=0; s<peak_width; ++s){
                     if ((fifo_residuals[(left_ind+s)*nb_channel + peak.peak_chan]>alien_value_threshold) || (fifo_residuals[(left_ind+s)*nb_channel + peak.peak_chan]<-alien_value_threshold)){
-                        next_spike->cluster_idx = LABEL_ALIEN;
-                        next_spike->jitter = 0.0f;
-                        next_spike->peak_index = peak.peak_index;
+                        spike.cluster_idx = LABEL_ALIEN;
                     }
                 }
             }
         }    
     }
+    
+    *next_spike = spike;
+    
+    
+    
 }
 
 

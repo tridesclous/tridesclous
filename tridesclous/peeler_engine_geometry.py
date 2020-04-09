@@ -486,6 +486,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         #~ if not accept_template:
         #~ if True:
         if False:
+        #~ if label == 6 and not accept_template:
         #~ nears = np.array([ 5813767,  5813767, 11200038, 11322540, 14989650, 14989673, 14989692, 14989710, 15119220, 15830377, 16138346, 16216666, 17078883])
         #~ print(np.abs((left_ind - self.n_left) - nears))
         #~ print(np.abs((left_ind - self.n_left) - nears) < 2)
