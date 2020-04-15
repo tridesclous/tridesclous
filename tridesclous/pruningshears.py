@@ -139,15 +139,15 @@ class PruningShears:
         self.log('explore_split_loop', t1-t0)
         
         
-        t0 = time.perf_counter()
-        cluster_labels = self.try_oversplit(cluster_labels)
-        t1 = time.perf_counter()
-        self.log('try_oversplit', t1-t0)
+        #~ t0 = time.perf_counter()
+        #~ cluster_labels = self.try_oversplit(cluster_labels)
+        #~ t1 = time.perf_counter()
+        #~ self.log('try_oversplit', t1-t0)
         
-        t0 = time.perf_counter()
-        cluster_labels = self.merge_and_clean(cluster_labels)
-        t1 = time.perf_counter()
-        self.log('merge_and_clean', t1-t0)
+        #~ t0 = time.perf_counter()
+        #~ cluster_labels = self.merge_and_clean(cluster_labels)
+        #~ t1 = time.perf_counter()
+        #~ self.log('merge_and_clean', t1-t0)
         
         return cluster_labels
     
@@ -949,7 +949,11 @@ class PruningShears:
                 
             wf_flat = waveforms.swapaxes(1,2).reshape(waveforms.shape[0], -1)
 
-            pca =  sklearn.decomposition.IncrementalPCA(n_components=self.n_components_local_pca, whiten=True)
+            #~ pca =  sklearn.decomposition.IncrementalPCA(n_components=self.n_components_local_pca, whiten=True)
+            
+            n_components = min(wf_flat.shape[1]-1, self.n_components_local_pca)
+            pca =  sklearn.decomposition.TruncatedSVD(n_components=n_components)
+            
             
             feats = pca.fit_transform(wf_flat)
             pval = diptest(np.sort(feats[:, 0]), numt=200)

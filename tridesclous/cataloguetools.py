@@ -117,6 +117,19 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     if verbose:
         print('find_clusters', t2-t1)
     
+    t1 = time.perf_counter()
+    cc.auto_split_cluster()
+    t2 = time.perf_counter()
+    if verbose:
+        print('auto_split_cluster', t2-t1)
+    
+    t1 = time.perf_counter()
+    cc.auto_merge_cluster()
+    t2 = time.perf_counter()
+    if verbose:
+        print('auto_merge_cluster', t2-t1)
+    
+    
     if params['clean_cluster']:
         t1 = time.perf_counter()
         cc.clean_cluster(**params['clean_cluster_kargs'])
@@ -208,6 +221,11 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
     params['chunksize'] = int(dataio.sample_rate * 0.1)
     
     params['duration'] = 601.
+
+
+
+    params['clean_cluster'] = True
+    params['clean_cluster_kargs'] = {'too_small' : 10 }
     
     # segment durartion is not so big then take the whole duration
     # to avoid double preprocessing (catalogue+peeler)
@@ -268,8 +286,6 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['cluster_kargs']['high_adjacency_radius_um'] = 0.
         
 
-        params['clean_cluster'] = True
-        params['clean_cluster_kargs'] = {'too_small' : 20 }
         
 
     else:

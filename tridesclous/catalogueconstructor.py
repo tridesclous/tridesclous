@@ -24,6 +24,7 @@ import seaborn as sns
 sns.set_style("white")
 
 import sklearn
+import sklearn.metrics
 
 from . import signalpreprocessor
 from . import  peakdetector
@@ -32,6 +33,7 @@ from . import cluster
 from . import metrics
 
 from .tools import median_mad, get_pairs_over_threshold, int32_to_rgba, rgba_to_int32, make_color_dict
+from . import cleancluster
 
 
 from .iotools import ArrayCollection
@@ -204,7 +206,8 @@ class CatalogueConstructor:
         self.chan_grp = chan_grp
         self.nb_channel = self.dataio.nb_channel(chan_grp=self.chan_grp)
         self.geometry = self.dataio.get_geometry(chan_grp=self.chan_grp)
-        
+
+        self.channel_distances = sklearn.metrics.pairwise.euclidean_distances(self.geometry)
         
         self.catalogue_path = os.path.join(self.dataio.channel_group_path[chan_grp], name)
         
@@ -1541,6 +1544,12 @@ class CatalogueConstructor:
         mask = self.all_peaks['cluster_label']==label
         self.find_clusters(method=method, selection=mask, **kargs)
     
+    def auto_split_cluster(self):
+        cleancluster.auto_split(self, max_per_cluster=_default_max_per_cluster)
+    
+    def auto_merge_cluster(self):
+        cleancluster.auto_merge(self, max_per_cluster=_default_max_per_cluster)
+    
     def trash_small_cluster(self, n=10):
         to_remove = []
         for k in list(self.cluster_labels):
@@ -1550,6 +1559,10 @@ class CatalogueConstructor:
                 to_remove.append(k)
         
         self.pop_labels_from_cluster(to_remove)
+
+    def clean_cluster(self, too_small=10):
+        self.trash_small_cluster(n=too_small)
+
 
     #~ def compute_spike_waveforms_similarity(self, method='cosine_similarity', size_max = 1e7):
         #~ """This compute the similarity spike by spike.
@@ -1668,8 +1681,6 @@ class CatalogueConstructor:
         return pairs
     
     
-    def clean_cluster(self, too_small=10):
-        self.trash_small_cluster(n=too_small)
     
     def compute_spike_silhouette(self, size_max=1e7):
         #~ t1 = time.perf_counter()

@@ -1405,12 +1405,13 @@ __kernel void finalize_next_spike(
                 left_ind += shift;
                 spike.peak_index = left_ind - n_left;
             }
-         }
+        }
         
         
         // on_accepted_spike
         
         // set_already_tested_spike_zone = remove spike in zone in pendings peaks
+        // peaks will be tested after new peak detection in further loop
         int n;
         n = *nb_pending_peaks;
         for (int i=0; i<n; i++){

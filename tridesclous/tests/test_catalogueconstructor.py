@@ -140,9 +140,17 @@ def test_catalogue_constructor():
                 print('find_clusters', t2-t1)
             
             print(cc)
+        
+        t1 = time.perf_counter()
+        cc.auto_split_cluster()
+        t2 = time.perf_counter()
+        print('auto_split_cluster', t2-t1)
 
-            
-            
+        t1 = time.perf_counter()
+        cc.auto_merge_cluster()
+        t2 = time.perf_counter()
+        print('auto_merge_cluster', t2-t1)
+        
             # similarity
             #~ cc.compute_centroid()
             #~ similarity, cluster_labels = cc.compute_similarity()
@@ -306,11 +314,11 @@ def test_feature_with_lda_selection():
     print(cc.some_features)
     
 if __name__ == '__main__':
-    #~ test_catalogue_constructor()
+    test_catalogue_constructor()
     
     #~ compare_nb_waveforms()
     
-    test_make_catalogue()
+    #~ test_make_catalogue()
     #~ test_ratio_amplitude()
     
     #~ test_create_savepoint_catalogue_constructor()
