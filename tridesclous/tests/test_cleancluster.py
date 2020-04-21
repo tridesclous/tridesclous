@@ -58,7 +58,10 @@ def test_auto_split():
     
     cc.create_savepoint(name='after_auto_split')
 
-def test_auto_merge():
+
+
+
+def test_trash_not_aligned():
     dirname = 'test_cleancluster'
     
     restore_savepoint(dirname, savepoint='after_auto_split')
@@ -67,10 +70,62 @@ def test_auto_merge():
     cc = CatalogueConstructor(dataio=dataio)
     
     t1 = time.perf_counter()
+    cc.trash_not_aligned()
+    t2 = time.perf_counter()
+    print('trash_not_aligned', t2-t1)
+    
+    cc.create_savepoint(name='after_trash_not_aligned')
+
+
+def test_auto_merge():
+    dirname = 'test_cleancluster'
+    
+    restore_savepoint(dirname, savepoint='after_trash_not_aligned')
+    
+    dataio = DataIO(dirname=dirname)
+    cc = CatalogueConstructor(dataio=dataio)
+    
+    t1 = time.perf_counter()
     cc.auto_merge_cluster()
     t2 = time.perf_counter()
     print('auto_merge_cluster', t2-t1)
+    
+    cc.create_savepoint(name='after_auto_merge_cluster')
 
+
+
+
+def test_trash_low_extremum():
+    dirname = 'test_cleancluster'
+    
+    restore_savepoint(dirname, savepoint='after_auto_merge_cluster')
+    
+    dataio = DataIO(dirname=dirname)
+    cc = CatalogueConstructor(dataio=dataio)
+    
+    print(cc)
+    
+    t1 = time.perf_counter()
+    cc.trash_low_extremum()
+    t2 = time.perf_counter()
+    print('trash_low_extremum', t2-t1)
+    
+    cc.create_savepoint(name='after_trash_low_extremum')
+    print(cc)
+
+
+def test_trash_small_cluster():
+    dirname = 'test_cleancluster'
+    
+    restore_savepoint(dirname, savepoint='after_trash_low_extremum')
+    
+    dataio = DataIO(dirname=dirname)
+    cc = CatalogueConstructor(dataio=dataio)
+    
+    t1 = time.perf_counter()
+    cc.trash_small_cluster()
+    t2 = time.perf_counter()
+    print('trash_small_cluster', t2-t1)
 
 
     
@@ -78,7 +133,10 @@ def test_auto_merge():
     
 if __name__ == '__main__':
     #~ setup_module()
-    test_auto_split()
-    #~ test_auto_merge()
+    #~ test_auto_split()
+    #~ test_trash_not_aligned()
+    test_auto_merge()
+    #~ test_trash_low_extremum()
+    #~ test_trash_small_cluster()
     
     

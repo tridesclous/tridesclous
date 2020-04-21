@@ -97,7 +97,6 @@ def _compute_one_dip_test(dirname, chan_grp, label, n_components_local_pca, adja
     n_components = min(wf_flat.shape[1]-1, n_components_local_pca)
     pca =  sklearn.decomposition.TruncatedSVD(n_components=n_components)
     
-    
     feats = pca.fit_transform(wf_flat)
     pval = diptest(np.sort(feats[:, 0]), numt=200)
     
@@ -113,7 +112,9 @@ def auto_split(catalogueconstructor,
                         n_components_local_pca=3,
                         pval_thresh=0.1,
                         min_cluster_size=20,
+                        maximum_shift=2,
                         n_jobs=-1,
+                        #~ n_jobs=1,
                         joblib_backend='loky',
             ):
     cc = catalogueconstructor
@@ -132,9 +133,8 @@ def auto_split(catalogueconstructor,
             nearest, = np.nonzero(cc.channel_distances[c, :] < adjacency_radius_um)
             channel_adjacency[c] = nearest
     
-    
-    
-    m = np.max(cc.positive_cluster_labels) + 1
+    if len(cc.positive_cluster_labels) ==0:
+        return
     
     # pvals = []
     # for label in cc.positive_cluster_labels:
@@ -149,7 +149,7 @@ def auto_split(catalogueconstructor,
     pvals = np.array(pvals)
     inds, = np.nonzero(pvals<pval_thresh)
     splitable_labels = cc.positive_cluster_labels[inds]
-    print('splitable_labels', splitable_labels)
+    #~ print('splitable_labels', splitable_labels)
     
     for label in splitable_labels:
         
@@ -169,7 +169,7 @@ def auto_split(catalogueconstructor,
             unique_sub_labels = np.unique(sub_labels)
             
         if not dense_mode:
-            peak_is_aligned = check_peak_all_aligned(sub_labels, waveforms, peak_sign, n_left)
+            peak_is_aligned = check_peak_all_aligned(sub_labels, waveforms, peak_sign, n_left, maximum_shift)
 
         if debug_plot:
             fig, ax= plt.subplots()
@@ -211,7 +211,6 @@ def auto_split(catalogueconstructor,
             #~ if False:
             if debug_plot:
                 print('label', label,'pval', pval, pval<pval_thresh)
-                
                 
                 fig, axs = plt.subplots(ncols=4)
                 colors = plt.cm.get_cmap('Set3', len(unique_sub_labels))
@@ -260,8 +259,8 @@ def auto_split(catalogueconstructor,
                 plt.show()
 
 
-def check_peak_all_aligned(local_labels, waveforms, peak_sign, n_left):
-    
+
+def check_peak_all_aligned(local_labels, waveforms, peak_sign, n_left, maximum_shift):
     peak_is_aligned = []
     for k in np.unique(local_labels):
         wfs = waveforms[local_labels == k]
@@ -274,17 +273,58 @@ def check_peak_all_aligned(local_labels, waveforms, peak_sign, n_left):
             chan_peak_local = np.argmax(np.max(centroid, axis=0))
             pos_peak = np.argmax(centroid[:, chan_peak_local])    
         
-        al = np.abs(-n_left - pos_peak) <= 1        
+        al = np.abs(-n_left - pos_peak) <= maximum_shift
         peak_is_aligned.append(al)
     
     return np.array(peak_is_aligned)
 
 
 
+def trash_not_aligned(cc, maximum_shift=2):
+    n_left = cc.info['waveform_extractor_params']['n_left']
+    peak_sign = cc.info['peak_detector_params']['peak_sign']
+    
+    to_remove = []
+    for k in list(cc.positive_cluster_labels):
+        #~ print(k)
+
+        centroid = cc.get_one_centroid(k)
+        
+        if peak_sign == '-':
+            chan_peak = np.argmin(np.min(centroid, axis=0))
+            extremum_index = np.argmin(centroid[:, chan_peak])
+            peak_val = centroid[-n_left, chan_peak]
+        elif peak_sign == '+':
+            chan_peak = np.argmax(np.max(centroid, axis=0))
+            extremum_index = np.argmax(centroid[:, chan_peak])
+            peak_val = centroid[-n_left, chan_peak]
+
+        if np.abs(-n_left - extremum_index)>maximum_shift:
+            if debug_plot:
+                n_left = cc.info['waveform_extractor_params']['n_left']
+                n_right = cc.info['waveform_extractor_params']['n_right']
+                peak_width = n_right - n_left
+                
+                print('remove not aligned peak', 'k', k)
+                fig, ax = plt.subplots()
+                #~ centroid = centroids[k]
+                ax.plot(centroid.T.flatten())
+                ax.set_title('not aligned peak')
+                for i in range(centroid.shape[1]):
+                    ax.axvline(i*peak_width-n_left, color='k')
+                plt.show()
+            
+            mask = cc.all_peaks['cluster_label'] == k
+            cc.all_peaks['cluster_label'][mask] = -1
+            to_remove.append(k)
+            
+    cc.pop_labels_from_cluster(to_remove)
+
+
 def auto_merge(catalogueconstructor,
-                        n_spike_for_centroid=None,
-                        auto_merge_threshold=2.,
+                        auto_merge_threshold=2.3,
                         maximum_shift=2,
+                        amplitude_factor_thresh = 0.2,
         ):
     cc = catalogueconstructor
     peak_sign = cc.info['peak_detector_params']['peak_sign']
@@ -294,131 +334,15 @@ def auto_merge(catalogueconstructor,
     peak_width = n_right - n_left
     threshold = cc.info['peak_detector_params']['relative_threshold']
     
-    #~ cluster_labels2 = cluster_labels.copy()
-    
-    
-    # centroids already computed before
-    
-    extremum_channel = {}
-    extremum_index = {}
-    extremum_amplitude = {}
-    centroids = {}
-    
     while True:
-        #~ print('')
-        #~ print('new loop')
-        #~ labels = np.unique(cluster_labels2)
-        #~ labels = labels[labels>=0]
-        #~ n = labels.size
-        #~ print(labels)
-        
-        #~ for ind, k in enumerate(labels):
-        
         labels = cc.positive_cluster_labels.copy()
-        #~ print(labels)
-        
-        for ind, k in enumerate(labels):
         
         
-            if k not in centroids:
-                # TODO take from cc.centroids
-                peak_index, = np.nonzero(cc.all_peaks['cluster_label'] == k)
-                
-                if n_spike_for_centroid is not None and peak_index.size>n_spike_for_centroid:
-                    keep = np.random.choice(peak_index.size, n_spike_for_centroid, replace=False)
-                    peak_index = peak_index[keep]
-                
-                waveforms = cc.get_some_waveforms(peak_index, channel_indexes=None)
-                centroid = np.median(waveforms, axis=0)
-                centroids[k] = centroid
-            
-            if k not in extremum_index:
-                centroid = centroids[k]
-                
-                if peak_sign == '-':
-                    chan_peak = np.argmin(np.min(centroid, axis=0))
-                    pos_peak = np.argmin(centroid[:, chan_peak])
-                    peak_val = centroid[-n_left, chan_peak]
-                elif peak_sign == '+':
-                    chan_peak = np.argmax(np.max(centroid, axis=0))
-                    pos_peak = np.argmax(centroid[:, chan_peak])
-                    peak_val = centroid[-n_left, chan_peak]
-                extremum_index[k] = pos_peak
-                extremum_channel[k] = chan_peak
-                extremum_amplitude[k] = np.abs(peak_val)
-        
-        
-        #eliminate when best peak not aligned
-        # eliminate when peak value is too small
-        # TODO move this in the main loop!!!!!
-        #~ for ind, k in enumerate(labels):
-        labels = cc.positive_cluster_labels.copy()
-        for ind, k in enumerate(labels):
-            
-            if np.abs(-n_left - extremum_index[k])>maximum_shift:
-                print('remove not aligned peak', 'k', k)
-                #delete
-                #~ cluster_labels2[cluster_labels2 == k] = -1
-                mask = cc.all_peaks['cluster_label'] == k
-                cc.all_peaks['cluster_label'][mask] = -1
-                cc.pop_labels_from_cluster([k])
-                #~ cc.add_one_cluster(new_label)
-
-                if debug_plot:
-                    fig, ax = plt.subplots()
-                    centroid = centroids[k]
-                    ax.plot(centroid.T.flatten())
-                    ax.set_title('not aligned peak')
-                    for i in range(centroid.shape[1]):
-                        ax.axvline(i*peak_width-n_left, color='k')
-                    plt.show()
-
-                
-                labels[ind] = -1
-                centroids.pop(k)
-                
-                
-                #~ extremum_index.pop(k) # usefull ?
-                #~ extremum_channel.pop(k) # usefull ?
-                #~ extremum_amplitude.pop(k) # usefull ?
-                continue
-            
-            # TODO check if this is really  relevant
-            if np.abs(extremum_amplitude[k]) < threshold + 0.5:
-                print('remove small peak', 'k', k, 'peak_val', extremum_amplitude[k])
-                #~ cluster_labels2[cluster_labels2 == k] = -1
-
-                mask = cc.all_peaks['cluster_label'] == k
-                cc.all_peaks['cluster_label'][mask] = -1
-                cc.pop_labels_from_cluster([k])
-                
-                #~ extremum_index.pop(k) # usefull ?
-                #~ extremum_channel.pop(k) # usefull ?
-                #~ extremum_amplitude.pop(k) # usefull ?
-
-                if debug_plot:
-                    fig, ax = plt.subplots()
-                    centroid = centroids[k]
-                    ax.plot(centroid.T.flatten(), color='g')
-                    for i in range(centroid.shape[1]):
-                        ax.axvline(i*peak_width-n_left, color='k')
-                    ax.set_title('delete')
-                    plt.show()
-                
-                labels[ind] = -1
-                centroids.pop(k)
-                    
-                
-                continue
-            
-        
-        n_shift = 2
         nb_merge = 0
-        amplitude_factor_thresh = 0.2
         
         n = labels.size
         
-        pop_from_centroids = []
+        #~ pop_from_centroids = []
         pop_from_cluster = []
         for i in range(n):
             k1 = labels[i]
@@ -434,42 +358,100 @@ def auto_merge(catalogueconstructor,
                 
                 #~ print(k1, k2)
                 
-                thresh = max(extremum_amplitude[k1], extremum_amplitude[k2]) * amplitude_factor_thresh
+                ind1 = cc.index_of_label(k1)
+                extremum_amplitude1 = np.abs(cc.clusters[ind1]['extremum_amplitude'])
+                centroid1 = cc.get_one_centroid(k1)
+
+                ind2 = cc.index_of_label(k2)
+                extremum_amplitude2 = np.abs(cc.clusters[ind2]['extremum_amplitude'])
+                centroid2 = cc.get_one_centroid(k2)
+        
+                thresh = max(extremum_amplitude1, extremum_amplitude2) * amplitude_factor_thresh
                 thresh = max(thresh, auto_merge_threshold)
                 #~ print('thresh', thresh)
                 
-                if equal_template(centroids[k1], centroids[k2], thresh=thresh, n_shift=n_shift):
+                
+                do_merge = equal_template(centroid1, centroid2, thresh=thresh, n_shift=maximum_shift)
+                
+                #~ if debug_plot:
+                #~ print(k1, k2)
+                #~ if k1==4  and k2==5:
+                    #~ print(k1, k2, do_merge, thresh)
+                    #~ fig, ax = plt.subplots()
+                    #~ ax.plot(centroid1.T.flatten())
+                    #~ ax.plot(centroid2.T.flatten())
+                    #~ ax.set_title('merge ' + str(do_merge))
+                    #~ plt.show()
+                
+                
+                
+                
+                if do_merge:
                     #~ print('merge', k1, k2)
                     #~ cluster_labels2[cluster_labels2==k2] = k1
 
                     mask = cc.all_peaks['cluster_label'] == k2
                     cc.all_peaks['cluster_label'][mask] = k1
                     #~ cc.pop_labels_from_cluster([k2])
+                    
+                    cc.compute_one_centroid(k1)
+                    
                     pop_from_cluster.append(k2)
                     
-                    nb_merge += 1
+                    labels[j] = -1
                     
-                    # remove from centroid doct to recompute it
-                    pop_from_centroids.append(k1)
-                    pop_from_centroids.append(k2)
+                    nb_merge += 1
                     
                     if debug_plot:
                     
                         fig, ax = plt.subplots()
-                        ax.plot(centroids[k1].T.flatten())
-                        ax.plot(centroids[k2].T.flatten())
-                        ax.set_title('merge')
+                        ax.plot(centroid1.T.flatten())
+                        ax.plot(centroid2.T.flatten())
+                        ax.set_title('merge '+str(k1)+' '+str(k2))
                         plt.show()
         
         for k in np.unique(pop_from_cluster):
             cc.pop_labels_from_cluster([k])
         
-        for k in np.unique(pop_from_centroids):
-            if k in centroids:
-                centroids.pop(k)
+        #~ for k in np.unique(pop_from_centroids):
+            #~ if k in centroids:
+                #~ centroids.pop(k)
         
         #~ print('nb_merge', nb_merge)
         if nb_merge == 0:
             break
-    
 
+
+def trash_low_extremum(cc, min_extremum_amplitude=None):
+    if min_extremum_amplitude is None:
+        threshold = cc.info['peak_detector_params']['relative_threshold']
+        min_extremum_amplitude = threshold + 0.5
+    
+    to_remove = []
+    for k in list(cc.positive_cluster_labels):
+        #~ print(k)
+        ind = cc.index_of_label(k)
+        assert k == cc.clusters[ind]['cluster_label'], 'this is a bug in trash_low_extremum'
+        
+        extremum_amplitude = np.abs(cc.clusters[ind]['extremum_amplitude'])
+        #~ print('k', k , extremum_amplitude)
+        if extremum_amplitude < min_extremum_amplitude:
+            if debug_plot:
+                print('k', k , extremum_amplitude, 'too small')
+            
+            mask = cc.all_peaks['cluster_label']==k
+            cc.all_peaks['cluster_label'][mask] = -1
+            to_remove.append(k)
+    cc.pop_labels_from_cluster(to_remove)
+
+
+def trash_small_cluster(cc, minimum_size=10):
+    to_remove = []
+    for k in list(cc.positive_cluster_labels):
+        mask = cc.all_peaks['cluster_label']==k
+        cluster_size = np.sum(mask)
+        #~ print(k, cluster_size)
+        if cluster_size <= minimum_size :
+            cc.all_peaks['cluster_label'][mask] = -1
+            to_remove.append(k)
+    cc.pop_labels_from_cluster(to_remove)

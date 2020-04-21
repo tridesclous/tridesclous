@@ -1463,6 +1463,12 @@ class CatalogueConstructor:
         #~ t2 = time.perf_counter()
         #~ print('compute_all_centroid', t2-t1)
     
+    def get_one_centroid(self, label, metric='median'):
+        ind = self.index_of_label(label)
+        attr = getattr(self, 'centroids_'+metric)
+        centroid = attr[ind, :, :]
+        return centroid
+    
     def change_sparse_threshold(self, sparse_threshold=1.5):
         self.info['sparse_threshold'] = sparse_threshold
         self.flush_info()
@@ -1549,20 +1555,19 @@ class CatalogueConstructor:
         self.find_clusters(method=method, selection=mask, **kargs)
     
     def auto_split_cluster(self):
-        cleancluster.auto_split(self, n_spike_for_centroid=_default_n_spike_for_centroid)
+        cleancluster.auto_split(self, n_spike_for_centroid=self.n_spike_for_centroid)
     
-    def auto_merge_cluster(self):
-        cleancluster.auto_merge(self, n_spike_for_centroid=_default_n_spike_for_centroid)
-    
-    def trash_small_cluster(self, n=10):
-        to_remove = []
-        for k in list(self.cluster_labels):
-            mask = self.all_peaks['cluster_label']==k
-            if np.sum(mask)<=n:
-                self.all_peaks['cluster_label'][mask] = -1
-                to_remove.append(k)
+    def trash_not_aligned(self, maximum_shift=2):
+        cleancluster.trash_not_aligned(self, maximum_shift=maximum_shift)
         
-        self.pop_labels_from_cluster(to_remove)
+    def auto_merge_cluster(self):
+        cleancluster.auto_merge(self)
+    
+    def trash_low_extremum(self, min_extremum_amplitude=None):
+        cleancluster.trash_low_extremum(self, min_extremum_amplitude=min_extremum_amplitude)
+    
+    def trash_small_cluster(self, minimum_size=10):
+        cleancluster.trash_small_cluster(self, minimum_size=minimum_size)
 
     def clean_cluster(self, too_small=10):
         self.trash_small_cluster(n=too_small)
