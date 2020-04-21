@@ -338,11 +338,11 @@ class SawChainCut:
             centroids = np.zeros((labels.size, self.waveforms.shape[1], self.waveforms.shape[2]))
             
             
-            max_per_cluster = 300
+            n_spike_for_centroid = 300
             for ind, k in enumerate(labels):
                 ind_keep,  = np.nonzero(cluster_labels2 == k)
-                if ind_keep.size > max_per_cluster:
-                    sub_sel = np.random.choice(ind_keep.size, max_per_cluster, replace=False)
+                if ind_keep.size > n_spike_for_centroid:
+                    sub_sel = np.random.choice(ind_keep.size, n_spike_for_centroid, replace=False)
                     ind_keep = ind_keep[sub_sel]
                 centroids[ind,:,:] = np.median(self.waveforms[ind_keep, :, :], axis=0)
             

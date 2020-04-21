@@ -21,12 +21,27 @@ dataset_name = 'purkinje'
 
 
 def setup_module():
-    cc, params = setup_catalogue('test_cluster', dataset_name=dataset_name)
+    cc, params = setup_catalogue('test_cleancluster', dataset_name=dataset_name)
     
     cc.find_clusters(method=params['cluster_method'], **params['cluster_kargs'])
+    
+    cc.create_savepoint(name='after_find_clusters')
+    
+
+def restore_savepoint(dirname, savepoint=None):
+    folder = os.path.join(dirname, 'channel_group_0', 'catalogue_constructor')
+    savepoint_folder = os.path.join(dirname, 'channel_group_0', 'catalogue_constructor_SAVEPOINT_' + savepoint)
+    
+    assert os.path.exists(savepoint_folder)
+    
+    shutil.rmtree(folder)
+    shutil.copytree(savepoint_folder, folder)
+    
 
 def test_auto_split():
-    dirname = 'test_cluster'
+    dirname = 'test_cleancluster'
+    
+    restore_savepoint(dirname, savepoint='after_find_clusters')
     
     dataio = DataIO(dirname=dirname)
     cc = CatalogueConstructor(dataio=dataio)
@@ -40,9 +55,13 @@ def test_auto_split():
     print('auto_split_cluster', t2-t1)
     
     print(cc)
+    
+    cc.create_savepoint(name='after_auto_split')
 
 def test_auto_merge():
-    dirname = 'test_cluster'
+    dirname = 'test_cleancluster'
+    
+    restore_savepoint(dirname, savepoint='after_auto_split')
     
     dataio = DataIO(dirname=dirname)
     cc = CatalogueConstructor(dataio=dataio)
@@ -58,8 +77,8 @@ def test_auto_merge():
     
     
 if __name__ == '__main__':
-    setup_module()
+    #~ setup_module()
     test_auto_split()
-    test_auto_merge()
+    #~ test_auto_merge()
     
     

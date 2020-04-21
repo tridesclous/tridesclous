@@ -71,7 +71,7 @@ class WaveformHistViewer(WidgetBase):
                       {'name': 'bin_size', 'type': 'float', 'value' : .1 },
                       {'name': 'display_threshold', 'type': 'bool', 'value' : True },
                       {'name': 'max_label', 'type': 'int', 'value' : 2 },
-                      {'name': 'max_per_cluster', 'type': 'int', 'value' : 300 },
+                      {'name': 'n_spike_for_centroid', 'type': 'int', 'value' : 300 },
                       {'name': 'sparse_display', 'type': 'bool', 'value' : True },
                       ]
     
@@ -259,8 +259,8 @@ class WaveformHistViewer(WidgetBase):
         keep = np.zeros(self.controller.spikes.size, dtype='bool')
         for label in visibles:
             ind_keep, = np.nonzero(self.controller.spikes['cluster_label'] == label)
-            if ind_keep.size > self.params['max_per_cluster']:
-                sub_sel = np.random.choice(ind_keep.size, self.params['max_per_cluster'], replace=False)
+            if ind_keep.size > self.params['n_spike_for_centroid']:
+                sub_sel = np.random.choice(ind_keep.size, self.params['n_spike_for_centroid'], replace=False)
                 ind_keep = ind_keep[sub_sel]
             keep[ind_keep] = True
         ind_keep, = np.nonzero(keep)

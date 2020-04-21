@@ -45,7 +45,7 @@ from . import labelcodes
 
 
 
-_global_params_attr = ('chunksize', 'memory_mode', 'internal_dtype', 'mode', 'sparse_threshold') # 'adjacency_radius_um'
+_global_params_attr = ('chunksize', 'memory_mode', 'internal_dtype', 'mode', 'sparse_threshold', 'n_spike_for_centroid') # 'adjacency_radius_um'
 
 _persistent_metrics = ('spike_waveforms_similarity', 'cluster_similarity',
                         'cluster_ratio_similarity', 'spike_silhouette')
@@ -81,7 +81,7 @@ _dtype_cluster = [('cluster_label', 'int64'), ('cell_label', 'int64'),
 _keep_cluster_attr_on_new = ['cell_label', 'tag','annotations', 'color']
 
 
-_default_max_per_cluster = 350
+_default_n_spike_for_centroid = 350
 
 
 
@@ -242,6 +242,8 @@ class CatalogueConstructor:
         else:
             with open(self.info_filename, 'r', encoding='utf8') as f:
                 self.info = json.load(f)
+            if 'n_spike_for_centroid' not in self.info:
+                self.info['n_spike_for_centroid'] = _default_n_spike_for_centroid
     
         for k in _global_params_attr:
             if k in self.info:
@@ -322,6 +324,7 @@ class CatalogueConstructor:
             mode='dense',
             #~ adjacency_radius_um=None,
             sparse_threshold=1.5,
+            n_spike_for_centroid=_default_n_spike_for_centroid,
             ):
         """
         
@@ -362,6 +365,7 @@ class CatalogueConstructor:
         self.info['mode'] = mode
         #~ self.info['adjacency_radius_um'] = adjacency_radius_um
         self.info['sparse_threshold'] = sparse_threshold
+        self.info['n_spike_for_centroid'] = n_spike_for_centroid
 
         self.flush_info()
         self.load_info() # this make attribute
@@ -1094,7 +1098,7 @@ class CatalogueConstructor:
 
         #~ self.on_new_cluster()
         #~ if recompute_all_centroid:
-            #~ self.compute_all_centroid(max_per_cluster=_default_max_per_cluster)
+            #~ self.compute_all_centroid(n_spike_for_centroid=_default_n_spike_for_centroid)
     
     #~ def clean_waveforms(self, alien_value_threshold=100., recompute_all_centroid=True):
         #~ """
@@ -1117,7 +1121,7 @@ class CatalogueConstructor:
 
         #~ self.on_new_cluster()
         #~ if recompute_all_centroid:
-            #~ self.compute_all_centroid(max_per_cluster=_default_max_per_cluster)
+            #~ self.compute_all_centroid(n_spike_for_centroid=_default_n_spike_for_centroid)
 
     def extract_some_noise(self, nb_snippet=300):
         """
@@ -1241,7 +1245,7 @@ class CatalogueConstructor:
         
         if selection is None:
             self.on_new_cluster()
-            self.compute_all_centroid(max_per_cluster=_default_max_per_cluster)
+            self.compute_all_centroid(n_spike_for_centroid=_default_n_spike_for_centroid)
             
             if order:
                 self.order_clusters(by='waveforms_rms')
@@ -1257,7 +1261,7 @@ class CatalogueConstructor:
                 if new_label not in self.clusters['cluster_label'] and new_label>=0:
                     self.add_one_cluster(new_label)
                 if new_label>=0:
-                    self.compute_one_centroid(new_label, max_per_cluster=_default_max_per_cluster)
+                    self.compute_one_centroid(new_label, n_spike_for_centroid=_default_n_spike_for_centroid)
             
             for old_label in old_labels:
                 ind = self.index_of_label(old_label)
@@ -1266,7 +1270,7 @@ class CatalogueConstructor:
                     self.pop_labels_from_cluster([old_label])
                 else:
                     self.clusters['nb_peak'][ind] = nb_peak
-                    self.compute_one_centroid(old_label, max_per_cluster=_default_max_per_cluster)
+                    self.compute_one_centroid(old_label, n_spike_for_centroid=_default_n_spike_for_centroid)
                     
 
     def on_new_cluster(self):
@@ -1376,7 +1380,7 @@ class CatalogueConstructor:
             mask |= self.all_peaks['cluster_label']== k
         self.change_spike_label(mask, labelcodes.LABEL_TRASH)
     
-    def compute_one_centroid(self, k, flush=True, max_per_cluster=None):
+    def compute_one_centroid(self, k, flush=True, n_spike_for_centroid=None):
         #~ t1 = time.perf_counter()
         ind = self.index_of_label(k)
         
@@ -1385,8 +1389,8 @@ class CatalogueConstructor:
         
         
         selected, = np.nonzero(self.all_peaks['cluster_label'][self.some_peaks_index]==k)
-        if max_per_cluster is not None and selected.size>max_per_cluster:
-            keep = np.random.choice(selected.size, max_per_cluster, replace=False)
+        if n_spike_for_centroid is not None and selected.size>n_spike_for_centroid:
+            keep = np.random.choice(selected.size, n_spike_for_centroid, replace=False)
             selected = selected[keep]
         
         #~ wf = self.some_waveforms[self.all_peaks['cluster_label'][self.some_peaks_index]==k]
@@ -1423,7 +1427,7 @@ class CatalogueConstructor:
         #~ t2 = time.perf_counter()
         #~ print('compute_one_centroid',k, t2-t1)
 
-    def compute_all_centroid(self, max_per_cluster=None):
+    def compute_all_centroid(self, n_spike_for_centroid=None):
         t1 = time.perf_counter()
         #~ if self.some_waveforms is None:
         if self.some_peaks_index is None:
@@ -1449,7 +1453,7 @@ class CatalogueConstructor:
         #~ t1 = time.perf_counter()
         for k in self.cluster_labels:
             if k <0: continue
-            self.compute_one_centroid(k, flush=False, max_per_cluster=max_per_cluster)
+            self.compute_one_centroid(k, flush=False, n_spike_for_centroid=n_spike_for_centroid)
 
         for name in ('clusters',) + _centroids_arrays:
             self.arrays.flush_array(name)
@@ -1545,10 +1549,10 @@ class CatalogueConstructor:
         self.find_clusters(method=method, selection=mask, **kargs)
     
     def auto_split_cluster(self):
-        cleancluster.auto_split(self, max_per_cluster=_default_max_per_cluster)
+        cleancluster.auto_split(self, n_spike_for_centroid=_default_n_spike_for_centroid)
     
     def auto_merge_cluster(self):
-        cleancluster.auto_merge(self, max_per_cluster=_default_max_per_cluster)
+        cleancluster.auto_merge(self, n_spike_for_centroid=_default_n_spike_for_centroid)
     
     def trash_small_cluster(self, n=10):
         to_remove = []
@@ -1793,7 +1797,7 @@ class CatalogueConstructor:
         #~ self._reset_metrics()
         self._reset_arrays(_persistent_metrics)
 
-    def make_catalogue(self, max_per_cluster=1000,
+    def make_catalogue(self, n_spike_for_centroid=1000,
                             inter_sample_oversampling=True,
                             subsample_ratio='auto',
                             sparse_thresh_level2=3,
@@ -1874,8 +1878,8 @@ class CatalogueConstructor:
             self.catalogue['label_to_index'][k] = i
             
             selected, = np.nonzero(self.all_peaks['cluster_label'][self.some_peaks_index]==k)
-            if selected.size>max_per_cluster:
-                keep = np.random.choice(selected.size, max_per_cluster, replace=False)
+            if selected.size>n_spike_for_centroid:
+                keep = np.random.choice(selected.size, n_spike_for_centroid, replace=False)
                 selected = selected[keep]
             
             wf0 = self.get_some_waveforms(peaks_index=self.some_peaks_index[selected], n_left=n_left-2, n_right=n_right+2)
@@ -2057,12 +2061,13 @@ class CatalogueConstructor:
         self.make_catalogue()
         self.dataio.save_catalogue(self.catalogue, name='initial')
         
-    def create_savepoint(self):
+    def create_savepoint(self, name=None):
         """this create a copy of the entire catalogue_constructor subdir
         Usefull for the UI when the user wants to snapshot and try tricky merge/split.
         """
-        
-        copy_path = self.catalogue_path + '_SAVEPOINT_{:%Y-%m-%d_%Hh%Mm%S}'.format(datetime.datetime.now())
+        if name is None:
+            name = '{:%Y-%m-%d_%Hh%Mm%S}'.format(datetime.datetime.now())
+        copy_path = self.catalogue_path + '_SAVEPOINT_' + name
         
         if not os.path.exists(copy_path):
             shutil.copytree(self.catalogue_path, copy_path)

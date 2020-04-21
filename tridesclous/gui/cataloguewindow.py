@@ -3,7 +3,7 @@ import numpy as np
 from .myqt import QT
 import pyqtgraph as pg
 
-from ..catalogueconstructor import _default_max_per_cluster
+from ..catalogueconstructor import _default_n_spike_for_centroid
 
 from .cataloguecontroller import CatalogueController
 from .traceviewer import CatalogueTraceViewer
@@ -265,7 +265,7 @@ class CatalogueWindow(QT.QMainWindow):
             cc.clean_peaks(**d['clean_peaks'])
             cc.sample_some_peaks(**d['peak_sampler'])
             cc.extract_some_noise(**d['noise_snippet'])
-            cc.compute_all_centroid(max_per_cluster=_default_max_per_cluster)
+            cc.compute_all_centroid(n_spike_for_centroid=_default_n_spike_for_centroid)
             self.refresh()
 
     def new_features(self):

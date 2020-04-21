@@ -258,7 +258,7 @@ def test_make_catalogue():
     cc = CatalogueConstructor(dataio=dataio)
 
     #~ cc.make_catalogue()
-    cc.make_catalogue_for_peeler(max_per_cluster=1000)
+    cc.make_catalogue_for_peeler(n_spike_for_centroid=1000)
     
     #~ for i, k in cc.catalogue['label_to_index'].items():
     
