@@ -46,8 +46,8 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
         assert self.internal_dtype == 'float32'
         
-        if self.argmin_method == 'opencl':
-            OpenCL_Helper.initialize_opencl(self, cl_platform_index=self.cl_platform_index, cl_device_index=self.cl_device_index)
+        #~ if self.argmin_method == 'opencl':
+        OpenCL_Helper.initialize_opencl(self, cl_platform_index=self.cl_platform_index, cl_device_index=self.cl_device_index)
         
         PeelerEngineGeneric.initialize(self, **kargs)
         
@@ -78,6 +78,11 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
         wf_size = self.peak_width * self.nb_channel
         
+        if self.inter_sample_oversampling:
+            subsample_ratio = self.catalogue['subsample_ratio'],
+        else:
+            # not used
+            subsample_ratio = 1  
         
         kernel_formated = kernel_peeler_cl % dict(
                     chunksize=self.chunksize,
@@ -94,7 +99,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                     maximum_jitter_shift=self.maximum_jitter_shift,
                     n_cluster=self.nb_cluster,
                     wf_size=wf_size,
-                    subsample_ratio=self.catalogue['subsample_ratio'],
+                    subsample_ratio=subsample_ratio,
                     nb_neighbour=self.nb_max_neighbour, 
                     inter_sample_oversampling=int(self.inter_sample_oversampling),
                     nb_shift=self.nb_shift,
@@ -140,16 +145,28 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         self.next_spike_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.next_spike)
 
         self.catalogue_center0_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['centers0'].astype('float32'))
-        self.catalogue_center1_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['centers1'].astype('float32'))
-        self.catalogue_center2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['centers2'].astype('float32'))
-        self.catalogue_inter_center0_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['interp_centers0'].astype('float32'))
         
-        
+        if self.inter_sample_oversampling:
+            self.catalogue_center1_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['centers1'].astype('float32'))
+            self.catalogue_center2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['centers2'].astype('float32'))
+            self.catalogue_inter_center0_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['interp_centers0'].astype('float32'))
+            
+            self.wf1_norm2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['wf1_norm2'].astype('float32'))
+            self.wf2_norm2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['wf2_norm2'].astype('float32'))
+            self.wf1_dot_wf2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['wf1_dot_wf2'].astype('float32'))
+        else:
+            fake_buf = np.zeros((1), dtype='float32')
+            self.catalogue_center1_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=fake_buf)
+            self.catalogue_center2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=fake_buf)
+            self.catalogue_inter_center0_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=fake_buf)
+            
+            self.wf1_norm2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=fake_buf)
+            self.wf2_norm2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=fake_buf)
+            self.wf1_dot_wf2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=fake_buf)
+            
+            
         self.extremum_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['extremum_channel'].astype('int32'))
-        self.wf1_norm2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['wf1_norm2'].astype('float32'))
-        self.wf2_norm2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['wf2_norm2'].astype('float32'))
-        self.wf1_dot_wf2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['wf1_dot_wf2'].astype('float32'))
-
+        
         #~ self.weight_per_template = np.zeros((self.nb_cluster, self.nb_channel), dtype='float32')
         #~ centers = self.catalogue['centers0']
         #~ for i, k in enumerate(self.catalogue['cluster_labels']):
@@ -1050,7 +1067,12 @@ int accept_tempate(int left_ind, int cluster_idx, float jitter,
                 
                 //idx = wf_size*cluster_idx+nb_channel*s+c;
                 //pred = catalogue_center0[idx] + jitter*catalogue_center1[idx] + jitter*jitter/2*catalogue_center2[idx];
-                pred = catalogue_inter_center0[subsample_ratio*wf_size*cluster_idx + nb_channel*(s*subsample_ratio+int_jitter) + c];
+                if (inter_sample_oversampling){
+                    pred = catalogue_inter_center0[subsample_ratio*wf_size*cluster_idx + nb_channel*(s*subsample_ratio+int_jitter) + c];
+                }else{
+                    pred = catalogue_center0[wf_size*cluster_idx + nb_channel*s + c];
+                }
+                
                 
                 v -= pred;
                 res_nrj += (v*v);

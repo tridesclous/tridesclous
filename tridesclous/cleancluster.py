@@ -198,7 +198,7 @@ def auto_split(catalogueconstructor,
                 else:
                     #~ cluster_labels[ind_keep[sub_mask]] = sub_label + m 
                     new_label = label + m
-                    print(label, m, new_label)
+                    #~ print(label, m, new_label)
                     cc.all_peaks['cluster_label'][peak_index[sub_mask]] = new_label
                     cc.add_one_cluster(new_label)
                     
