@@ -1382,6 +1382,9 @@ class CatalogueConstructor:
     
     def compute_one_centroid(self, k, flush=True, n_spike_for_centroid=None):
         #~ t1 = time.perf_counter()
+        if n_spike_for_centroid is None:
+            n_spike_for_centroid = self.n_spike_for_centroid
+        
         ind = self.index_of_label(k)
         
         n_left = int(self.info['waveform_extractor_params']['n_left'])
@@ -1389,7 +1392,7 @@ class CatalogueConstructor:
         
         
         selected, = np.nonzero(self.all_peaks['cluster_label'][self.some_peaks_index]==k)
-        if n_spike_for_centroid is not None and selected.size>n_spike_for_centroid:
+        if selected.size>n_spike_for_centroid:
             keep = np.random.choice(selected.size, n_spike_for_centroid, replace=False)
             selected = selected[keep]
         
@@ -1426,7 +1429,17 @@ class CatalogueConstructor:
         
         #~ t2 = time.perf_counter()
         #~ print('compute_one_centroid',k, t2-t1)
-
+    
+    def compute_several_centroids(self, labels, n_spike_for_centroid=None):
+        # TODO make this in paralell
+        for k in labels:
+            self.compute_one_centroid(k, flush=False, n_spike_for_centroid=n_spike_for_centroid)
+        
+        # one global flush
+        for name in ('clusters',) + _centroids_arrays:
+            self.arrays.flush_array(name)
+        
+    
     def compute_all_centroid(self, n_spike_for_centroid=None):
         t1 = time.perf_counter()
         #~ if self.some_waveforms is None:
@@ -1435,7 +1448,6 @@ class CatalogueConstructor:
                 self.arrays.detach_array(name)
                 setattr(self, name, None)
             return
-        
         
         n_left = int(self.info['waveform_extractor_params']['n_left'])
         n_right = int(self.info['waveform_extractor_params']['n_right'])
@@ -1448,20 +1460,7 @@ class CatalogueConstructor:
         mask = np.zeros((self.cluster_labels.size, self.nb_channel), dtype='bool')
         self.arrays.add_array('centroids_sparse_mask', mask, self.memory_mode)
         
-        
-        
-        #~ t1 = time.perf_counter()
-        for k in self.cluster_labels:
-            if k <0: continue
-            self.compute_one_centroid(k, flush=False, n_spike_for_centroid=n_spike_for_centroid)
-
-        for name in ('clusters',) + _centroids_arrays:
-            self.arrays.flush_array(name)
-        
-        #~ self.arrays.flush_array('clusters')
-        
-        #~ t2 = time.perf_counter()
-        #~ print('compute_all_centroid', t2-t1)
+        self.compute_several_centroids(self.positive_cluster_labels, n_spike_for_centroid=n_spike_for_centroid)
     
     def get_one_centroid(self, label, metric='median'):
         ind = self.index_of_label(label)
@@ -1802,8 +1801,8 @@ class CatalogueConstructor:
         #~ self._reset_metrics()
         self._reset_arrays(_persistent_metrics)
 
-    def make_catalogue(self, n_spike_for_centroid=1000,
-                            inter_sample_oversampling=True,
+    def make_catalogue(self,
+                            inter_sample_oversampling=False,
                             subsample_ratio='auto',
                             sparse_thresh_level2=3,
                             #~ sparse_thresh_extremum=-5,
@@ -1824,6 +1823,8 @@ class CatalogueConstructor:
         self.catalogue['n_left'] = n_left
         self.catalogue['n_right'] = n_right
         self.catalogue['peak_width'] = self.catalogue['n_right'] - self.catalogue['n_left']
+        
+        self.catalogue['inter_sample_oversampling'] = inter_sample_oversampling
         
         #~ self.catalogue['sparse_thresh_level2'] = sparse_thresh_level2
         
@@ -1848,31 +1849,30 @@ class CatalogueConstructor:
         #~ nchan = self.nb_channel
         
         centers0 = np.zeros((len(cluster_labels), catalogue_width, self.nb_channel), dtype=self.info['internal_dtype'])
-        centers1 = np.zeros_like(centers0)
-        centers2 = np.zeros_like(centers0)
         self.catalogue['centers0'] = centers0 # median of wavforms
-        self.catalogue['centers1'] = centers1 # median of first derivative of wavforms
-        self.catalogue['centers2'] = centers2 # median of second derivative of wavforms
         
-        #~ print(sparse_mask)
-        #~ print(sparse_mask.shape)
-        #~ exit()
+        if inter_sample_oversampling:
+            centers1 = np.zeros_like(centers0)
+            centers2 = np.zeros_like(centers0)
+            self.catalogue['centers1'] = centers1 # median of first derivative of wavforms
+            self.catalogue['centers2'] = centers2 # median of second derivative of wavforms
         
-        if subsample_ratio == 'auto':
-            # upsample to 200kHz
-            subsample_ratio = int(np.ceil(200000/self.dataio.sample_rate))
-            #~ print('subsample_ratio auto', subsample_ratio)
+            if subsample_ratio == 'auto':
+                # upsample to 200kHz
+                subsample_ratio = int(np.ceil(200000/self.dataio.sample_rate))
+                #~ print('subsample_ratio auto', subsample_ratio)
         
-        original_time = np.arange(full_width)
-        #~ subsample_time = np.arange(1.5, full_width-2.5, 1./subsample_ratio)
-        subsample_time = np.arange(0, (full_width-1), 1./subsample_ratio)
+            original_time = np.arange(full_width)
+            #~ subsample_time = np.arange(1.5, full_width-2.5, 1./subsample_ratio)
+            subsample_time = np.arange(0, (full_width-1), 1./subsample_ratio)
         
-        self.catalogue['subsample_ratio'] = subsample_ratio
-        interp_centers0 = np.zeros((len(cluster_labels), subsample_ratio*catalogue_width, self.nb_channel), dtype=self.info['internal_dtype'])
-        self.catalogue['interp_centers0'] = interp_centers0
+            self.catalogue['subsample_ratio'] = subsample_ratio
+            interp_centers0 = np.zeros((len(cluster_labels), subsample_ratio*catalogue_width, self.nb_channel), dtype=self.info['internal_dtype'])
+            self.catalogue['interp_centers0'] = interp_centers0
+        
+        
         self.catalogue['distance_limit'] = np.zeros(len(cluster_labels), dtype=self.info['internal_dtype'])
         
-        #~ print('peak_width', self.catalogue['peak_width'])
         nb_cluster = cluster_labels.size
         self.catalogue['extremum_channel'] = np.zeros(nb_cluster, dtype='int64')
         self.catalogue['extremum_amplitude'] = np.zeros(nb_cluster, dtype='float32')
@@ -1882,68 +1882,66 @@ class CatalogueConstructor:
         for i, k in enumerate(cluster_labels):
             self.catalogue['label_to_index'][k] = i
             
-            selected, = np.nonzero(self.all_peaks['cluster_label'][self.some_peaks_index]==k)
-            if selected.size>n_spike_for_centroid:
-                keep = np.random.choice(selected.size, n_spike_for_centroid, replace=False)
-                selected = selected[keep]
+            if inter_sample_oversampling:
+                selected, = np.nonzero(self.all_peaks['cluster_label'][self.some_peaks_index]==k)
+                if selected.size>self.n_spike_for_centroid:
+                    keep = np.random.choice(selected.size, self.n_spike_for_centroid, replace=False)
+                    selected = selected[keep]
+                
+                wf0 = self.get_some_waveforms(peaks_index=self.some_peaks_index[selected], n_left=n_left-2, n_right=n_right+2)
+                
+                # compute first and second derivative on dim=1 (time)
+                wf1 = np.zeros_like(wf0)
+                wf1[:, 1:-1, :] = (wf0[:, 2:,: ] - wf0[:, :-2,: ])/2.
+                wf2 = np.zeros_like(wf1)
+                wf2[:, 1:-1, :] = (wf1[:, 2:,: ] - wf1[:, :-2,: ])/2.
             
-            wf0 = self.get_some_waveforms(peaks_index=self.some_peaks_index[selected], n_left=n_left-2, n_right=n_right+2)
-            
-            # compute first and second derivative on dim=1 (time)
-            # Note this was the old implementation but too slow
-            #~ kernel = np.array([1,0,-1])/2.
-            #~ kernel = kernel[None, :, None]
-            #~ wf1 =  scipy.signal.fftconvolve(wf0,kernel,'same') # first derivative
-            #~ wf2 =  scipy.signal.fftconvolve(wf1,kernel,'same') # second derivative
-            # this is teh new one
-            wf1 = np.zeros_like(wf0)
-            wf1[:, 1:-1, :] = (wf0[:, 2:,: ] - wf0[:, :-2,: ])/2.
-            wf2 = np.zeros_like(wf1)
-            wf2[:, 1:-1, :] = (wf1[:, 2:,: ] - wf1[:, :-2,: ])/2.
-            
-            
-            #median and
-            #eliminate margin because of border effect of derivative and reshape
-            center0_large = np.median(wf0, axis=0)
-            center0 = center0_large[2:-2, :]
-            centers0[i,:,:] = center0
-            centers1[i,:,:] = np.median(wf1, axis=0)[2:-2, :]
-            centers2[i,:,:] = np.median(wf2, axis=0)[2:-2, :]
+                #median and
+                #eliminate margin because of border effect of derivative and reshape
+                center0_large = np.median(wf0, axis=0)
+                center0 = center0_large[2:-2, :]
+                centers0[i,:,:] = center0
+                centers1[i,:,:] = np.median(wf1, axis=0)[2:-2, :]
+                centers2[i,:,:] = np.median(wf2, axis=0)[2:-2, :]
+            else:
+                center0 = self.get_one_centroid(k)
+                centers0[i,:,:] = center0
 
             extremum_channel = np.argmax(np.abs(center0[-n_left,:]), axis=0)
             extremum_amplitude = np.abs(center0[-n_left, extremum_channel])
             self.catalogue['extremum_channel'][i] = extremum_channel
             self.catalogue['extremum_amplitude'][i] = extremum_amplitude
             
-            #interpolate centers0 for reconstruction inbetween bsample when jitter is estimated
-            f = scipy.interpolate.interp1d(original_time, center0_large, axis=0, kind='cubic', )
-            oversampled_center = f(subsample_time)
+            if inter_sample_oversampling:
+                #interpolate centers0 for reconstruction inbetween bsample when jitter is estimated
+                f = scipy.interpolate.interp1d(original_time, center0_large, axis=0, kind='cubic', )
+                oversampled_center = f(subsample_time)
             
-            #~ factor = center0.shape[0]
-            #~ f = scipy.interpolate.UnivariateSpline(np.arange(full_width), center0, axis=0, k=3, s=factor)
-            #~ f = scipy.interpolate.RectBivariateSpline(np.arange(full_width), np.arange(center0.shape[1]), center0, kx=3, ky=1, s=factor)
-            #~ oversampled_center = f(subsample, np.arange(center0.shape[1]))
-            
-            #find max  channel for each cluster for peak alignement
-            #~ ind_max = np.argmax(np.abs(oversampled_center[(-n_left + 1)*subsample_ratio:(-n_left + 3)*subsample_ratio, extremum_channel]))
-            #~ print(oversampled_center[2:-2, :].shape)
-            #~ print(oversampled_center[2:-2, :][:, extremum_channel].shape)
-            #~ print(oversampled_center[2:-2, :][:, extremum_channel][(-n_left - 1)*subsample_ratio:(-n_left + 1)*subsample_ratio].shape)
-            ind_max = np.argmax(np.abs(oversampled_center[(-n_left + 1)*subsample_ratio:(-n_left + 3)*subsample_ratio, extremum_channel]))
-            ind_max += (-n_left +1)*subsample_ratio
-            i1 = int(ind_max + (n_left-0.5) * subsample_ratio)
-            i2 = i1 + subsample_ratio*catalogue_width
-            interp_centers0[i, :, :] = oversampled_center[i1:i2, :]
-            
-            #~ fig, ax = plt.subplots()
-            #~ ax.plot(np.arange(catalogue_width) + 2, center0[:, extremum_channel], color='b', marker='o')
-            #~ ax.plot(subsample_time,oversampled_center[:, extremum_channel], color='c')
-            #~ ax.axvspan(subsample_time[(-n_left +1)*subsample_ratio], subsample_time[(-n_left + 3)*subsample_ratio], alpha=.2, color='g')
-            #~ ax.axvline(subsample_time[ind_max], color='g')
-            #~ ax.axvline(subsample_time[(-n_left+2)*subsample_ratio], color='c')
-            #~ sl = slice(i1, i2)
-            #~ ax.plot(subsample_time[sl],oversampled_center[:, extremum_channel][sl], color='r', ls='--')
-            #~ plt.show()
+                #~ factor = center0.shape[0]
+                #~ f = scipy.interpolate.UnivariateSpline(np.arange(full_width), center0, axis=0, k=3, s=factor)
+                #~ f = scipy.interpolate.RectBivariateSpline(np.arange(full_width), np.arange(center0.shape[1]), center0, kx=3, ky=1, s=factor)
+                #~ oversampled_center = f(subsample, np.arange(center0.shape[1]))
+                
+                #find max  channel for each cluster for peak alignement
+                #~ ind_max = np.argmax(np.abs(oversampled_center[(-n_left + 1)*subsample_ratio:(-n_left + 3)*subsample_ratio, extremum_channel]))
+                #~ print(oversampled_center[2:-2, :].shape)
+                #~ print(oversampled_center[2:-2, :][:, extremum_channel].shape)
+                #~ print(oversampled_center[2:-2, :][:, extremum_channel][(-n_left - 1)*subsample_ratio:(-n_left + 1)*subsample_ratio].shape)
+                ind_max = np.argmax(np.abs(oversampled_center[(-n_left + 1)*subsample_ratio:(-n_left + 3)*subsample_ratio, extremum_channel]))
+                ind_max += (-n_left +1)*subsample_ratio
+                i1 = int(ind_max + (n_left-0.5) * subsample_ratio)
+                i2 = i1 + subsample_ratio*catalogue_width
+                interp_centers0[i, :, :] = oversampled_center[i1:i2, :]
+                
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(np.arange(catalogue_width) + 2, center0[:, extremum_channel], color='b', marker='o')
+                #~ ax.plot(subsample_time,oversampled_center[:, extremum_channel], color='c')
+                #~ ax.axvspan(subsample_time[(-n_left +1)*subsample_ratio], subsample_time[(-n_left + 3)*subsample_ratio], alpha=.2, color='g')
+                #~ ax.axvline(subsample_time[ind_max], color='g')
+                #~ ax.axvline(subsample_time[(-n_left+2)*subsample_ratio], color='c')
+                #~ sl = slice(i1, i2)
+                #~ ax.plot(subsample_time[sl],oversampled_center[:, extremum_channel][sl], color='r', ls='--')
+                #~ plt.show()
 
             
             #~ center0 = center0[2:-2, :]
@@ -1962,12 +1960,13 @@ class CatalogueConstructor:
             
             
             #~ print(wf0.shape, center0.shape)
-            distances = np.sum(np.sum((wf0[:, 2:-2, :][:, :, sparse_mask] - center0[np.newaxis, :, :][:, :, sparse_mask])**2, axis=1), axis=1)
+            #~ distances = np.sum(np.sum((wf0[:, 2:-2, :][:, :, sparse_mask] - center0[np.newaxis, :, :][:, :, sparse_mask])**2, axis=1), axis=1)
             #~ print(np.sum(sparse_mask))
             #~ limit0 = np.quantile(distances, 0.95)
             #~ limit0 = np.quantile(distances, 0.8)
-            limit0 = np.quantile(distances, 0.9)
+            #~ limit0 = np.quantile(distances, 0.9)
             
+            limit0 = 1.5 * np.sum(sparse_mask) * catalogue_width
             
             noise_distances = np.sum(np.sum((self.some_noise_snippet[:, 2:-2, :][:, :, sparse_mask] - center0[np.newaxis, 2:-2, :][:, :, sparse_mask])**2, axis=1), axis=1)
             limit1 = np.quantile(noise_distances, 0.05)
@@ -1998,6 +1997,16 @@ class CatalogueConstructor:
             
             #~ if True:
             if False:
+                
+                if not inter_sample_oversampling:
+                    selected, = np.nonzero(self.all_peaks['cluster_label'][self.some_peaks_index]==k)
+                    if selected.size>self.n_spike_for_centroid:
+                        keep = np.random.choice(selected.size, self.n_spike_for_centroid, replace=False)
+                        selected = selected[keep]
+                    
+                    wf0 = self.get_some_waveforms(peaks_index=self.some_peaks_index[selected], n_left=n_left-2, n_right=n_right+2)
+                distances = np.sum(np.sum((wf0[:, 2:-2, :][:, :, sparse_mask] - center0[np.newaxis, :, :][:, :, sparse_mask])**2, axis=1), axis=1)
+            
                 bins = np.arange(0, 1, 1/100) * np.quantile(noise_distances, .98)
                 count, bins = np.histogram(distances, bins=bins)
                 count2, bins2 = np.histogram(noise_distances, bins=bins)
@@ -2041,10 +2050,6 @@ class CatalogueConstructor:
                 
                 plt.show()
 
-
-            
-            
-        
         #params propagation
         self.catalogue['signal_preprocessor_params'] = dict(self.info['signal_preprocessor_params'])
         self.catalogue['peak_detector_params'] = dict(self.info['peak_detector_params'])

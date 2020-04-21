@@ -136,6 +136,8 @@ def auto_split(catalogueconstructor,
     if len(cc.positive_cluster_labels) ==0:
         return
     
+    m = np.max(cc.positive_cluster_labels) + 1
+    
     # pvals = []
     # for label in cc.positive_cluster_labels:
     #     pval = _compute_one_dip_test(cc.dataio.dirname, cc.chan_grp, label, n_components_local_pca, adjacency_radius_um)
@@ -335,6 +337,7 @@ def auto_merge(catalogueconstructor,
     threshold = cc.info['peak_detector_params']['relative_threshold']
     
     while True:
+        
         labels = cc.positive_cluster_labels.copy()
         
         
@@ -343,6 +346,7 @@ def auto_merge(catalogueconstructor,
         n = labels.size
         
         #~ pop_from_centroids = []
+        new_centroids = []
         pop_from_cluster = []
         for i in range(n):
             k1 = labels[i]
@@ -357,6 +361,7 @@ def auto_merge(catalogueconstructor,
                     continue
                 
                 #~ print(k1, k2)
+                #~ print('  k2', k2)
                 
                 ind1 = cc.index_of_label(k1)
                 extremum_amplitude1 = np.abs(cc.clusters[ind1]['extremum_amplitude'])
@@ -370,8 +375,12 @@ def auto_merge(catalogueconstructor,
                 thresh = max(thresh, auto_merge_threshold)
                 #~ print('thresh', thresh)
                 
-                
+                #~ t1 = time.perf_counter()
                 do_merge = equal_template(centroid1, centroid2, thresh=thresh, n_shift=maximum_shift)
+                #~ t2 = time.perf_counter()
+                #~ print('equal_template', t2-t1)
+                
+                #~ print('do_merge', do_merge)
                 
                 #~ if debug_plot:
                 #~ print(k1, k2)
@@ -392,10 +401,13 @@ def auto_merge(catalogueconstructor,
 
                     mask = cc.all_peaks['cluster_label'] == k2
                     cc.all_peaks['cluster_label'][mask] = k1
-                    #~ cc.pop_labels_from_cluster([k2])
                     
-                    cc.compute_one_centroid(k1)
+                    #~ t1 = time.perf_counter()
+                    #~ cc.compute_one_centroid(k1)
+                    #~ t2 = time.perf_counter()
+                    #~ print('cc.compute_one_centroid', t2-t1)
                     
+                    new_centroids.append(k1)
                     pop_from_cluster.append(k2)
                     
                     labels[j] = -1
@@ -410,8 +422,18 @@ def auto_merge(catalogueconstructor,
                         ax.set_title('merge '+str(k1)+' '+str(k2))
                         plt.show()
         
-        for k in np.unique(pop_from_cluster):
-            cc.pop_labels_from_cluster([k])
+        #~ for k in np.unique(pop_from_cluster):
+            #~ cc.pop_labels_from_cluster([k])
+        pop_from_cluster = np.unique(pop_from_cluster)
+        cc.pop_labels_from_cluster(pop_from_cluster)
+        
+        new_centroids = np.unique(new_centroids)
+        new_centroids = [k for k in new_centroids if k not in pop_from_cluster]
+        cc.compute_several_centroids(new_centroids)
+
+        #~ cc.compute_one_centroid(k)
+        
+        
         
         #~ for k in np.unique(pop_from_centroids):
             #~ if k in centroids:

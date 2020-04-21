@@ -103,19 +103,20 @@ class PeelerEngineBase(OpenCL_Helper):
         self.colors = make_color_dict(self.catalogue['clusters'])
         
         # precompute some value for jitter estimation
-        n = self.catalogue['cluster_labels'].size
-        self.catalogue['wf1_norm2'] = np.zeros(n)
-        self.catalogue['wf2_norm2'] = np.zeros(n)
-        self.catalogue['wf1_dot_wf2'] = np.zeros(n)
-        for i, k in enumerate(self.catalogue['cluster_labels']):
-            chan = self.catalogue['extremum_channel'][i]
-            wf0 = self.catalogue['centers0'][i,: , chan]
-            wf1 = self.catalogue['centers1'][i,: , chan]
-            wf2 = self.catalogue['centers2'][i,: , chan]
+        if self.inter_sample_oversampling:
+            n = self.catalogue['cluster_labels'].size
+            self.catalogue['wf1_norm2'] = np.zeros(n)
+            self.catalogue['wf2_norm2'] = np.zeros(n)
+            self.catalogue['wf1_dot_wf2'] = np.zeros(n)
+            for i, k in enumerate(self.catalogue['cluster_labels']):
+                chan = self.catalogue['extremum_channel'][i]
+                wf0 = self.catalogue['centers0'][i,: , chan]
+                wf1 = self.catalogue['centers1'][i,: , chan]
+                wf2 = self.catalogue['centers2'][i,: , chan]
 
-            self.catalogue['wf1_norm2'][i] = wf1.dot(wf1)
-            self.catalogue['wf2_norm2'][i] = wf2.dot(wf2)
-            self.catalogue['wf1_dot_wf2'][i] = wf1.dot(wf2)
+                self.catalogue['wf1_norm2'][i] = wf1.dot(wf1)
+                self.catalogue['wf2_norm2'][i] = wf2.dot(wf2)
+                self.catalogue['wf1_dot_wf2'][i] = wf1.dot(wf2)
         
         
         #~ print('self.use_sparse_template', self.use_sparse_template)

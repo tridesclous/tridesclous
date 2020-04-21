@@ -32,12 +32,14 @@ def make_prediction_on_spike_with_label(spike_index, spike_label, spike_jitter, 
 
 def make_prediction_one_spike(spike_index, cluster_idx, spike_jitter, dtype, catalogue):
     
-    r = catalogue['subsample_ratio']
+    
     pos = spike_index + catalogue['n_left']
-    if spike_jitter is None or np.isnan(spike_jitter):
+    #~ if spike_jitter is None or np.isnan(spike_jitter):
+    if not catalogue['inter_sample_oversampling']:
         pred = catalogue['centers0'][cluster_idx, :, :]
     else:
         #TODO debug that sign   >>>> done this is correct
+        r = catalogue['subsample_ratio']
         shift = -int(np.round(spike_jitter))
         pos = pos + shift
         int_jitter = int((spike_jitter+shift)*r) + r//2
