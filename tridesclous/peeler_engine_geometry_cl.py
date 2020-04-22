@@ -204,6 +204,14 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
 
         # kernel calls
+
+#~ __kernel void roll_fifo(__global  float *fifo_residuals, int fifo_roll_size){
+        self.kern_roll_fifo = getattr(self.opencl_prg, 'roll_fifo')
+        self.fifo_roll_size = self.fifo_size - self.chunksize
+        self.kern_roll_fifo.set_args(self.fifo_residuals_cl,
+                                                                np.int32(self.fifo_roll_size))
+
+        
         self.kern_add_fifo_residuals = getattr(self.opencl_prg, 'add_fifo_residuals')
         fifo_roll_size = self.fifo_size - self.chunksize
         self.kern_add_fifo_residuals.set_args(self.fifo_residuals_cl,
@@ -342,9 +350,19 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             abs_head_index, preprocessed_chunk =  pos, sigs_chunk
             
             pyopencl.enqueue_copy(self.queue,  self.sigs_chunk_cl, sigs_chunk)
-            n = self.fifo_residuals.shape[0]-self.chunksize
+            
+            # WIP ICI#~ self.kern_roll_fifo
+            
+            
+            global_size = (self.fifo_roll_size, self.nb_channel)
+            local_size = (self.fifo_roll_size, 1) # TODO more size here
+            #~ print(
+            event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_roll_fifo, global_size, local_size,)
+            
+            #~ n = self.fifo_residuals.shape[0]-self.chunksize
             global_size = (self.chunksize, self.nb_channel)
-            local_size = (1, self.nb_channel)
+            local_size = (1, self.nb_channel) # TODO more size here
+            #~ local_size = (self.chunksize, 1) # TODO more size here
             event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_add_fifo_residuals, global_size, local_size,)
 
         else:
@@ -387,6 +405,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             global_size = (gsize, )
             local_size = (gsize, )
         #~ print('global_size', global_size, 'local_size', local_size)
+        #~ exit()
         
         event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_detect_local_peaks, global_size, local_size,)
 
@@ -753,15 +772,37 @@ typedef struct st_peak{
 
 
 
-__kernel void add_fifo_residuals(__global  float *fifo_residuals, __global  float *sigs_chunk, int fifo_roll_size){
+__kernel void roll_fifo(__global  float *fifo_residuals, int fifo_roll_size){
     int pos = get_global_id(0);
     int chan = get_global_id(1);
     
-    //work on ly for n<chunksize
-    if (pos<fifo_roll_size){
-        fifo_residuals[pos*nb_channel+chan] = fifo_residuals[(pos+chunksize)*nb_channel+chan];
+    if (pos>=fifo_roll_size){
+        return;
     }
-    barrier(CLK_GLOBAL_MEM_FENCE);
+    if (chan>=nb_channel){
+        return;
+    }
+
+    fifo_residuals[pos*nb_channel+chan] = fifo_residuals[(pos+chunksize)*nb_channel+chan];
+
+}
+
+__kernel void add_fifo_residuals(__global  float *fifo_residuals, __global  float *sigs_chunk, int fifo_roll_size){
+    int pos = get_global_id(0);
+    int chan = get_global_id(1);
+
+    if (pos>=chunksize){
+        return;
+    }
+    if (chan>=nb_channel){
+        return;
+    }
+    
+    //work on ly for n<chunksize
+    //if (pos<fifo_roll_size){
+    //    fifo_residuals[pos*nb_channel+chan] = fifo_residuals[(pos+chunksize)*nb_channel+chan];
+    //}
+    //barrier(CLK_GLOBAL_MEM_FENCE);
     
     fifo_residuals[(pos+fifo_roll_size)*nb_channel+chan] = sigs_chunk[pos*nb_channel+chan];
 }
@@ -798,7 +839,8 @@ __kernel void detect_local_peaks(
     if (pos == 0){
         *nb_pending_peaks = 0;
     }
-    barrier(CLK_GLOBAL_MEM_FENCE);
+    // this barrier OK if the first group is run first
+    barrier(CLK_GLOBAL_MEM_FENCE);  
 
     if (pos>=(fifo_size - (2 * n_span))){
         return;
