@@ -208,6 +208,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
 #~ __kernel void roll_fifo(__global  float *fifo_residuals, int fifo_roll_size){
         self.kern_roll_fifo = getattr(self.opencl_prg, 'roll_fifo')
         self.fifo_roll_size = self.fifo_size - self.chunksize
+        assert self.fifo_roll_size < self.chunksize, 'roll fifo size is smaller thatn new buffer size'
         self.kern_roll_fifo.set_args(self.fifo_residuals_cl,
                                                                 np.int32(self.fifo_roll_size))
 
@@ -353,16 +354,24 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             
             # WIP ICI#~ self.kern_roll_fifo
             
-            
+            gsize = self.fifo_roll_size * self.nb_channel
             global_size = (self.fifo_roll_size, self.nb_channel)
-            local_size = (self.fifo_roll_size, 1) # TODO more size here
-            #~ print(
+            if gsize > self.max_wg_size:
+                n = int(np.ceil(gsize / self.max_wg_size / self.nb_channel))
+                local_size = (n, self.nb_channel)
+            else:
+                local_size = global_size
             event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_roll_fifo, global_size, local_size,)
             
-            #~ n = self.fifo_residuals.shape[0]-self.chunksize
+            gsize = self.chunksize * self.nb_channel
             global_size = (self.chunksize, self.nb_channel)
-            local_size = (1, self.nb_channel) # TODO more size here
-            #~ local_size = (self.chunksize, 1) # TODO more size here
+            if gsize > self.max_wg_size:
+                n = int(np.ceil(gsize / self.max_wg_size / self.nb_channel))
+                local_size = (n, self.nb_channel)
+            else:
+                local_size = global_size
+            #~ print('global_size', global_size, 'local_size', local_size, self.max_wg_size, local_size[0] * local_size[1])
+            #~ exit()
             event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_add_fifo_residuals, global_size, local_size,)
 
         else:
@@ -469,6 +478,18 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         #~ local_size = (1, self.nb_channel)
         local_size = (self.nb_cluster, 1)   ####  commes gemotrical
         #~ local_size = (self.nb_cluster, self.nb_channel)
+        
+        gsize = self.nb_cluster * self.nb_channel
+        global_size = (self.nb_cluster, self.nb_channel)
+        if gsize > self.max_wg_size:
+            n = int(np.ceil(gsize / self.max_wg_size / self.nb_channel))
+            local_size = (n, self.nb_channel)
+        else:
+            local_size = global_size
+        #~ print('global_size', global_size, 'local_size', local_size, self.max_wg_size, local_size[0] * local_size[1])
+        #~ exit()
+        
+        
         t0 = time.perf_counter()
         event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_explore_templates, global_size, local_size,)
         #~ event.wait()
@@ -798,12 +819,6 @@ __kernel void add_fifo_residuals(__global  float *fifo_residuals, __global  floa
         return;
     }
     
-    //work on ly for n<chunksize
-    //if (pos<fifo_roll_size){
-    //    fifo_residuals[pos*nb_channel+chan] = fifo_residuals[(pos+chunksize)*nb_channel+chan];
-    //}
-    //barrier(CLK_GLOBAL_MEM_FENCE);
-    
     fifo_residuals[(pos+fifo_roll_size)*nb_channel+chan] = sigs_chunk[pos*nb_channel+chan];
 }
 
@@ -840,7 +855,7 @@ __kernel void detect_local_peaks(
         *nb_pending_peaks = 0;
     }
     // this barrier OK if the first group is run first
-    barrier(CLK_GLOBAL_MEM_FENCE);  
+    barrier(CLK_GLOBAL_MEM_FENCE);
 
     if (pos>=(fifo_size - (2 * n_span))){
         return;
@@ -1171,27 +1186,27 @@ __kernel void explore_templates(__global  float *fifo_residuals,
         
         peak = *next_peak;
         
-        left_ind = spike.peak_index + n_left;
     
         // initialize distance
         //parralel on cluster_idx
-        if (chan==0){
-            for (int cluster_idx=0; cluster_idx<nb_cluster; ++cluster_idx){
+        //if (chan==0){
+        //    for (int cluster_idx=0; cluster_idx<nb_cluster; ++cluster_idx){
                 // the peak_chan do not overlap spatialy this cluster
-                if (sparse_mask_level3[nb_channel*cluster_idx+peak.peak_chan] == 0){
-                    distance_templates[cluster_idx] = FLT_MAX;
-                }
-                else {
+        //        if (sparse_mask_level3[nb_channel*cluster_idx+peak.peak_chan] == 0){
+        //            distance_templates[cluster_idx] = FLT_MAX;
+        //        }
+        //        else {
                     // candidate initialize sum by cluster
-                    distance_templates[cluster_idx] = 0.0f;
-                }
-            }
-        }
-        barrier(CLK_GLOBAL_MEM_FENCE);
+        //            distance_templates[cluster_idx] = 0.0f;
+        //        }
+        //    }
+        //}
+        //barrier(CLK_GLOBAL_MEM_FENCE);
         
         // compute distance
         if (sparse_mask_level3[nb_channel*cluster_idx+peak.peak_chan] == 1){
             if (channel_distances[chan * nb_channel + peak.peak_chan] < adjacency_radius_um){
+                left_ind = spike.peak_index + n_left;
                 float sum = 0;
                 float d;
                 for (int s=0; s<peak_width; ++s){
@@ -1200,7 +1215,13 @@ __kernel void explore_templates(__global  float *fifo_residuals,
                 }
                 atomic_add_float(&distance_templates[cluster_idx], sum);
             }
+        }else{
+            if (chan==0){
+                distance_templates[cluster_idx] = FLT_MAX;
+            }
         }
+        
+        
     }
 }
 
@@ -1264,10 +1285,10 @@ __kernel void explore_shifts(__global  float *fifo_residuals,
         if (spike.cluster_idx>=0){
         
             // explore shifts
-            if (chan==0){
-                distance_shifts[shift_ind] = 0.0f;
-            }
-            barrier(CLK_GLOBAL_MEM_FENCE);
+            //if (chan==0){
+            //    distance_shifts[shift_ind] = 0.0f;
+            //}
+            //barrier(CLK_GLOBAL_MEM_FENCE);
 
             if (sparse_mask_level2[nb_channel*spike.cluster_idx + chan] == 1){
                 int shift;
