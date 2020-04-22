@@ -357,21 +357,24 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             gsize = self.fifo_roll_size * self.nb_channel
             global_size = (self.fifo_roll_size, self.nb_channel)
             if gsize > self.max_wg_size:
-                n = int(np.ceil(gsize / self.max_wg_size / self.nb_channel))
-                local_size = (n, self.nb_channel)
+                #~ n = int(np.floor(self.max_wg_size / self.nb_channel))
+                #~ local_size = (n, self.nb_channel)
+                local_size = (1, self.nb_channel)
             else:
                 local_size = global_size
+            #~ print('global_size', global_size, 'local_size', local_size, self.max_wg_size, local_size[0] * local_size[1])
             event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_roll_fifo, global_size, local_size,)
+            
             
             gsize = self.chunksize * self.nb_channel
             global_size = (self.chunksize, self.nb_channel)
             if gsize > self.max_wg_size:
-                n = int(np.ceil(gsize / self.max_wg_size / self.nb_channel))
-                local_size = (n, self.nb_channel)
+                #~ n = int(np.floor(self.max_wg_size / self.nb_channel))
+                #~ local_size = (n, self.nb_channel)
+                local_size = (1, self.nb_channel)
             else:
                 local_size = global_size
             #~ print('global_size', global_size, 'local_size', local_size, self.max_wg_size, local_size[0] * local_size[1])
-            #~ exit()
             event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_add_fifo_residuals, global_size, local_size,)
 
         else:
@@ -482,13 +485,13 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         gsize = self.nb_cluster * self.nb_channel
         global_size = (self.nb_cluster, self.nb_channel)
         if gsize > self.max_wg_size:
-            n = int(np.ceil(gsize / self.max_wg_size / self.nb_channel))
-            local_size = (n, self.nb_channel)
+            n = int(np.ceil(self.nb_channel / self.max_wg_size))
+            #~ local_size = (n, self.nb_channel)
+            local_size = (1, self.nb_channel)
         else:
             local_size = global_size
         #~ print('global_size', global_size, 'local_size', local_size, self.max_wg_size, local_size[0] * local_size[1])
         #~ exit()
-        
         
         t0 = time.perf_counter()
         event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_explore_templates, global_size, local_size,)
