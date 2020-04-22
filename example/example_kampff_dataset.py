@@ -4,7 +4,7 @@ The dataset is here http://www.kampff-lab.org/validating-electrodes/
 You have to download 2015_09_03_Cell9.0 and put files
 somewhere on your machine.
 
-Them change working_dir = ... to the correct path
+Then change working_dir = ... to the correct path
 
 """
 from tridesclous import *
@@ -22,7 +22,7 @@ from matplotlib import pyplot
 working_dir = '/media/samuel/SamCNRS/DataSpikeSorting/kampff/'
 
 
-dirname= working_dir+'tdc_2015_09_09_Pair_6_0'
+dirname = working_dir+'tdc_2015_09_09_Pair_6_0'
 
 
  
