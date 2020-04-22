@@ -1,6 +1,8 @@
 import time
 import numpy as np
 
+from pprint import pprint
+
 import sklearn.metrics
 
 from .peeler_tools import *
@@ -28,17 +30,20 @@ import matplotlib.pyplot as plt
 
 
 class PeelerEngineGeometricalCl(PeelerEngineGeneric):
-    def change_params(self, adjacency_radius_um=100, **kargs): # high_adjacency_radius_um=50, 
+    def change_params(self, adjacency_radius_um=100, use_opencl2=False, **kargs): # high_adjacency_radius_um=50, 
         assert HAVE_PYOPENCL
         
         PeelerEngineGeneric.change_params(self, **kargs)
         
         assert self.use_sparse_template
         
+        # Note the same radius as self.catalogue['peak_detector_params']['']
+        # this one is used for explore template around the chann detection
         self.adjacency_radius_um = adjacency_radius_um
         
-        self.shifts = np.arange(-self.maximum_jitter_shift, self.maximum_jitter_shift+1)
+        self.use_opencl2 = use_opencl2
         
+        self.shifts = np.arange(-self.maximum_jitter_shift, self.maximum_jitter_shift+1)
 
 
     def initialize(self, **kargs):
@@ -104,9 +109,43 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                     inter_sample_oversampling=int(self.inter_sample_oversampling),
                     nb_shift=self.nb_shift,
                     )
-        #~ print(kernel_formated)
-        prg = pyopencl.Program(self.ctx, kernel_formated)
-        self.opencl_prg = prg.build(options='-cl-mad-enable')
+        
+        # kernel size
+        # explore_templates
+        gsize = self.nb_cluster * self.nb_channel
+        global_size = (self.nb_cluster, self.nb_channel)
+        if gsize > self.max_wg_size:
+            n = int(np.ceil(self.nb_channel / self.max_wg_size))
+            local_size = (1, self.nb_channel)
+        else:
+            local_size = global_size
+        self.sizes_explore_templates = (global_size, local_size)
+        
+        # explore_shifts
+        global_size = (self.nb_shift, self.nb_channel)
+        # TODO optimize this!!!
+        #~ local_size = (1, self.nb_channel)    ### marche pas
+        local_size = (self.nb_shift, 1)  ####  comme gemotrical
+        #~ local_size = (self.nb_shift, self.nb_channel)  ## marche mais trop gros dans certain cas
+        self.sizes_explore_shifts = (global_size, local_size)
+        
+
+
+
+        
+        if self.use_opencl2:
+            kernel_opencl2_extention_formated = kernel_opencl2_extention % dict(
+                ls_0 = self.sizes_explore_templates[1][0]
+                )
+            kernel_formated = kernel_formated + kernel_opencl2_extention_formated
+            prg = pyopencl.Program(self.ctx, kernel_formated)
+            #~ self.opencl_prg = prg.build(options='-cl-mad-enable')
+            self.opencl_prg = prg.build(options='-cl-std=CL2.0')
+        else:
+            prg = pyopencl.Program(self.ctx, kernel_formated)
+            self.opencl_prg = prg.build(options='')
+        
+        
         
         
         
@@ -205,7 +244,6 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
 
         # kernel calls
 
-#~ __kernel void roll_fifo(__global  float *fifo_residuals, int fifo_roll_size){
         self.kern_roll_fifo = getattr(self.opencl_prg, 'roll_fifo')
         self.fifo_roll_size = self.fifo_size - self.chunksize
         assert self.fifo_roll_size < self.chunksize, 'roll fifo size is smaller thatn new buffer size'
@@ -240,7 +278,6 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                                                             self.pending_peaks_cl,
                                                             self.nb_pending_peaks_cl,
                                                             self.next_spike_cl,
-                                                            np.float32(self.adjacency_radius_um),
                                                             alien_value_threshold,
                                                             )
     
@@ -274,24 +311,19 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         self.kern_best_shift_and_jitter.set_args(self.fifo_residuals_cl,
                                                         self.next_spike_cl,
                                                         self.next_peak_cl,
-                                                        self.pending_peaks_cl,
-                                                        self.nb_pending_peaks_cl,
-                                                        self.good_spikes_cl,
-                                                        self.nb_good_spikes_cl,
-                                                        self.mask_already_tested_cl,
                                                         self.catalogue_center0_cl,
                                                         self.catalogue_center1_cl,
                                                         self.catalogue_center2_cl,
                                                         self.catalogue_inter_center0_cl,
-                                                        self.sparse_mask_level2_cl,
                                                         self.distance_shifts_cl,
                                                         self.extremum_channel_cl,
                                                         self.wf1_norm2_cl,
                                                         self.wf2_norm2_cl,
                                                         self.wf1_dot_wf2_cl,
-                                                        self.weight_per_template_cl,
                                                         self.best_distance_cl,
                                                         )
+
+
 
         self.kern_finalize_next_spike = getattr(self.opencl_prg, 'finalize_next_spike')
         self.kern_finalize_next_spike.set_args(self.fifo_residuals_cl,
@@ -333,7 +365,44 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                                                 self.sparse_mask_level1_cl,
                                                 )
 
-        
+        if self.use_opencl2:
+            self.kern_classify_and_align_next_spike = getattr(self.opencl_prg, 'classify_and_align_next_spike')
+            self.kern_classify_and_align_next_spike.set_args(self.fifo_residuals_cl,
+                                                            self.next_spike_cl,
+                                                            self.next_peak_cl,
+                                                            self.pending_peaks_cl,
+                                                            self.nb_pending_peaks_cl,
+                                                            alien_value_threshold,
+                                                            
+                                                            self.catalogue_center0_cl,
+                                                            self.catalogue_center1_cl,
+                                                            self.catalogue_center2_cl,
+                                                            self.catalogue_inter_center0_cl,
+                        
+                                                            self.sparse_mask_level1_cl,
+                                                            self.sparse_mask_level2_cl,
+                                                            self.sparse_mask_level3_cl,
+                                                            self.distance_templates_cl,
+                                                            self.distance_shifts_cl,
+                                                            
+                                                            self.channel_distances_cl,
+                                                            np.float32(self.adjacency_radius_um),
+                                                            
+                                                            self.extremum_channel_cl,
+                                                            self.wf1_norm2_cl,
+                                                            self.wf2_norm2_cl,
+                                                            self.wf1_dot_wf2_cl,
+                                                            self.best_distance_cl,
+
+                                                            self.good_spikes_cl,
+                                                            self.nb_good_spikes_cl,
+                                                            self.mask_already_tested_cl,
+                                                            self.weight_per_template_cl,
+                                                            self.distance_limit_cl,
+                                                            
+                                                            )
+
+
     def initialize_before_each_segment(self, **kargs):
         PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
         #~ self.mask_not_already_tested[:] = 1
@@ -402,8 +471,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         #~ print('yep', self.mask_already_tested.size, self.mask_already_tested.shape)
         #~ pyopencl.enqueue_fill_buffer(self.queue, self.mask_already_tested_cl, np.zeros(1, dtype='uint8'), 0, self.mask_already_tested.size)
         #~ print('yop')
-        #  TODO  max_wg_size
-        #~ print('yep', self.mask_already_tested.shape)
+
         self.mask_already_tested[:] = 0
         event = pyopencl.enqueue_copy(self.queue,  self.mask_already_tested_cl, self.mask_already_tested)
         #~ print('yop')
@@ -432,146 +500,176 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
     
     def classify_and_align_next_spike(self):
-        if self._plot_debug:
-            print()
-            print('classify_and_align_next_spike')
-        
-        #~ n = max(self.maximum_jitter_shift*2+1, self.nb_cluster)
-        #~ print('n', n, 'self.nb_cluster', self.nb_cluster)
-        
-        #~ global_size = (self.nb_channel, 1)
-        #~ local_size = (self.nb_channel, 1)
-        #~ global_size = (n, self.nb_channel)
-        #~ local_size = (n, 1)
-        #~ local_size = (1, self.nb_channel)
-        #~ local_size = (n, self.nb_channel)
-        
-        #~ print('self.max_wg_size', self.max_wg_size)
-        #~ print('nb_channel', self.nb_channel)
-        #~ print('n', n)
-        # TODO self.max_wg_size
-        
-        #~ print('global_size', global_size, 'local_size', local_size)
-        
-        #~ event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_classify_and_align_next_spike, global_size, local_size,)
-        
-        # reset distance_templates and distance_shifts
-        self.distance_templates[:] = 0
-        event = pyopencl.enqueue_copy(self.queue,  self.distance_templates_cl, self.distance_templates)
-        self.distance_shifts[:] = 0
-        event = pyopencl.enqueue_copy(self.queue,  self.distance_shifts_cl, self.distance_shifts)
-        
-        
-        #~ print()
-        global_size = (1, )
-        local_size = (1, )
-        t0 = time.perf_counter()
-        event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_select_next_peak, global_size, local_size,)
-        #~ event.wait()
-        #~ t1 = time.perf_counter()
-        #~ print('kern_select_next_peak',( t1-t0)*1000)
-        
-        #~ if True:
-            #~ event = pyopencl.enqueue_copy(self.queue,  self.nb_pending_peaks, self.nb_pending_peaks_cl)
-            #~ event = pyopencl.enqueue_copy(self.queue,  self.pending_peaks, self.pending_peaks_cl)
-            #~ nb = self.nb_pending_peaks[0]
-            #~ print(self.pending_peaks[:nb])
-        
-        global_size = (self.nb_cluster, self.nb_channel)
-        #~ local_size = (1, self.nb_channel)
-        local_size = (self.nb_cluster, 1)   ####  commes gemotrical
-        #~ local_size = (self.nb_cluster, self.nb_channel)
-        
-        gsize = self.nb_cluster * self.nb_channel
-        global_size = (self.nb_cluster, self.nb_channel)
-        if gsize > self.max_wg_size:
-            n = int(np.ceil(self.nb_channel / self.max_wg_size))
-            #~ local_size = (n, self.nb_channel)
-            local_size = (1, self.nb_channel)
-        else:
-            local_size = global_size
-        #~ print('global_size', global_size, 'local_size', local_size, self.max_wg_size, local_size[0] * local_size[1])
-        #~ exit()
-        
-        t0 = time.perf_counter()
-        event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_explore_templates, global_size, local_size,)
-        #~ event.wait()
-        #~ t1 = time.perf_counter()
-        #~ print('kern_explore_templates',( t1-t0)*1000)
-        
-        global_size = (1, )
-        local_size = (1, )
-        t0 = time.perf_counter()
-        event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_get_best_template, global_size, local_size,)
-        #~ event.wait()
-        #~ t1 = time.perf_counter()
-        #~ print('kern_get_best_template',( t1-t0)*1000)        
-        
-        global_size = (self.nb_shift, self.nb_channel)
-        #~ local_size = (1, self.nb_channel)    ### marche pas
-        local_size = (self.nb_shift, 1)  ####  comme gemotrical
-        #~ local_size = (self.nb_shift, self.nb_channel)  ## marche mais trop gros dans certain cas
-        t0 = time.perf_counter()
-        event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_explore_shifts, global_size, local_size,)
-        #~ event.wait()
-        #~ t1 = time.perf_counter()
-        #~ print('kern_explore_shifts',( t1-t0)*1000)        
-        
+        if self.use_opencl2:
+            # one unique meta kernel
+            self.distance_templates[:] = 0
+            event = pyopencl.enqueue_copy(self.queue,  self.distance_templates_cl, self.distance_templates)
+            self.distance_shifts[:] = 0
+            event = pyopencl.enqueue_copy(self.queue,  self.distance_shifts_cl, self.distance_shifts)
 
-        global_size = (1, )
-        local_size = (1, )
-        t0 = time.perf_counter()
-        event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_best_shift_and_jitter, global_size, local_size,)
-        #~ event.wait()
-        #~ t1 = time.perf_counter()
-        #~ print('kern_best_shift_and_jitter',( t1-t0)*1000)
-
-        global_size = (1, )
-        local_size = (1, )
-        t0 = time.perf_counter()
-        event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_finalize_next_spike, global_size, local_size,)
-        #~ event.wait()
-        #~ t1 = time.perf_counter()
-        #~ print('kern_finalize_next_spike',( t1-t0)*1000)        
-        
-        
-        
-        t0 = time.perf_counter()
-        event = pyopencl.enqueue_copy(self.queue,  self.next_spike, self.next_spike_cl)
-        event.wait()
-        
-        #~ t1 = time.perf_counter()
-        #~ print('enqueue_copy',( t1-t0)*1000)        
-        #~ print(' self.next_spike',  self.next_spike)
-        
-        if self.next_spike[0]['cluster_idx'] >= 0:
-            global_size = (self.peak_width, )
-            local_size = (self.peak_width, )
-            t0 = time.perf_counter()
-            event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_remove_spike_from_fifo, global_size, local_size,)
+            global_size = (1, )
+            local_size = (1, )
+            #~ t0 = time.perf_counter()
+            event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_classify_and_align_next_spike, global_size, local_size,)            
             #~ event.wait()
             #~ t1 = time.perf_counter()
-            #~ print('kern_remove_spike_from_fifo',( t1-t0)*1000)        
-        
-        
-        
-        if self._plot_debug:
-        #~ if True:
-            event = pyopencl.enqueue_copy(self.queue,  self.next_peak, self.next_peak_cl)
-            event = pyopencl.enqueue_copy(self.queue,  self.best_distance, self.best_distance_cl)
+            #~ print('kern_classify_and_align_next_spike',( t1-t0)*1000)
+
+            #~ if True:
+            if False:
+                event = pyopencl.enqueue_copy(self.queue,  self.nb_pending_peaks, self.nb_pending_peaks_cl)
+                event = pyopencl.enqueue_copy(self.queue,  self.pending_peaks, self.pending_peaks_cl)
+                event = pyopencl.enqueue_copy(self.queue,  self.next_peak, self.next_peak_cl)
+                event = pyopencl.enqueue_copy(self.queue,  self.next_spike, self.next_spike_cl)
+                nb = self.nb_pending_peaks[0]
+                print(self.pending_peaks[:nb])
+                print('self.nex_peak', self.next_peak)
+                
+                event = pyopencl.enqueue_copy(self.queue,  self.distance_templates, self.distance_templates_cl)
+                print(self.distance_templates)
+                print('next_spike', self.next_spike)
+                
+                event = pyopencl.enqueue_copy(self.queue,  self.distance_shifts, self.distance_shifts_cl)
+                print(self.distance_shifts)
+
+                event = pyopencl.enqueue_copy(self.queue,  self.best_distance, self.best_distance_cl)
+                print(self.best_distance)
+                
+                print('next_spike', self.next_spike)
+
+            t0 = time.perf_counter()
+            event = pyopencl.enqueue_copy(self.queue,  self.next_spike, self.next_spike_cl)
             event.wait()
-            print(self.next_peak)
-            print(self.next_spike)
-            #~ print('self.best_distance', self.best_distance, self.distance_limit)
-            print()
-        
-        #~ exit()
-        
-        cluster_idx = self.next_spike[0]['cluster_idx']
-        if self.next_spike[0]['cluster_idx'] >= 0:
-            label = self.catalogue['cluster_labels'][cluster_idx]
+            
+            if self.next_spike[0]['cluster_idx'] >= 0:
+                global_size = (self.peak_width, )
+                local_size = (self.peak_width, )
+                event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_remove_spike_from_fifo, global_size, local_size,)
+            
+            if self._plot_debug:
+                event = pyopencl.enqueue_copy(self.queue,  self.next_peak, self.next_peak_cl)
+                event = pyopencl.enqueue_copy(self.queue,  self.best_distance, self.best_distance_cl)
+                event.wait()
+                print(self.next_peak)
+                print(self.next_spike)
+                #~ print('self.best_distance', self.best_distance, self.distance_limit)
+                print()
+            
+            cluster_idx = self.next_spike[0]['cluster_idx']
+            if self.next_spike[0]['cluster_idx'] >= 0:
+                label = self.catalogue['cluster_labels'][cluster_idx]
+            else:
+                label = cluster_idx
+                
+            
         else:
-            label = cluster_idx
+            # OpenCL 1.2
+        
+        
+            if self._plot_debug:
+                print()
+                print('classify_and_align_next_spike')
+            
+            
+            # reset distance_templates and distance_shifts
+            self.distance_templates[:] = 0
+            event = pyopencl.enqueue_copy(self.queue,  self.distance_templates_cl, self.distance_templates)
+            self.distance_shifts[:] = 0
+            event = pyopencl.enqueue_copy(self.queue,  self.distance_shifts_cl, self.distance_shifts)
+            
+            
+            #~ print()
+            global_size = (1, )
+            local_size = (1, )
+            t0 = time.perf_counter()
+            event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_select_next_peak, global_size, local_size,)
+            #~ event.wait()
+            #~ t1 = time.perf_counter()
+            #~ print('kern_select_next_peak',( t1-t0)*1000)
+            
+            #~ if True:
+                #~ event = pyopencl.enqueue_copy(self.queue,  self.nb_pending_peaks, self.nb_pending_peaks_cl)
+                #~ event = pyopencl.enqueue_copy(self.queue,  self.pending_peaks, self.pending_peaks_cl)
+                #~ nb = self.nb_pending_peaks[0]
+                #~ print(self.pending_peaks[:nb])
+            
+            t0 = time.perf_counter()
+            global_size, local_size = self.sizes_explore_templates
+            event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_explore_templates, global_size, local_size,)
+            #~ event.wait()
+            #~ t1 = time.perf_counter()
+            #~ print('kern_explore_templates',( t1-t0)*1000)
+            
+            global_size = (1, )
+            local_size = (1, )
+            t0 = time.perf_counter()
+            event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_get_best_template, global_size, local_size,)
+            #~ event.wait()
+            #~ t1 = time.perf_counter()
+            #~ print('kern_get_best_template',( t1-t0)*1000)        
+            
+            t0 = time.perf_counter()
+            (global_size, local_size) = self.sizes_explore_shifts
+            event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_explore_shifts, global_size, local_size,)
+            #~ event.wait()
+            #~ t1 = time.perf_counter()
+            #~ print('kern_explore_shifts',( t1-t0)*1000)        
+            
+
+            global_size = (1, )
+            local_size = (1, )
+            t0 = time.perf_counter()
+            event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_best_shift_and_jitter, global_size, local_size,)
+            #~ event.wait()
+            #~ t1 = time.perf_counter()
+            #~ print('kern_best_shift_and_jitter',( t1-t0)*1000)
+
+            global_size = (1, )
+            local_size = (1, )
+            t0 = time.perf_counter()
+            event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_finalize_next_spike, global_size, local_size,)
+            #~ event.wait()
+            #~ t1 = time.perf_counter()
+            #~ print('kern_finalize_next_spike',( t1-t0)*1000)        
+            
+            
+            
+            t0 = time.perf_counter()
+            event = pyopencl.enqueue_copy(self.queue,  self.next_spike, self.next_spike_cl)
+            event.wait()
+            
+            #~ t1 = time.perf_counter()
+            #~ print('enqueue_copy',( t1-t0)*1000)        
+            #~ print(' self.next_spike',  self.next_spike)
+            
+            if self.next_spike[0]['cluster_idx'] >= 0:
+                global_size = (self.peak_width, )
+                local_size = (self.peak_width, )
+                t0 = time.perf_counter()
+                event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_remove_spike_from_fifo, global_size, local_size,)
+                #~ event.wait()
+                #~ t1 = time.perf_counter()
+                #~ print('kern_remove_spike_from_fifo',( t1-t0)*1000)        
+            
+            
+            
+            if self._plot_debug:
+            #~ if True:
+                event = pyopencl.enqueue_copy(self.queue,  self.next_peak, self.next_peak_cl)
+                event = pyopencl.enqueue_copy(self.queue,  self.best_distance, self.best_distance_cl)
+                event.wait()
+                print(self.next_peak)
+                print(self.next_spike)
+                #~ print('self.best_distance', self.best_distance, self.distance_limit)
+                print()
+            
+            #~ exit()
+            
+            cluster_idx = self.next_spike[0]['cluster_idx']
+            if self.next_spike[0]['cluster_idx'] >= 0:
+                label = self.catalogue['cluster_labels'][cluster_idx]
+            else:
+                label = cluster_idx
         
         
         if self._plot_debug:
@@ -583,10 +681,12 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         #~ print('reset_to_not_tested')
         #~ print(good_spikes)
         
-        # TODO self.max_wg_size
-        global_size = (len(good_spikes), )
-        local_size = (len(good_spikes), )
-        
+        n = len(good_spikes)
+        global_size = (n, )
+        if n > self.max_wg_size:
+            local_size = (1, ) # otherwise too much complicated
+        else:
+            local_size = global_size
         event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_reset_tested_zone, global_size, local_size,)
         
         # mask_already_tested must NOT be reset here!!!
@@ -946,7 +1046,6 @@ __kernel void select_next_peak(
                         __global  st_peak *pending_peaks,
                         __global int *nb_pending_peaks,
                         __global st_spike *next_spike,
-                        float adjacency_radius_um,
                         float alien_value_threshold
                         ){
     
@@ -1313,26 +1412,15 @@ __kernel void best_shift_and_jitter(
                                             __global  float *fifo_residuals,
                                             __global st_spike *next_spike,
                                             __global  st_peak *next_peak,
-                                            __global  st_peak *pending_peaks,
-                                            __global int *nb_pending_peaks,
-                                            
-                                            __global  st_spike *good_spikes,
-                                            __global int *nb_good_spikes,
-                                            
-                                            
-                                            
-                                            __global  uchar *mask_already_tested,
                                             __global  float *catalogue_center0,
                                             __global  float *catalogue_center1,
                                             __global  float *catalogue_center2,
                                             __global  float *catalogue_inter_center0,
-                                            __global  uchar  *sparse_mask_level2,
                                             __global  float *distance_shifts,
                                             __global int *extremum_channel,
                                             __global float *wf1_norm2,
                                             __global float *wf2_norm2,
                                             __global float *wf1_dot_wf2,
-                                            __global float *weight_per_template,
                                             __global float *best_distance
                                             ){
     
@@ -1415,12 +1503,8 @@ __kernel void finalize_next_spike(
                                             __global  st_peak *next_peak,
                                             __global  st_peak *pending_peaks,
                                             __global int *nb_pending_peaks,
-                                            
                                             __global  st_spike *good_spikes,
                                             __global int *nb_good_spikes,
-                                            
-                                            
-                                            
                                             __global  uchar *mask_already_tested,
                                             __global  float *catalogue_center0,
                                             __global  float *catalogue_center1,
@@ -1465,15 +1549,17 @@ __kernel void finalize_next_spike(
     }
 
     // second security check for borders
-    if ((spike.cluster_idx >= 0) && inter_sample_oversampling){
-        int left_ind_check;
-        left_ind_check = left_ind - ((int) round(spike.jitter));
-        if (left_ind_check < 0){
-            spike.cluster_idx = LABEL_LEFT_LIMIT;
-        } else if ((left_ind_check+peak_width) >= fifo_size){
-            spike.cluster_idx = LABEL_RIGHT_LIMIT;
-        }
-    }    
+    if (inter_sample_oversampling){
+        if (spike.cluster_idx >= 0){
+            int left_ind_check;
+            left_ind_check = left_ind - ((int) round(spike.jitter));
+            if (left_ind_check < 0){
+                spike.cluster_idx = LABEL_LEFT_LIMIT;
+            } else if ((left_ind_check+peak_width) >= fifo_size){
+                spike.cluster_idx = LABEL_RIGHT_LIMIT;
+            }
+        }    
+    }
     
     // final
     if (spike.cluster_idx < 0){
@@ -1605,5 +1691,161 @@ __kernel void reset_tested_zone(__global  uchar *mask_already_tested,
 """
 
 
+
+kernel_opencl2_extention = """
+
+#define ls_0 %(ls_0)d
+
+
+__kernel void classify_and_align_next_spike(
+                        __global float *fifo_residuals,
+                        __global st_spike *next_spike,
+                        __global st_peak *next_peak,
+                        __global  st_peak *pending_peaks,
+                        __global int *nb_pending_peaks,
+                        float alien_value_threshold,
+                        
+                        __global  float *catalogue_center0,
+                        __global  float *catalogue_center1,
+                        __global  float *catalogue_center2,
+                        __global  float *catalogue_inter_center0,
+                        
+                        __global  uchar  *sparse_mask_level1,
+                        __global  uchar  *sparse_mask_level2,
+                        __global  uchar  *sparse_mask_level3,
+                        __global  float *distance_templates,
+                        __global  float *distance_shifts,
+                        
+                        __global float *channel_distances,
+                        float adjacency_radius_um,
+
+                        __global int *extremum_channel,
+                        __global float *wf1_norm2,
+                        __global float *wf2_norm2,
+                        __global float *wf1_dot_wf2,
+                        __global float *best_distance,
+
+                        __global  st_spike *good_spikes,
+                        __global int *nb_good_spikes,
+                        __global  uchar *mask_already_tested,
+                        __global float *weight_per_template,
+                        __global float *distance_limit
+                        
+                        
+            ){
+    
+    ndrange_t ndrange1 = ndrange_1D(1);
+    enqueue_kernel(get_default_queue(),
+                            CLK_ENQUEUE_FLAGS_NO_WAIT,
+                            ndrange1,
+                           ^{select_next_peak(
+                                    fifo_residuals,
+                                    next_peak,
+                                    pending_peaks,
+                                    nb_pending_peaks,
+                                    next_spike,
+                                    alien_value_threshold);}
+                            );
+    
+    size_t global_size_2[2] = {nb_cluster, nb_channel};
+    size_t local_size_2[2] = {ls_0, nb_channel};
+    ndrange_t ndrange2 = ndrange_2D(global_size_2, local_size_2);
+    enqueue_kernel(get_default_queue(),
+                            CLK_ENQUEUE_FLAGS_NO_WAIT,
+                            ndrange2,
+                           ^{explore_templates(
+                                    fifo_residuals,
+                                    next_spike,
+                                    next_peak,
+                                    catalogue_center0,
+                                    sparse_mask_level3,
+                                    distance_templates,
+                                    channel_distances,
+                                    adjacency_radius_um);}
+                            );
+    
+    
+    ndrange_t ndrange3 = ndrange_1D(1);
+    enqueue_kernel(get_default_queue(),
+                            CLK_ENQUEUE_FLAGS_NO_WAIT,
+                            ndrange3,
+                           ^{get_best_template(
+                                    next_spike,
+                                    distance_templates);}
+                            );
+
+    size_t global_size_4[2] = {nb_shift, nb_channel};
+    size_t local_size_4[2] = {nb_shift, 1};
+    ndrange_t ndrange4 = ndrange_2D(global_size_2, local_size_2);
+    enqueue_kernel(get_default_queue(),
+                            CLK_ENQUEUE_FLAGS_NO_WAIT,
+                            ndrange4,
+                           ^{explore_shifts(
+                                    fifo_residuals,
+                                    next_spike,
+                                    next_peak,
+                                    catalogue_center0,
+                                    sparse_mask_level2,
+                                    distance_templates,
+                                    distance_shifts);}
+                            );
+
+    ndrange_t ndrange5 = ndrange_1D(1);
+    enqueue_kernel(get_default_queue(),
+                            CLK_ENQUEUE_FLAGS_NO_WAIT,
+                            ndrange5,
+                           ^{best_shift_and_jitter(
+                                    fifo_residuals,
+                                    next_spike,
+                                    next_peak,
+                                    catalogue_center0,
+                                    catalogue_center1,
+                                    catalogue_center2,
+                                    catalogue_inter_center0,
+                                    distance_shifts,
+                                    extremum_channel,
+                                    wf1_norm2,
+                                    wf2_norm2,
+                                    wf1_dot_wf2,
+                                    best_distance);}
+                            );
+    
+
+    ndrange_t ndrange6 = ndrange_1D(1);
+    enqueue_kernel(get_default_queue(),
+                            CLK_ENQUEUE_FLAGS_NO_WAIT,
+                            ndrange6,
+                           ^{finalize_next_spike(
+                                    fifo_residuals,
+                                    next_spike,
+                                    next_peak,
+                                    pending_peaks,
+                                    nb_pending_peaks,
+                                    good_spikes,
+                                    nb_good_spikes,
+                                    mask_already_tested,
+                                    catalogue_center0,
+                                    catalogue_center1,
+                                    catalogue_center2,
+                                    catalogue_inter_center0,
+                                    sparse_mask_level1,
+                                    sparse_mask_level2,
+                                    distance_shifts,
+                                    extremum_channel,
+                                    wf1_norm2,
+                                    wf2_norm2,
+                                    wf1_dot_wf2,
+                                    weight_per_template,
+                                    distance_limit,
+                                    best_distance);}
+                            );
+    
+    
+    
+    
+}
+
+
+"""
 
 
