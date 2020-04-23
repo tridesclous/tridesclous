@@ -114,7 +114,7 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
     #~ pprint(params)
     apply_all_catalogue_steps(catalogueconstructor, params, verbose=True)
     
-    catalogueconstructor.make_catalogue_for_peeler()
+    catalogueconstructor.make_catalogue_for_peeler(inter_sample_oversampling=True)
     return catalogueconstructor, params
 
 

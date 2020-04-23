@@ -1801,13 +1801,17 @@ class CatalogueConstructor:
         #~ self._reset_metrics()
         self._reset_arrays(_persistent_metrics)
 
+
     def make_catalogue(self,
                             inter_sample_oversampling=False,
+                            #~ inter_sample_oversampling=True,
                             subsample_ratio='auto',
                             sparse_thresh_level2=3,
                             #~ sparse_thresh_extremum=-5,
                             ):
         #TODO: offer possibility to resample some waveforms or choose the number
+        
+        #~ print('inter_sample_oversampling', inter_sample_oversampling)
         
         t1 = time.perf_counter()
         self.catalogue = {}
@@ -1825,6 +1829,8 @@ class CatalogueConstructor:
         self.catalogue['peak_width'] = self.catalogue['n_right'] - self.catalogue['n_left']
         
         self.catalogue['inter_sample_oversampling'] = inter_sample_oversampling
+        
+        self.catalogue['mode'] = self.mode
         
         #~ self.catalogue['sparse_thresh_level2'] = sparse_thresh_level2
         
@@ -1877,6 +1883,8 @@ class CatalogueConstructor:
         self.catalogue['extremum_channel'] = np.zeros(nb_cluster, dtype='int64')
         self.catalogue['extremum_amplitude'] = np.zeros(nb_cluster, dtype='float32')
         self.catalogue['sparse_mask_level2'] = np.zeros((nb_cluster,self.nb_channel),  dtype='bool')
+        
+        
         
         self.catalogue['label_to_index'] = {}
         for i, k in enumerate(cluster_labels):
@@ -1948,7 +1956,10 @@ class CatalogueConstructor:
             
             #~ sparse_threshold_mad = 1.5
             #~ sparse_threshold_mad = self.info['peak_detector_params']['relative_threshold'] - 2 # put this in params
-            sparse_mask = np.any(np.abs(center0)>sparse_thresh_level2, axis=0)
+            if self.mode == 'dense':
+                sparse_mask = np.ones(self.nb_channel, dtype='bool')
+            else:
+                sparse_mask = np.any(np.abs(center0)>sparse_thresh_level2, axis=0)
             #~ sparse_mask = np.any(np.abs(center0)>(extremum_amplitude + sparse_thresh_extremum) , axis=0)
             #~ print(sparse_mask)
             self.catalogue['sparse_mask_level2'][i, :] = sparse_mask
@@ -1986,14 +1997,6 @@ class CatalogueConstructor:
             #~ limit = 1.5 * np.sum(sparse_mask) * catalogue_width
             
             self.catalogue['distance_limit'][i] = limit
-            
-            
-            
-            
-            
-            
-            
-            #~ print(distances)
             
             #~ if True:
             if False:
@@ -2068,7 +2071,7 @@ class CatalogueConstructor:
         Make and save catalogue in the working dir for the Peeler.
         
         """
-        self.make_catalogue()
+        self.make_catalogue(**kargs)
         self.dataio.save_catalogue(self.catalogue, name='initial')
         
     def create_savepoint(self, name=None):

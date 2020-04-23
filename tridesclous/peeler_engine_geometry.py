@@ -42,14 +42,20 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
     def change_params(self, adjacency_radius_um=100, **kargs): # high_adjacency_radius_um=50, 
         PeelerEngineGeneric.change_params(self, **kargs)
         
-        assert self.use_sparse_template
+        #~ assert self.use_sparse_template
         
         self.adjacency_radius_um = adjacency_radius_um # for waveform distance
         #~ self.high_adjacency_radius_um = high_adjacency_radius_um # for possible template around
         
         #~ self.strict_template = True
         #~ self.strict_template = False
-    
+        
+        if self.use_sparse_template:
+            assert self.argmin_method in ('numba', 'opencl')
+        
+        if self.argmin_method == 'numpy':
+            assert not self.use_sparse_template
+
     def initialize(self, **kargs):
         if self.argmin_method == 'opencl':
             OpenCL_Helper.initialize_opencl(self, cl_platform_index=self.cl_platform_index, cl_device_index=self.cl_device_index)
@@ -58,18 +64,20 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         
         # create peak detector
         p = dict(self.catalogue['peak_detector_params'])
-        p.pop('engine')
-        p.pop('method')
-        
-        self.peakdetector_method = 'geometrical'
-        
-        if HAVE_PYOPENCL:
-            self.peakdetector_engine = 'opencl'
-        elif HAVE_NUMBA:
-            self.peakdetector_engine = 'numba'
-        else:
-            self.peakdetector_engine = 'numpy'
-            print('WARNING peak detetcor will slow : install opencl')
+
+        #~ p.pop('engine')
+        #~ p.pop('method')
+        #~ self.peakdetector_method = 'geometrical'
+        #~ if HAVE_PYOPENCL:
+            #~ self.peakdetector_engine = 'opencl'
+        #~ elif HAVE_NUMBA:
+            #~ self.peakdetector_engine = 'numba'
+        #~ else:
+            #~ self.peakdetector_engine = 'numpy'
+            #~ print('WARNING peak detetcor will slow : install opencl')
+
+        self.peakdetector_engine = p.pop('engine')
+        self.peakdetector_method = p.pop('method')
         
         PeakDetector_class = get_peak_detector_class(self.peakdetector_method, self.peakdetector_engine)
         
@@ -85,8 +93,11 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         self.channel_distances = sklearn.metrics.pairwise.euclidean_distances(self.geometry).astype('float32')
         self.channels_adjacency = {}
         for c in range(self.nb_channel):
-            nearest, = np.nonzero(self.channel_distances[c, :]<self.adjacency_radius_um)
-            self.channels_adjacency[c] = nearest
+            if self.use_sparse_template:
+                nearest, = np.nonzero(self.channel_distances[c, :]<self.adjacency_radius_um)
+                self.channels_adjacency[c] = nearest
+            else:
+                self.channels_adjacency[c] = np.arange(self.nb_channel, dtype='int64')
         
         
         if self.argmin_method == 'opencl'  and self.catalogue['centers0'].size>0:
@@ -167,7 +178,11 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
 
     def detect_local_peaks_before_peeling_loop(self):
         mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
-        local_peaks_indexes, chan_indexes  = np.nonzero(mask)
+        if mask.ndim ==1:
+            local_peaks_indexes,   = np.nonzero(mask)
+            chan_indexes = np.zeros(local_peaks_indexes.size, dtype='int64')
+        else:
+            local_peaks_indexes, chan_indexes  = np.nonzero(mask)
         local_peaks_indexes += self.n_span
         amplitudes = np.abs(self.fifo_residuals[local_peaks_indexes, chan_indexes])
         order = np.argsort(amplitudes)[::-1]
@@ -231,7 +246,13 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         #~ print('self.already_tested reduced', len(self.already_tested))
         # 
         mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
-        local_peaks_indexes, chan_indexes  = np.nonzero(mask)
+
+        if mask.ndim ==1:
+            local_peaks_indexes,   = np.nonzero(mask)
+            chan_indexes = np.zeros(local_peaks_indexes.size, dtype='int64')
+        else:
+            local_peaks_indexes, chan_indexes  = np.nonzero(mask)
+
         local_peaks_indexes += self.n_span
         amplitudes = np.abs(self.fifo_residuals[local_peaks_indexes, chan_indexes])
         order = np.argsort(amplitudes)[::-1]
@@ -258,7 +279,6 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         return bad_spikes
 
     def get_best_template(self, left_ind, chan_ind):
-        assert self.argmin_method in ('numba', 'opencl')
         
         waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
         
@@ -267,9 +287,6 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             cluster_idx = -1
             shift = None
             return cluster_idx, shift, None
-            
-        
-
         
         if self.argmin_method == 'opencl':
             #TODO remove this rms_waveform_channel no more usefull
@@ -385,15 +402,18 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                 #~ ax.plot(self.shifts, all_dist, marker='o')
                 #~ ax.set_title(f'{left_ind-self.n_left} {chan_ind} {shift}')
         
-        #~ elif self.argmin_method == 'numpy':
+        elif self.argmin_method == 'numpy':
+            assert not self.use_sparse_template
             # replace by this (indentique but faster, a but)
-            #~ d = self.catalogue['centers0']-waveform[None, :, :]
-            #~ d *= d
+            d = self.catalogue['centers0']-waveform[None, :, :]
+            d *= d
             #s = d.sum(axis=1).sum(axis=1)  # intuitive
             #s = d.reshape(d.shape[0], -1).sum(axis=1) # a bit faster
-            #~ s = np.einsum('ijk->i', d) # a bit faster
-            #~ cluster_idx = np.argmin(s)
-            #~ shift = None
+            distance_templates = np.einsum('ijk->i', d) # a bit faster
+            cluster_idx = np.argmin(distance_templates)
+            # TODO implement shift when numpy
+            shift = 0
+            distance = distance_templates[cluster_idx]
             
         else:
             raise(NotImplementedError())

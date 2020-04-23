@@ -147,9 +147,26 @@ def test_catalogue_constructor():
         print('auto_split_cluster', t2-t1)
 
         t1 = time.perf_counter()
+        cc.trash_not_aligned()
+        t2 = time.perf_counter()
+        print('trash_not_aligned', t2-t1)
+
+        t1 = time.perf_counter()
         cc.auto_merge_cluster()
         t2 = time.perf_counter()
         print('auto_merge_cluster', t2-t1)
+
+        t1 = time.perf_counter()
+        cc.trash_low_extremum()
+        t2 = time.perf_counter()
+        print('trash_low_extremum', t2-t1)
+
+
+        t1 = time.perf_counter()
+        cc.trash_small_cluster()
+        t2 = time.perf_counter()
+        print('trash_small_cluster', t2-t1)
+        
         
             # similarity
             #~ cc.compute_centroid()
@@ -258,7 +275,7 @@ def test_make_catalogue():
     cc = CatalogueConstructor(dataio=dataio)
 
     #~ cc.make_catalogue()
-    cc.make_catalogue_for_peeler(n_spike_for_centroid=1000)
+    cc.make_catalogue_for_peeler()
     
     #~ for i, k in cc.catalogue['label_to_index'].items():
     
@@ -314,11 +331,11 @@ def test_feature_with_lda_selection():
     print(cc.some_features)
     
 if __name__ == '__main__':
-    test_catalogue_constructor()
+    #~ test_catalogue_constructor()
     
     #~ compare_nb_waveforms()
     
-    #~ test_make_catalogue()
+    test_make_catalogue()
     #~ test_ratio_amplitude()
     
     #~ test_create_savepoint_catalogue_constructor()

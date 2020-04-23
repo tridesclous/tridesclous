@@ -7,7 +7,7 @@ import numpy as np
 
 from .dataio import DataIO
 from . catalogueconstructor import CatalogueConstructor, _dtype_peak
-from .cataloguetools import get_auto_params_for_catalogue
+from .autoparams import get_auto_params_for_catalogue
 
 try:
     import h5py

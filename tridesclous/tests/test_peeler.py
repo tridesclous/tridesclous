@@ -47,8 +47,8 @@ def test_peeler_classic():
     peeler = Peeler(dataio)
     
     peeler.change_params(engine='classic', catalogue=catalogue,chunksize=1024,
-                    #~ argmin_method='numba')
-                    argmin_method='opencl')
+                    argmin_method='numba')
+                    #~ argmin_method='opencl')
     
     t1 = time.perf_counter()
     peeler.run(progressbar=False)
@@ -76,8 +76,8 @@ def test_peeler_geometry():
                                 sparse_threshold_mad=1.5,
                                 inter_sample_oversampling=False,
                                 #~ inter_sample_oversampling=True,
-                                argmin_method='numba')
-                                #~ argmin_method='opencl')
+                                #~ argmin_method='numba')
+                                argmin_method='opencl')
                                 
                                 
 
@@ -371,9 +371,9 @@ if __name__ =='__main__':
     
     #~ open_catalogue_window()
     
-    #~ test_peeler_classic()
+    test_peeler_classic()
     
-    #~ test_peeler_geometry()
+    test_peeler_geometry()
     
     test_peeler_geometry_cl()
     

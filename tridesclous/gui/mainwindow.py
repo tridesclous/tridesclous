@@ -14,10 +14,10 @@ from .tools import get_dict_from_group_param, ParamDialog, MethodDialog #, open_
 from  ..datasets import datasets_info, download_dataset
 
 from ..catalogueconstructor import CatalogueConstructor
-from ..cataloguetools import apply_all_catalogue_steps, get_auto_params_for_catalogue
+from ..cataloguetools import apply_all_catalogue_steps
+from ..autoparams import get_auto_params_for_catalogue, get_auto_params_for_peelers
 from .cataloguewindow import CatalogueWindow
 from ..peeler import Peeler
-from ..peeler_tools import get_auto_params_for_peelers
 from .peelerwindow import PeelerWindow
 from .initializedatasetwindow import InitializeDatasetWindow
 from .probegeometryview import ProbeGeometryView

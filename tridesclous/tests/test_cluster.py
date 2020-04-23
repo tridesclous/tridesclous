@@ -75,7 +75,8 @@ def test_pruningshears():
     
     t0 = time.perf_counter()
     #~ cc.find_clusters(method='pruningshears', print_debug=True)
-    cc.find_clusters(method='pruningshears', print_debug=True, debug_plot=True, **kargs)
+    #~ cc.find_clusters(method='pruningshears', print_debug=True, debug_plot=True, **kargs)
+    cc.find_clusters(method='pruningshears', print_debug=False, debug_plot=False, **kargs)
     t1 = time.perf_counter()
     print('cluster', t1-t0)
 

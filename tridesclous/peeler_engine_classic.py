@@ -234,7 +234,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
             all_s = []
             for shift in shifts:
                 waveform = self.fifo_residuals[left_ind+shift:left_ind+self.peak_width+shift,:]
-                s = numba_loop_sparse_dist(waveform, self.catalogue['centers0'],  self.sparse_mask)
+                s = numba_loop_sparse_dist(waveform, self.catalogue['centers0'],  self.sparse_mask_level1)
                 all_s.append(s)
             all_s = np.array(all_s)
             shift_ind, cluster_idx = np.unravel_index(np.argmin(all_s, axis=None), all_s.shape)

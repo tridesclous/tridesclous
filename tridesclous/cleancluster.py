@@ -65,13 +65,14 @@ def _get_sparse_waveforms_flatten(cc, dense_mode, label, channel_adjacency, n_sp
     return waveforms, wf_flat, peak_index
     
 
-def _compute_one_dip_test(dirname, chan_grp, label, n_components_local_pca, adjacency_radius_um):
+def _compute_one_dip_test(cc, dirname, chan_grp, label, n_components_local_pca, adjacency_radius_um):
     # compute dip test to try to over split
     from .dataio import DataIO
     from .catalogueconstructor import CatalogueConstructor
     
-    dataio = DataIO(dirname)
-    cc = CatalogueConstructor(dataio=dataio, chan_grp=chan_grp)
+    if cc is None:
+        dataio = DataIO(dirname)
+        cc = CatalogueConstructor(dataio=dataio, chan_grp=chan_grp)
 
     peak_sign = cc.info['peak_detector_params']['peak_sign']
     dense_mode = cc.info['mode'] == 'dense'
@@ -144,8 +145,15 @@ def auto_split(catalogueconstructor,
     #     print('label', label,'pval', pval, pval<pval_thresh)
     #     pvals.append(pval)
     
+    if cc.memory_mode == 'ram':
+        # prevent paralell because not persistent
+        n_jobs = 1
+        cc2 = cc
+    else:
+        cc2 = None
+    
     pvals = Parallel(n_jobs=n_jobs, backend=joblib_backend)(
-                    delayed(_compute_one_dip_test)(cc.dataio.dirname, cc.chan_grp, label, n_components_local_pca, adjacency_radius_um)
+                    delayed(_compute_one_dip_test)(cc2, cc.dataio.dirname, cc.chan_grp, label, n_components_local_pca, adjacency_radius_um)
                     for label in cc.positive_cluster_labels)
     
     pvals = np.array(pvals)

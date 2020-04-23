@@ -80,13 +80,17 @@ class PeelerEngineBase(OpenCL_Helper):
         self.use_sparse_template = use_sparse_template
         self.sparse_threshold_mad = sparse_threshold_mad
         self.argmin_method = argmin_method
-        self.inter_sample_oversampling =inter_sample_oversampling
+        self.inter_sample_oversampling = inter_sample_oversampling
         self.maximum_jitter_shift = maximum_jitter_shift
         self.save_bad_label = save_bad_label
 
         self.cl_platform_index=None
         self.cl_device_index=None
         
+        if self.use_sparse_template:
+            assert self.catalogue['mode'] == 'sparse'
+        else:
+            assert self.catalogue['mode'] == 'dense'
         
         
         # Some check
@@ -168,8 +172,9 @@ class PeelerEngineBase(OpenCL_Helper):
             self.sparse_mask_level1 = dense_mask
             
             # this must be the same as in make_catalogue
-            thresh = self.catalogue['sparse_thresh_level2']
-            self.sparse_mask_level2 = np.any(abs_centers > thresh, axis=1)
+            #~ thresh = self.catalogue['sparse_thresh_level2']
+            #~ self.sparse_mask_level2 = np.any(abs_centers > thresh, axis=1)
+            self.sparse_mask_level2 = self.catalogue['sparse_mask_level2']
             
             self.sparse_mask_level3 = dense_mask
             
