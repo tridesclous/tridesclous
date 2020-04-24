@@ -12,7 +12,7 @@ from tridesclous.gui import QT
 import  pyqtgraph as pg
 
 
-from tridesclous.cataloguetools import _default_catalogue_params
+from tridesclous.autoparams import get_auto_params_for_catalogue, get_auto_params_for_peelers
 import copy
 
 
@@ -38,12 +38,13 @@ def setup_catalogue():
     dataio = DataIO(dirname='test_onlinepeeler')
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
+    # TODO add geometry!!!!!
     dataio.add_one_channel_group(channels=[5, 6, 7, 8, 9])
-    
+
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
     
     
-    params = copy.deepcopy(_default_catalogue_params)
+    params = get_auto_params_for_catalogue(dataio=dataio, chan_grp=0)
     
 
     
@@ -68,7 +69,7 @@ def setup_catalogue():
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_OnlinePeeler():
     dataio = DataIO(dirname='test_onlinepeeler')
-
+    
     catalogue = dataio.load_catalogue(chan_grp=0)
     
     
@@ -81,7 +82,7 @@ def test_OnlinePeeler():
     #~ print(channel_group)
     
     chunksize = 1024
-    
+    geometry = dataio.get_geometry(chan_grp=0)
     
     # Device node
     #~ man = create_manager(auto_close_at_exit=True)
@@ -105,9 +106,12 @@ def test_OnlinePeeler():
     oscope.params['decimation_method'] = 'min_max'
     oscope.params['mode'] = 'scan'    
 
+    params = get_auto_params_for_peelers(dataio, chan_grp=0)
+    params['chunksize'] = chunksize
     # Node Peeler
     peeler = OnlinePeeler()
-    peeler.configure(catalogue=catalogue, in_group_channels=in_group_channels, chunksize=chunksize)
+    #~ peeler.configure(catalogue=catalogue, in_group_channels=in_group_channels, chunksize=chunksize)
+    peeler.configure(catalogue=catalogue, in_group_channels=in_group_channels, geometry=geometry, **params)
     peeler.input.connect(dev.output)
     stream_params = dict(protocol='tcp', interface='127.0.0.1', transfermode='plaindata')
     peeler.outputs['signals'].configure(**stream_params)
@@ -191,7 +195,7 @@ def test_OnlinePeeler_no_catalogue():
                 n_left=-20, n_right=40, internal_dtype='float32',                
                 preprocessor_params=preprocessor_params,
                 peak_detector_params={'relative_threshold': 10},
-                clean_waveforms_params={},
+                #~ clean_waveforms_params={},
                 
                 signals_medians = signals_medians,
                 signals_mads = signals_mads,
@@ -295,7 +299,7 @@ def test_OnlinePeeler_no_catalogue():
 if __name__ =='__main__':
     #~ setup_catalogue()
     
-    #~ test_OnlinePeeler()
+    test_OnlinePeeler()
     
-    test_OnlinePeeler_no_catalogue()
+    #~ test_OnlinePeeler_no_catalogue()
 

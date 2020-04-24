@@ -254,11 +254,12 @@ def get_auto_params_for_peelers(dataio, chan_grp=0):
         params['sparse_threshold_mad'] = 1.5
         
         if HAVE_PYOPENCL:
-            #~ params['argmin_method'] = 'opencl'
-            #~ params['engine'] = 'geometrical'
-            
-            params['argmin_method'] = 'opencl'
-            params['engine'] = 'geometrical_opencl' # Still experimental
+            if nb_chan <=16:
+                params['argmin_method'] = 'opencl'
+                params['engine'] = 'geometrical'
+            else:
+                params['argmin_method'] = 'opencl'
+                params['engine'] = 'geometrical_opencl' # Still experimental
         elif HAVE_NUMBA:
             params['argmin_method'] = 'numba'
             params['engine'] = 'geometrical'

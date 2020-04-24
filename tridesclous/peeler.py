@@ -95,9 +95,10 @@ class Peeler:
         # this is for online
         return self.peeler_engine.process_one_chunk(pos, sigs_chunk)
     
-    def initialize_online_loop(self, sample_rate=None, nb_channel=None, source_dtype=None):
+    def initialize_online_loop(self, sample_rate=None, nb_channel=None, source_dtype=None, geometry=None):
         # global initialize
-        self.peeler_engine.initialize(sample_rate=sample_rate, nb_channel=nb_channel, source_dtype=source_dtype, already_processed=False)
+        self.peeler_engine.initialize(sample_rate=sample_rate, nb_channel=nb_channel,
+                        source_dtype=source_dtype, already_processed=False, geometry=geometry)
         self.peeler_engine.initialize_before_each_segment(already_processed=False)
     
     def run_offline_loop_one_segment(self, seg_num=0, duration=None, progressbar=True):

@@ -12,13 +12,14 @@ from ..peeler import _dtype_spike
 
 
 class PeelerThread(ThreadPollInput):
-    def __init__(self, input_stream, output_streams, peeler,in_group_channels,
+    def __init__(self, input_stream, output_streams, peeler,in_group_channels, geometry,
                         timeout = 200, parent = None):
         
         ThreadPollInput.__init__(self, input_stream,  timeout=timeout, return_data=True, parent = parent)
         self.output_streams = output_streams
         self.peeler = peeler
         self.in_group_channels = in_group_channels
+        self.geometry = geometry
         
         self.sample_rate = input_stream.params['sample_rate']
         self.total_channel = self.input_stream().params['shape'][1]
@@ -62,7 +63,9 @@ class PeelerThread(ThreadPollInput):
             
             self.peeler.initialize_online_loop(sample_rate=self.sample_rate,
                                                 nb_channel=len(self.in_group_channels),
-                                                source_dtype=self.input_stream().params['dtype'])
+                                                source_dtype=self.input_stream().params['dtype'],
+                                                geometry=self.geometry,
+                                                )
             
             #~ print('self.peeler.peeler_engine.total_spike', self.peeler.peeler_engine.total_spike)
             self.peeler.peeler_engine.total_spike = buffer_spike_index
@@ -85,13 +88,22 @@ class OnlinePeeler(Node):
         Node.__init__(self, **kargs)
     
     def _configure(self, in_group_channels=None, catalogue=None, chunksize=None,
-                                    internal_dtype='float32', peeler_engine='classic', **peeler_engine_kargs):
+                                    internal_dtype='float32', peeler_engine='classic',
+                                    geometry=None,
+                                    **peeler_engine_kargs):
+        
+        if 'engine' in peeler_engine_kargs:
+            peeler_engine = peeler_engine_kargs.pop('engine')
+        #~ print('peeler_engine', peeler_engine)
+        
+        assert geometry is not None
         
         self.in_group_channels = in_group_channels
         self.catalogue = catalogue
         self.chunksize = chunksize
         self.internal_dtype = internal_dtype
         self.peeler_engine = peeler_engine
+        self.geometry = geometry
         self.peeler_engine_kargs = peeler_engine_kargs
         
         
@@ -117,7 +129,7 @@ class OnlinePeeler(Node):
         #~ self.peeler.change_params(catalogue=self.catalogue, 
                                         #~ chunksize=self.chunksize, internal_dtype=self.internal_dtype,)
         
-        self.thread = PeelerThread(self.input, self.outputs, self.peeler, self.in_group_channels)
+        self.thread = PeelerThread(self.input, self.outputs, self.peeler, self.in_group_channels, self.geometry)
         self.change_catalogue(self.catalogue)
         
     def _start(self):
