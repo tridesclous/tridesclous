@@ -20,26 +20,18 @@ from .peeler_tools import _dtype_spike
 from tqdm import tqdm
 
 from .peeler_engine_classic import PeelerEngineClassic
-from .peeler_engine_oldclassic import PeelerEngineOldClassic
-from .peeler_engine_classic_cl import PeelerEngineClassicOpenCl
-from .peeler_engine_testing import PeelerEngineTesting
-#~ from .peeler_engine_parallel import PeelerEngineParallel
+#~ from .peeler_engine_testing import PeelerEngineTesting
 from .peeler_engine_geometry import PeelerEngineGeometrical
 from .peeler_engine_geometry_cl import PeelerEngineGeometricalCl
 
 
 
-#~ from .peeler_engine_strict import PeelerEngineStrict
 
 peeler_engines = {
     'classic' : PeelerEngineClassic,
-    # 'classic_opencl' : PeelerEngineClassicOpenCl,  ### not working
-    'classic_old' : PeelerEngineOldClassic,
-    'testing' : PeelerEngineTesting,
-    # 'classic_parallel' : PeelerEngineParallel,    ### not working
+    #~ 'testing' : PeelerEngineTesting,
     'geometrical' : PeelerEngineGeometrical,
     'geometrical_opencl' : PeelerEngineGeometricalCl,
-    
 }
 
 
