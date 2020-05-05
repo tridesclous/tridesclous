@@ -260,7 +260,10 @@ clean_cluster_params = [
 
 make_catalogue_params = [
     {'name':'inter_sample_oversampling', 'type': 'bool', 'value':False},
+    {'name' : 'sparse_thresh_level1', 'type' : 'float', 'value' : 1.5, 'step':0.1},
     {'name' : 'sparse_thresh_level2', 'type' : 'float', 'value' : 3., 'step':0.1},
+    
+    
 ]
 
 

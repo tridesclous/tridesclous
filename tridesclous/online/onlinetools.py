@@ -103,9 +103,13 @@ def make_empty_catalogue(chan_grp=0,
         signals_medians = signals_medians = np.zeros(nchan, dtype=internal_dtype)
     if signals_mads is None:
         signals_mads = signals_mads = np.ones(nchan, dtype=internal_dtype)
-        
     
+    catalogue['inter_sample_oversampling'] = False
+    
+    catalogue['sparse_mask_level1'] = np.ones((0, nchan), dtype='bool')
     catalogue['sparse_mask_level2'] = np.ones((0, nchan), dtype='bool')
+    catalogue['sparse_mask_level3'] = np.ones((0, nchan), dtype='bool')
+    
     catalogue['distance_limit'] = np.zeros((0,), dtype='float32')
     
     
@@ -117,6 +121,9 @@ def make_empty_catalogue(chan_grp=0,
     catalogue['signals_mads'] = signals_mads
     
     catalogue['empty_catalogue'] = True # a key to detect real/fake catalogue
+    
+    
+    
     
     
     return catalogue

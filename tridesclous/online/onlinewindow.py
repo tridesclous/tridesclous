@@ -256,11 +256,9 @@ class TdcOnlineWindow(MainWindowNode):
         
         # peeler params = 
         self.peeler_params = {
-            'inter_sample_oversampling' : False,
-            'use_sparse_template' : True,
-            'sparse_threshold_mad':1.5,
             'engine': 'geometrical',
-            'argmin_method': 'numba',
+            #~ 'argmin_method': 'numba',
+            'argmin_method': 'opencl',
         }
         self.peeler_params.update(peeler_params)
         if 'chunksize' in self.peeler_params:

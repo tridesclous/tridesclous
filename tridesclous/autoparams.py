@@ -80,6 +80,7 @@ _default_catalogue_params = {
     'make_catalogue':{
         'inter_sample_oversampling':False,
         'subsample_ratio': 'auto',
+        'sparse_thresh_level2': 1.5,
         'sparse_thresh_level2': 3,
     }
 }
@@ -234,43 +235,22 @@ def get_auto_params_for_peelers(dataio, chan_grp=0):
     params['chunksize'] = int(dataio.sample_rate * 0.1)
     #~ params['chunksize'] = int(dataio.sample_rate * 0.033)
 
-    #~ params['inter_sample_oversampling'] = True
-    params['inter_sample_oversampling'] = False
-    #~ if dataio.sample_rate < 25000.:
-        #~ params['inter_sample_oversampling'] = True
-    #~ else:
-        #~ params['inter_sample_oversampling'] = False
-    
-    #~ if nb_chan <=8:
-    #~ if nb_chan <=1:
     if nb_chan <= limit_dense_sparse:
-        
-        params['use_sparse_template'] = False
-        params['sparse_threshold_mad'] = 1.5
-        
-        #~ params['engine'] = 'classic'
-        #~ params['argmin_method'] = 'numpy'
-        
         params['engine'] = 'geometrical'
         params['argmin_method'] = 'numba'
         
     else:
-        params['use_sparse_template'] = True
-        params['sparse_threshold_mad'] = 1.5
-        
         if HAVE_PYOPENCL:
             if nb_chan <=16:
-                params['argmin_method'] = 'opencl'
                 params['engine'] = 'geometrical'
-            else:
                 params['argmin_method'] = 'opencl'
+            else:
                 params['engine'] = 'geometrical_opencl' # Still experimental
         elif HAVE_NUMBA:
+            params['engine'] = 'geometrical'
             params['argmin_method'] = 'numba'
-            params['engine'] = 'geometrical'
-        else:
-            params['argmin_method'] = 'numpy'
-            params['engine'] = 'geometrical'
-        
-        
+        #~ else:
+            #~ params['argmin_method'] = 'numpy'
+            #~ params['engine'] = 'geometrical'
+
     return params

@@ -1806,7 +1806,7 @@ class CatalogueConstructor:
                             inter_sample_oversampling=False,
                             #~ inter_sample_oversampling=True,
                             subsample_ratio='auto',
-                            sparse_thresh_level1=1,
+                            sparse_thresh_level1=1.5,
                             sparse_thresh_level2=3,
                             #~ sparse_thresh_extremum=-5,
                             ):
