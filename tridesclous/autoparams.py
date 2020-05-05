@@ -67,10 +67,15 @@ _default_catalogue_params = {
     'cluster_method': 'pruningshears',
     'cluster_kargs': {},
     
-    'clean_cluster' : True,
-    'clean_cluster_kargs' : {
-        # TODO put params of each clean cluster step
+    
+    'clean_cluster' :{
+        'apply_auto_split': True,
+        'apply_trash_not_aligned': True,
+        'apply_auto_merge_cluster': True,
+        'apply_trash_low_extremum': True,
+        'apply_trash_small_cluster': True,
     },
+    
     
     'make_catalogue':{
         'inter_sample_oversampling':False,
@@ -106,7 +111,7 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
 
 
 
-    params['clean_cluster'] = True
+    
     
     # segment durartion is not so big then take the whole duration
     # to avoid double preprocessing (catalogue+peeler)
@@ -133,7 +138,7 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         #~ params['cluster_kargs'] = {}
         
 
-        #~ params['clean_cluster'] = True
+        
         #~ params['clean_cluster_kargs'] = {'too_small' : 20 }        
     
     #~ elif nb_chan <=4:

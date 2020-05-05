@@ -198,9 +198,6 @@ noise_snippet_params = [
 ]
 
 
-clean_cluster_params = [
-    {'name': 'too_small', 'type': 'int', 'value':20},
-]
 
 
 features_params_by_methods = OrderedDict([
@@ -243,17 +240,41 @@ cluster_params_by_methods = OrderedDict([
     
 ])
 
+clean_cluster_params = [
+
+    {'name':'apply_auto_split', 'type': 'bool', 'value':True},
+    
+    
+    {'name':'apply_trash_not_aligned', 'type': 'bool', 'value':True},
+    
+    {'name':'apply_auto_merge_cluster', 'type': 'bool', 'value':True},
+    
+    
+    {'name':'apply_trash_low_extremum', 'type': 'bool', 'value':True},
+    
+    
+    {'name':'apply_trash_small_cluster', 'type': 'bool', 'value':True},
+    
+]
+
+
+make_catalogue_params = [
+    {'name':'inter_sample_oversampling', 'type': 'bool', 'value':False},
+    {'name' : 'sparse_thresh_level2', 'type' : 'float', 'value' : 3., 'step':0.1},
+]
+
+
 
 fullchain_params = [
-    {'name':'duration', 'type': 'float', 'value':300., 'suffix': 's', 'siPrefix': True},
-    
-    {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
-    
-    {'name' : 'mode', 'type' : 'list', 'values' : ['dense', 'sparse']},
 
+    # global params
+    {'name':'duration', 'type': 'float', 'value':300., 'suffix': 's', 'siPrefix': True},
+    {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
+    {'name' : 'mode', 'type' : 'list', 'values' : ['dense', 'sparse']},
     {'name':'sparse_threshold', 'type': 'float', 'value':1.5},
+    {'name' : 'n_spike_for_centroid', 'type' : 'int', 'value' : 350},
     
-    
+    # params for each steps
     {'name':'preprocessor', 'type':'group', 'children': preprocessor_params},
     {'name':'peak_detector', 'type':'group', 'children': peak_detector_params},
     {'name':'noise_snippet', 'type':'group', 'children': noise_snippet_params},
@@ -261,8 +282,10 @@ fullchain_params = [
     {'name':'clean_peaks', 'type':'group', 'children' : clean_peaks_params},
     {'name':'peak_sampler', 'type':'group', 'children' : peak_sampler_params},
     
-    {'name':'clean_cluster', 'type': 'bool', 'value':True},
-    {'name':'clean_cluster_kargs', 'type':'group', 'children' : clean_cluster_params},
+    #~ {'name':'clean_cluster', 'type': 'bool', 'value':True},
+    {'name':'clean_cluster', 'type':'group', 'children' : clean_cluster_params},
+    
+    {'name':'make_catalogue', 'type':'group', 'children' : make_catalogue_params},
     
 ]
 

@@ -41,11 +41,31 @@ def test_TdcOnlineWindow():
     ng0 = None
     dev = make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup=ng0, chunksize=chunksize)
 
-
+    
     channel_groups = {
-        0 : {'channels': [5, 6, 7, 8]},
-        1 : {'channels': [1, 2, 3, 4]},
-        2 : {'channels': [9, 10, 11]},
+        0 : {'channels': [5, 6, 7, 8],
+                'geometry': {
+                    5: [0.0, 50.0],
+                    6: [ 50.0, 0.0],
+                    7: [0.0, -50.0],
+                    8: [-50,0.0]
+                }
+        },
+        1 : {'channels': [1, 2, 3, 4],
+                'geometry': {
+                    1: [0.0, 50.0],
+                    2: [ 50.0, 0.0],
+                    3: [0.0, -50.0],
+                    4: [-50,0.0]
+                }
+        },
+        2 : {'channels': [9, 10, 11],
+                'geometry': {
+                    9: [0.0, 50.0],
+                    10: [ 50.0, 0.0],
+                    11: [0.0, -50.0],
+                }
+        },
     }
 
     workdir = 'test_tdconlinewindow'

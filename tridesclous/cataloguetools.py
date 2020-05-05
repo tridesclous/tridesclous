@@ -117,45 +117,44 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     if verbose:
         print('find_clusters', t2-t1)
     
-    if params['clean_cluster']:
+    
+    # clean cluster steps
+    pclean = params['clean_cluster']
+    
+    if pclean['apply_auto_split']:
         t1 = time.perf_counter()
         cc.auto_split_cluster()
         if verbose:
             t2 = time.perf_counter()
             print('auto_split_cluster', t2-t1)
-
+    
+    if pclean['apply_trash_not_aligned']:
         t1 = time.perf_counter()
         cc.trash_not_aligned()
         if verbose:
             t2 = time.perf_counter()
             print('trash_not_aligned', t2-t1)
-        
+    
+    if pclean['apply_auto_merge_cluster']:
         t1 = time.perf_counter()
         cc.auto_merge_cluster()
         if verbose:
             t2 = time.perf_counter()
             print('auto_merge_cluster', t2-t1)
-
+    
+    if pclean['apply_trash_low_extremum']:
         t1 = time.perf_counter()
         cc.trash_low_extremum()
         if verbose:
             t2 = time.perf_counter()
             print('trash_low_extremum', t2-t1)
 
-
-    t1 = time.perf_counter()
-    cc.trash_small_cluster()
-    if verbose:
-        t2 = time.perf_counter()
-        print('trash_small_cluster', t2-t1)
-    
-    
-    #~ if params['clean_cluster']:
-        #~ t1 = time.perf_counter()
-        #~ cc.clean_cluster(**params['clean_cluster_kargs'])
-        #~ t2 = time.perf_counter()
-        #~ if verbose:
-            #~ print('clean_cluster', t2-t1)
+    if pclean['apply_trash_small_cluster']:
+        t1 = time.perf_counter()
+        cc.trash_small_cluster()
+        if verbose:
+            t2 = time.perf_counter()
+            print('trash_small_cluster', t2-t1)
     
     cc.order_clusters(by='waveforms_rms')
     

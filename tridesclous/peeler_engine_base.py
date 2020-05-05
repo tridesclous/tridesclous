@@ -37,7 +37,6 @@ class PeelerEngineBase(OpenCL_Helper):
                                         use_sparse_template=False,
                                         sparse_threshold_mad=1.5,
                                         argmin_method='numpy',
-                                        inter_sample_oversampling=True,
                                         maximum_jitter_shift = 4,
                                         save_bad_label=False,
                                         
@@ -67,8 +66,6 @@ class PeelerEngineBase(OpenCL_Helper):
             is considred as NaN
         argmin_method: 'numpy', 'opencl', 'pythran' or 'numba'
             Method use to compute teh minial distance to template.
-        inter_sample_oversampling: bool default True
-            Apply or not inter sample jitter estimation and use oversampled template.
         maximum_jitter_shift
             Maximum allowed shift alignement between peak index and its template.
             
@@ -80,10 +77,11 @@ class PeelerEngineBase(OpenCL_Helper):
         self.use_sparse_template = use_sparse_template
         self.sparse_threshold_mad = sparse_threshold_mad
         self.argmin_method = argmin_method
-        self.inter_sample_oversampling = inter_sample_oversampling
         self.maximum_jitter_shift = maximum_jitter_shift
         self.save_bad_label = save_bad_label
-
+        
+        self.inter_sample_oversampling = self.catalogue['inter_sample_oversampling']
+        
         self.cl_platform_index=None
         self.cl_device_index=None
         

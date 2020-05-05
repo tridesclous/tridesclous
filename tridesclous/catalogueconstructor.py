@@ -42,7 +42,7 @@ import matplotlib.pyplot as plt
 
 from . import labelcodes
 
-
+from .cataloguetools import apply_all_catalogue_steps
 
 
 _global_params_attr = ('chunksize', 'memory_mode', 'internal_dtype', 'mode', 'sparse_threshold', 'n_spike_for_centroid') # 'adjacency_radius_um'
@@ -1245,7 +1245,7 @@ class CatalogueConstructor:
         
         if selection is None:
             self.on_new_cluster()
-            self.compute_all_centroid(n_spike_for_centroid=_default_n_spike_for_centroid)
+            self.compute_all_centroid(n_spike_for_centroid=self.n_spike_for_centroid)
             
             if order:
                 self.order_clusters(by='waveforms_rms')
@@ -1261,7 +1261,7 @@ class CatalogueConstructor:
                 if new_label not in self.clusters['cluster_label'] and new_label>=0:
                     self.add_one_cluster(new_label)
                 if new_label>=0:
-                    self.compute_one_centroid(new_label, n_spike_for_centroid=_default_n_spike_for_centroid)
+                    self.compute_one_centroid(new_label, n_spike_for_centroid=self.spike_for_centroid)
             
             for old_label in old_labels:
                 ind = self.index_of_label(old_label)
@@ -1270,7 +1270,7 @@ class CatalogueConstructor:
                     self.pop_labels_from_cluster([old_label])
                 else:
                     self.clusters['nb_peak'][ind] = nb_peak
-                    self.compute_one_centroid(old_label, n_spike_for_centroid=_default_n_spike_for_centroid)
+                    self.compute_one_centroid(old_label, n_spike_for_centroid=self.spike_for_centroid)
                     
 
     def on_new_cluster(self):
@@ -2066,13 +2066,13 @@ class CatalogueConstructor:
         
         return self.catalogue
     
-    def make_catalogue_for_peeler(self, **kargs):
+    def make_catalogue_for_peeler(self, catalogue_name='initial', **kargs):
         """
         Make and save catalogue in the working dir for the Peeler.
         
         """
         self.make_catalogue(**kargs)
-        self.dataio.save_catalogue(self.catalogue, name='initial')
+        self.dataio.save_catalogue(self.catalogue, name=catalogue_name)
         
     def create_savepoint(self, name=None):
         """this create a copy of the entire catalogue_constructor subdir
@@ -2087,7 +2087,8 @@ class CatalogueConstructor:
             
         return copy_path
 
-
-
-
-
+    def apply_all_steps(self, params, verbose=True):
+        """
+        
+        """
+        apply_all_catalogue_steps(self, params, verbose=verbose)

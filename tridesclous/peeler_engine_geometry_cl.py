@@ -84,11 +84,11 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         wf_size = self.peak_width * self.nb_channel
         
         if self.inter_sample_oversampling:
-            subsample_ratio = self.catalogue['subsample_ratio'],
+            subsample_ratio = self.catalogue['subsample_ratio']
         else:
             # not used
             subsample_ratio = 1  
-        
+
         kernel_formated = kernel_peeler_cl % dict(
                     chunksize=self.chunksize,
                     n_span=self.n_span,
@@ -215,9 +215,9 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         self.weight_per_template_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.weight_per_template.astype('float32'))
         
         
-        # TODO
+        # TODO estimate smaller 
         nb_max_spike_in_chunk = self.nb_channel * self.fifo_size
-        print('nb_max_spike_in_chunk', nb_max_spike_in_chunk)
+        #~ print('nb_max_spike_in_chunk', nb_max_spike_in_chunk)
         
         
         dtype_peak = [('peak_index', 'int32'), ('peak_chan', 'int32'), ('peak_value', 'float32')]

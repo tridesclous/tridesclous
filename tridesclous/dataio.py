@@ -221,6 +221,7 @@ class DataIO:
         self.set_channel_groups( channel_groups, probe_filename='default.prb')
         
         self.flush_info()
+        
         # this create segment path
         self._open_processed_data()
     

@@ -158,7 +158,7 @@ class CatalogueWindow(QT.QMainWindow):
         self.addToolBar(QT.Qt.RightToolBarArea, self.toolbar)
         self.toolbar.setIconSize(QT.QSize(60, 40))
         
-        self.toolbar.addAction(self.act_make_catalogue)
+        
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.act_refresh)
         self.toolbar.addSeparator()
@@ -166,6 +166,9 @@ class CatalogueWindow(QT.QMainWindow):
         self.toolbar.addAction(self.act_new_waveform_sample)
         self.toolbar.addAction(self.act_new_features)
         self.toolbar.addAction(self.act_new_cluster)
+        self.toolbar.addSeparator()
+        self.toolbar.addAction(self.act_make_catalogue)
+        self.toolbar.addSeparator()
         self.toolbar.addAction(self.act_compute_metrics)
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.help_act)
@@ -181,8 +184,13 @@ class CatalogueWindow(QT.QMainWindow):
         webbrowser.open(url, new=2)
 
     def make_catalogue_for_peeler(self):
-        self.catalogueconstructor.make_catalogue_for_peeler()
-        self.new_catalogue.emit(self.catalogueconstructor.chan_grp)
+        dia = ParamDialog(gui_params.make_catalogue_params)
+        dia.resize(450, 500)
+        if dia.exec_():
+            d = dia.get()
+            pprint(d)
+            self.catalogueconstructor.make_catalogue_for_peeler(**d)
+            self.new_catalogue.emit(self.catalogueconstructor.chan_grp)
     
     def create_savepoint(self):
         try:

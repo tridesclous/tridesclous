@@ -307,8 +307,7 @@ class MainWindow(QT.QMainWindow):
         params = get_auto_params_for_catalogue(self.dataio, chan_grp=self.chan_grps[0])
         d = dict(params)
         
-        #~ for k in ('feature_method', 'feature_kargs', 'cluster_method', 'cluster_kargs', 'clean_cluster', 'clean_cluster_kargs'):
-        for k in ('feature_method', 'feature_kargs', 'cluster_method', 'cluster_kargs', 'clean_cluster'):
+        for k in ('feature_method', 'feature_kargs', 'cluster_method', 'cluster_kargs'):
             d.pop(k)
         self.dialog_fullchain_params.set(d)
         

@@ -42,7 +42,7 @@ def open_catalogue_window():
 @pytest.mark.first
 def test_peeler_classic():
     dataio = DataIO(dirname='test_peeler')
-    catalogue = dataio.load_catalogue(chan_grp=0)
+    catalogue = dataio.load_catalogue(chan_grp=0, name='with_oversampling')
 
     peeler = Peeler(dataio)
     
@@ -65,65 +65,73 @@ def test_peeler_classic():
 
 def test_peeler_geometry():
     dataio = DataIO(dirname='test_peeler')
-    catalogue = dataio.load_catalogue(chan_grp=0)
+    
+    catalogue0 = dataio.load_catalogue(chan_grp=0)
+    catalogue1 = dataio.load_catalogue(chan_grp=0, name='with_oversampling')
+    
+    for catalogue in (catalogue0, catalogue1):
+        print()
+        print('engine=geometrical')
+        print('inter_sample_oversampling', catalogue['inter_sample_oversampling'])
+        peeler = Peeler(dataio)
 
-    peeler = Peeler(dataio)
+        peeler.change_params(engine='geometrical',
+                                    catalogue=catalogue,
+                                    chunksize=1024,
+                                    use_sparse_template=True,
+                                    sparse_threshold_mad=1.5,
+                                    #~ argmin_method='numba')
+                                    argmin_method='opencl')
+                                    
+                                    
 
-    peeler.change_params(engine='geometrical',
-                                catalogue=catalogue,
-                                chunksize=1024,
-                                use_sparse_template=True,
-                                sparse_threshold_mad=1.5,
-                                inter_sample_oversampling=False,
-                                #~ inter_sample_oversampling=True,
-                                #~ argmin_method='numba')
-                                argmin_method='opencl')
-                                
-                                
+        t1 = time.perf_counter()
+        peeler.run(progressbar=False)
+        t2 = time.perf_counter()
+        print('peeler.run_loop', t2-t1)
 
-    t1 = time.perf_counter()
-    peeler.run(progressbar=False)
-    t2 = time.perf_counter()
-    print('peeler.run_loop', t2-t1)
-
-
-    spikes = dataio.get_spikes(chan_grp=0).copy()
-    labels = catalogue['clusters']['cluster_label']
-    count_by_label = [np.sum(spikes['cluster_label'] == label) for label in labels]
-    print(labels)
-    print(count_by_label)
+        spikes = dataio.get_spikes(chan_grp=0).copy()
+        labels = catalogue['clusters']['cluster_label']
+        count_by_label = [np.sum(spikes['cluster_label'] == label) for label in labels]
+        print(labels)
+        print(count_by_label)
 
 
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_peeler_geometry_cl():
     dataio = DataIO(dirname='test_peeler')
-    catalogue = dataio.load_catalogue(chan_grp=0)
-
-    peeler = Peeler(dataio)
+    #~ catalogue = dataio.load_catalogue(chan_grp=0)
+    catalogue0 = dataio.load_catalogue(chan_grp=0)
+    catalogue1 = dataio.load_catalogue(chan_grp=0, name='with_oversampling')
     
-    catalogue['clean_peaks_params']['alien_value_threshold'] = None
-    
-    
-    peeler.change_params(engine='geometrical_opencl',
-                                catalogue=catalogue,
-                                chunksize=1024,
-                                use_sparse_template=True,
-                                sparse_threshold_mad=1.5,
-                                argmin_method='opencl',
-                                inter_sample_oversampling=False,
-                                #~ inter_sample_oversampling=True,
-                                )
+    for catalogue in (catalogue0, catalogue1):
+        print()
+        print('engine=geometrical')
+        print('inter_sample_oversampling', catalogue['inter_sample_oversampling'])
 
-    t1 = time.perf_counter()
-    peeler.run(progressbar=False)
-    t2 = time.perf_counter()
-    print('peeler.run_loop', t2-t1)
+        peeler = Peeler(dataio)
+        
+        catalogue['clean_peaks_params']['alien_value_threshold'] = None
+        
+        
+        peeler.change_params(engine='geometrical_opencl',
+                                    catalogue=catalogue,
+                                    chunksize=1024,
+                                    use_sparse_template=True,
+                                    sparse_threshold_mad=1.5,
+                                    argmin_method='opencl',
+                                    )
 
-    spikes = dataio.get_spikes(chan_grp=0).copy()
-    labels = catalogue['clusters']['cluster_label']
-    count_by_label = [np.sum(spikes['cluster_label'] == label) for label in labels]
-    print(labels)
-    print(count_by_label)
+        t1 = time.perf_counter()
+        peeler.run(progressbar=False)
+        t2 = time.perf_counter()
+        print('peeler.run_loop', t2-t1)
+
+        spikes = dataio.get_spikes(chan_grp=0).copy()
+        labels = catalogue['clusters']['cluster_label']
+        count_by_label = [np.sum(spikes['cluster_label'] == label) for label in labels]
+        print(labels)
+        print(count_by_label)
     
 
 
@@ -371,7 +379,7 @@ if __name__ =='__main__':
     
     #~ open_catalogue_window()
     
-    test_peeler_classic()
+    #~ test_peeler_classic()
     
     test_peeler_geometry()
     
