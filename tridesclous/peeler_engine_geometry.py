@@ -39,13 +39,24 @@ import matplotlib.pyplot as plt
 
 
 class PeelerEngineGeometrical(PeelerEngineGeneric):
-    def change_params(self, adjacency_radius_um=100, **kargs): # high_adjacency_radius_um=50, 
+    def change_params(self, 
+                argmin_method='numba',
+                adjacency_radius_um=100,
+                **kargs):
         PeelerEngineGeneric.change_params(self, **kargs)
-        
-        #~ assert self.use_sparse_template
-        
+        self.argmin_method = argmin_method
         self.adjacency_radius_um = adjacency_radius_um # for waveform distance
-        #~ self.high_adjacency_radius_um = high_adjacency_radius_um # for possible template around
+        
+
+     #~ # Some check
+        #~ if self.use_sparse_template:
+            #~ assert self.argmin_method != 'numpy', 'numpy methdo do not do sparse template acceleration'
+            #~ if self.argmin_method == 'opencl':
+                #~ assert HAVE_PYOPENCL, 'OpenCL is not available'
+            #~ elif self.argmin_method == 'pythran':
+                #~ assert HAVE_PYTHRAN, 'Pythran is not available'
+            #~ elif self.argmin_method == 'numba':
+                #~ assert HAVE_NUMBA, 'Numba is not available'
         
         #~ self.strict_template = True
         #~ self.strict_template = False

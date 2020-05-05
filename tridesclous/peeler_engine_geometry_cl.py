@@ -35,7 +35,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
         PeelerEngineGeneric.change_params(self, **kargs)
         
-        assert self.use_sparse_template
+        #~ assert self.use_sparse_template
         
         # Note the same radius as self.catalogue['peak_detector_params']['']
         # this one is used for explore template around the chann detection

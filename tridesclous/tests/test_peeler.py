@@ -78,8 +78,6 @@ def test_peeler_geometry():
         peeler.change_params(engine='geometrical',
                                     catalogue=catalogue,
                                     chunksize=1024,
-                                    use_sparse_template=True,
-                                    sparse_threshold_mad=1.5,
                                     #~ argmin_method='numba')
                                     argmin_method='opencl')
                                     
@@ -106,7 +104,7 @@ def test_peeler_geometry_cl():
     
     for catalogue in (catalogue0, catalogue1):
         print()
-        print('engine=geometrical')
+        print('engine=geometrical_opencl')
         print('inter_sample_oversampling', catalogue['inter_sample_oversampling'])
 
         peeler = Peeler(dataio)
@@ -117,9 +115,6 @@ def test_peeler_geometry_cl():
         peeler.change_params(engine='geometrical_opencl',
                                     catalogue=catalogue,
                                     chunksize=1024,
-                                    use_sparse_template=True,
-                                    sparse_threshold_mad=1.5,
-                                    argmin_method='opencl',
                                     )
 
         t1 = time.perf_counter()
@@ -139,9 +134,9 @@ def test_peeler_geometry_cl():
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_peeler_argmin_methods():
     dataio = DataIO(dirname='test_peeler')
-    initial_catalogue = dataio.load_catalogue(chan_grp=0)
+    catalogue = dataio.load_catalogue(chan_grp=0, name='with_oversampling')
     
-    argmin_methods = ['opencl', 'pythran', 'numba']
+    argmin_methods = ['opencl', 'numba', 'pythran']
     #~ argmin_methods = ['opencl', 'pythran']
     
     for argmin_method in argmin_methods:
@@ -149,10 +144,8 @@ def test_peeler_argmin_methods():
         peeler = Peeler(dataio)
         
         peeler.change_params(engine='classic',
-                                            catalogue=initial_catalogue,
+                                            catalogue=catalogue,
                                             chunksize=1024,
-                                            use_sparse_template=True,
-                                            sparse_threshold_mad=1.5,
                                             argmin_method=argmin_method,
                                             cl_platform_index=0,
                                             cl_device_index=0,                                        
@@ -166,12 +159,14 @@ def test_peeler_argmin_methods():
 
 
     
-
+@pytest.mark.skipif(ON_CI_CLOUD, reason='TOO_OLD')
 def test_peeler_empty_catalogue():
     """
     This test peeler with empty catalogue.
     This is like a peak detector.
     Check several chunksize and compare to offline-one-buffer.
+    
+    THIS TEST IS TOO OLD need to be rewritten
     
     """
     dataio = DataIO(dirname='test_peeler')
@@ -196,10 +191,12 @@ def test_peeler_empty_catalogue():
     for chunksize in chunksizes:
         print('**',  chunksize, '**')
         peeler = Peeler(dataio)
-        peeler.change_params(engine='classic', catalogue=catalogue,chunksize=chunksize)
+        peeler.change_params(engine='geometrical', catalogue=catalogue,chunksize=chunksize, 
+                argmin_method='numba', save_bad_label=True)
         t1 = time.perf_counter()
         #~ peeler.run(progressbar=False)
-        peeler.run_offline_loop_one_segment(seg_num=0, progressbar=False)
+        #~ peeler.run_offline_loop_one_segment(seg_num=0, progressbar=False)
+        peeler.run(progressbar=False)
         t2 = time.perf_counter()
         
         #~ print('n_side', peeler.n_side, 'n_span', peeler.n_span, 'peak_width', peeler.peak_width)
@@ -209,9 +206,10 @@ def test_peeler_empty_catalogue():
         labeled_spike = spikes[spikes['cluster_label']>=0]
         unlabeled_spike = spikes[spikes['cluster_label']<0]
         assert labeled_spike.size == 0
+        print(unlabeled_spike.size)
         
         is_sorted = np.all(np.diff(unlabeled_spike['index'])>=0)
-        assert is_sorted
+        
         
         
         online_peaks = unlabeled_spike['index']
@@ -220,6 +218,7 @@ def test_peeler_empty_catalogue():
         i_stop = sig_length-catalogue['signal_preprocessor_params']['lostfront_chunksize']-engine.extra_size+engine.n_span
         sigs = dataio.get_signals_chunk(signal_type='processed', i_stop=i_stop)
         offline_peaks  = detect_peaks_in_chunk(sigs, engine.n_span, engine.relative_threshold, engine.peak_sign)
+        print(offline_peaks.size)
         
         offline_peaks  = offline_peaks[offline_peaks<=online_peaks[-1]]
         
@@ -252,9 +251,9 @@ def test_peeler_several_chunksize():
     for chunksize in chunksizes:
         print('**',  chunksize, '**')
         peeler = Peeler(dataio)
-        peeler.change_params(engine='classic', catalogue=catalogue,chunksize=chunksize)
+        peeler.change_params(engine='geometrical', catalogue=catalogue,chunksize=chunksize, argmin_method='numba')
         t1 = time.perf_counter()
-        peeler.run_offline_loop_one_segment(seg_num=0, progressbar=False)
+        peeler.run(progressbar=False)
         t2 = time.perf_counter()
         print('extra_size', peeler.peeler_engine.extra_size, 'n_span', peeler.peeler_engine.n_span,
                         'peak_width', peeler.peeler_engine.peak_width)
@@ -320,16 +319,18 @@ def debug_compare_peeler_engines():
     
     
     engine_list = [ 
-            ('classic argmin numpy', 'classic', {'argmin_method' : 'numpy', 'use_sparse_template':False}),
-            ('classic argmin cl', 'classic', {'argmin_method' : 'opencl', 'use_sparse_template':True}),
-            ('geometrical argmin opencl', 'classic', {'argmin_method' : 'opencl', 'use_sparse_template':True}),
+            ('classic argmin opencl', 'classic', {'argmin_method' : 'opencl'}),
+            ('classic argmin numba', 'classic', {'argmin_method' : 'numba'}),
+            ('geometrical argmin opencl', 'geometrical', {'argmin_method' : 'opencl'}),
+            ('geometrical argmin numba', 'geometrical', {'argmin_method' : 'numba'}),
+            ('geometrical_opencl', 'geometrical_opencl', {}),
         ]
     
     all_spikes =  []
     for name, engine, kargs in engine_list:
         #~ print()
         #~ print(name)
-        catalogue = dataio.load_catalogue(chan_grp=0)
+        catalogue = dataio.load_catalogue(chan_grp=0, name='with_oversampling')
 
 
         peeler = Peeler(dataio)
@@ -375,11 +376,11 @@ def debug_compare_peeler_engines():
     
 
 if __name__ =='__main__':
-    #~ setup_module()
+    setup_module()
     
     #~ open_catalogue_window()
     
-    #~ test_peeler_classic()
+    test_peeler_classic()
     
     test_peeler_geometry()
     

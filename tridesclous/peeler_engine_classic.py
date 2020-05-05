@@ -37,8 +37,18 @@ if HAVE_PYOPENCL:
 
 class PeelerEngineClassic(PeelerEngineGeneric):
     
-    def change_params(self, **kargs):
+    def change_params(self,
+                argmin_method='numba',
+                **kargs):
         PeelerEngineGeneric.change_params(self, **kargs)
+        self.argmin_method = argmin_method
+
+        if self.use_sparse_template:
+            assert self.argmin_method in ('numba', 'opencl')
+        
+        if self.argmin_method == 'numpy':
+            assert not self.use_sparse_template
+        
 
 
 
@@ -221,7 +231,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
         
         elif self.argmin_method == 'pythran':
             s = pythran_tools.pythran_loop_sparse_dist(waveform, 
-                                self.catalogue['centers0'],  self.sparse_mask)
+                                self.catalogue['centers0'],  self.sparse_mask_level1)
             cluster_idx = np.argmin(s)
             shift = None
         

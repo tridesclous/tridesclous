@@ -34,10 +34,8 @@ class PeelerEngineBase(OpenCL_Helper):
     def change_params(self, catalogue=None,
                                         chunksize=1024, 
                                         internal_dtype='float32', 
-                                        use_sparse_template=False,
-                                        sparse_threshold_mad=1.5,
-                                        argmin_method='numpy',
                                         maximum_jitter_shift = 4,
+                                        
                                         save_bad_label=False,
                                         
                                         cl_platform_index=None,
@@ -55,17 +53,6 @@ class PeelerEngineBase(OpenCL_Helper):
             the size of chunk for processing.
         internal_dtype: 'float32' or 'float64'
             dtype of internal processing. float32 is OK. float64 is totally useless.
-        use_sparse_template: bool (dafult False)
-            For very high channel count, centroids from catalogue can be sparcifyed.
-            The speedup a lot the process but the sparse_threshold_mad must be
-            set carrefully and compared with use_sparse_template=False.
-            For low channel count this is useless.
-        sparse_threshold_mad: float (1.5 by default)
-            The threshold level.
-            Under this value if all sample on one channel for one centroid
-            is considred as NaN
-        argmin_method: 'numpy', 'opencl', 'pythran' or 'numba'
-            Method use to compute teh minial distance to template.
         maximum_jitter_shift
             Maximum allowed shift alignement between peak index and its template.
             
@@ -74,9 +61,6 @@ class PeelerEngineBase(OpenCL_Helper):
         self.catalogue = catalogue
         self.chunksize = chunksize
         self.internal_dtype= internal_dtype
-        self.use_sparse_template = use_sparse_template
-        self.sparse_threshold_mad = sparse_threshold_mad
-        self.argmin_method = argmin_method
         self.maximum_jitter_shift = maximum_jitter_shift
         self.save_bad_label = save_bad_label
         
@@ -85,23 +69,11 @@ class PeelerEngineBase(OpenCL_Helper):
         self.cl_platform_index=None
         self.cl_device_index=None
         
-        if self.use_sparse_template:
-            assert self.catalogue['mode'] == 'sparse'
-        else:
-            assert self.catalogue['mode'] == 'dense'
+        if self.catalogue['mode'] == 'sparse':
+            self.use_sparse_template = True
+        elif self.catalogue['mode'] == 'dense':
+            self.use_sparse_template = False
         
-        
-        # Some check
-        if self.use_sparse_template:
-            assert self.argmin_method != 'numpy', 'numpy methdo do not do sparse template acceleration'
-
-            if self.argmin_method == 'opencl':
-                assert HAVE_PYOPENCL, 'OpenCL is not available'
-            elif self.argmin_method == 'pythran':
-                assert HAVE_PYTHRAN, 'Pythran is not available'
-            elif self.argmin_method == 'numba':
-                assert HAVE_NUMBA, 'Numba is not available'
-            
         self.colors = make_color_dict(self.catalogue['clusters'])
         
         # precompute some value for jitter estimation
@@ -148,14 +120,17 @@ class PeelerEngineBase(OpenCL_Helper):
             # TODO use less memory
             #~ abs_centers = np.abs(centers)
             
-            self.sparse_mask_level1 = np.any(abs_centers > sparse_threshold_mad, axis=1)
+            #~ self.sparse_mask_level1 = np.any(abs_centers > sparse_threshold_mad, axis=1)
             
             #~ thresh = self.catalogue['sparse_thresh_level2']
             #~ self.sparse_mask_level2 = np.any(abs_centers > thresh, axis=1)
-            self.sparse_mask_level2 = self.catalogue['sparse_mask_level2']
             
-            thresh = self.catalogue['peak_detector_params']['relative_threshold']
-            self.sparse_mask_level3 = np.any(np.abs(centers)>thresh, axis=1)
+            self.sparse_mask_level1 = self.catalogue['sparse_mask_level1']
+            self.sparse_mask_level2 = self.catalogue['sparse_mask_level2']
+            self.sparse_mask_level3 = self.catalogue['sparse_mask_level3']
+            
+            #~ thresh = self.catalogue['peak_detector_params']['relative_threshold']
+            #~ self.sparse_mask_level3 = np.any(np.abs(centers)>thresh, axis=1)
             
             #~ print(self.sparse_mask_level1.shape)
             #~ print(self.sparse_mask_level1.sum(axis=0))
@@ -166,15 +141,16 @@ class PeelerEngineBase(OpenCL_Helper):
             #~ plt.show()
 
         else:
-            dense_mask = np.ones((centers.shape[0], centers.shape[2]), dtype='bool')
-            self.sparse_mask_level1 = dense_mask
+            #~ dense_mask = np.ones((centers.shape[0], centers.shape[2]), dtype='bool')
+            #~ self.sparse_mask_level1 = dense_mask
             
             # this must be the same as in make_catalogue
             #~ thresh = self.catalogue['sparse_thresh_level2']
             #~ self.sparse_mask_level2 = np.any(abs_centers > thresh, axis=1)
+            self.sparse_mask_level1 = self.catalogue['sparse_mask_level1']
             self.sparse_mask_level2 = self.catalogue['sparse_mask_level2']
-            
-            self.sparse_mask_level3 = dense_mask
+            self.sparse_mask_level3 = self.catalogue['sparse_mask_level3']
+            #~ self.sparse_mask_level3 = dense_mask
             
         
         self.distance_limit = self.catalogue['distance_limit']

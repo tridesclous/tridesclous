@@ -302,20 +302,31 @@ _common_peeler_params = [
     {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
     {'name':'duration', 'type': 'float', 'value':60., 'suffix': 's', 'siPrefix': True},
     
-    {'name': 'use_sparse_template', 'type': 'bool', 'value':False},
-    {'name':'sparse_threshold_mad', 'type': 'float', 'value': 1.5, },
     
-    {'name': 'argmin_method', 'type': 'list', 'values' : [ 'numpy', 'opencl', 'numba',]},
     
     {'name': 'maximum_jitter_shift', 'type': 'int', 'value':4, 'decimals':10},
+    {'name':'save_bad_label', 'type': 'bool', 'value':False},
     
+]
+
+_classic_peeler_params = _common_peeler_params + [
+    {'name': 'argmin_method', 'type': 'list', 'values' : [ 'numpy', 'opencl', 'numba',]},
+]
+
+_geometrical_peeler_params = _common_peeler_params + [
+    {'name': 'argmin_method', 'type': 'list', 'values' : [ 'numpy', 'opencl', 'numba',]},
+    {'name':'adjacency_radius_um', 'type': 'float', 'value':100., 'suffix': 'µm', 'siPrefix': False},
+]
+
+_geometrical_opencl_peeler_params = _common_peeler_params + [
+    {'name':'adjacency_radius_um', 'type': 'float', 'value':100., 'suffix': 'µm', 'siPrefix': False},
 ]
 
 
 peeler_params_by_methods = OrderedDict([
-    ('classic', _common_peeler_params),
-    ('geometrical', _common_peeler_params),
-    ('classic_old', _common_peeler_params),
+    ('classic', _classic_peeler_params),
+    ('geometrical', _geometrical_peeler_params),
+    ('geometrical_opencl', _geometrical_opencl_peeler_params),
 ])
 
 
