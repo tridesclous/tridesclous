@@ -104,6 +104,7 @@ class Peeler:
         # check if the desired length is already computed or not for this particular segment
         already_processed = self.dataio.already_processed(seg_num=seg_num, chan_grp=chan_grp, length=length)
         self.peeler_engine.initialize_before_each_segment(already_processed=already_processed)
+        #~ print('run_offline_loop_one_segment already_processed', already_processed)
         
         if already_processed:
             # ready from "processed'

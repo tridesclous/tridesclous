@@ -54,7 +54,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         #~ if self.argmin_method == 'opencl':
         OpenCL_Helper.initialize_opencl(self, cl_platform_index=self.cl_platform_index, cl_device_index=self.cl_device_index)
         
-        PeelerEngineGeneric.initialize(self, **kargs)
+        PeelerEngineGeneric.initialize(self, processor_engine='opencl', **kargs)
         
 
         # some attrs
@@ -79,7 +79,6 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         # debug to check same ctx and queue as processor
         if self.signalpreprocessor is not None:
             assert self.ctx is self.signalpreprocessor.ctx
-        
         
         wf_size = self.peak_width * self.nb_channel
         
@@ -405,8 +404,18 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
 
     def initialize_before_each_segment(self, **kargs):
         PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
-        #~ self.mask_not_already_tested[:] = 1
+        #~ print('initialize_before_each_segment', kargs)
+        if kargs['already_processed']:
+            self.kern_add_fifo_residuals.set_args(self.fifo_residuals_cl,
+                                                                    self.sigs_chunk_cl,
+                                                                    np.int32(self.fifo_roll_size))
+        else:
+            # this contain the output of preprocessor
+            # self.signalpreprocessor.output_backward_cl
 
+            self.kern_add_fifo_residuals.set_args(self.fifo_residuals_cl,
+                                                                    self.signalpreprocessor.output_backward_cl,
+                                                                    np.int32(self.fifo_roll_size))
     
     def apply_processor(self, pos, sigs_chunk):
         if self._plot_debug:
@@ -418,36 +427,34 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
         if self.already_processed:
             abs_head_index, preprocessed_chunk =  pos, sigs_chunk
-            
             pyopencl.enqueue_copy(self.queue,  self.sigs_chunk_cl, sigs_chunk)
-            
-            # WIP ICI#~ self.kern_roll_fifo
-            
-            gsize = self.fifo_roll_size * self.nb_channel
-            global_size = (self.fifo_roll_size, self.nb_channel)
-            if gsize > self.max_wg_size:
-                #~ n = int(np.floor(self.max_wg_size / self.nb_channel))
-                #~ local_size = (n, self.nb_channel)
-                local_size = (1, self.nb_channel)
-            else:
-                local_size = global_size
-            #~ print('global_size', global_size, 'local_size', local_size, self.max_wg_size, local_size[0] * local_size[1])
-            event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_roll_fifo, global_size, local_size,)
-            
-            
-            gsize = self.chunksize * self.nb_channel
-            global_size = (self.chunksize, self.nb_channel)
-            if gsize > self.max_wg_size:
-                #~ n = int(np.floor(self.max_wg_size / self.nb_channel))
-                #~ local_size = (n, self.nb_channel)
-                local_size = (1, self.nb_channel)
-            else:
-                local_size = global_size
-            #~ print('global_size', global_size, 'local_size', local_size, self.max_wg_size, local_size[0] * local_size[1])
-            event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_add_fifo_residuals, global_size, local_size,)
-
         else:
-            raise NotImplemenentedError
+            if self.signalpreprocessor.common_ref_removal:
+                # because not done in kernel yet
+                raise NotImplemenentedError
+            
+            abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
+        
+        # roll fifo
+        gsize = self.fifo_roll_size * self.nb_channel
+        global_size = (self.fifo_roll_size, self.nb_channel)
+        if gsize > self.max_wg_size:
+            local_size = (1, self.nb_channel)
+        else:
+            local_size = global_size
+        event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_roll_fifo, global_size, local_size,)
+        
+        # add new buffer to fifo residuals
+        gsize = self.chunksize * self.nb_channel
+        global_size = (self.chunksize, self.nb_channel)
+        if gsize > self.max_wg_size:
+            local_size = (1, self.nb_channel)
+        else:
+            local_size = global_size
+        event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_add_fifo_residuals, global_size, local_size,)
+            
+            
+            
             # TODO call preprocessor kernel and add_fifo_residuals
             
             #~ abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)

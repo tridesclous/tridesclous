@@ -179,7 +179,7 @@ class PeelerEngineBase(OpenCL_Helper):
             #~ ax.axhline(-sparse_threshold_mad)
             #~ plt.show()
     
-    def initialize(self, sample_rate=None, nb_channel=None, source_dtype=None, geometry=None, already_processed=False):
+    def initialize(self, sample_rate=None, nb_channel=None, source_dtype=None, geometry=None, already_processed=False, processor_engine=None):
         self.nb_channel = nb_channel
         self.sample_rate = sample_rate
         self.source_dtype = source_dtype
@@ -190,6 +190,10 @@ class PeelerEngineBase(OpenCL_Helper):
             # signal processor class
             p = dict(self.catalogue['signal_preprocessor_params'])
             self.signalpreprocessor_engine = p.pop('engine')
+            if processor_engine is not None:
+                # can be force to opencl by geometrial_opencl
+                self.signalpreprocessor_engine = processor_engine
+            
             SignalPreprocessor_class = signalpreprocessor_engines[self.signalpreprocessor_engine]
             self.signalpreprocessor = SignalPreprocessor_class(sample_rate, nb_channel, self.chunksize, source_dtype)
             p['normalize'] = True
@@ -203,6 +207,7 @@ class PeelerEngineBase(OpenCL_Helper):
                 p['cl_device_index'] = None
                 p['ctx'] = self.ctx
                 p['queue'] = self.queue
+                #~ exit()
             
             self.signalpreprocessor.change_params(**p)
             self.internal_dtype = self.signalpreprocessor.output_dtype

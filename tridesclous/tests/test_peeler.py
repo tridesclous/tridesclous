@@ -26,9 +26,11 @@ from tridesclous.tests.testingtools import ON_CI_CLOUD
 
 def setup_module():
     setup_catalogue('test_peeler', dataset_name='olfactory_bulb')
+    setup_catalogue('test_peeler2', dataset_name='olfactory_bulb', duration=16.)
 
 def teardown_module():
     shutil.rmtree('test_peeler')
+    shutil.rmtree('test_peeler2')
 
 
 def open_catalogue_window():
@@ -292,8 +294,46 @@ def test_peeler_several_chunksize():
         
         previsous_spikes = spikes
 
+
+
+def test_peeler_with_and_without_preprocessor():
+    
+    engines = ['geometrical', 'geometrical_opencl']
+    #~ engines = ['geometrical_opencl']
+    
+    for engine in engines:
+        for i in range(2):
+        #~ for i in [1]:
+        
+            print()
+            if i == 0:
+                print(engine, 'without processing')
+                dataio = DataIO(dirname='test_peeler')
+            else:
+                print(engine, 'with processing')
+                dataio = DataIO(dirname='test_peeler2')
+            
+            catalogue = dataio.load_catalogue(chan_grp=0)
+            
+            peeler = Peeler(dataio)
+            peeler.change_params(engine=engine, catalogue=catalogue, chunksize=1024)
+            t1 = time.perf_counter()
+            peeler.run(progressbar=False)
+            t2 = time.perf_counter()
+            print('peeler run_time', t2 - t1)
+            spikes = dataio.get_spikes(chan_grp=0).copy()
+            labels = catalogue['clusters']['cluster_label']
+            count_by_label = [np.sum(spikes['cluster_label'] == label) for label in labels]
+            print(labels)
+            print(count_by_label)
+            
+    
+    
+
+
 def open_PeelerWindow():
     dataio = DataIO(dirname='test_peeler')
+    #~ dataio = DataIO(dirname='test_peeler2')
     initial_catalogue = dataio.load_catalogue(chan_grp=0)
 
     app = pg.mkQApp()
@@ -376,15 +416,15 @@ def debug_compare_peeler_engines():
     
 
 if __name__ =='__main__':
-    setup_module()
+    #~ setup_module()
     
     #~ open_catalogue_window()
     
-    test_peeler_classic()
+    #~ test_peeler_classic()
     
-    test_peeler_geometry()
+    #~ test_peeler_geometry()
     
-    test_peeler_geometry_cl()
+    #~ test_peeler_geometry_cl()
     
     
     #~ test_peeler_argmin_methods()
@@ -392,6 +432,8 @@ if __name__ =='__main__':
     #~ test_peeler_empty_catalogue()
     
     #~ test_peeler_several_chunksize()
+    
+    test_peeler_with_and_without_preprocessor()
     
     #~ test_export_spikes()
     

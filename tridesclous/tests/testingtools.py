@@ -27,7 +27,7 @@ ON_CI_CLOUD = is_running_on_ci_cloud()
     
     
 
-def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
+def setup_catalogue(dirname, dataset_name='olfactory_bulb', duration=None):
     if os.path.exists(dirname):
         shutil.rmtree(dirname)
         
@@ -77,9 +77,10 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
     params['cluster_method'] = cluster_method
     params['cluster_kargs'] = cluster_kargs
     
+    if duration is not None:
+        params['duration'] = duration
     
     #~ pprint(params)
-    #~ apply_all_catalogue_steps(cc, params, verbose=True)
     cc.apply_all_steps(params, verbose=True)
     
     # already done in apply_all_catalogue_steps:
