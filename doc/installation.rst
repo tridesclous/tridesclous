@@ -117,9 +117,9 @@ Here the solution on linux ubuntu 18.04 / debian  :
 To have more recent nvidia driver:
 
   1. Install ppa https://launchpad.net/~graphics-drivers/+archive/ubuntu/ppa
-  2. sudo apt-get install nvidia-headless-410
-  3. sudo apt-get install nvidia-utils-410
-   
+  2. sudo apt-get install nvidia-headless-440
+  3. sudo apt-get install nvidia-utils-440
+
    
 If you have a recent laptop you can also try the new neo-icd for intel GPU.
    
