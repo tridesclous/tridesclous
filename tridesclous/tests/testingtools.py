@@ -69,6 +69,7 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb', duration=None):
     
     params = get_auto_params_for_catalogue(dataio)
     params['mode'] = mode
+    params['n_jobs'] = 1
     params['peak_detector']['method'] = peak_method
     params['peak_detector']['engine'] = peak_engine
     params['peak_detector']['adjacency_radius_um'] = adjacency_radius_um

@@ -23,6 +23,7 @@ _default_catalogue_params = {
     'mode': 'dense', # 'sparse'
     'sparse_threshold': None, # 1.5
     'memory_mode': 'memmap',
+    'n_jobs' :-1,
     
     'preprocessor': {
         'highpass_freq': 300.,

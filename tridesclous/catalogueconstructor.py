@@ -45,7 +45,7 @@ from . import labelcodes
 from .cataloguetools import apply_all_catalogue_steps
 
 
-_global_params_attr = ('chunksize', 'memory_mode', 'internal_dtype', 'mode', 'sparse_threshold', 'n_spike_for_centroid') # 'adjacency_radius_um'
+_global_params_attr = ('chunksize', 'memory_mode', 'internal_dtype', 'mode', 'sparse_threshold', 'n_spike_for_centroid', 'n_jobs') # 'adjacency_radius_um'
 
 _persistent_metrics = ('spike_waveforms_similarity', 'cluster_similarity',
                         'cluster_ratio_similarity', 'spike_silhouette')
@@ -325,6 +325,7 @@ class CatalogueConstructor:
             #~ adjacency_radius_um=None,
             sparse_threshold=1.5,
             n_spike_for_centroid=_default_n_spike_for_centroid,
+            n_jobs=-1,
             ):
         """
         
@@ -366,6 +367,7 @@ class CatalogueConstructor:
         #~ self.info['adjacency_radius_um'] = adjacency_radius_um
         self.info['sparse_threshold'] = sparse_threshold
         self.info['n_spike_for_centroid'] = n_spike_for_centroid
+        self.info['n_jobs'] = n_jobs
 
         self.flush_info()
         self.load_info() # this make attribute
@@ -1553,24 +1555,20 @@ class CatalogueConstructor:
         mask = self.all_peaks['cluster_label']==label
         self.find_clusters(method=method, selection=mask, **kargs)
     
-    def auto_split_cluster(self):
-        cleancluster.auto_split(self, n_spike_for_centroid=self.n_spike_for_centroid)
+    def auto_split_cluster(self, **kargs):
+        cleancluster.auto_split(self, n_spike_for_centroid=self.n_spike_for_centroid, n_jobs=self.n_jobs, **kargs)
     
-    def trash_not_aligned(self, maximum_shift=2):
-        cleancluster.trash_not_aligned(self, maximum_shift=maximum_shift)
+    def trash_not_aligned(self, **kargs):
+        cleancluster.trash_not_aligned(self, **kargs)
         
-    def auto_merge_cluster(self):
-        cleancluster.auto_merge(self)
+    def auto_merge_cluster(self, **kargs):
+        cleancluster.auto_merge(self, **kargs)
     
-    def trash_low_extremum(self, min_extremum_amplitude=None):
-        cleancluster.trash_low_extremum(self, min_extremum_amplitude=min_extremum_amplitude)
+    def trash_low_extremum(self, **kargs):
+        cleancluster.trash_low_extremum(self, **kargs)
     
-    def trash_small_cluster(self, minimum_size=10):
-        cleancluster.trash_small_cluster(self, minimum_size=minimum_size)
-
-    def clean_cluster(self, too_small=10):
-        self.trash_small_cluster(n=too_small)
-
+    def trash_small_cluster(self, **kargs):
+        cleancluster.trash_small_cluster(self, **kargs)
 
     #~ def compute_spike_waveforms_similarity(self, method='cosine_similarity', size_max = 1e7):
         #~ """This compute the similarity spike by spike.

@@ -43,6 +43,7 @@ def test_catalogue_constructor():
             cc.set_global_params(chunksize=1024,
                                             memory_mode=memory_mode,
                                             mode=mode,
+                                            n_jobs=1,
                                             #~ adjacency_radius_um=adjacency_radius_um,
                                             )
             
@@ -203,6 +204,7 @@ def compare_nb_waveforms():
     cc.set_global_params(chunksize=1024,
                                     memory_mode='ram',
                                     mode='dense',
+                                    n_jobs=1,
                                     #~ adjacency_radius_um=None,
                                     )
     
