@@ -48,7 +48,7 @@ def test_auto_split():
     
     cc.find_clusters(method='pruningshears')
     print(cc)
-    
+    print(cc.n_jobs)
     t1 = time.perf_counter()
     cc.auto_split_cluster()
     t2 = time.perf_counter()
@@ -132,10 +132,10 @@ def test_trash_small_cluster():
     
     
 if __name__ == '__main__':
-    #~ setup_module()
-    #~ test_auto_split()
+    setup_module()
+    test_auto_split()
     #~ test_trash_not_aligned()
-    test_auto_merge()
+    #~ test_auto_merge()
     #~ test_trash_low_extremum()
     #~ test_trash_small_cluster()
     

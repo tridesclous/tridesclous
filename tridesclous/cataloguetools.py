@@ -37,7 +37,7 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     cc = catalogueconstructor
     
     # global params
-    d = {k:params[k] for k in ('chunksize', 'mode', 'memory_mode')}
+    d = {k:params[k] for k in ('chunksize', 'sparse_threshold', 'mode', 'memory_mode', 'n_jobs', 'n_spike_for_centroid', )}
     
     cc.set_global_params(**d)
     
