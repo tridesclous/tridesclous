@@ -2,9 +2,9 @@ import numpy as np
 
 import sklearn
 import sklearn.decomposition
-
 import sklearn.cluster
 import sklearn.manifold
+import sklearn.discriminant_analysis
 
 from . import tools
 
