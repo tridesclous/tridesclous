@@ -1467,7 +1467,9 @@ class CatalogueConstructor:
     def get_one_centroid(self, label, metric='median'):
         ind = self.index_of_label(label)
         attr = getattr(self, 'centroids_'+metric)
-        centroid = attr[ind, :, :]
+        # make a copy to avoid too much reference on the memmap object
+        centroid = attr[ind, :, :].copy()
+        
         return centroid
     
     def change_sparse_threshold(self, sparse_threshold=1.5):

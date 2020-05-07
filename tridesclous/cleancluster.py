@@ -327,6 +327,7 @@ def trash_not_aligned(cc, maximum_shift=2):
             mask = cc.all_peaks['cluster_label'] == k
             cc.all_peaks['cluster_label'][mask] = -1
             to_remove.append(k)
+        
             
     cc.pop_labels_from_cluster(to_remove)
 
