@@ -50,7 +50,11 @@ class ArrayCollection:
         """Check if an array is not refrenced outside this class and aparent
         Usefull before deleting.
         """
-        nb_ref = len(gc.get_referrers(self._array[name]))
+        # ok for py36
+        # nb_ref = len(gc.get_referrers(self._array[name]))
+        # ok for py36 and py37
+        nb_ref = sys.getrefcount(self._array[name]) -1 
+        
         if self.parent is None:
             nb_expect = 1
         else:

@@ -423,7 +423,7 @@ def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
             sample_indexes = sample_indexes[(sample_indexes>-n_left)]
             
             wf_ = dataio.get_some_waveforms(seg_num=seg_num, chan_grp=chan_grp,
-                        sample_indexes=sample_indexes, n_left=n_left, n_right=n_right)
+                        peak_sample_indexes=sample_indexes, n_left=n_left, n_right=n_right)
             wf_ = wf_[:, :, channels]
             all_wf.append(wf_)
         wf = np.concatenate(all_wf, axis=0)

@@ -58,7 +58,7 @@ def test_cluster_ratio():
     cc.compute_cluster_ratio_similarity()
 
     for name in('cluster_similarity', 'cluster_ratio_similarity'):
-        d = getattr(cc, name)
+        d = getattr(cc, name).copy()
         fig, ax = plt.subplots()
         im  = ax.matshow(d, cmap='viridis')
         im.set_clim(0,1)
@@ -69,7 +69,7 @@ def test_cluster_ratio():
 
 
 if __name__ == '__main__':
-    #~ setup_module()
+    setup_module()
     
     test_all_metrics()
     test_cluster_ratio()

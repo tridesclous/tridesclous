@@ -148,9 +148,9 @@ class NDScatter(WidgetBase):
         self.timer_tour = QT.QTimer(interval = 100)
         self.timer_tour.timeout.connect(self.new_tour_step)
         
-        if self.data is not None:
-            self.initialize()
-            self.refresh()
+        #~ if self.data is not None:
+        self.initialize()
+        self.refresh()
     
     def create_toolbar(self):
         
@@ -190,7 +190,10 @@ class NDScatter(WidgetBase):
     # this handle data with propties so model change shoudl not affect so much teh code
     @property
     def data(self):
-        return self.controller.some_features
+        
+        feat = self.controller.some_features
+        data = ensure_2d(feat)
+        return data
     
     def data_by_label(self, k):
         if len(self.point_visible) != self.data.shape[0]:
@@ -200,10 +203,11 @@ class NDScatter(WidgetBase):
         if k=='sel':
             data = self.data[self.controller.spike_selection[self.controller.some_peaks_index]]
         elif k==labelcodes.LABEL_NOISE:
-            data = self.controller.some_noise_features
+            feat_noise = self.controller.some_noise_features
+            data = ensure_2d(feat_noise)
         else:
             data = self.data[(self.controller.spike_label[self.controller.some_peaks_index]==k) & self.point_visible]
-            
+        
         return data
     
     def by_cluster_random_decimate(self, clicked=None, refresh=True):
@@ -231,7 +235,8 @@ class NDScatter(WidgetBase):
 
     
     def initialize(self):
-        if self.data is None:
+        #~ if self.data is None:
+        if self.controller.some_features is None:
             return
         self.viewBox = MyViewBox()
         self.viewBox.gain_zoom.connect(self.gain_zoom)
@@ -279,6 +284,8 @@ class NDScatter(WidgetBase):
         self.limit = m
         
         ndim = self.data.shape[1]
+        if ndim <2:
+            ndim = 2
         self.selected_comp = np.ones( (ndim), dtype='bool')
         self.projection = np.zeros( (ndim, 2))
         self.projection[0,0] = 1.
@@ -338,11 +345,13 @@ class NDScatter(WidgetBase):
         self.refresh()
     
     def apply_dot(self, data):
+        #~ print(data.shape, self.projection.shape)
         projected = np.dot(data[:, self.selected_comp ], self.projection[self.selected_comp, :])
         return projected
     
     def refresh(self):
-        if self.data is None:
+        #~ if self.data is None:
+        if self.controller.some_features is None:
             if hasattr(self, 'plot'):
                 self.plot.clear()
             return
@@ -407,7 +416,8 @@ class NDScatter(WidgetBase):
             self.timer_tour.stop()
     
     def new_tour_step(self):
-        if self.data is None:
+        #~ if self.data is None:
+        if self.controller.some_features is None:
             return
         nb_step = self.params['nb_step']
         ndim = self.data.shape[1]
@@ -468,7 +478,8 @@ class NDScatter(WidgetBase):
         self.spike_selection_changed.emit()
     
     def auto_select_component(self):
-        if self.data is None:
+        #~ if self.data is None:
+        if self.controller.some_features is None:
             return
         
         # take all component that corespon to a channel max and neighborhood
@@ -499,7 +510,8 @@ class NDScatter(WidgetBase):
         #~ self.refresh()
     
     def on_cluster_visibility_changed(self):
-        if self.data is None:
+        #~ if self.data is None:
+        if self.controller.some_features is None:
             return
         
         if self.params['auto_select_component']:
@@ -513,3 +525,15 @@ class NDScatter(WidgetBase):
 def inside_poly(data, vertices):
     return mpl_path(vertices).contains_points(data)
 
+
+def ensure_2d(feat):
+    if feat is None:
+        return None
+    # ensure 2D
+    if feat.shape[1] ==1:
+        data = np.zeros((feat.shape[0], 2), dtype=feat.dtype)
+        data[:, 0] = feat[:, 0]
+    else:
+        data = feat
+    return data
+    

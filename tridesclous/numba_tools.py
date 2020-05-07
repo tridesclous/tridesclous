@@ -35,7 +35,7 @@ def numba_loop_sparse_dist_with_geometry(waveform, centers,  possibles_cluster_i
     nb_total_clus, width, nb_chan = centers.shape
     nb_clus = possibles_cluster_idx.size
     
-    rms_waveform_channel = np.sum(waveform**2, axis=0)#.astype('float32')
+    #rms_waveform_channel = np.sum(waveform**2, axis=0)#.astype('float32')
     waveform_distance = np.zeros((nb_clus,), dtype=np.float32)
     
     for clus in prange(len(possibles_cluster_idx)):
@@ -60,7 +60,7 @@ def numba_explore_shifts(long_waveform, one_center,  one_mask, maximum_jitter_sh
     
     all_dist = np.zeros((n, ), dtype=np.float32)
     
-    for shift in range(n):
+    for shift in prange(n):
         sum = 0
         for c in range(nb_chan):
             if one_mask[c]:

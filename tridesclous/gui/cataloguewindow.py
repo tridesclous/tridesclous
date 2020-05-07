@@ -3,7 +3,7 @@ import numpy as np
 from .myqt import QT
 import pyqtgraph as pg
 
-from ..catalogueconstructor import _default_max_per_cluster
+from ..catalogueconstructor import _default_n_spike_for_centroid
 
 from .cataloguecontroller import CatalogueController
 from .traceviewer import CatalogueTraceViewer
@@ -158,7 +158,7 @@ class CatalogueWindow(QT.QMainWindow):
         self.addToolBar(QT.Qt.RightToolBarArea, self.toolbar)
         self.toolbar.setIconSize(QT.QSize(60, 40))
         
-        self.toolbar.addAction(self.act_make_catalogue)
+        
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.act_refresh)
         self.toolbar.addSeparator()
@@ -166,6 +166,9 @@ class CatalogueWindow(QT.QMainWindow):
         self.toolbar.addAction(self.act_new_waveform_sample)
         self.toolbar.addAction(self.act_new_features)
         self.toolbar.addAction(self.act_new_cluster)
+        self.toolbar.addSeparator()
+        self.toolbar.addAction(self.act_make_catalogue)
+        self.toolbar.addSeparator()
         self.toolbar.addAction(self.act_compute_metrics)
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.help_act)
@@ -181,8 +184,13 @@ class CatalogueWindow(QT.QMainWindow):
         webbrowser.open(url, new=2)
 
     def make_catalogue_for_peeler(self):
-        self.catalogueconstructor.make_catalogue_for_peeler()
-        self.new_catalogue.emit(self.catalogueconstructor.chan_grp)
+        dia = ParamDialog(gui_params.make_catalogue_params)
+        dia.resize(450, 500)
+        if dia.exec_():
+            d = dia.get()
+            pprint(d)
+            self.catalogueconstructor.make_catalogue_for_peeler(**d)
+            self.new_catalogue.emit(self.catalogueconstructor.chan_grp)
     
     def create_savepoint(self):
         try:
@@ -265,7 +273,7 @@ class CatalogueWindow(QT.QMainWindow):
             cc.clean_peaks(**d['clean_peaks'])
             cc.sample_some_peaks(**d['peak_sampler'])
             cc.extract_some_noise(**d['noise_snippet'])
-            cc.compute_all_centroid(max_per_cluster=_default_max_per_cluster)
+            cc.compute_all_centroid(n_spike_for_centroid=_default_n_spike_for_centroid)
             self.refresh()
 
     def new_features(self):
@@ -279,6 +287,7 @@ class CatalogueWindow(QT.QMainWindow):
         method, kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self)
         if method is not None:
             self.catalogueconstructor.find_clusters(method=method, **kargs)
+            self.controller.check_plot_attributes()
             self.refresh()
     
     def compute_metrics(self):

@@ -7,7 +7,7 @@ import numpy as np
 
 from .dataio import DataIO
 from . catalogueconstructor import CatalogueConstructor, _dtype_peak
-from .cataloguetools import get_auto_params_for_catalogue
+from .autoparams import get_auto_params_for_catalogue
 
 try:
     import h5py
@@ -214,7 +214,7 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_clust
     cc = CatalogueConstructor(dataio=dataio)
 
     # global params
-    d = {k:params[k] for k in ('chunksize', 'mode', 'adjacency_radius_um')}
+    d = {k:params[k] for k in ('chunksize', 'mode', )}
     cc.set_global_params(**d)
 
     # params preprocessor
@@ -316,6 +316,9 @@ def import_from_spike_interface(recording, sorting, tdc_dirname, spike_per_clust
     t2 = time.perf_counter()
     print('sample_some_peaks', t2-t1)
     
+    cc.clean_peaks(alien_value_threshold=None)
+    
+    cc.extract_some_noise()
     
     cc.extract_some_features(method=params['feature_method'], **params['feature_kargs'])
     

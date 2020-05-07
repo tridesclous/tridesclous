@@ -106,7 +106,7 @@ Depending, the OS and the hardware it used to be difficult to settle correctly t
 Now, it is more easy (except on OSX, it is becoming more difficult, grrrr.)
 
 
-Here the solution on linux ubuntu/debian :
+Here the solution on linux ubuntu 18.04 / debian  :
    
    1. workon tdc
    2. For intel GPU: sudo apt-get install beignet
@@ -114,6 +114,13 @@ Here the solution on linux ubuntu/debian :
    3. sudo apt-get instll opencl-headers ocl-icd-opencl-dev libclc-dev ocl-icd-libopencl1
    4. pip install pyopencl
 
+To have more recent nvidia driver:
+
+  1. Install ppa https://launchpad.net/~graphics-drivers/+archive/ubuntu/ppa
+  2. sudo apt-get install nvidia-headless-440
+  3. sudo apt-get install nvidia-utils-440
+
+   
 If you have a recent laptop you can also try the new neo-icd for intel GPU.
    
 If you don't have GPU but a multi core CPU you can use POCL on linux:

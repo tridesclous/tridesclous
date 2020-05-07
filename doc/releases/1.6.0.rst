@@ -1,0 +1,11 @@
+tridesclous release notes 1.6.0
+===============================
+
+**2020-05-XX**
+
+  * sevral speed improvement
+  * clean cluster refatored in sevral steps
+  * experimental Peeler in pure opencl (quite fast in fact)
+  * some paralell with joblib for catalogueconstructor
+  * various bug fix for GUI
+

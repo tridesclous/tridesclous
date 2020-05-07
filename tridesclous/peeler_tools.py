@@ -32,12 +32,14 @@ def make_prediction_on_spike_with_label(spike_index, spike_label, spike_jitter, 
 
 def make_prediction_one_spike(spike_index, cluster_idx, spike_jitter, dtype, catalogue):
     
-    r = catalogue['subsample_ratio']
+    
     pos = spike_index + catalogue['n_left']
-    if spike_jitter is None or np.isnan(spike_jitter):
+    #~ if spike_jitter is None or np.isnan(spike_jitter):
+    if not catalogue['inter_sample_oversampling'] or spike_jitter is None or np.isnan(spike_jitter):
         pred = catalogue['centers0'][cluster_idx, :, :]
     else:
         #TODO debug that sign   >>>> done this is correct
+        r = catalogue['subsample_ratio']
         shift = -int(np.round(spike_jitter))
         pos = pos + shift
         int_jitter = int((spike_jitter+shift)*r) + r//2
@@ -78,41 +80,5 @@ def make_prediction_signals(spikes, dtype, shape, catalogue, safe=True):
     return prediction
 
 
-def get_auto_params_for_peelers(dataio, chan_grp=0):
-    nb_chan = dataio.nb_channel(chan_grp=chan_grp)
-    params = {}
-    
 
-    params['inter_sample_oversampling'] = True
-    #~ if dataio.sample_rate < 25000.:
-        #~ params['inter_sample_oversampling'] = True
-    #~ else:
-        #~ params['inter_sample_oversampling'] = False
-    
-    #~ if nb_chan <=8:
-    #~ if nb_chan <=1:
-    if nb_chan <=4:
-        
-        params['use_sparse_template'] = False
-        params['sparse_threshold_mad'] = 1.5
-        params['argmin_method'] = 'numpy'
-        
-        params['engine'] = 'classic'
-        
-    else:
-        params['use_sparse_template'] = True
-        params['sparse_threshold_mad'] = 1.5
-        
-        params['engine'] = 'geometrical'
-        
-        
-        if HAVE_PYOPENCL:
-            params['argmin_method'] = 'opencl'
-        elif HAVE_NUMBA:
-            params['argmin_method'] = 'numba'
-        else:
-            params['argmin_method'] = 'numpy'
 
-    return params
-    
-    

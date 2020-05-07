@@ -37,16 +37,30 @@ if HAVE_PYOPENCL:
 
 class PeelerEngineClassic(PeelerEngineGeneric):
     
-    def change_params(self, **kargs):
+    def change_params(self,
+                argmin_method='numba',
+                **kargs):
         PeelerEngineGeneric.change_params(self, **kargs)
+        self.argmin_method = argmin_method
+
+        if self.use_sparse_template:
+            assert self.argmin_method in ('numba', 'opencl')
+        
+        if self.argmin_method == 'numpy':
+            assert not self.use_sparse_template
+        
+
+
+
+    def initialize(self, **kargs):
+        if self.argmin_method == 'opencl':
+            OpenCL_Helper.initialize_opencl(self, cl_platform_index=self.cl_platform_index, cl_device_index=self.cl_device_index)
+        
+        PeelerEngineGeneric.initialize(self, **kargs)
 
         if self.argmin_method == 'opencl'  and self.catalogue['centers0'].size>0:
-        #~ if self.use_opencl_with_sparse and self.catalogue['centers0'].size>0:
-            OpenCL_Helper.initialize_opencl(self, cl_platform_index=self.cl_platform_index, cl_device_index=self.cl_device_index)
             
-            #~ self.ctx = pyopencl.create_some_context(interactive=False)
-            #~ self.queue = pyopencl.CommandQueue(self.ctx)
-            
+            # make kernel
             centers = self.catalogue['centers0']
             nb_channel = centers.shape[2]
             peak_width = centers.shape[1]
@@ -56,7 +70,8 @@ class PeelerEngineClassic(PeelerEngineGeneric):
             prg = pyopencl.Program(self.ctx, kernel)
             opencl_prg = prg.build(options='-cl-mad-enable')
             self.kern_waveform_distance = getattr(opencl_prg, 'waveform_distance')
-
+            
+            # create CL buffers
             wf_shape = centers.shape[1:]
             one_waveform = np.zeros(wf_shape, dtype='float32')
             self.one_waveform_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=one_waveform)
@@ -66,20 +81,13 @@ class PeelerEngineClassic(PeelerEngineGeneric):
             self.waveform_distance = np.zeros((nb_cluster), dtype='float32')
             self.waveform_distance_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.waveform_distance)
 
-            #~ mask[:] = 0
-            self.sparse_mask_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask.astype('u1'))
+            self.sparse_mask_level1_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.sparse_mask_level1.astype('u1'))
 
             rms_waveform_channel = np.zeros(nb_channel, dtype='float32')
             self.rms_waveform_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=rms_waveform_channel)
             
             self.cl_global_size = (centers.shape[0], centers.shape[2])
-            #~ self.cl_local_size = None
             self.cl_local_size = (centers.shape[0], 1) # faster a GPU because of memory access
-            #~ self.cl_local_size = (1, centers.shape[2])
-
-
-    def initialize_before_each_segment(self, **kargs):
-        PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
         
         # force engine to global
         p = dict(self.catalogue['peak_detector_params'])
@@ -96,7 +104,12 @@ class PeelerEngineClassic(PeelerEngineGeneric):
         self.peakdetector.change_params(**p)
         
         self.mask_not_already_tested = np.ones(self.fifo_size - 2 * self.n_span, dtype='bool')
-        
+    
+    def initialize_before_each_segment(self, **kargs):
+        PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
+        self.peakdetector.reset_fifo_index()
+        self.mask_not_already_tested[:] = 1
+    
 
     def detect_local_peaks_before_peeling_loop(self):
         # negative mask 1: not tested 0: already tested
@@ -147,15 +160,19 @@ class PeelerEngineClassic(PeelerEngineGeneric):
 
 
 
-    def on_accepted_spike(self, spike):
+    #~ def on_accepted_spike(self, spike):
+    def on_accepted_spike(self, peak_ind, cluster_idx, jitter):
         # remove spike prediction from fifo residuals
-        left_ind = spike.index + self.n_left
-        cluster_idx = self.catalogue['label_to_index'][spike.cluster_label]
-        pos, pred = make_prediction_one_spike(spike.index, cluster_idx, spike.jitter, self.fifo_residuals.dtype, self.catalogue)
+        #~ left_ind = spike.index + self.n_left
+        #~ cluster_idx = self.catalogue['label_to_index'][spike.cluster_label]
+        #~ pos, pred = make_prediction_one_spike(spike.index, cluster_idx, spike.jitter, self.fifo_residuals.dtype, self.catalogue)
+        pos, pred = make_prediction_one_spike(peak_ind, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
         self.fifo_residuals[pos:pos+self.peak_width, :] -= pred
         
         # this prevent search peaks in the zone until next "reset_to_not_tested"
-        self.set_already_tested_spike_zone(spike.index, cluster_idx)
+        #~ self.set_already_tested_spike_zone(spike.index, cluster_idx)
+        self.set_already_tested_spike_zone(peak_ind, cluster_idx)
+        
     
     
     def set_already_tested(self, peak_ind, peak_chan):
@@ -206,7 +223,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
             pyopencl.enqueue_copy(self.queue,  self.one_waveform_cl, waveform)
             pyopencl.enqueue_copy(self.queue,  self.rms_waveform_channel_cl, rms_waveform_channel)
             event = self.kern_waveform_distance(self.queue,  self.cl_global_size, self.cl_local_size,
-                        self.one_waveform_cl, self.catalogue_center_cl, self.sparse_mask_cl, 
+                        self.one_waveform_cl, self.catalogue_center_cl, self.sparse_mask_level1_cl, 
                         self.rms_waveform_channel_cl, self.waveform_distance_cl)
             pyopencl.enqueue_copy(self.queue,  self.waveform_distance, self.waveform_distance_cl)
             cluster_idx = np.argmin(self.waveform_distance)
@@ -214,7 +231,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
         
         elif self.argmin_method == 'pythran':
             s = pythran_tools.pythran_loop_sparse_dist(waveform, 
-                                self.catalogue['centers0'],  self.sparse_mask)
+                                self.catalogue['centers0'],  self.sparse_mask_level1)
             cluster_idx = np.argmin(s)
             shift = None
         
@@ -227,7 +244,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
             all_s = []
             for shift in shifts:
                 waveform = self.fifo_residuals[left_ind+shift:left_ind+self.peak_width+shift,:]
-                s = numba_loop_sparse_dist(waveform, self.catalogue['centers0'],  self.sparse_mask)
+                s = numba_loop_sparse_dist(waveform, self.catalogue['centers0'],  self.sparse_mask_level1)
                 all_s.append(s)
             all_s = np.array(all_s)
             shift_ind, cluster_idx = np.unravel_index(np.argmin(all_s, axis=None), all_s.shape)
@@ -283,13 +300,14 @@ class PeelerEngineClassic(PeelerEngineGeneric):
         
         
         #~ label = self.catalogue['cluster_labels'][cluster_idx]
-        return cluster_idx, shift
+        distance = None
+        return cluster_idx, shift, distance
 
     
     
 
 
-    def accept_tempate(self, left_ind, cluster_idx, jitter):
+    def accept_tempate(self, left_ind, cluster_idx, jitter, distance):
         #~ self._debug_nb_accept_tempate += 1
         #~ import matplotlib.pyplot as plt
         # criteria mono channel = old implementation
@@ -303,7 +321,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
             return False
         
         # criteria multi channel
-        mask = self.sparse_mask[cluster_idx]
+        mask = self.sparse_mask_level2[cluster_idx]
         full_wf0 = self.catalogue['centers0'][cluster_idx,: , :][:, mask]
         full_wf1 = self.catalogue['centers1'][cluster_idx,: , :][:, mask]
         full_wf2 = self.catalogue['centers2'][cluster_idx,: , :][:, mask]
@@ -314,8 +332,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
         wf_nrj = np.sum(full_wf**2, axis=0)
         
         # prediction L2 on mask
-        label = self.catalogue['cluster_labels'][cluster_idx]
-        weight = self.weight_per_template[label]
+        weight = self.weight_per_template_dict[cluster_idx]
         pred_wf = (full_wf0+jitter*full_wf1+jitter**2/2*full_wf2)
         
         residual_nrj = np.sum((full_wf-pred_wf)**2, axis=0)

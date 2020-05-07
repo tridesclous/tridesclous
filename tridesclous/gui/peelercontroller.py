@@ -204,6 +204,13 @@ class PeelerController(ControllerBase):
             cluster_idx = self.catalogue['label_to_index'][label]
             c = self.catalogue['extremum_channel'][cluster_idx]
             return c
+    
+    def get_some_waveforms(self, seg_nums, peak_sample_indexes, channel_indexes):
+        n_left, n_right = self.get_waveform_left_right()
+        waveforms = self.dataio.get_some_waveforms(seg_nums=seg_nums, chan_grp=self.chan_grp, 
+                            peak_sample_indexes=peak_sample_indexes,
+                            n_left=n_left, n_right=n_right, channel_indexes=channel_indexes)
+        return waveforms
 
     def change_spike_visible_mode(self, mode):
         assert mode in spike_visible_modes

@@ -2,34 +2,37 @@ import numpy as np
 
 import sklearn
 import sklearn.decomposition
-
 import sklearn.cluster
 import sklearn.manifold
+import sklearn.discriminant_analysis
 
 from . import tools
 
 import joblib
 
+import time
 
-def project_waveforms(method='pca_by_channel', catalogueconstructor=None, **params):
+def project_waveforms(method='pca_by_channel', catalogueconstructor=None, selection=None, **params):
     """
+    If slection is None then the fit of projector is done on all some_peaks_index
     
+    Otherwise the fit is done on the a subset of waveform force by slection bool mask
     
+    selection is mask bool size all_peaks
     """
-
-
-    #~ if waveforms.shape[0] == 0:
-        #~ return None, None, None
+    cc = catalogueconstructor
     
     
     if method=='global_pca':
-        projector = GlobalPCA(catalogueconstructor=catalogueconstructor, **params)
+        projector = GlobalPCA(catalogueconstructor=cc, selection=selection, **params)
     elif method=='peak_max':
-        projector = PeakMaxOnChannel(catalogueconstructor=catalogueconstructor, **params)
+        projector = PeakMaxOnChannel(catalogueconstructor=cc, selection=selection, **params)
     elif method=='pca_by_channel':
-        projector = PcaByChannel(catalogueconstructor=catalogueconstructor, **params)
+        projector = PcaByChannel(catalogueconstructor=cc, selection=selection, **params)
     #~ elif method=='neighborhood_pca':
         #~ projector = NeighborhoodPca(waveforms, catalogueconstructor=catalogueconstructor, **params)
+    elif method=='global_lda':
+        projector = GlobalLDA(catalogueconstructor=cc, selection=selection, **params)
     else:
         raise NotImplementedError
     
@@ -40,15 +43,25 @@ def project_waveforms(method='pca_by_channel', catalogueconstructor=None, **para
 
 
 class GlobalPCA:
-    def __init__(self, catalogueconstructor=None, n_components=5, **params):
+    def __init__(self, catalogueconstructor=None, selection=None, n_components=5, **params):
+
         cc = catalogueconstructor
         
         self.n_components = n_components
         
         self.waveforms = cc.get_some_waveforms()
+        
+        if selection is None:
+            waveforms = self.waveforms
+            #~ print('all selection', waveforms.shape[0])
+        else:
+            peaks_index, = np.nonzero(selection)
+            waveforms = cc.get_some_waveforms(peaks_index=peaks_index)
+            #~ print('subset selection', waveforms.shape[0])
             
-        flatten_waveforms = self.waveforms.reshape(self.waveforms.shape[0], -1)
-        self.pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, **params)
+        flatten_waveforms = waveforms.reshape(waveforms.shape[0], -1)
+        #~ self.pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, **params)
+        self.pca =  sklearn.decomposition.TruncatedSVD(n_components=n_components, **params)
         self.pca.fit(flatten_waveforms)
         
         
@@ -57,15 +70,18 @@ class GlobalPCA:
 
     def get_features(self, catalogueconstructor):
         features = self.transform(self.waveforms)
+        del self.waveforms
         return features
-
 
     def transform(self, waveforms):
         flatten_waveforms = waveforms.reshape(waveforms.shape[0], -1)
         return self.pca.transform(flatten_waveforms)
 
 class PeakMaxOnChannel:
-    def __init__(self,  catalogueconstructor=None, **params):
+    def __init__(self,  catalogueconstructor=None, selection=None, **params):
+        if selection is not None:
+            print('selection with PeakMaxOnChannel is a non sens')
+            
         cc = catalogueconstructor
         
         #~ self.waveforms = waveforms
@@ -81,6 +97,7 @@ class PeakMaxOnChannel:
     
     def get_features(self, catalogueconstructor):
         features = self.transform(self.waveforms)
+        del self.waveforms
         return features
     
         
@@ -112,7 +129,8 @@ class PeakMaxOnChannel:
 
 
 class PcaByChannel:
-    def __init__(self, catalogueconstructor=None, n_components_by_channel=3, adjacency_radius_um=200, **params):
+    def __init__(self, catalogueconstructor=None, selection=None, n_components_by_channel=3, adjacency_radius_um=200, **params):
+        
         cc = catalogueconstructor
         
         thresh = cc.info['peak_detector_params']['relative_threshold']
@@ -124,22 +142,36 @@ class PcaByChannel:
         self.n_components_by_channel = n_components_by_channel
         self.adjacency_radius_um = adjacency_radius_um
         
-        some_peaks = cc.all_peaks[cc.some_peaks_index]
+        
+        #~ t1 = time.perf_counter()
+        if selection is None:
+            peaks_index = cc.some_peaks_index
+        else:
+            peaks_index,  = np.nonzero(selection)
+        
+        some_peaks = cc.all_peaks[peaks_index]
+        
         self.pcas = []
         for chan in range(cc.nb_channel):
         #~ for chan in range(20):
             #~ print('fit', chan)
             sel = some_peaks['channel'] == chan
-            wf_chan = cc.get_some_waveforms(peaks_index=cc.some_peaks_index[sel], channel_indexes=[chan])
+            wf_chan = cc.get_some_waveforms(peaks_index=peaks_index[sel], channel_indexes=[chan])
             wf_chan = wf_chan[:, :, 0]
             #~ print(wf_chan.shape)
             
-            if wf_chan.shape[0] > n_components_by_channel:
-                pca = sklearn.decomposition.IncrementalPCA(n_components=n_components_by_channel, **params)
+            if wf_chan.shape[0] - 1 > n_components_by_channel:
+                #~ pca = sklearn.decomposition.IncrementalPCA(n_components=n_components_by_channel, **params)
+                #~ print('PcaByChannel SVD')
+                pca = sklearn.decomposition.TruncatedSVD(n_components=n_components_by_channel, **params)
                 pca.fit(wf_chan)
             else:
                 pca = None
             self.pcas.append(pca)
+
+        #~ t2 = time.perf_counter()
+        #~ print('pca fit', t2-t1)
+            
 
 
             
@@ -169,6 +201,7 @@ class PcaByChannel:
             #~ adjacency_radius_um = cc.info['peak_detector_params']['adjacency_radius_um']
             channel_adjacency = cc.dataio.get_channel_adjacency(chan_grp=cc.chan_grp, adjacency_radius_um=self.adjacency_radius_um)
         
+        #~ t1 = time.perf_counter()
         for chan, pca in enumerate(self.pcas):
             if pca is None:
                 continue
@@ -182,10 +215,14 @@ class PcaByChannel:
                 features[:, chan*n:(chan+1)*n] = pca.transform(wf_chan)
             elif cc.mode == 'sparse':
                 sel = np.in1d(some_peaks['channel'], channel_adjacency[chan])
+                #~ print(chan, np.sum(sel))
                 wf_chan = cc.get_some_waveforms(peaks_index=cc.some_peaks_index[sel], channel_indexes=[chan])
                 wf_chan = wf_chan[:, :, 0]
                 #~ print('sparse', wf_chan.shape)
                 features[:, chan*n:(chan+1)*n][sel, :] = pca.transform(wf_chan)
+
+        #~ t2 = time.perf_counter()
+        #~ print('pca transform', t2-t1)
             
             
         return features
@@ -200,7 +237,43 @@ class PcaByChannel:
             #~ print(c)
             all[:, c*n:(c+1)*n] = pca.transform(waveforms[:, :, c])
         return all
-    
+
+
+
+class GlobalLDA:
+    def __init__(self, catalogueconstructor=None, selection=None, **params):
+
+        cc = catalogueconstructor
+        
+        self.waveforms = cc.get_some_waveforms()
+        
+        if selection is None:
+            #~ waveforms = self.waveforms
+            raise NotImplementedError
+        else:
+            peaks_index, = np.nonzero(selection)
+            waveforms = cc.get_some_waveforms(peaks_index=peaks_index)
+            labels = cc.all_peaks[peaks_index]['cluster_label']
+        
+        flatten_waveforms = waveforms.reshape(waveforms.shape[0], -1)
+        
+        self.lda = sklearn.discriminant_analysis.LinearDiscriminantAnalysis()
+        self.lda.fit(flatten_waveforms, labels)
+        
+        
+        #In GlobalPCA all feature represent all channels
+        self.channel_to_features = np.ones((cc.nb_channel, self.lda._max_components), dtype='bool')
+
+    def get_features(self, catalogueconstructor):
+        features = self.transform(self.waveforms)
+        del self.waveforms
+        return features
+
+
+    def transform(self, waveforms):
+        flatten_waveforms = waveforms.reshape(waveforms.shape[0], -1)
+        return self.lda.transform(flatten_waveforms)
+
 
 
 #~ class NeighborhoodPca:

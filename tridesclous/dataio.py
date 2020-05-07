@@ -221,6 +221,7 @@ class DataIO:
         self.set_channel_groups( channel_groups, probe_filename='default.prb')
         
         self.flush_info()
+        
         # this create segment path
         self._open_processed_data()
     
@@ -335,8 +336,8 @@ class DataIO:
     
     def _make_fake_geometry(self, channels):
         if len(channels)!=4:
-            # assume that it is a linear probes with 200 um
-            geometry = { c: [0, i*200] for i, c in enumerate(channels) }
+            # assume that it is a linear probes with 100 um
+            geometry = { c: [0, i*100] for i, c in enumerate(channels) }
         else:
             # except for tetrode
             geometry = dict(zip(channels, [(0., 50.), (50., 0.), (0., -50.), (-50, 0.)]))
@@ -476,6 +477,28 @@ class DataIO:
         full_shape =  self.datasource.get_segment_shape(seg_num)
         shape = (full_shape[0], self.nb_channel(chan_grp))
         return shape
+    
+    def get_duration_per_segments(self, total_duration=None):
+        duration_per_segment = []
+        
+        if total_duration is not None:
+            remain = float(total_duration)
+        
+        for seg_num in range(self.nb_segment):
+            dur = self.get_segment_length(seg_num=seg_num) / self.sample_rate
+            
+            if total_duration is None:
+                duration_per_segment.append(dur)
+            elif remain ==0:
+                duration_per_segment.append(0.)
+            elif dur <=remain:
+                duration_per_segment.append(dur)
+                remain -= dur
+            else:
+                duration_per_segment.append(remain)
+                remain = 0.
+        
+        return duration_per_segment
     
     def get_signals_chunk(self, seg_num=0, chan_grp=0,
                 i_start=None, i_stop=None,
@@ -665,10 +688,14 @@ class DataIO:
         return peak_values
         
     
-    def get_some_waveforms(self, seg_num=0, chan_grp=0, peak_sample_indexes=None,
+    def get_some_waveforms(self, seg_num=None, seg_nums=None, chan_grp=0, peak_sample_indexes=None,
                                 n_left=None, n_right=None, waveforms=None, channel_indexes=None):
         """
         Exctract some waveforms given sample_indexes
+        
+        seg_num is int then all spikes come from same segment
+        
+        if seg_num is None then seg_nums is an array that contain seg_num for each spike.
         """
         assert peak_sample_indexes is not None, 'Provide sample_indexes'
         peak_width = n_right - n_left
@@ -678,16 +705,33 @@ class DataIO:
         else:
             nb_chan = len(channel_indexes)
         
-        sigs = self.arrays[chan_grp][seg_num].get('processed_signals')
-        
         if waveforms is None:
-                waveforms = np.zeros((peak_sample_indexes.size, peak_width, nb_chan), dtype=sigs.dtype)
+            dtype = self.arrays[chan_grp][0].get('processed_signals').dtype
+            waveforms = np.zeros((peak_sample_indexes.size, peak_width, nb_chan), dtype=dtype)
         else:
             assert waveforms.shape[0] == peak_sample_indexes.size
             assert waveforms.shape[1] == peak_width
         
-        extract_chunks(sigs, peak_sample_indexes+n_left, peak_width, 
-                                    channel_indexes=channel_indexes, chunks=waveforms)
+        if seg_num is not None:
+            left_indexes = peak_sample_indexes + n_left
+            sigs = self.arrays[chan_grp][seg_num].get('processed_signals')
+            extract_chunks(sigs, left_indexes, peak_width, 
+                                        channel_indexes=channel_indexes, chunks=waveforms)
+        elif seg_nums is not None and isinstance(seg_nums, np.ndarray):
+            n = 0
+            for seg_num in np.unique(seg_nums):
+                
+                mask = seg_num == seg_nums
+                left_indexes = peak_sample_indexes[mask]+n_left
+                if left_indexes.size == 0:
+                    continue
+                chunks = waveforms[n:n+left_indexes.size] # this avoid a copy
+                sigs = self.arrays[chan_grp][seg_num].get('processed_signals')
+                extract_chunks(sigs, left_indexes, peak_width, 
+                                            channel_indexes=channel_indexes, chunks=chunks)
+                n += left_indexes.size
+        else:
+            raise 'error seg_num or seg_nums'
         
         return waveforms
 

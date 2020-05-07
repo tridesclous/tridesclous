@@ -13,7 +13,8 @@ def setup_module():
     dataio = DataIO(dirname=dirname)
     initial_catalogue = dataio.load_catalogue(chan_grp=0)
     peeler = Peeler(dataio)
-    peeler.change_params(catalogue=initial_catalogue,chunksize=1024)
+    peeler.change_params(catalogue=initial_catalogue, engine='geometrical',
+                    chunksize=1024, argmin_method='numba')
     t1 = time.perf_counter()
     peeler.run(progressbar=False)
     t2 = time.perf_counter()
@@ -129,7 +130,7 @@ def test_PeelerWindow():
     
     
 if __name__ == '__main__':
-    #~ setup_module()
+    setup_module()
     
     #~ test_Peelercontroller()
     

@@ -20,7 +20,9 @@ import sklearn.metrics
 
 
 import matplotlib.pyplot as plt
+
 from .dip import diptest
+from .waveformtools import equal_template
 
 
 import hdbscan
@@ -94,40 +96,49 @@ class PruningShears:
         self.nb_channel = self.channel_to_features.shape[0]
         
         self.channel_distances = sklearn.metrics.pairwise.euclidean_distances(geometry)
+        #~ print('self.channel_distances', self.channel_distances)
         
-        self.channel_adjacency = {}
-        for c in range(self.nb_channel):
-            nearest, = np.nonzero(self.channel_distances[c, :] < self.adjacency_radius_um)
-            self.channel_adjacency[c] = nearest
+        if self.dense_mode:
+            self.channel_adjacency = {c: np.arange(self.nb_channel) for c in range(self.nb_channel)}
+            self.channel_high_adjacency = {c: np.arange(self.nb_channel) for c in range(self.nb_channel)}
+            
+        else:
+            self.channel_adjacency = {}
+            for c in range(self.nb_channel):
+                nearest, = np.nonzero(self.channel_distances[c, :] < self.adjacency_radius_um)
+                self.channel_adjacency[c] = nearest
+            
+            self.channel_high_adjacency = {}
+            for c in range(self.nb_channel):
+                nearest, = np.nonzero(self.channel_distances[c, :] < self.high_adjacency_radius_um)
+                self.channel_high_adjacency[c] = nearest
         
-        self.channel_high_adjacency = {}
-        for c in range(self.nb_channel):
-            nearest, = np.nonzero(self.channel_distances[c, :] < self.high_adjacency_radius_um)
-            self.channel_high_adjacency[c] = nearest
+        #~ print('self.channel_adjacency', self.channel_adjacency)
+        #~ print('adjacency_radius_um', adjacency_radius_um)
         
-        
+        #~ exit()
 
 
         
         #~ self.debug_plot = False
         #~ self.debug_plot = True
         self.debug_plot = debug_plot
+        
+        
 
     def log(self, *args, **kargs):
         if self.print_debug:
             print(*args, **kargs)
     
     def do_the_job(self):
-        cluster_labels = self.explore_split_loop()
-        t0 = time.perf_counter()
-        cluster_labels = self.try_oversplit(cluster_labels)
-        t1 = time.perf_counter()
-        self.log('try_oversplit', t1-t0)
+        self.centroids = {}
         
         t0 = time.perf_counter()
-        cluster_labels = self.merge_and_clean(cluster_labels)
+        cluster_labels = self.explore_split_loop()
         t1 = time.perf_counter()
-        self.log('merge_and_clean', t1-t0)
+        self.log('explore_split_loop', t1-t0)
+        
+
         
         return cluster_labels
     
@@ -205,9 +216,12 @@ class PruningShears:
         # clustering on one channel or one adjacency
         
         
-        n_components = min(local_data.shape[1], self.n_components_local_pca)
+        #~ n_components = min(local_data.shape[1], self.n_components_local_pca)
+        #~ pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, whiten=True)
         
-        pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, whiten=True)
+        n_components = min(local_data.shape[1]-1, self.n_components_local_pca)
+        pca =  sklearn.decomposition.TruncatedSVD(n_components=n_components)
+        
         local_features = pca.fit_transform(local_data)
         
         
@@ -705,7 +719,9 @@ class PruningShears:
             self._plot_debug(actual_chan, ind_l0, channel_features_l0, labels_l0, possible_labels_l0, ind_l2, labels_l2, possible_labels_l2, final_label_l2)
             
         self.log('END loop', np.sum(cluster_labels==-1))
+        
         return cluster_labels
+
 
     def _plot_debug(self, actual_chan, ind_l0, features_l0, labels_l0, possible_labels_l0, candidate_labels_l0, final_label):
         if not self.debug_plot:
@@ -756,8 +772,10 @@ class PruningShears:
                     ax.plot(m, color=color, alpha=1)
         
         ax = axs[0, 1]
-        n_components = min(local_wf_features.shape[1], self.n_components_local_pca)
-        pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, whiten=True)
+        #~ n_components = min(local_wf_features.shape[1], self.n_components_local_pca)
+        #~ pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, whiten=True)
+        n_components = min(local_wf_features.shape[1]-1, self.n_components_local_pca)
+        pca =  sklearn.decomposition.TruncatedSVD(n_components=n_components)
         reduced_features_l0 = pca.fit_transform(local_wf_features)
         #~ print('reduced_features_l0.shape', reduced_features_l0.shape)
         if possible_labels_l0 is not None:
@@ -790,7 +808,7 @@ class PruningShears:
         
         ax = axs[1, 0]
         adjacency = self.channel_adjacency[actual_chan]
-        
+        #~ print('plot actual_chan', actual_chan, 'adjacency', adjacency, )
         #~ wf_adj = self.waveforms[:,:, adjacency][ind_l0, :, :]
         wf_adj = self.cc.get_some_waveforms(self.peak_index[ind_l0], channel_indexes=adjacency)
         
@@ -827,11 +845,7 @@ class PruningShears:
                     else:
                         lw = 1
                 ax.axvline(self.width * c - self.n_left, color='m', lw=lw)
-        
-        
-        
-        
-        
+
         ax = axs[0, 2]
         if final_label is not None:
             
@@ -884,261 +898,4 @@ class PruningShears:
         #~ self.debug_plot = False
         
         return
-    
-    
-    def try_oversplit(self, cluster_labels):
-        cluster_labels = cluster_labels.copy()
-        
-        labels = np.unique(cluster_labels)
-        labels = labels[labels>=0]
-        
-        m = np.max(labels) + 1
-        
-        #~ max_per_cluster= 300 
-        for label in np.unique(labels):
-            #~ print()
-            #~ print('label', label)
-
-            ind_keep,  = np.nonzero(cluster_labels == label)
-            if self.dense_mode:
-                #~ waveforms = self.waveforms.take(ind_keep, axis=0)
-                waveforms = self.cc.get_some_waveforms(self.peak_index[ind_keep], channel_indexes=None)
-                extremum_channel = 0
-            else:
-                #~ centroid = np.median(self.waveforms[ind_keep, :, :], axis=0)
-                waveforms = self.cc.get_some_waveforms(self.peak_index[ind_keep], channel_indexes=None)
-                centroid = np.median(waveforms, axis=0)
-                
-                if self.peak_sign == '-':
-                    extremum_channel = np.argmin(centroid[-self.n_left,:], axis=0)
-                elif self.peak_sign == '+':
-                    extremum_channel = np.argmax(centroid[-self.n_left,:], axis=0)
-                # TODO by sparsity level threhold and not radius
-                #~ adjacency = self.channel_adjacency[extremum_channel]
-                #~ waveforms = self.waveforms.take(ind_keep, axis=0).take(adjacency, axis=2)
-                high_adjacency = self.channel_high_adjacency[extremum_channel]
-                #~ waveforms = self.waveforms.take(ind_keep, axis=0).take(high_adjacency, axis=2)
-                waveforms = waveforms.take(high_adjacency, axis=2)
-                
-                
-            wf_flat = waveforms.swapaxes(1,2).reshape(waveforms.shape[0], -1)
-
-            pca =  sklearn.decomposition.IncrementalPCA(n_components=self.n_components_local_pca, whiten=True)
-            
-            feats = pca.fit_transform(wf_flat)
-            pval = diptest(np.sort(feats[:, 0]), numt=200)
-            #~ print('pval', pval)
-            self.log('label', label,'pval', pval)
-            #~ if pval<0.2:
-            if pval<0.1: # TODO global params
-            
-                clusterer = hdbscan.HDBSCAN(min_cluster_size=self.min_cluster_size, allow_single_cluster=False, metric='l2')
-                sub_labels = clusterer.fit_predict(feats[:, :2])
-                unique_sub_labels = np.unique(sub_labels)
-                if unique_sub_labels.size ==  1 and unique_sub_labels[0] == -1:
-                    pass
-                    unique_sub_labels = []
-                else:
-                    possible_labels, candidate_mask, elsewhere_mask, best_chan_peak_values, best_chan,\
-                        peak_is_aligned, peak_is_on_chan, local_centroids = self.check_candidate_labels(ind_keep, sub_labels, extremum_channel)
-                    
-                    self.log('possible_labels',possible_labels)
-                    
-                    
-                    
-                    for sub_label in unique_sub_labels:
-                        sub_mask = sub_labels == sub_label
-                        
-                        valid = sub_label in possible_labels[peak_is_aligned]
-                        
-                        #~ print('sub_label', 'valid', valid)
-                        
-                        
-                        
-                        if sub_label == -1:
-                            cluster_labels[ind_keep[sub_mask]] = -1
-                        else:
-                            # TODO check if peak center and size OK
-                            cluster_labels[ind_keep[sub_mask]] = sub_label + m 
-                    
-                    if np.max(unique_sub_labels) >=0:
-                        m += np.max(unique_sub_labels) + 1
-                
-                #~ self.debug_plot = True
-                if self.debug_plot:
-                #~ if True:
-                    fig, axs = plt.subplots(ncols=4)
-                    colors = plt.cm.get_cmap('Set3', len(unique_sub_labels))
-                    colors = {unique_sub_labels[l]:colors(l) for l in range(len(unique_sub_labels))}
-                    colors[-1] = 'k'
-                    
-                    #~ ax = axs[0]
-                    #~ ax.plot(wf_flat.T, color='k', alpha=0.1)
-                    #~ print(sub_labels.shape, wf_flat.shape, waveforms.shape)
-                    for sub_label in unique_sub_labels:
-                        valid = sub_label in possible_labels[peak_is_aligned]
-                        
-                        sub_mask = sub_labels == sub_label
-                        
-                        if valid:
-                            ls = '-'
-                            color = colors[sub_label]
-                        else:
-                            ls = '--'
-                            color = 'k'
-
-                        ax = axs[0]
-                        ax.plot(wf_flat[sub_mask].T, color=color, alpha=0.1)
-                            
-                        ax = axs[3]
-                        if sub_label>=0:
-                            ax.plot(np.median(wf_flat[sub_mask], axis=0), color=color, lw=2, ls=ls)
-                    
-
-                    
-                    #~ ax.plot(feats.T, color='k', alpha=0.1)
-                    for sub_label in unique_sub_labels:
-                        valid = sub_label in possible_labels[peak_is_aligned]
-                        sub_mask = sub_labels == sub_label
-                        color = colors[sub_label]
-                        if valid:
-                            color = colors[sub_label]
-                        else:
-                            color = 'k'
-                        ax = axs[1]
-                        ax.plot(feats[sub_mask].T, color=color, alpha=0.1)
-                        
-                        
-                    
-                        ax = axs[2]
-                        ax.scatter(feats[sub_mask][:, 0], feats[sub_mask][:, 1], color=color)
-                    
-                    
-                
-                    plt.show()
-            
-        return cluster_labels
-
-
-
-    def merge_and_clean(self, cluster_labels):
-        # merge : 
-        #   * max distance < auto_merge_threshold
-        #   * 2 cluster have a shift
-        # delete:
-        #   * peak is not aligneds
-        
-        cluster_labels2 = cluster_labels.copy()
-        
-        while True:
-            self.log('')
-            self.log('new loop')
-            labels = np.unique(cluster_labels2)
-            labels = labels[labels>=0]
-            n = labels.size
-            self.log(labels)
-            
-            centroids = np.zeros((labels.size, self.width, self.nb_channel))
-                        
-            for ind, k in enumerate(labels):
-                ind_keep,  = np.nonzero(cluster_labels2 == k)
-                if ind_keep.size > self.max_per_cluster_for_median:
-                    sub_sel = np.random.choice(ind_keep.size, self.max_per_cluster_for_median, replace=False)
-                    ind_keep = ind_keep[sub_sel]
-                #~ centroids[ind,:,:] = np.median(self.waveforms[ind_keep, :, :], axis=0)
-                waveforms = self.cc.get_some_waveforms(self.peak_index[ind_keep], channel_indexes=None)
-                centroids[ind,:,:] = np.median(waveforms, axis=0)
-            
-            #eliminate when best peak not aligned
-            # eliminate when peak value is too small
-            # TODO move this in the main loop!!!!!
-            for ind, k in enumerate(labels):
-                centroid = centroids[ind,:,:]
-                if self.peak_sign == '-':
-                    chan_peak = np.argmin(np.min(centroid, axis=0))
-                    pos_peak = np.argmin(centroid[:, chan_peak])
-                    #~ print(centroid.shape, -self.n_left, chan_peak)
-                    peak_val = centroid[-self.n_left, chan_peak]
-                elif self.peak_sign == '+':
-                    chan_peak = np.argmax(np.max(centroid, axis=0))
-                    pos_peak = np.argmax(centroid[:, chan_peak])
-                    peak_val = centroid[-self.n_left, chan_peak]
-                
-                if np.abs(-self.n_left - pos_peak)>2:
-                    self.log('remove not aligned peak', 'k', k)
-                    #delete
-                    cluster_labels2[cluster_labels2 == k] = -1
-                    labels[ind] = -1
-                if np.abs(peak_val) < self.threshold + 0.5:
-                    self.log('remove small peak', 'k', k, 'peak_val', peak_val)
-                    cluster_labels2[cluster_labels2 == k] = -1
-                    labels[ind] = -1
-                
-                    #~ fig, ax = plt.subplots()
-                    #~ ax.plot(centroid.T.flatten())
-                    #~ for i in range(centroids.shape[2]):
-                        #~ ax.axvline(i*self.width-self.n_left)
-                    #~ ax.set_title('delete')
-                    #~ plt.show()
-                
-            
-            n_shift = 2
-            nb_merge = 0
-            for i in range(n):
-                k1 = labels[i]
-                if k1 == -1:
-                    continue
-                wf1 = centroids[i, n_shift:-n_shift, :]
-                for j in range(i+1, n):
-                    k2 = labels[j]
-                    if k2 == -1:
-                        continue
-                        
-                    for shift in range(n_shift*2+1):
-                        wf2 = centroids[j, shift:wf1.shape[0]+shift, :]
-                        d = np.max(np.abs(wf1-wf2))
-                        if d<self.auto_merge_threshold:
-                            self.log('d', d)
-                            self.log('merge', k1, k2)
-                            cluster_labels2[cluster_labels2==k2] = k1
-                            nb_merge += 1
-                            #~ fig, ax = plt.subplots()
-                            #~ ax.plot(wf1.T.flatten())
-                            #~ ax.plot(wf2.T.flatten())
-                            #~ ax.set_title('merge')
-                            #~ plt.show()
-                            break
-                    
-                    
-            
-            self.log('nb_merge', nb_merge)
-            if nb_merge == 0:
-                break
-        
-        return cluster_labels2
-
-# TODO : 
-# pour aller vite prendre seulement le dernier percentile quand beaucoup de spike et grand percentile.
-# adjency à 2 niveau pour eviter les flat sur les bort  >>>>>> adjency_radius * 0.5
-# nettoyage quand le max n'est pas sur n_left
-# over merge
-
-# quand chan_max diffrent actual_chan alors on recommence sur chan_max
-
-# nouvelle idee : idem avant mais garde le max meme si pas aligné!!!
-
-
-# nouvelle idée global:
-# hdbscan sur PCA channel + bruit
-# garde meilleur peak
-# si template max_chan==actual_chan alors pca sur voisinage uniquement sel + bruit
-
-# TODO
-# faire un dip test avant le level2 local
-
-
-# TODO new
-# si len(possible_labels_l0) == 0 alors on garde quand meme DONE
-# si pas aligne plus que n_shift_merged et un seul cluster alors trash
-# elsewhere candiate avec size
 

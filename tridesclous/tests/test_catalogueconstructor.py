@@ -43,6 +43,7 @@ def test_catalogue_constructor():
             cc.set_global_params(chunksize=1024,
                                             memory_mode=memory_mode,
                                             mode=mode,
+                                            n_jobs=1,
                                             #~ adjacency_radius_um=adjacency_radius_um,
                                             )
             
@@ -140,9 +141,34 @@ def test_catalogue_constructor():
                 print('find_clusters', t2-t1)
             
             print(cc)
+        
+        t1 = time.perf_counter()
+        cc.auto_split_cluster()
+        t2 = time.perf_counter()
+        print('auto_split_cluster', t2-t1)
 
-            
-            
+        t1 = time.perf_counter()
+        cc.trash_not_aligned()
+        t2 = time.perf_counter()
+        print('trash_not_aligned', t2-t1)
+
+        t1 = time.perf_counter()
+        cc.auto_merge_cluster()
+        t2 = time.perf_counter()
+        print('auto_merge_cluster', t2-t1)
+
+        t1 = time.perf_counter()
+        cc.trash_low_extremum()
+        t2 = time.perf_counter()
+        print('trash_low_extremum', t2-t1)
+
+
+        t1 = time.perf_counter()
+        cc.trash_small_cluster()
+        t2 = time.perf_counter()
+        print('trash_small_cluster', t2-t1)
+        
+        
             # similarity
             #~ cc.compute_centroid()
             #~ similarity, cluster_labels = cc.compute_similarity()
@@ -178,6 +204,7 @@ def compare_nb_waveforms():
     cc.set_global_params(chunksize=1024,
                                     memory_mode='ram',
                                     mode='dense',
+                                    n_jobs=1,
                                     #~ adjacency_radius_um=None,
                                     )
     
@@ -250,7 +277,7 @@ def test_make_catalogue():
     cc = CatalogueConstructor(dataio=dataio)
 
     #~ cc.make_catalogue()
-    cc.make_catalogue_for_peeler(max_per_cluster=1000)
+    cc.make_catalogue_for_peeler()
     
     #~ for i, k in cc.catalogue['label_to_index'].items():
     
@@ -293,6 +320,17 @@ def debug_interp_centers0():
     
     #~ plt.show()
 
+def test_feature_with_lda_selection():
+    dataio = DataIO(dirname='test_catalogueconstructor')
+    cc = CatalogueConstructor(dataio=dataio)
+    print(cc)
+    
+    selection = np.in1d(cc.all_peaks['cluster_label'], [1, 2, 3, 4])
+    print(np.sum(selection), '/', cc.all_peaks.size)
+    
+    cc.extract_some_features(method='global_lda',  selection=selection)
+    print(cc.some_features.shape)
+    print(cc.some_features)
     
 if __name__ == '__main__':
     test_catalogue_constructor()
@@ -305,5 +343,7 @@ if __name__ == '__main__':
     #~ test_create_savepoint_catalogue_constructor()
     
     #~ debug_interp_centers0()
+    
+    #~ test_feature_with_lda_selection()
 
 

@@ -13,10 +13,10 @@ from matplotlib import pyplot
 from tridesclous.tests.testingtools import setup_catalogue
 
 
-dataset_name='olfactory_bulb'
+#~ dataset_name='olfactory_bulb'
 #~ dataset_name = 'purkinje'
 #~ dataset_name='locust'
-#~ dataset_name='striatum_rat'
+dataset_name='striatum_rat'
 
 
 
@@ -61,13 +61,22 @@ def test_pruningshears():
     dataio = DataIO(dirname=dirname)
     print(dataio)
     cc = CatalogueConstructor(dataio=dataio)
+    #~ print(cc.mode)
+    #~ exit()
     
     #~ cc.extract_some_features(method='pca_by_channel')
     #~ print(dataio)
     #~ print(cc)
     
+    if dataset_name == 'olfactory_bulb':
+        kargs = dict(adjacency_radius_um = 420)
+    else:
+        kargs = {}
+    
     t0 = time.perf_counter()
-    cc.find_clusters(method='pruningshears', print_debug=True)
+    #~ cc.find_clusters(method='pruningshears', print_debug=True)
+    #~ cc.find_clusters(method='pruningshears', print_debug=True, debug_plot=True, **kargs)
+    cc.find_clusters(method='pruningshears', print_debug=False, debug_plot=False, **kargs)
     t1 = time.perf_counter()
     print('cluster', t1-t0)
 

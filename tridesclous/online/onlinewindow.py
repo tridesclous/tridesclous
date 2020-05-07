@@ -24,6 +24,7 @@ from ..gui import CatalogueWindow
 from ..gui.mainwindow import error_box_msg
 from ..gui.gui_params import fullchain_params, features_params_by_methods, cluster_params_by_methods, peak_detector_params
 from ..gui.tools import ParamDialog, MethodDialog, get_dict_from_group_param
+from ..autoparams import get_auto_params_for_catalogue
 
 from .onlinepeeler import OnlinePeeler
 from .onlinetraceviewer import OnlineTraceViewer
@@ -155,6 +156,7 @@ class TdcOnlineWindow(MainWindowNode):
     def _configure(self, channel_groups=[], chunksize=1024, workdir='',
                             outputstream_params={'protocol': 'tcp', 'interface':'127.0.0.1', 'transfermode':'plaindata'},
                             nodegroup_friends=None, 
+                            peeler_params={},
                             ):
         
         self.sample_rate = None
@@ -183,16 +185,21 @@ class TdcOnlineWindow(MainWindowNode):
         except:
             # the dataio_dir is corrupted
             dtime = '{:%Y-%m-%d %Hh%Mm%S}'.format(datetime.datetime.now())
-            shutil.move(self.dataio_dir, self.dataio_dir+'_corruted_'+dtime)
+            shutil.move(self.dataio_dir, self.dataio_dir+'_corrupted_'+dtime)
             self.dataio = DataIO(dirname=self.dataio_dir)
-            
-        #~ print(self.dataio)
-        #~ print(self.dataio.datasource)
         
-
         self.signals_medians = {chan_grp:None for chan_grp in self.channel_groups}
         self.signals_mads = {chan_grp:None for chan_grp in self.channel_groups}
         
+        # create geometry outside the dataio because
+        # the datasource do not exists yet
+        self.all_geometry = {}
+        for chan_grp in self.channel_groups:
+            channel_group = self.channel_groups[chan_grp]
+            assert 'geometry' in channel_group
+            geometry = [ channel_group['geometry'][chan] for chan in channel_group['channels'] ]
+            geometry = np.array(geometry, dtype='float64')
+            self.all_geometry[chan_grp] = geometry
         
         #~ print('self.dataio.datasource', self.dataio.datasource)
         # load exists catalogueconstructor
@@ -246,7 +253,16 @@ class TdcOnlineWindow(MainWindowNode):
             self.tabifyDockWidget(self.docks['overview'], self.docks[chan_grp])
         
         self.cataloguewindows = {}
-
+        
+        # peeler params = 
+        self.peeler_params = {
+            'engine': 'geometrical',
+            #~ 'argmin_method': 'numba',
+            'argmin_method': 'opencl',
+        }
+        self.peeler_params.update(peeler_params)
+        if 'chunksize' in self.peeler_params:
+            self.peeler_params.pop('chunksize')
 
     def after_input_connect(self, inputname):
         if inputname !='signals':
@@ -308,9 +324,12 @@ class TdcOnlineWindow(MainWindowNode):
         self.spikes_shmem_converters = {}
         
         for chan_grp, channel_group in self.channel_groups.items():
+            
+            
             rtpeeler = self.rtpeelers[chan_grp]
             rtpeeler.configure(catalogue=self.catalogues[chan_grp], 
-                    in_group_channels=channel_group['channels'], chunksize=self.chunksize)
+                    in_group_channels=channel_group['channels'], chunksize=self.chunksize,
+                    geometry=self.all_geometry[chan_grp], **self.peeler_params )
             rtpeeler.input.connect(self.input.params)
             rtpeeler.outputs['signals'].configure(**self.outputstream_params)
             rtpeeler.outputs['spikes'].configure(**self.outputstream_params)
@@ -612,7 +631,9 @@ class TdcOnlineWindow(MainWindowNode):
             cc = CatalogueConstructor(dataio=self.dataio, chan_grp=chan_grp)
             self.catalogueconstructors[chan_grp] = cc
         
-        params = {}
+        fisrt_chan_grp = list(self.channel_groups.keys())[0]
+        
+        params = get_auto_params_for_catalogue(self.dataio, chan_grp=fisrt_chan_grp)
         params.update(self.dialog_fullchain_params.get())
         params['chunksize'] = self.chunksize
         params['memory_mode'] = 'memmap'
@@ -623,9 +644,13 @@ class TdcOnlineWindow(MainWindowNode):
 
         params['cluster_method'] = self.dialog_method_cluster.param_method['method']
         params['cluster_kargs'] = get_dict_from_group_param(self.dialog_method_cluster.all_params[params['cluster_method']], cascade=True)
-
-        params['clean_cluster'] = False
-        params['clean_cluster_kargs'] = {}
+        
+        # TODO here params for make catalogue
+        
+        #~ params['clean_cluster'] = False
+        #~ params['clean_cluster_kargs'] = {}
+        
+        
 
         self.worker = Worker(self.catalogueconstructors, params)
         

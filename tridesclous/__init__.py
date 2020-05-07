@@ -40,10 +40,11 @@ from .tools import open_prb
 from .dataio import DataIO
 from .signalpreprocessor import offline_signal_preprocessor, estimate_medians_mads_after_preprocesing
 from .catalogueconstructor import CatalogueConstructor
-from .cataloguetools import apply_all_catalogue_steps, get_auto_params_for_catalogue
+from .cataloguetools import apply_all_catalogue_steps
 from .peeler import Peeler
 from .cltools import get_cl_device_list, set_default_cl_device
-from .peeler_tools import get_auto_params_for_peelers
+#~ from .peeler_tools import get_auto_params_for_peelers
+from .autoparams import get_auto_params_for_catalogue, get_auto_params_for_peelers
 
 # from .peeler_cl import Peeler_OpenCl
 

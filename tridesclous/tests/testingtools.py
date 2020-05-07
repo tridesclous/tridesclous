@@ -8,7 +8,7 @@ from tridesclous.datasets import download_dataset
 from tridesclous.dataio import DataIO
 from tridesclous.catalogueconstructor import CatalogueConstructor
 from tridesclous.cataloguetools import apply_all_catalogue_steps
-
+from tridesclous.autoparams import get_auto_params_for_catalogue
 
 def is_running_on_ci_cloud():
     return True
@@ -27,7 +27,7 @@ ON_CI_CLOUD = is_running_on_ci_cloud()
     
     
 
-def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
+def setup_catalogue(dirname, dataset_name='olfactory_bulb', duration=None):
     if os.path.exists(dirname):
         shutil.rmtree(dirname)
         
@@ -44,6 +44,10 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
         
         feature_method = 'pca_by_channel'
         feature_kargs = {'n_components_by_channel': 3}
+
+        cluster_method = 'pruningshears'
+        cluster_kargs = {'adjacency_radius_um' : 350 }
+        
     else:
         channels = [0,1,2,3]
         mode = 'dense'
@@ -52,63 +56,40 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb'):
         peak_engine = 'numpy'
         
         feature_method = 'global_pca'
-        feature_kargs = {'n_components': 5}
+        feature_kargs = {'n_components': 6}
+
+        cluster_method = 'pruningshears'
+        cluster_kargs = {'adjacency_radius_um' : 150 }
+        
 
     dataio.add_one_channel_group(channels=channels)
     
     
-    catalogueconstructor = CatalogueConstructor(dataio=dataio)
+    cc = CatalogueConstructor(dataio=dataio)
     
+    params = get_auto_params_for_catalogue(dataio)
+    params['mode'] = mode
+    params['n_jobs'] = 1
+    params['peak_detector']['method'] = peak_method
+    params['peak_detector']['engine'] = peak_engine
+    params['peak_detector']['adjacency_radius_um'] = adjacency_radius_um
+    params['feature_method'] = feature_method
+    params['feature_kargs'] = feature_kargs
+    params['cluster_method'] = cluster_method
+    params['cluster_kargs'] = cluster_kargs
     
-    params = {
-        'duration' : 60.,
-        'chunksize': 1024,
-        'mode': mode,
-        'memory_mode': 'memmap',
-        
-        'preprocessor' : {
-            'highpass_freq' : 300.,
-            'lostfront_chunksize' : 100,
-            'engine' : 'numpy',
-        },
-        'peak_detector' : {
-            'peak_sign' : '-',
-            'relative_threshold' : 7.,
-            'peak_span_ms' : 0.5,
-            'method' : peak_method,
-            'engine' : peak_engine,
-            'adjacency_radius_um':adjacency_radius_um,
-        },
-        'extract_waveforms' : {
-            'wf_left_ms' : -2.5,
-            'wf_right_ms' : 4.0,
-            #~ 'nb_max' : 10000,
-        },
-        'clean_peaks' : {
-            'alien_value_threshold' : 60.,
-            'mode': 'full_waveform',
-        },
-        'peak_sampler':{
-            'mode': 'rand',
-            'nb_max' : 10000,
-        },
-        'noise_snippet' : {
-            'nb_snippet' : 300,
-        },
-        'feature_method': feature_method,
-        'feature_kargs':feature_kargs,
-        #~ 'cluster_method' : 'kmeans', 
-        #~ 'cluster_kargs' : {'n_clusters': 12},
-        'cluster_method' : 'pruningshears', 
-        'cluster_kargs' : {},
-        'clean_cluster' : False,
-        'clean_cluster_kargs' : {},
-    }
+    if duration is not None:
+        params['duration'] = duration
     
     #~ pprint(params)
-    apply_all_catalogue_steps(catalogueconstructor, params, verbose=True)
+    cc.apply_all_steps(params, verbose=True)
     
-    catalogueconstructor.make_catalogue_for_peeler()
+    # already done in apply_all_catalogue_steps:
+    # cc.make_catalogue_for_peeler(inter_sample_oversampling=False, catalogue_name='initial') 
+    
+    cc.make_catalogue_for_peeler(inter_sample_oversampling=True, catalogue_name='with_oversampling')
+    
+    return cc, params
 
 
 

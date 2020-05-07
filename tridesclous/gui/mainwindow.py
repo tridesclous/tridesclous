@@ -14,10 +14,10 @@ from .tools import get_dict_from_group_param, ParamDialog, MethodDialog #, open_
 from  ..datasets import datasets_info, download_dataset
 
 from ..catalogueconstructor import CatalogueConstructor
-from ..cataloguetools import apply_all_catalogue_steps, get_auto_params_for_catalogue
+from ..cataloguetools import apply_all_catalogue_steps
+from ..autoparams import get_auto_params_for_catalogue, get_auto_params_for_peelers
 from .cataloguewindow import CatalogueWindow
 from ..peeler import Peeler
-from ..peeler_tools import get_auto_params_for_peelers
 from .peelerwindow import PeelerWindow
 from .initializedatasetwindow import InitializeDatasetWindow
 from .probegeometryview import ProbeGeometryView
@@ -307,8 +307,7 @@ class MainWindow(QT.QMainWindow):
         params = get_auto_params_for_catalogue(self.dataio, chan_grp=self.chan_grps[0])
         d = dict(params)
         
-        #~ for k in ('feature_method', 'feature_kargs', 'cluster_method', 'cluster_kargs', 'clean_cluster', 'clean_cluster_kargs'):
-        for k in ('feature_method', 'feature_kargs', 'cluster_method', 'cluster_kargs', 'clean_cluster'):
+        for k in ('feature_method', 'feature_kargs', 'cluster_method', 'cluster_kargs'):
             d.pop(k)
         self.dialog_fullchain_params.set(d)
         
@@ -447,11 +446,13 @@ class MainWindow(QT.QMainWindow):
         if self.dataio is None: return
         
         #TODO find something better when several segment
-        lengths = [ self.dataio.datasource.get_segment_shape(i)[0] for i in range(self.dataio.nb_segment)]
-        max_duration = max(lengths)/self.dataio.sample_rate
+        #~ lengths = [ self.dataio.datasource.get_segment_shape(i)[0] for i in range(self.dataio.nb_segment)]
+        #~ max_duration = max(lengths)/self.dataio.sample_rate
+        
+        total_duration = sum(self.dataio.get_segment_length(seg_num=seg_num) / self.dataio.sample_rate for seg_num in range(self.dataio.nb_segment))
         
         for m in self.dialog_method_peeler.methods:
-            self.dialog_method_peeler.all_params[m]['duration'] = max_duration
+            self.dialog_method_peeler.all_params[m]['duration'] = total_duration
         
         
         #~ dia = ParamDialog(gui_params.peeler_params)
@@ -467,10 +468,12 @@ class MainWindow(QT.QMainWindow):
         #~ print('run_peeler')
         #~ print(engine)
         #~ print(d)
+        d['engine'] = engine
 
-        duration = d['duration'] if d['limit_duration'] else None
-        d.pop('limit_duration')
-        d.pop('duration')
+        #~ duration = d['duration'] if d['limit_duration'] else None
+        #~ d.pop('limit_duration')
+        duration = d.pop('duration')
+        print('duration', duration)
         
         errors = []
         for chan_grp in self.chan_grps:
@@ -487,6 +490,7 @@ Catalogue do not exists, please do:
                     errors.append(txt)
                     continue
                 
+                pprint(d)
                 peeler = Peeler(self.dataio)
                 peeler.change_params(catalogue=initial_catalogue, **d)
                 

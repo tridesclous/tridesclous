@@ -57,12 +57,14 @@ def make_empty_catalogue(chan_grp=0,
     catalogue = {}
     
     catalogue['chan_grp'] = chan_grp
-    catalogue['n_left'] = n_left + 2
-    catalogue['n_right'] = n_right - 2
+    catalogue['n_left'] = n_left
+    catalogue['n_right'] = n_right
     catalogue['peak_width'] = catalogue['n_right'] - catalogue['n_left']
     
     catalogue['cluster_labels'] = np.array([], dtype='int64')
     catalogue['clusters'] = np.array([], dtype='int64')
+    
+    catalogue['mode'] = 'sparse'
     
     full_width = n_right - n_left
     nchan = len(channel_indexes)
@@ -102,6 +104,15 @@ def make_empty_catalogue(chan_grp=0,
     if signals_mads is None:
         signals_mads = signals_mads = np.ones(nchan, dtype=internal_dtype)
     
+    catalogue['inter_sample_oversampling'] = False
+    
+    catalogue['sparse_mask_level1'] = np.ones((0, nchan), dtype='bool')
+    catalogue['sparse_mask_level2'] = np.ones((0, nchan), dtype='bool')
+    catalogue['sparse_mask_level3'] = np.ones((0, nchan), dtype='bool')
+    
+    catalogue['distance_limit'] = np.zeros((0,), dtype='float32')
+    
+    
     #params
     catalogue['signal_preprocessor_params'] = preprocessor_params_
     catalogue['peak_detector_params'] = peak_detector_params_
@@ -110,6 +121,9 @@ def make_empty_catalogue(chan_grp=0,
     catalogue['signals_mads'] = signals_mads
     
     catalogue['empty_catalogue'] = True # a key to detect real/fake catalogue
+    
+    
+    
     
     
     return catalogue

@@ -56,7 +56,7 @@ class CatalogueController(ControllerBase):
             if k not in self.cluster_visible:
                 self.cluster_visible[k] = True
         for k in list(self.cluster_visible.keys()):
-            if k not in self.cluster_labels and k>0:
+            if k not in self.cluster_labels and k>=0:
                 self.cluster_visible.pop(k)
         
         if labelcodes.LABEL_NOISE not in self.cluster_visible:
@@ -153,8 +153,12 @@ class CatalogueController(ControllerBase):
         d = self.cc.info['peak_detector_params']
         return d['peak_sign']
     
-    def get_some_waveforms(self, **kargs):
-        return self.cc.get_some_waveforms(**kargs)
+    def get_some_waveforms(self, seg_nums, peak_sample_indexes, channel_indexes):
+        n_left, n_right = self.get_waveform_left_right()
+        waveforms = self.dataio.get_some_waveforms(seg_nums=seg_nums, chan_grp=self.chan_grp, 
+                            peak_sample_indexes=peak_sample_indexes,
+                            n_left=n_left, n_right=n_right, channel_indexes=channel_indexes)
+        return waveforms
     
     def get_sparse_channels(self, label):
         ind = self.cc.index_of_label(label)
@@ -334,8 +338,8 @@ class CatalogueController(ControllerBase):
         self.cc.order_clusters()
         self.check_plot_attributes()
     
-    def project(self, method='global_pca', selection=None, **kargs):
-        self.cc.project(method=method, selection=selection, **kargs)
+    def extract_some_features(self, method='global_pca', selection=None, **kargs):
+        self.cc.extract_some_features(method=method, selection=selection, **kargs)
     
     def split_cluster(self, *args,  **kargs):
         #~ print('controller.split_cluster', args, kargs)
