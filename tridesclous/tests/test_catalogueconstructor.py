@@ -337,13 +337,13 @@ if __name__ == '__main__':
     
     #~ compare_nb_waveforms()
     
-    test_make_catalogue()
+    #~ test_make_catalogue()
     #~ test_ratio_amplitude()
     
     #~ test_create_savepoint_catalogue_constructor()
     
     #~ debug_interp_centers0()
     
-    #~ test_feature_with_lda_selection()
+    test_feature_with_lda_selection()
 
 
