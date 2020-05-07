@@ -71,6 +71,8 @@ def test_peeler_geometry():
     catalogue0 = dataio.load_catalogue(chan_grp=0)
     catalogue1 = dataio.load_catalogue(chan_grp=0, name='with_oversampling')
     
+        
+        
     for catalogue in (catalogue0, catalogue1):
         print()
         print('engine=geometrical')
@@ -80,8 +82,8 @@ def test_peeler_geometry():
         peeler.change_params(engine='geometrical',
                                     catalogue=catalogue,
                                     chunksize=1024,
-                                    #~ argmin_method='numba')
-                                    argmin_method='opencl')
+                                    argmin_method='numba')
+                                    #~ argmin_method='opencl')
                                     
                                     
 
@@ -298,7 +300,12 @@ def test_peeler_several_chunksize():
 
 def test_peeler_with_and_without_preprocessor():
     
-    engines = ['geometrical', 'geometrical_opencl']
+    if ON_CI_CLOUD:
+        engines = ['geometrical']
+    else:
+        engines = ['geometrical', 'geometrical_opencl']
+
+    
     #~ engines = ['geometrical_opencl']
     
     for engine in engines:
