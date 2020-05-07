@@ -185,6 +185,7 @@ class PeelerEngineBase(OpenCL_Helper):
         self.source_dtype = source_dtype
         self.geometry = geometry
         self.already_processed = already_processed # this is globally set but can be change segment per segment
+        
 
         if not self.already_processed:
             # signal processor class

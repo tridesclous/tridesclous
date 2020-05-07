@@ -103,6 +103,7 @@ class Peeler:
         
         # check if the desired length is already computed or not for this particular segment
         already_processed = self.dataio.already_processed(seg_num=seg_num, chan_grp=chan_grp, length=length)
+        
         self.peeler_engine.initialize_before_each_segment(already_processed=already_processed)
         #~ print('run_offline_loop_one_segment already_processed', already_processed)
         
@@ -156,7 +157,6 @@ class Peeler:
         chan_grp = self.catalogue['chan_grp']
         
         duration_per_segment = self.dataio.get_duration_per_segments(duration)
-        #~ print(duration_per_segment)
         
         already_processed_segs = []
         for seg_num in range(self.dataio.nb_segment):
@@ -178,7 +178,7 @@ class Peeler:
         self.peeler_engine.initialize(**kargs)
         
         for seg_num in range(self.dataio.nb_segment):
-            self.run_offline_loop_one_segment(seg_num=seg_num, duration=duration, progressbar=progressbar)
+            self.run_offline_loop_one_segment(seg_num=seg_num, duration=duration_per_segment[seg_num], progressbar=progressbar)
     
     # old alias just in case
     run_offline_all_segment = run
