@@ -11,7 +11,7 @@ def one_test_ArrayCollection(withparent=False, memory_mode='memmap'):
     #this is bugguy on windows
     print()
     print('test_ArrayCollection withparent=', withparent, 'memory_mode=', memory_mode)
-    if os.path.exists('test_ArrayCollection'):
+    if memory_mode == 'memmap' and os.path.exists('test_ArrayCollection'):
         shutil.rmtree('test_ArrayCollection')
     
     if withparent:
