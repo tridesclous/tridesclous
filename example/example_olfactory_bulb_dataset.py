@@ -47,7 +47,7 @@ def apply_catalogue_steps_auto():
     params = get_auto_params_for_catalogue(dataio, chan_grp=0)
     params['adjacency_radius_um'] = 400.
     
-    apply_all_catalogue_steps(cc, params, verbose=True)
+    cc.apply_all_steps(params, verbose=True)
     
     print(cc)
     
@@ -100,6 +100,6 @@ if __name__ =='__main__':
     #~ apply_catalogue_steps_auto()
     #~ open_cataloguewindow()
     
-    run_peeler()
-    #~ open_PeelerWindow()
+    #~ run_peeler()
+    open_PeelerWindow()
     
