@@ -34,10 +34,12 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
         #~ print('apply all catalogue steps')
         #~ pprint(params)
     
+    pprint(params)
+    
     cc = catalogueconstructor
     
     # global params
-    d = {k:params[k] for k in ('chunksize', 'sparse_threshold', 'mode', 'memory_mode', 'n_jobs', 'n_spike_for_centroid', )}
+    d = {k:params[k] for k in ('chunksize', 'sparse_threshold', 'mode', 'memory_mode', 'n_jobs', 'n_spike_for_centroid', ) if k in params}
     
     cc.set_global_params(**d)
     

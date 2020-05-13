@@ -371,16 +371,8 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             else:
                 channel_adjacency = self.channels_adjacency[chan_ind]
                 s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  
-                                                        #~ self.sparse_mask_level1, 
                                                         possibles_cluster_idx, rms_waveform_channel,channel_adjacency)
-                                                        
-
-                                                        #~ channel_distances,
-                                                        #~ adjacency_radius_um, chan_ind)
-                                                        #~ possibles_cluster_idx, self.channels_adjacency[chan_ind])
-                
                 cluster_idx = possibles_cluster_idx[np.argmin(s)]
-                #~ print('cluster_idx', cluster_idx)
                 shift = None
                 # explore shift
                 long_waveform = self.fifo_residuals[left_ind-self.maximum_jitter_shift:left_ind+self.peak_width+self.maximum_jitter_shift+1,:]
@@ -388,6 +380,25 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                 ind_min = np.argmin(all_dist)
                 shift = self.shifts[ind_min]
                 distance = all_dist[ind_min]
+                
+                
+                # experimental explore all shift for all templates!!!!!
+                #~ shifts = list(range(-self.maximum_jitter_shift, self.maximum_jitter_shift+1))
+                #~ channel_adjacency = self.channels_adjacency[chan_ind]
+                #~ all_s = []
+                #~ for shift in shifts:
+                    #~ waveform = self.fifo_residuals[left_ind+shift:left_ind+self.peak_width+shift,:]
+                    #~ s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  
+                                                        #~ possibles_cluster_idx, rms_waveform_channel,channel_adjacency)                    
+                    #~ all_s.append(s)
+                #~ all_s = np.array(all_s)
+                #~ shift_ind, ind_clus = np.unravel_index(np.argmin(all_s, axis=None), all_s.shape)
+                #~ cluster_idx = possibles_cluster_idx[ind_clus]
+                #~ shift = shifts[shift_ind]
+                #~ distance = all_s[shift_ind][ind_clus]
+                
+                
+                
             
                 #~ print('      shift', shift)
             
@@ -477,7 +488,6 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             accept_template = True
             debug_d = True
         else:
-        
             # criteria multi channel
             #~ mask = self.sparse_mask_level1[cluster_idx]
             mask = self.sparse_mask_level2[cluster_idx]
