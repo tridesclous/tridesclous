@@ -24,15 +24,15 @@ Tridesclous is both:
 
 ## Main features
 
-  * template matching based mathod
-  * offer several alternative methods at several processing steps of the chain
-  * offer a UI written in Qt for interactive exploration.
-  * use [neo](https://github.com/NeuralEnsemble/python-neo) for reading dataset. So many format are available (Raw, Blackrock, Neuralynx, Plexon, Spike2, Tdt, OpenEphys...)
-  * use hardware acceleration with opencl : both gpu and multicore cpu
-  * use few memory
-  * have built in dataset to try it
-  * quite fast For a tetrode dataset, you can expect X30 speedup over real time on a simple laptop.
-  * have an simple python API. Easy to write notebook or build custom pipeline.
+  * template matching based method
+  * several alternative methods at several processing steps of the chain
+  * Qt GUI for interactive exploration
+  * a simple python API to use in a notebook or to build a custom pipeline
+  * support for many data formats (Raw, Blackrock, Neuralynx, Plexon, Spike2, Tdt, OpenEphys, ...) via [neo](https://github.com/NeuralEnsemble/python-neo)
+  * hardware acceleration with opencl: both GPU and multicore CPU
+  * smaller memory footprint
+  * built-in sample datasets to try on
+  * quite fast for tetrode datasets -- expect x30 speedup over real time on a simple laptop
   * multi-platform
   * open source based on a true open source stack
 
