@@ -132,11 +132,11 @@ def test_trash_small_cluster():
     
     
 if __name__ == '__main__':
-    setup_module()
-    test_auto_split()
+    #~ setup_module()
+    #~ test_auto_split()
     #~ test_trash_not_aligned()
     #~ test_auto_merge()
     #~ test_trash_low_extremum()
-    #~ test_trash_small_cluster()
+    test_trash_small_cluster()
     
     

@@ -31,7 +31,6 @@ def numba_loop_sparse_dist(waveform, centers,  mask):
 @jit(parallel=True)
 def numba_loop_sparse_dist_with_geometry(waveform, centers,  possibles_cluster_idx, rms_waveform_channel,channel_adjacency):
     
-    
     nb_total_clus, width, nb_chan = centers.shape
     nb_clus = possibles_cluster_idx.size
     

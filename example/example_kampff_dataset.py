@@ -49,7 +49,7 @@ def apply_catalogue_steps_auto():
     cc = CatalogueConstructor(dataio=dataio)
 
     params = get_auto_params_for_catalogue(dataio, chan_grp=1)
-    apply_all_catalogue_steps(cc, params, verbose=True)
+    cc.apply_all_steps(params, verbose=True)
     print(cc)
     
 
@@ -107,4 +107,3 @@ if __name__ =='__main__':
 
     
 
-    

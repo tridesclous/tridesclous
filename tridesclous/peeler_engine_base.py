@@ -498,7 +498,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
                                 shift = -int(np.round(new_jitter))
                         
                         # security to not be outside the fifo
-                        if np.abs(shift) >self.maximum_jitter_shift:
+                        if np.abs(shift) > self.maximum_jitter_shift:
                             label = LABEL_MAXIMUM_SHIFT
                             if self._plot_debug:
                                 print('LABEL_MAXIMUM_SHIFT', proposed_peak_ind, peak_chan)
