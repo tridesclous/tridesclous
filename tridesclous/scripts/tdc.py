@@ -18,16 +18,45 @@ comand_list =[
     'cataloguewin',
     'peelerwin',
     'init',
+    'rt',
 ]
 txt_command_list = ', '.join(comand_list)
 
 
 def open_mainwindow():
-        app = pg.mkQApp()
-        win = tdc.MainWindow()
-        win.show()
-        app.exec_()            
+    app = pg.mkQApp()
+    win = tdc.MainWindow()
+    win.show()
+    app.exec_()
+
+def open_tridesclous_rt():
+    from pyacq.devices import OpenEphysGUIRelay
+    from tridesclous.online import start_online_window
     
+    
+    app = pg.mkQApp()
+    
+    dev = OpenEphysGUIRelay()
+    dev.configure(openephys_url='tcp://127.0.0.1:20000')
+    dev.outputs['signals'].configure()
+    dev.initialize()
+    
+    prb_filename
+    
+    
+    
+    man, win = start_online_window(dev, prb_filename, workdir=None, n_process=1, pyacq_manager=None)
+    
+    win = tdc.MainWindow()
+    win.show()
+    
+    win.start()
+    pyacq_dev.start()
+    
+    app.exec_()
+    
+    
+
 def main():
     argv = sys.argv[1:]
 
@@ -89,10 +118,14 @@ def main():
         app = pg.mkQApp()
         win = tdc.InitializeDatasetWindow()
         win.show()
-        app.exec_()    
+        app.exec_()
+        
+    elif command == 'rt':
+        open_tridesclous_rt()
     
     
 
 if __name__ =='__main__':
-    open_mainwindow()
+    #~ open_mainwindow()
+    open_tridesclous_rt()
 

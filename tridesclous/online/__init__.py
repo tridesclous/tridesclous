@@ -32,7 +32,7 @@ except:
 
 if HAVE_PYACQ:
     from .onlinepeeler import OnlinePeeler
-    from .onlinetools import make_pyacq_device_from_buffer, make_empty_catalogue, lighter_catalogue
+    from .onlinetools import make_pyacq_device_from_buffer, make_empty_catalogue, lighter_catalogue, start_online_window
     from .onlinetraceviewer import OnlineTraceViewer
     from .onlinewindow import TdcOnlineWindow
     from .onlinewaveformhistviewer import OnlineWaveformHistViewer
