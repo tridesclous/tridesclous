@@ -5,10 +5,10 @@ import os
 import numpy as np
 import pyqtgraph as pg
 
-from pyacq.devices import NumpyDeviceBuffer
+
 from tridesclous.gui.tools import get_dict_from_group_param
 from tridesclous.gui.gui_params import preprocessor_params, peak_detector_params, clean_peaks_params
-from tridesclous.tools import open_prb
+
 
 
 preprocessor_params_default = get_dict_from_group_param(
@@ -25,59 +25,6 @@ clean_peaks_params_default = get_dict_from_group_param(
                     type='group', children=clean_peaks_params))
 
 
-
-def make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup = None, chunksize=1024):
-    length, nb_channel = sigs.shape
-    length -= length%chunksize
-    sigs = sigs[:length, :]
-    dtype = sigs.dtype
-    channel_names = ['channel{}'.format(c) for c in range(sigs.shape[1])]
-    
-    if nodegroup is None:
-        dev = NumpyDeviceBuffer()
-    else:
-        dev = nodegroup.create_node('NumpyDeviceBuffer')
-    dev.configure(nb_channel=nb_channel, sample_interval=1./sample_rate, chunksize=chunksize, buffer=sigs, channel_names=channel_names)
-    dev.output.configure(protocol='tcp', interface='127.0.0.1', transfermode='plaindata')
-    dev.initialize()
-    
-    return dev
-
-
-def start_online_window(pyacq_dev, prb_filename, workdir=None, n_process=1, pyacq_manager=None, chunksize=None):
-    # TODO move somewhere esle cyclic import
-    import pyacq
-    from tridesclous.online import TdcOnlineWindow
-    if pyacq_manager is None and n_process>=1:
-        pyacq_manager = pyacq.create_manager(auto_close_at_exit=True)
-    
-    if workdir is None:
-        workdir = os.path.join(os.path.expanduser("~/Desktop"), 'test_tdconlinewindow_'+''.join(str(e) for e in np.random.randint(0,10,8)))
-    
-    if n_process>=1:
-        nodegroup_friends = [pyacq_manager.create_nodegroup() for i in range(n_process)]
-    else:
-        nodegroup_friends = None
-    
-    channel_groups = open_prb(prb_filename)
-    
-    if chunksize is None:
-        # todo set latency in ms
-        chunksize = 928
-    
-    win = TdcOnlineWindow()
-    win.configure(channel_groups=channel_groups, chunksize=chunksize,
-                    workdir=workdir, nodegroup_friends=nodegroup_friends)
-    
-    win.input.connect(pyacq_dev.output)
-    win.initialize()
-    #~ win.show()
-    #~ win.start()
-    
-    
-    return pyacq_manager, win
-    
-    
     
 
 def make_empty_catalogue(chan_grp=0,

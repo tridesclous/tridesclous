@@ -13,12 +13,13 @@ import tridesclous as tdc
 
 comand_list =[
     'mainwin',
-    'makecatalogue',
-    'runpeeler',
+    #~ 'makecatalogue',
+    #~ 'runpeeler',
     'cataloguewin',
     'peelerwin',
     'init',
-    'rt',
+    'rt_demo',
+    'rt_openephys',
 ]
 txt_command_list = ', '.join(comand_list)
 
@@ -29,33 +30,6 @@ def open_mainwindow():
     win.show()
     app.exec_()
 
-def open_tridesclous_rt():
-    from pyacq.devices import OpenEphysGUIRelay
-    from tridesclous.online import start_online_window
-    
-    
-    app = pg.mkQApp()
-    
-    dev = OpenEphysGUIRelay()
-    dev.configure(openephys_url='tcp://127.0.0.1:20000')
-    dev.outputs['signals'].configure()
-    dev.initialize()
-    
-    prb_filename
-    
-    
-    
-    man, win = start_online_window(dev, prb_filename, workdir=None, n_process=1, pyacq_manager=None)
-    
-    win = tdc.MainWindow()
-    win.show()
-    
-    win.start()
-    pyacq_dev.start()
-    
-    app.exec_()
-    
-    
 
 def main():
     argv = sys.argv[1:]
@@ -65,7 +39,7 @@ def main():
     
     parser.add_argument('-d', '--dirname', help='working directory', default=None)
     parser.add_argument('-c', '--chan_grp', type=int, help='channel group index', default=0)
-    parser.add_argument('-p', '--parameters', help='JSON parameter file', default=None)
+    parser.add_argument('-p', '--prb_file', help='Probe file', default=None)
     
     
     args = parser.parse_args(argv)
@@ -94,11 +68,11 @@ def main():
     if command=='mainwin':
         open_mainwindow()
     
-    elif command=='makecatalogue':
-        pass
+    #~ elif command=='makecatalogue':
+        #~ pass
     
-    elif command=='runpeeler':
-        pass
+    #~ elif command=='runpeeler':
+        #~ pass
         
     elif command=='cataloguewin':
         catalogueconstructor = tdc.CatalogueConstructor(dataio=dataio, chan_grp=args.chan_grp)
@@ -120,12 +94,15 @@ def main():
         win.show()
         app.exec_()
         
-    elif command == 'rt':
-        open_tridesclous_rt()
+    elif command == 'rt_demo':
+        from tridesclous.online import start_online_pyacq_buffer_demo
+        start_online_pyacq_buffer_demo()
     
-    
+    elif command == 'rt_openephys':
+        from tridesclous.online import start_online_openephys
+        start_online_openephys(prb_filename=args.prb_file)
+        
 
 if __name__ =='__main__':
-    #~ open_mainwindow()
-    open_tridesclous_rt()
+    open_mainwindow()
 
