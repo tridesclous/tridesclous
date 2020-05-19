@@ -42,20 +42,24 @@ And then you should be able to do::
 Integration with open-ephys GUI
 -------------------------------
 
-  * **Step 1**
+  * **Step 1 ** install pyacq::
+  
+      pip install --upgrade https://github.com/pyacq/pyacq/archive/master.zip
+
+  * **Step 2**
   
     Installation openephys from source (with compilation)
     `See <https://open-ephys.atlassian.net/wiki/spaces/OEW/pages/491544/Installation)>`_
 
     
-  * **Step 2**
+  * **Step 3**
   
     Download and compile the `PythonPlugin <https://github.com/NeuroNetMem/PythonPlugin>`_ for openephys-GUI
   
     Select the branch **cmake_build** (mai 2020)
 
     
-  * **Step 3**
+  * **Step 4**
   
     Compile tridesclous python plugin.
     
@@ -74,7 +78,7 @@ Integration with open-ephys GUI
     You should see a file **OpenephysTridesclousPyPlugin.cpython-37m-x86_64-linux-gnu.so**
     
     
-  * **Step 4**
+  * **Step 5**
     
     launch openephys
     
@@ -83,8 +87,7 @@ Integration with open-ephys GUI
     Inside the python plugin Select the compiled tridesclous plugin: **OpenephysTridesclousPyPlugin.cpython-37m-x86_64-linux-gnu.so**
     
     
-
-  * **Step 5**
+  * **Step 6**
     run it::
   
       tdc rt_openephys --prb_file=/path/to/prb_file.prb
