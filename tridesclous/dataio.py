@@ -841,3 +841,10 @@ class DataIO:
                 for exporter in exporters:
                     exporter(*args, **kargs)
     
+    def get_log_path(self, chan_grp=0):
+        cg_path = os.path.join(self.dirname, 'channel_group_{}'.format(chan_grp))
+        log_path = os.path.join(cg_path, 'log')
+        if not os.path.exists(log_path):
+            os.makedirs(log_path)
+        
+        return log_path

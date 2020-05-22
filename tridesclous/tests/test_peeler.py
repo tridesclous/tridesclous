@@ -119,6 +119,7 @@ def test_peeler_geometry_cl():
         peeler.change_params(engine='geometrical_opencl',
                                     catalogue=catalogue,
                                     chunksize=1024,
+                                    speed_test_mode=True,
                                     )
 
         t1 = time.perf_counter()
@@ -131,8 +132,10 @@ def test_peeler_geometry_cl():
         count_by_label = [np.sum(spikes['cluster_label'] == label) for label in labels]
         print(labels)
         print(count_by_label)
-    
-
+        
+        
+        run_times = peeler.get_run_times(chan_grp=0, seg_num=0)
+        print(run_times)
 
 
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
@@ -431,7 +434,7 @@ if __name__ =='__main__':
     
     #~ test_peeler_geometry()
     
-    #~ test_peeler_geometry_cl()
+    test_peeler_geometry_cl()
     
     
     #~ test_peeler_argmin_methods()
@@ -440,7 +443,7 @@ if __name__ =='__main__':
     
     #~ test_peeler_several_chunksize()
     
-    test_peeler_with_and_without_preprocessor()
+    #~ test_peeler_with_and_without_preprocessor()
     
     #~ test_export_spikes()
     

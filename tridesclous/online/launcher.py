@@ -46,7 +46,9 @@ def make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup = None, chunksize
 
 
 
-def start_online_window(pyacq_dev, prb_dict_or_file, workdir=None, n_process=1, pyacq_manager=None, chunksize=None):
+def start_online_window(pyacq_dev, prb_dict_or_file, workdir=None, n_process=1,
+                pyacq_manager=None, chunksize=None, peeler_params={},
+                outputstream_params=None):
     
     if pyacq_manager is None and n_process>=1:
         pyacq_manager = pyacq.create_manager(auto_close_at_exit=True)
@@ -64,13 +66,33 @@ def start_online_window(pyacq_dev, prb_dict_or_file, workdir=None, n_process=1, 
     elif isinstance(prb_dict_or_file, dict):
         channel_groups = prb_dict_or_file
     
-    if chunksize is None:
-        # todo set latency in ms
-        chunksize = 928
+    #~ if chunksize is None:
+        #~ # todo set latency in ms
+        #~ chunksize = 928
+    
+    
+    sample_rate = pyacq_dev.output.params['sample_rate']
+    #~ print('sample_rate', sample_rate)
+    #~ exit()
+    
+    # force sharedmem
+    if outputstream_params is None:
+        
+        # TODO cleaner buffer size settings see also OnlineWindow
+        buffer_size = int(15. * sample_rate)        
+        
+        outputstream_params={'protocol': 'tcp', 'interface':'127.0.0.1', 'transfermode':'sharedmem'}
+        outputstream_params['buffer_size'] = buffer_size
+
     
     win = TdcOnlineWindow()
-    win.configure(channel_groups=channel_groups, chunksize=chunksize,
-                    workdir=workdir, nodegroup_friends=nodegroup_friends)
+    win.configure(channel_groups=channel_groups,
+                    chunksize=chunksize,
+                    workdir=workdir,
+                    outputstream_params = outputstream_params,
+                    nodegroup_friends=nodegroup_friends,
+                    peeler_params=peeler_params,
+                    )
     
     win.input.connect(pyacq_dev.output)
     win.initialize()
@@ -125,7 +147,8 @@ def start_online_pyacq_buffer_demo(dataset_name='olfactory_bulb'):
     
     man, win = start_online_window(dev, channel_groups,
                         workdir=None,
-                        n_process=2,
+                        #~ n_process=2,
+                        n_process=0,
                         pyacq_manager=man,
                         chunksize=chunksize)
 
@@ -138,7 +161,7 @@ def start_online_pyacq_buffer_demo(dataset_name='olfactory_bulb'):
     app.exec_()
     
 
-def start_online_openephys(prb_filename=None):
+def start_online_openephys(prb_filename=None, workdir=None):
     app = pg.mkQApp()
     
     if prb_filename is None:
@@ -150,8 +173,13 @@ def start_online_openephys(prb_filename=None):
             prb_filename = fd.selectedFiles()[0]
         else:
             raise ValueError('Must select probe file')
+
+    man = pyacq.create_manager(auto_close_at_exit=True)
     
-    dev = OpenEphysGUIRelay()
+    
+    #~ dev = OpenEphysGUIRelay()
+    ng0 = man.create_nodegroup() # process in background
+    dev = ng0.create_node('OpenEphysGUIRelay')
     dev.configure(openephys_url='tcp://127.0.0.1:20000')
     dev.outputs['signals'].configure()
     dev.initialize()
@@ -163,9 +191,9 @@ def start_online_openephys(prb_filename=None):
     #~ prb_filename = 'probe_openephys_16ch.prb'
     
     man, win = start_online_window(dev, prb_filename,
-                        workdir=None,
+                        workdir=workdir,
                         n_process=1,
-                        pyacq_manager=None,
+                        pyacq_manager=man,
                         chunksize=chunksize)
     
     win.show()

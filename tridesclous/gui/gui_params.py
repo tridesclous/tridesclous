@@ -149,8 +149,10 @@ Several methods possible. See :ref:`important_details`.
 from collections import OrderedDict
 import numpy as np
 
+# TODO copy form .._default_catalogue_params all default value to be consistent
+
 preprocessor_params = [
-    {'name': 'highpass_freq', 'type': 'float', 'value':400., 'step': 10., 'suffix': 'Hz', 'siPrefix': True},
+    {'name': 'highpass_freq', 'type': 'float', 'value':300., 'step': 10., 'suffix': 'Hz', 'siPrefix': True},
     {'name': 'lowpass_freq', 'type': 'float', 'value':5000., 'step': 10., 'suffix': 'Hz', 'siPrefix': True},
     {'name': 'smooth_size', 'type': 'int', 'value':0},
     {'name': 'common_ref_removal', 'type': 'bool', 'value':False},

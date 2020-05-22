@@ -38,8 +38,9 @@ class ThreadConfig(threading.Thread):
 
         
     def run(self):
-        print('ThreadConfig.run')
-        while True:
+        #~ print('ThreadConfig.run')
+        self.is_listening = True
+        while self.is_listening:
             if self.socket_info.poll(timeout=200) > 0:   # 200ms
                 request = self.socket_info.recv().decode()
                 print('request', request)
@@ -60,6 +61,9 @@ class ThreadConfig(threading.Thread):
             else:
                 #~ print('sleep ThreadConfig')
                 time.sleep(0.5)
+    
+    def stop(self):
+        self.is_listening = False
 
 
 class OpenephysTridesclousPyPlugin(object):
@@ -74,6 +78,12 @@ class OpenephysTridesclousPyPlugin(object):
         print('*'*20)
         print('Plugin python tridesclous', tdc.__version__)
         print('*'*20)
+    
+    def __del__(self):
+        print('__del__')
+        if hasattr(self, 'thread_config'):
+            self.thread_config.stop()
+            self.thread_config.wait()
 
     def startup(self, nchans, srate, states):
         """to be run upon startup"""

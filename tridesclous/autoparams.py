@@ -92,35 +92,38 @@ _default_catalogue_params = {
 
 
 
-def get_auto_params_for_catalogue(dataio, chan_grp=0):
+def get_auto_params_for_catalogue(dataio=None, chan_grp=0, nb_chan=None, sample_rate=None):
     """
     Automatic selection of parameters.
     This totally empiric paramerters.
     """
     params = copy.deepcopy(_default_catalogue_params)
-    
-    nb_chan = dataio.nb_channel(chan_grp=chan_grp)
-    
+
     # TODO make this more complicated
     #  * by detecting if dense array or not.
     #  * better method sleection
-    
-    #~ seg0_duration = dataio.get_segment_length(seg_num=0) / dataio.sample_rate
-    total_duration = sum(dataio.get_segment_length(seg_num=seg_num) / dataio.sample_rate for seg_num in range(dataio.nb_segment))
-    
-    # auto chunsize of 100 ms
-    params['chunksize'] = int(dataio.sample_rate * 0.1)
-    
-    params['duration'] = 601.
 
 
-
-    
-    
-    # segment durartion is not so big then take the whole duration
-    # to avoid double preprocessing (catalogue+peeler)
-    if params['duration'] * 2 > total_duration:
-        params['duration'] = total_duration
+    if dataio is None:
+        # case online no DataIO
+        assert nb_chan is not None
+        assert sample_rate is not None
+        # use less because chunksize is set outsied
+        params['chunksize'] = int(sample_rate * 0.05)
+        params['duration'] = 10. # debug
+    else:
+        # case offline with a DataIO
+        nb_chan = dataio.nb_channel(chan_grp=chan_grp)
+        sample_rate = dataio.sample_rate
+        total_duration = sum(dataio.get_segment_length(seg_num=seg_num) / dataio.sample_rate for seg_num in range(dataio.nb_segment))
+        # auto chunsize of 100 ms
+        params['chunksize'] = int(sample_rate * 0.1)
+        params['duration'] = 601.
+        
+        # segment durartion is not so big then take the whole duration
+        # to avoid double preprocessing (catalogue+peeler)
+        if params['duration'] * 2 > total_duration:
+            params['duration'] = total_duration
     
     #~ if nb_chan == 1:
         #~ params['mode'] = 'dense'

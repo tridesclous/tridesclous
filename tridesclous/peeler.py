@@ -73,19 +73,31 @@ class Peeler:
         
         return t
 
-    def change_params(self, catalogue=None, engine='classic', internal_dtype='float32', chunksize=1024, **params):
+    def change_params(self, catalogue=None, engine='classic', internal_dtype='float32',
+                        chunksize=1024, speed_test_mode=False, **params):
+        """
+        
+        speed_test_mode: only for offline mode create a log file with 
+                run time for each buffers
+        """
         assert catalogue is not None
         
         self.catalogue = catalogue
+        self.engine_name = engine
         self.internal_dtype = internal_dtype
         self.chunksize = chunksize
-        self.engine_name = engine
+        self.speed_test_mode = speed_test_mode
+        
         self.peeler_engine = peeler_engines[engine]()
         self.peeler_engine.change_params(catalogue=catalogue, internal_dtype=internal_dtype, chunksize=chunksize, **params)
     
     def process_one_chunk(self,  pos, sigs_chunk):
         # this is for online
         return self.peeler_engine.process_one_chunk(pos, sigs_chunk)
+        
+        #~ abs_head_index, preprocessed_chunk, self.total_spike, all_spikes,  = self.peeler_engine.process_one_chunk(pos, sigs_chunk)
+        #~ print(pos, sigs_chunk.shape, abs_head_index, preprocessed_chunk.shape)
+        #~ return abs_head_index, preprocessed_chunk, self.total_spike, all_spikes
     
     def initialize_online_loop(self, sample_rate=None, nb_channel=None, source_dtype=None, geometry=None):
         # global initialize
@@ -125,8 +137,21 @@ class Peeler:
         if progressbar:
             iterator = tqdm(iterable=iterator, total=length//self.chunksize)
         
+        if self.speed_test_mode:
+            process_run_times = []
+        
         for pos, sigs_chunk in iterator:
+            if self.speed_test_mode:
+                t0 = time.perf_counter()
+            
             sig_index, preprocessed_chunk, total_spike, spikes = self.peeler_engine.process_one_chunk(pos, sigs_chunk)
+            
+            if self.speed_test_mode:
+                t1 = time.perf_counter()
+                process_run_times.append(t1-t0)
+                
+
+            
             
             if sig_index<=0:
                 continue
@@ -150,6 +175,12 @@ class Peeler:
             self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=chan_grp, processed_length=int(sig_index))
             
         self.dataio.flush_spikes(seg_num=seg_num, chan_grp=chan_grp)
+        
+        if self.speed_test_mode:
+            process_run_times = np.array(process_run_times, dtype='float64')
+            log_path = self.dataio.get_log_path(chan_grp=chan_grp)
+            filename = os.path.join(log_path, 'peeler_run_times_seg{}.npy'.format(seg_num))
+            np.save(filename, process_run_times)
 
     def run(self, duration=None, progressbar=True):
         assert hasattr(self, 'catalogue'), 'So peeler.change_params first'
@@ -182,7 +213,14 @@ class Peeler:
     
     # old alias just in case
     run_offline_all_segment = run
-        
-
-
+    
+    
+    def get_run_times(self, chan_grp=0, seg_num=0):
+        """
+        need speed_test_mode=True in params
+        """
+        p = self.dataio.get_log_path(chan_grp=chan_grp)
+        filename = os.path.join(p, 'peeler_run_times_seg{}.npy'.format(seg_num))
+        run_times = np.load(filename)
+        return run_times
     

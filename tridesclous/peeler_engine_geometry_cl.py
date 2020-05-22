@@ -416,6 +416,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             self.kern_add_fifo_residuals.set_args(self.fifo_residuals_cl,
                                                                     self.signalpreprocessor.output_backward_cl,
                                                                     np.int32(self.fifo_roll_size))
+            #~ self.peakdetector.reset_fifo_index()
     
     def apply_processor(self, pos, sigs_chunk):
         if self._plot_debug:

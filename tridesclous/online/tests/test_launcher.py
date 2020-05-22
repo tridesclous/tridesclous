@@ -14,7 +14,8 @@ def test_start_online_pyacq_buffer_demo():
 
 
 def test_start_online_openephys():
-    start_online_openephys(prb_filename = 'probe_openephys_16ch.prb')
+    start_online_openephys(prb_filename = 'probe_openephys_16ch.prb', workdir='/home/samuel/Desktop/test_tdconlinewindow_openephys/')
+    #~ start_online_openephys(prb_filename = 'probe_openephys_16ch.prb')
     #~ start_online_openephys()
     
     
