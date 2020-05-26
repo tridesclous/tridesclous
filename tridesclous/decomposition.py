@@ -164,7 +164,17 @@ class PcaByChannel:
                 #~ pca = sklearn.decomposition.IncrementalPCA(n_components=n_components_by_channel, **params)
                 #~ print('PcaByChannel SVD')
                 pca = sklearn.decomposition.TruncatedSVD(n_components=n_components_by_channel, **params)
-                pca.fit(wf_chan)
+                #~ print(wf_chan.shape)
+                #~ print(np.sum(np.isnan(wf_chan)))
+                #~ import matplotlib.pyplot as plt
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(wf_chan.T)
+                #~ plt.show()
+                try:
+                    pca.fit(wf_chan)
+                except ValueError:
+                    pca = None
+                    print('Error in PcaByChannel for channel {} maybe too noisy (Nan, Inf,)'.format(chan))
             else:
                 pca = None
             self.pcas.append(pca)

@@ -34,7 +34,7 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
         #~ print('apply all catalogue steps')
         #~ pprint(params)
     
-    pprint(params)
+    #~ pprint(params)
     
     cc = catalogueconstructor
     

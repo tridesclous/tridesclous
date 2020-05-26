@@ -1263,7 +1263,7 @@ class CatalogueConstructor:
                 if new_label not in self.clusters['cluster_label'] and new_label>=0:
                     self.add_one_cluster(new_label)
                 if new_label>=0:
-                    self.compute_one_centroid(new_label, n_spike_for_centroid=self.spike_for_centroid)
+                    self.compute_one_centroid(new_label, n_spike_for_centroid=self.n_spike_for_centroid)
             
             for old_label in old_labels:
                 ind = self.index_of_label(old_label)
@@ -1272,7 +1272,7 @@ class CatalogueConstructor:
                     self.pop_labels_from_cluster([old_label])
                 else:
                     self.clusters['nb_peak'][ind] = nb_peak
-                    self.compute_one_centroid(old_label, n_spike_for_centroid=self.spike_for_centroid)
+                    self.compute_one_centroid(old_label, n_spike_for_centroid=self.n_spike_for_centroid)
                     
 
     def on_new_cluster(self):
