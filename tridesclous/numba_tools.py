@@ -26,10 +26,11 @@ def numba_loop_sparse_dist(waveform, centers,  mask):
         waveform_distance[clus] = sum
     
     return waveform_distance
-    
-    
+
+
 @jit(parallel=True)
-def numba_loop_sparse_dist_with_geometry(waveform, centers,  possibles_cluster_idx, rms_waveform_channel,channel_adjacency):
+#~ def numba_loop_sparse_dist_with_geometry(waveform, centers,  possibles_cluster_idx, rms_waveform_channel,channel_considered):
+def numba_loop_sparse_dist_with_geometry(waveform, centers,  possibles_cluster_idx, channel_considered, template_weight):
     
     nb_total_clus, width, nb_chan = centers.shape
     nb_clus = possibles_cluster_idx.size
@@ -40,20 +41,31 @@ def numba_loop_sparse_dist_with_geometry(waveform, centers,  possibles_cluster_i
     for clus in prange(len(possibles_cluster_idx)):
         cluster_idx = possibles_cluster_idx[clus]
         sum = 0
-        for c in channel_adjacency:
+        sum_w = 0
+        for c in channel_considered:
             #~ if mask[cluster_idx, c]:
             for s in range(width):
                 d = waveform[s, c] - centers[cluster_idx, s, c]
-                sum += d*d
+                #~ sum += d*d
+                sum += d*d * template_weight[s, c]
+                
+                #~ w = np.abs(centers[cluster_idx, s, c])
+                #~ sum += d*d*w
+                #~ sum_w += w
+
+                #~ sum += waveform[s, c] * centers[cluster_idx, s, c]
+
+                
             #~ else:
                 #~ sum +=rms_waveform_channel[c]
         waveform_distance[clus] = sum
+        #~ waveform_distance[clus] = sum / sum_w
     
     return waveform_distance
 
 
 @jit(parallel=True)
-def numba_explore_shifts(long_waveform, one_center,  one_mask, maximum_jitter_shift):
+def numba_explore_shifts(long_waveform, one_center,  one_mask, maximum_jitter_shift, template_weight):
     width, nb_chan = one_center.shape
     n = maximum_jitter_shift*2 +1
     
@@ -61,12 +73,18 @@ def numba_explore_shifts(long_waveform, one_center,  one_mask, maximum_jitter_sh
     
     for shift in prange(n):
         sum = 0
+        sum_w = 0
         for c in range(nb_chan):
             if one_mask[c]:
                 for s in range(width):
                     d = long_waveform[shift+s, c] - one_center[s, c]
-                    sum += d*d
-        all_dist[shift] = sum
+                    #~ w = np.abs(one_center[s, c])
+                    w = template_weight[s, c]
+                    #~ sum += d*d
+                    sum += d*d*w
+                    sum_w += w
+        #~ all_dist[shift] = sum
+        all_dist[shift] = sum / sum_w
     
     return all_dist
 

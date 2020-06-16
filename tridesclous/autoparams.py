@@ -50,8 +50,12 @@ _default_catalogue_params = {
         'nb_snippet': 300,
     },
     'extract_waveforms': {
-        'wf_left_ms': -1.5,
-        'wf_right_ms': 2.5,
+        #DEBUG
+        #~ 'wf_left_ms': -1.5,
+        #~ 'wf_right_ms': 2.5,
+        'wf_left_ms': -2.5,
+        'wf_right_ms': 3.5,
+
     },
     'clean_peaks': {
         'alien_value_threshold': None,
@@ -256,6 +260,12 @@ def get_auto_params_for_peelers(dataio, chan_grp=0):
         elif HAVE_NUMBA:
             params['engine'] = 'geometrical'
             params['argmin_method'] = 'numba'
+    
+    params['adjacency_radius_um'] = 50
+    
+    # DEBUG
+    params['engine'] = 'geometrical'
+    params['argmin_method'] = 'numba'
         
         #~ else:
             #~ params['argmin_method'] = 'numpy'

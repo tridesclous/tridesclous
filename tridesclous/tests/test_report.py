@@ -8,6 +8,7 @@ from tridesclous.tests.testingtools import setup_catalogue
 from tridesclous.tests.testingtools import ON_CI_CLOUD
 
 from tridesclous.report import summary_catalogue_clusters, summary_noise, summary_after_peeler_clusters, generate_report
+from tridesclous.autoparams import get_auto_params_for_peelers
 
 
 import matplotlib.pyplot as plt
@@ -21,9 +22,10 @@ def setup_module():
     setup_catalogue('test_report', dataset_name='striatum_rat')
     
     dataio = DataIO(dirname='test_report')
-    initial_catalogue = dataio.load_catalogue(chan_grp=0)
+    catalogue = dataio.load_catalogue(chan_grp=0)
+    params = get_auto_params_for_peelers(dataio, chan_grp=0)
     peeler = Peeler(dataio)
-    peeler.change_params(catalogue=initial_catalogue,chunksize=1024)
+    peeler.change_params(catalogue=catalogue, **params)
     peeler.run(progressbar=False)
 
 def teardown_module():
@@ -64,11 +66,13 @@ if __name__ == '__main__':
     
     #~ test_summary_catalogue_clusters()
     
-    test_summary_noise()
+    #~ test_summary_noise()
     
     #~ test_summary_after_peeler_clusters()
     
     #~ plt.show()
     
-    #~ test_generate_report()
+    test_generate_report()
+    
+    plt.show()
 

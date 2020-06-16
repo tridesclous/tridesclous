@@ -73,7 +73,7 @@ class Peeler:
         
         return t
 
-    def change_params(self, catalogue=None, engine='classic', internal_dtype='float32',
+    def change_params(self, catalogue=None, engine='geometrical', internal_dtype='float32',
                         chunksize=1024, speed_test_mode=False, **params):
         """
         

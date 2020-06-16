@@ -98,7 +98,12 @@ def _compute_one_dip_test(cc, dirname, chan_grp, label, n_components_local_pca, 
     n_components = min(wf_flat.shape[1]-1, n_components_local_pca)
     pca =  sklearn.decomposition.TruncatedSVD(n_components=n_components)
     
-    feats = pca.fit_transform(wf_flat)
+    try:
+        feats = pca.fit_transform(wf_flat)
+    except ValueError:
+        print('Erreur in diptest TruncatedSVD for label {}'.format(label))
+        return None
+        
     pval = diptest(np.sort(feats[:, 0]), numt=200)
     
     return pval
@@ -161,7 +166,10 @@ def auto_split(catalogueconstructor,
     splitable_labels = cc.positive_cluster_labels[inds]
     #~ print('splitable_labels', splitable_labels)
     
-    for label in splitable_labels:
+    #~ for label in splitable_labels:
+    for ind in inds:
+        label = cc.positive_cluster_labels[ind]
+        pval = pvals[ind]
         
         waveforms, wf_flat, peak_index = _get_sparse_waveforms_flatten(cc, dense_mode, label, channel_adjacency, n_spike_for_centroid=None)
         
@@ -221,6 +229,7 @@ def auto_split(catalogueconstructor,
             #~ if False:
             if debug_plot:
                 print('label', label,'pval', pval, pval<pval_thresh)
+                #~ print('label', label,'pval', pval, pval<pval_thresh)
                 
                 fig, axs = plt.subplots(ncols=4)
                 colors = plt.cm.get_cmap('Set3', len(unique_sub_labels))

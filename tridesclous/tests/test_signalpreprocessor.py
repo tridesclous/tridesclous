@@ -292,10 +292,10 @@ def test_smooth_with_filtfilt():
 
     
 if __name__ == '__main__':
-    #~ test_compare_offline_online_engines()
+    test_compare_offline_online_engines()
     #~ test_smooth_with_filtfilt()
     
-    explore_lostfront_chunksize()
+    #~ explore_lostfront_chunksize()
     
     #~ test_auto_lostfront_chunksize()
 

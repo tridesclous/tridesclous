@@ -113,7 +113,7 @@ class PeelerEngineBase(OpenCL_Helper):
             #    * use to pre compute distance distribution in make_catalogue and limits (accept_template)
             #    * use to explore shifts 
             # sparse_mask_level3 : equal threhold
-            #    * used to compute distance spike<->centroid (get_best_template)
+            #   NOT ANY MORE only radius * used to compute distance spike<->centroid (get_best_template)
             #    * use to reduce possible template list with detection channel
             
             #~ print(centers.shape)
@@ -128,6 +128,8 @@ class PeelerEngineBase(OpenCL_Helper):
             self.sparse_mask_level1 = self.catalogue['sparse_mask_level1']
             self.sparse_mask_level2 = self.catalogue['sparse_mask_level2']
             self.sparse_mask_level3 = self.catalogue['sparse_mask_level3']
+            self.sparse_mask_level4 = self.catalogue['sparse_mask_level4']
+            
             
             #~ thresh = self.catalogue['peak_detector_params']['relative_threshold']
             #~ self.sparse_mask_level3 = np.any(np.abs(centers)>thresh, axis=1)
@@ -474,9 +476,11 @@ class PeelerEngineGeneric(PeelerEngineBase):
 
                 
                 if cluster_idx<0:
+                    #~ print('LABEL_UNCLASSIFIED cluster_idx<0')
                     label  = LABEL_UNCLASSIFIED
                     jitter = 0
                     if self._plot_debug:
+                    #~ if True:
                         self._plot_label_unclassified(left_ind, peak_chan, cluster_idx, jitter)
                     
                 else:

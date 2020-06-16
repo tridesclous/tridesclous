@@ -391,7 +391,7 @@ def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
         spike_labels = cc.all_peaks['cluster_label'][cc.some_peaks_index]
         #~ wf = cc.some_waveforms[spike_labels==label]
         ind, = np.nonzero(cc.all_peaks['cluster_label'] == label)
-        wf = cc.get_some_waveforms(peak_index=ind)
+        wf = cc.get_some_waveforms(peaks_index=ind)
         wf = wf[:, :, channels]
         if units in ('uV', 'μV'):
             wf = wf * cc.signals_mads[channels][None, None, :] * dataio.datasource.bit_to_microVolt
