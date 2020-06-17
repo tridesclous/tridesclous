@@ -2,12 +2,19 @@ import os, shutil
 
 import numpy as np
 
-from tridesclous.export import export_csv, export_matlab, export_excel
+from tridesclous.export import export_csv, export_matlab, export_excel, export_catalogue_spikes
 from tridesclous.catalogueconstructor import _dtype_cluster
 from tridesclous.peeler import _dtype_spike
 
+from tridesclous.dataio import DataIO
+from tridesclous.catalogueconstructor import CatalogueConstructor
 
 
+
+from tridesclous.tests.testingtools import setup_catalogue
+
+def setup_module():
+    setup_catalogue('test_export_catalogue_spike', dataset_name='olfactory_bulb', peak_sampler_mode='all')
 
 
 def test_export():
@@ -44,9 +51,19 @@ def test_export():
             export_csv(*args, **kargs)
             export_matlab(*args, **kargs)
             export_excel(*args, **kargs)
-            
+
+
+def test_export_catalogue_spikes():
+    dataio = DataIO(dirname='test_export_catalogue_spike')
+    cc = CatalogueConstructor(dataio=dataio)
+    #~ print(cc)
+    
+    export_catalogue_spikes(cc)
     
     
     
 if __name__ == '__main__':
-    test_export()
+    #~ setup_module()
+    #~ test_export()
+    test_export_catalogue_spikes()
+

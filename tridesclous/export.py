@@ -103,3 +103,44 @@ if HAS_PANDAS:
     export_list.append(export_excel)
 
 export_dict = {e.ext:e for e in export_list}
+
+
+def export_catalogue_spikes(cc, export_path=None, formats=None):
+    """
+    This export spikes from catalogue.
+    Usefull when when catalogue peak sampler mode is all.
+    This avoid the peeler.
+    """
+    
+    dataio = cc.dataio
+    chan_grp = cc.chan_grp
+    
+    sampler_mode = cc.info['peak_sampler_params']['mode']
+    if sampler_mode != 'all':
+        print('You are trying to export peak from catalogue but peak_sampler mode is not "all"')
+
+    if export_path is None:
+        export_path = os.path.join(dataio.dirname, 'export_catalogue_chan_grp_{}'.format(chan_grp))
+    
+    catalogue = {}
+    catalogue['clusters'] = cc.clusters.copy()
+    
+    if formats is None:
+        exporters = export_list
+    elif isinstance(formats, str):
+        assert formats in export_dict
+        exporters = [ export_dict[formats] ]
+    elif isinstance(format, list):
+        exporters = [ export_dict[format] for format in formats]
+    else:
+        raise ValueError()
+        
+    for seg_num in range(dataio.nb_segment):
+        spikes = cc.all_peaks
+        
+        if spikes is None: continue
+        
+        args = (spikes, catalogue, seg_num, chan_grp, export_path,)
+        kargs = dict(split_by_cluster=False, use_cell_label=False)
+        for exporter in exporters:
+            exporter(*args, **kargs)

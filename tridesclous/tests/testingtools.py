@@ -27,7 +27,7 @@ ON_CI_CLOUD = is_running_on_ci_cloud()
     
     
 
-def setup_catalogue(dirname, dataset_name='olfactory_bulb', duration=None):
+def setup_catalogue(dirname, dataset_name='olfactory_bulb', duration=None, peak_sampler_mode=None):
     if os.path.exists(dirname):
         shutil.rmtree(dirname)
         
@@ -80,6 +80,10 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb', duration=None):
     
     if duration is not None:
         params['duration'] = duration
+    
+    if peak_sampler_mode is not None:
+        params['peak_sampler']['mode'] = peak_sampler_mode
+        
     
     #~ pprint(params)
     cc.apply_all_steps(params, verbose=True)

@@ -4,6 +4,7 @@ from .myqt import QT
 import pyqtgraph as pg
 
 from ..catalogueconstructor import _default_n_spike_for_centroid
+from ..export import export_catalogue_spikes
 
 from .cataloguecontroller import CatalogueController
 from .traceviewer import CatalogueTraceViewer
@@ -174,7 +175,17 @@ class CatalogueWindow(QT.QMainWindow):
         self.toolbar.addAction(self.help_act)
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.act_savepoint)
-    
+        
+        # export peaks
+        self.toolbar.addSeparator()
+        menu = QT.QMenu()
+        toolButton = QT.QToolButton()
+        toolButton.setMenu(menu)
+        toolButton.setPopupMode(QT.QToolButton.InstantPopup)
+        self.toolbar.addWidget(toolButton)
+        do_export_peaks = QT.QAction('Export peaks', self)
+        do_export_peaks.triggered.connect(self.export_peaks)
+        menu.addAction(do_export_peaks)    
 
     def warn(self, title, text):
         mb = QT.QMessageBox.warning(self, title,text, QT.QMessageBox.Ok ,  QT.QMessageBox.NoButton)
@@ -302,6 +313,8 @@ class CatalogueWindow(QT.QMainWindow):
             #TODO refresh only metrics concerned
             self.refresh()
         
-        
-    
+    def export_peaks(self):
+        #~ print('export_peaks')
+        cc = self.catalogueconstructor
+        export_catalogue_spikes(cc, export_path=None, formats=None)
 
