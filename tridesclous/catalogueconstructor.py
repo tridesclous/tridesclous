@@ -1829,6 +1829,7 @@ class CatalogueConstructor:
         
         n_left = self.info['waveform_extractor_params']['n_left']
         n_right = self.info['waveform_extractor_params']['n_right']
+        peak_sign = self.info['peak_detector_params']['peak_sign']
         
         self.catalogue = {}
         self.catalogue['chan_grp'] = self.chan_grp
@@ -1860,10 +1861,10 @@ class CatalogueConstructor:
         # take centroids for positive labems
         keep = (self.cluster_labels >= 0)
         centroids = self.centroids_median[keep, :, :][order,:,:].copy()
-        print(self.cluster_labels)
-        print(keep.size, np.sum(keep))
-        print(self.centroids_median.shape)
-        print(centroids.shape)        
+        #~ print(self.cluster_labels)
+        #~ print(keep.size, np.sum(keep))
+        #~ print(self.centroids_median.shape)
+        #~ print(centroids.shape)        
         
         
         #~ n, full_width, nchan = self.some_waveforms.shape
@@ -1876,6 +1877,11 @@ class CatalogueConstructor:
         
         centers0 = np.zeros((len(cluster_labels), catalogue_width, self.nb_channel), dtype=self.info['internal_dtype'])
         self.catalogue['centers0'] = centers0 # median of wavforms
+        
+        # normed and sparse centers0
+        centers0_normed = np.zeros((len(cluster_labels), catalogue_width, self.nb_channel), dtype=self.info['internal_dtype'])
+        self.catalogue['centers0_normed'] = centers0_normed
+        
         
         if inter_sample_oversampling:
             centers1 = np.zeros_like(centers0)
@@ -1899,6 +1905,8 @@ class CatalogueConstructor:
         
         self.catalogue['distance_limit'] = np.zeros(len(cluster_labels), dtype=self.info['internal_dtype'])
         
+        self.catalogue['sp_normed_limit'] = np.zeros((len(cluster_labels),2), dtype=self.info['internal_dtype'])
+        
         nb_cluster = cluster_labels.size
         self.catalogue['extremum_channel'] = np.zeros(nb_cluster, dtype='int64')
         self.catalogue['extremum_amplitude'] = np.zeros(nb_cluster, dtype='float32')
@@ -1906,66 +1914,120 @@ class CatalogueConstructor:
         self.catalogue['sparse_mask_level2'] = np.zeros((nb_cluster,self.nb_channel),  dtype='bool')
         self.catalogue['sparse_mask_level3'] = np.zeros((nb_cluster,self.nb_channel),  dtype='bool')
         self.catalogue['sparse_mask_level4'] = np.zeros((nb_cluster,self.nb_channel),  dtype='bool')
-        
 
-        
-        
-        #~ centers_flat = self.centroids_median.swapaxes(1,2).reshape(centers.shape[0], -1)
-        
+
         # weight for distances
         template_weight = np.std(centroids, axis=0)
         #~ template_weight /= np.sum(template_weight, axis=0)
         template_weight /= np.sum(template_weight)
         self.catalogue['template_weight'] = template_weight
         
-        #~ if True:
-            #~ template_weight_flat = template_weight.T.flatten()
-            #~ centers_flat = centroids[keep, :, :].swapaxes(1,2).reshape(np.sum(keep), -1)
-
-            #~ fig, axs = plt.subplots(nrows=2, sharex=True)
-            #~ axs[0].plot(centers_flat.T)
-            #~ axs[1].plot(template_weight_flat)
-            #~ plt.show()
-        
-        #~ exit()
-        
-        self.catalogue['nearest_templates'] = {}
-        
         self.catalogue['label_to_index'] = {}
+        #~ self.catalogue['nearest_templates'] = {}
+        
+        
+        # first loop to compute mask and centers_normed
         for i, k in enumerate(cluster_labels):
             self.catalogue['label_to_index'][k] = i
-            
-            if inter_sample_oversampling:
-                selected, = np.nonzero(self.all_peaks['cluster_label'][self.some_peaks_index]==k)
-                if selected.size>self.n_spike_for_centroid:
-                    keep = np.random.choice(selected.size, self.n_spike_for_centroid, replace=False)
-                    selected = selected[keep]
-                
-                wf0 = self.get_some_waveforms(peaks_index=self.some_peaks_index[selected], n_left=n_left-2, n_right=n_right+2)
-                
-                # compute first and second derivative on dim=1 (time)
-                wf1 = np.zeros_like(wf0)
-                wf1[:, 1:-1, :] = (wf0[:, 2:,: ] - wf0[:, :-2,: ])/2.
-                wf2 = np.zeros_like(wf1)
-                wf2[:, 1:-1, :] = (wf1[:, 2:,: ] - wf1[:, :-2,: ])/2.
-            
-                #median and
-                #eliminate margin because of border effect of derivative and reshape
-                center0_large = np.median(wf0, axis=0)
-                center0 = center0_large[2:-2, :]
-                centers0[i,:,:] = center0
-                centers1[i,:,:] = np.median(wf1, axis=0)[2:-2, :]
-                centers2[i,:,:] = np.median(wf2, axis=0)[2:-2, :]
-            else:
-                center0 = self.get_one_centroid(k)
-                centers0[i,:,:] = center0
+            center0 = centroids[i, :,:]
+            centers0[i,:,:] = center0
 
+            if self.mode == 'dense':
+                # see notes in PeelerEngineBase for which sparse mask is for what
+                sparse_mask_level1 = np.ones(self.nb_channel, dtype='bool')
+                sparse_mask_level2 = np.ones(self.nb_channel, dtype='bool')
+                sparse_mask_level3 = np.ones(self.nb_channel, dtype='bool')
+            else:
+                sparse_mask_level1 = np.any(np.abs(center0) > sparse_thresh_level1, axis=0)
+                sparse_mask_level2 = np.any(np.abs(center0)>sparse_thresh_level2, axis=0)
+                thresh = self.info['peak_detector_params']['relative_threshold']
+                sparse_mask_level3 = np.any(np.abs(center0)>thresh, axis=0)
+                #~ sparse_mask_level3 = np.ones(self.nb_channel, dtype='bool') # DEBUG
+                #~ sparse_mask_level3 = np.any(np.abs(center0)>sparse_thresh_level2, axis=0) # DEBUG
+                
+                #~ sparse_mask_level4 = sparse_mask_level2.copy()
+                #~ if np.sum(sparse_mask_level4) > sparse_channel_count:
+                    #~ best_channel_order = np.argsort(np.max(np.abs(center0), axis=0))[::-1]
+                    #~ best_channel_order = best_channel_order[:sparse_channel_count]
+                    #~ sparse_mask_level4[:] = False
+                    #~ sparse_mask_level4[best_channel_order] = True
+            
+            self.catalogue['sparse_mask_level1'][i, :] = sparse_mask_level1
+            self.catalogue['sparse_mask_level2'][i, :] = sparse_mask_level2
+            self.catalogue['sparse_mask_level3'][i, :] = sparse_mask_level3
+            #~ self.catalogue['sparse_mask_level4'][i, :] = sparse_mask_level4
+            
+            center0_normed = center0.copy()
+            center0_normed[:, ~sparse_mask_level1] = 0
+            # normalisaton par nrj
+            #center0_normed /= np.sum(center0_normed**2)
+            # normalisation by extrema
+            if peak_sign == '-':
+                center0_normed /= np.abs(np.min(center0_normed))
+            elif peak_sign == '+':
+                center0_normed /= np.abs(np.max(center0_normed))
+            self.catalogue['centers0_normed'][i, :] = center0_normed
+            
+        #~ fig, ax = plt.subplots()
+        #~ ax.plot(centers0_normed.swapaxes(1,2).reshape(centers0_normed.shape[0], -1).T)
+        #~ plt.show()
+        
+        
+        # loop to get some waveform again to compute:
+        #  * derivative if necessary
+        #  * some limit on distance to template and scalar product
+        for i, k in enumerate(cluster_labels):
+            center0 = centroids[i, :,:]
+            sparse_mask_level2 = self.catalogue['sparse_mask_level2'][i, :]
+            
             extremum_channel = np.argmax(np.abs(center0[-n_left,:]), axis=0)
             extremum_amplitude = np.abs(center0[-n_left, extremum_channel])
             self.catalogue['extremum_channel'][i] = extremum_channel
             self.catalogue['extremum_amplitude'][i] = extremum_amplitude
             
+            # sample waveforms
+            selected, = np.nonzero(self.all_peaks['cluster_label'][self.some_peaks_index]==k)
+            if selected.size>self.n_spike_for_centroid:
+                keep = np.random.choice(selected.size, self.n_spike_for_centroid, replace=False)
+                selected = selected[keep]
+            
             if inter_sample_oversampling:
+                wf0_large = self.get_some_waveforms(peaks_index=self.some_peaks_index[selected], n_left=n_left-2, n_right=n_right+2)
+                wf0 = wf0_large[:, 2:-2,:]
+            else:
+                wf0 = self.get_some_waveforms(peaks_index=self.some_peaks_index[selected], n_left=n_left, n_right=n_right)
+
+            # clean waveform
+            # +/- 8 MAD on border
+            wf0_masked = wf0[:, :, sparse_mask_level2]
+            center0_masked = center0[:, sparse_mask_level2]
+            mad0 = self.get_one_centroid(k, metric='mad')
+            mad0_masked = mad0[:, sparse_mask_level2]
+            fact = 8
+            above_l = np.any(wf0_masked[:, :-n_left//2, :] > (center0_masked[np.newaxis, :-n_left//2, :] + fact * mad0_masked[np.newaxis, :-n_left//2, :]), axis=(1,2))
+            above_r = np.any(wf0_masked[:, -n_right//2:, :] > (center0_masked[np.newaxis, -n_right//2:, :] + fact * mad0_masked[np.newaxis, -n_right//2:, :]), axis=(1,2))
+            under_l = np.any(wf0_masked[:, :-n_left//2, :] < (center0_masked[np.newaxis, :-n_left//2, :] - fact * mad0_masked[np.newaxis, :-n_left//2, :]), axis=(1,2))
+            under_r = np.any(wf0_masked[:, -n_right//2:, :] < (center0_masked[np.newaxis, -n_right//2:, :] - fact * mad0_masked[np.newaxis, -n_right//2:, :]), axis=(1,2))
+            keep = ~above_l & ~under_l & ~above_r & ~under_r
+            #~ wf0_masked_cleaned = wf0_masked[keep]
+            wf0_cleaned = wf0[keep]
+            
+            
+            if inter_sample_oversampling:
+                # compute first and second derivative on dim=1 (time)
+                wf1_large = np.zeros_like(wf0_large)
+                wf1_large[:, 1:-1, :] = (wf0_large[:, 2:,: ] - wf0_large[:, :-2,: ])/2.
+                wf2_large = np.zeros_like(wf1_large)
+                wf2_large[:, 1:-1, :] = (wf1_large[:, 2:,: ] - wf1_large[:, :-2,: ])/2.
+            
+                #median and
+                #eliminate margin because of border effect of derivative and reshape
+                center0_large = np.median(wf0_large, axis=0)
+                #~ center0 = center0_large[2:-2, :]
+                #~ centers0[i,:,:] = center0
+                centers1[i,:,:] = np.median(wf1_large, axis=0)[2:-2, :]
+                centers2[i,:,:] = np.median(wf2_large, axis=0)[2:-2, :]
+            
                 #interpolate centers0 for reconstruction inbetween bsample when jitter is estimated
                 f = scipy.interpolate.interp1d(original_time, center0_large, axis=0, kind='cubic', )
                 oversampled_center = f(subsample_time)
@@ -1995,161 +2057,94 @@ class CatalogueConstructor:
                 #~ sl = slice(i1, i2)
                 #~ ax.plot(subsample_time[sl],oversampled_center[:, extremum_channel][sl], color='r', ls='--')
                 #~ plt.show()
-
             
-            #~ center0 = center0[2:-2, :]
             
-            #~ sparse_threshold_mad = 1.5
-            #~ sparse_threshold_mad = self.info['peak_detector_params']['relative_threshold'] - 2 # put this in params
-            if self.mode == 'dense':
-                # see notes in PeelerEngineBase for which sparse mask is for what
-                sparse_mask_level1 = np.ones(self.nb_channel, dtype='bool')
-                sparse_mask_level2 = np.ones(self.nb_channel, dtype='bool')
-                sparse_mask_level3 = np.ones(self.nb_channel, dtype='bool')
-            else:
-                sparse_mask_level1 = np.any(np.abs(center0) > sparse_thresh_level1, axis=0)
-                sparse_mask_level2 = np.any(np.abs(center0)>sparse_thresh_level2, axis=0)
-                thresh = self.info['peak_detector_params']['relative_threshold']
-                sparse_mask_level3 = np.any(np.abs(center0)>thresh, axis=0)
-                #~ sparse_mask_level3 = np.ones(self.nb_channel, dtype='bool') # DEBUG
-                #~ sparse_mask_level3 = np.any(np.abs(center0)>sparse_thresh_level2, axis=0) # DEBUG
-                
-                sparse_mask_level4 = sparse_mask_level2.copy()
-                if np.sum(sparse_mask_level4) > sparse_channel_count:
-                    print('less channel')
-                    best_channel_order = np.argsort(np.max(np.abs(center0), axis=0))[::-1]
-                    best_channel_order = best_channel_order[:sparse_channel_count]
-                    print('best_channel_order', best_channel_order)
-                    print(np.max(np.abs(center0), axis=0)[best_channel_order])
-                    sparse_mask_level4[:] = False
-                    sparse_mask_level4[best_channel_order] = True
-                    
-
-
-                
+            # dot with normed center
+            center0_normed = self.catalogue['centers0_normed'][i, :]
+            sp_normed = np.sum(wf0_cleaned * center0_normed[np.newaxis,:,:], axis=(1,2))
             
-            self.catalogue['sparse_mask_level1'][i, :] = sparse_mask_level1
-            self.catalogue['sparse_mask_level2'][i, :] = sparse_mask_level2
-            self.catalogue['sparse_mask_level3'][i, :] = sparse_mask_level3
+            #~ w = self.catalogue['template_weight']
+            #~ sp_normed = np.sum(wf0_cleaned * center0_normed[np.newaxis,:,:] * w[np.newaxis,:,:], axis=(1,2))
+            
+            low_limit_sp_normed = np.quantile(sp_normed, 0.05)
+            high_limit_sp_normed = np.quantile(sp_normed, 0.95)
+            
+            self.catalogue['sp_normed_limit'][i, 0] = low_limit_sp_normed
+            self.catalogue['sp_normed_limit'][i, 1] = high_limit_sp_normed
+            
+            #~ print('l2', l2)
+            
+            
+            sp_normed_with_other = np.sum(centers0 * center0_normed[np.newaxis,:,:], axis=(1,2))
+            #~ sp_normed_with_other = np.sum(centers0 * center0_normed[np.newaxis,:,:] * w[np.newaxis,:,:], axis=(1,2))
+            
+            
+            nearest_idx, = np.nonzero((sp_normed_with_other > low_limit_sp_normed) & (sp_normed_with_other < high_limit_sp_normed))
+            print('i', i, 'nearest_idx', nearest_idx)
+            
+            
+            
+            sparse_mask_level4 = np.sum(self.catalogue['sparse_mask_level2'][nearest_idx, :], axis=0) > 0
+            print('sparse_mask_level4', sparse_mask_level4.shape, sparse_mask_level4.sum())
+            #~ print(sparse_mask_level4)
             self.catalogue['sparse_mask_level4'][i, :] = sparse_mask_level4
             
+
             
             
-            #~ print(sparse_mask_level2)
-            #~ print(sparse_mask_level2.shape)
-            
-            
-            
-            #~ print(wf0.shape, center0.shape)
-            #~ distances = np.sum(np.sum((wf0[:, 2:-2, :][:, :, sparse_mask_level2] - center0[np.newaxis, :, :][:, :, sparse_mask_level2])**2, axis=1), axis=1)
-            #~ print(np.sum(sparse_mask_level2))
-            #~ limit0 = np.quantile(distances, 0.95)
-            #~ limit0 = np.quantile(distances, 0.8)
-            #~ limit0 = np.quantile(distances, 0.9)
-            
-            #~ limit0 = 1.5 * np.sum(sparse_mask_level2) * catalogue_width
-            
+
             # Natural limit based on distribution of distance
             # a chi2 df=1 distribution have 95 quantile of 3.8
             # a chi2 df=1 distribution have 99 quantile of 6.5
             #~ limit0 = 4.0 * np.sum(np.abs(center0[:, sparse_mask_level2]))
             
-            # TODO remove this
-            selected, = np.nonzero(self.all_peaks['cluster_label'][self.some_peaks_index]==k)
-            if selected.size>self.n_spike_for_centroid:
-                keep = np.random.choice(selected.size, self.n_spike_for_centroid, replace=False)
-                selected = selected[keep]
             
-            wf0 = self.get_some_waveforms(peaks_index=self.some_peaks_index[selected], n_left=n_left-2, n_right=n_right+2)
-            # +/- 8 MAD
-            wf0_masked = wf0[:, 2:-2, :][:, :, sparse_mask_level2]
-            center0_masked = center0[:, sparse_mask_level2]
-            mad0 = self.get_one_centroid(k, metric='mad')
-            mad0_masked = mad0[:, sparse_mask_level2]
+            # take mask with nearest
+            mask = sparse_mask_level4
             
-            # clean waveform
-            fact = 8
-            above_l = np.any(wf0_masked[:, :-n_left//2, :] > (center0_masked[np.newaxis, :-n_left//2, :] + fact * mad0_masked[np.newaxis, :-n_left//2, :]), axis=(1,2))
-            above_r = np.any(wf0_masked[:, -n_right//2:, :] > (center0_masked[np.newaxis, -n_right//2:, :] + fact * mad0_masked[np.newaxis, -n_right//2:, :]), axis=(1,2))
-            under_l = np.any(wf0_masked[:, :-n_left//2, :] < (center0_masked[np.newaxis, :-n_left//2, :] - fact * mad0_masked[np.newaxis, :-n_left//2, :]), axis=(1,2))
-            under_r = np.any(wf0_masked[:, -n_right//2:, :] < (center0_masked[np.newaxis, -n_right//2:, :] - fact * mad0_masked[np.newaxis, -n_right//2:, :]), axis=(1,2))
-            keep = ~above_l & ~under_l & ~above_r & ~under_r
-            wf0_masked_cleaned = wf0_masked[keep]
-            
-            
-            dist = (wf0_masked_cleaned - center0_masked[np.newaxis, :, :])**2
+            dist = (wf0_cleaned[:, :, mask] - center0[:, mask][np.newaxis, :, :])**2
             #~ w = np.abs(center0_masked)
-            w = self.catalogue['template_weight'][:, sparse_mask_level2]
+            w = self.catalogue['template_weight'][:, mask]
             dist = dist * w
-            distances = np.sum(np.sum(dist, axis=1), axis=1)
+            distances = np.sum(dist, axis=(1,2))
             distances = distances / np.sum(w)
-            limit0 = np.quantile(distances, 0.95)
-            #~ limit0 = np.quantile(distances, 0.99)
-            #~ limit0 = limit0 *1.5
+            #~ limit0 = np.quantile(distances, 0.95)
+            limit0 = np.quantile(distances, 0.5) * 2
             
             
-            #~ fig, ax = plt.subplots()
-            #~ ax.plot(wf0_masked.swapaxes(1,2).reshape(wf0_masked.shape[0], -1).T, color='k', alpha=0.4)
-            #~ ax.plot(center0_masked.T.flatten(), color='r', lw=2)
-            #~ fig, ax = plt.subplots()
-            #~ ax.plot(wf0_masked_cleaned.swapaxes(1,2).reshape(wf0_masked_cleaned.shape[0], -1).T, color='k', alpha=0.4)
-            #~ ax.plot(center0_masked.T.flatten(), color='r', lw=2)
-            #~ plt.show()
             
-            
-            #~ from scipy.stats import chi2
-            #~ df = center0[:, sparse_mask_level2].size
-            #~ print(center0[:, sparse_mask_level2].shape)
-            #~ q = chi2.ppf(0.95, df)
-            #~ print('q', q)
-            #~ limit0 = q * np.sum(np.abs(center0[:, sparse_mask_level2]))
-            
-            
+
             # distance with noise
-            dist_noise = (self.some_noise_snippet[:, :, :][:, :, sparse_mask_level2] - center0[np.newaxis, :, :][:, :, sparse_mask_level2])**2
-            #~ w = np.abs(center0_masked)
-            w = self.catalogue['template_weight'][:, sparse_mask_level2]
+            dist_noise = (self.some_noise_snippet[:, :, :][:, :, mask] - center0[np.newaxis, :, :][:, :, mask])**2
+            w = self.catalogue['template_weight'][:, mask]
             dist_noise = dist_noise * w
-            noise_distances = np.sum(np.sum(dist_noise, axis=1), axis=1)
+            noise_distances = np.sum(dist_noise, axis=(1,2))
             noise_distances = noise_distances / np.sum(w)
             limit1 = np.quantile(noise_distances, 0.05)
 
             # distance to other templates
-            self.catalogue['nearest_templates'][i] = []
+            #~ self.catalogue['nearest_templates'][i] = []
             distance_to_others = []
-            #~ for k2 in cluster_labels:
             for j, k2 in enumerate(cluster_labels):
-                if k2 ==k:
-                    distance_to_others.append(np.inf)
-                    assert i == j # DEBUG remove this
-                    continue
-                
-                if np.abs(self.catalogue['clusters'][i]['extremum_amplitude']) <  np.abs(self.catalogue['clusters'][j]['extremum_amplitude']) * 0.5:
+                if j not in nearest_idx:
                     distance_to_others.append(np.inf)
                     continue
-                
-                #~ ind = self.index_of_label(k2)
-                #~ wf_other = self.centroids_median[ind, :, :]
+                if j == i:
+                    distance_to_others.append(np.inf)
+                    continue
                 wf_other = centroids[j, :, :]
-                
-                dist_l2 = (wf_other[:, sparse_mask_level2] - center0[:, sparse_mask_level2]) ** 2
-                #~ w = np.abs(center0_masked)
-                w = self.catalogue['template_weight'][:, sparse_mask_level2]
-                dist_l2 = dist_l2 * w
-                d = np.sum(dist_l2)
+                dist_other = (wf_other[:, mask] - center0[:,mask]) ** 2
+                w = self.catalogue['template_weight'][:, mask]
+                dist_other = dist_other * w
+                d = np.sum(dist_other)
                 d = d / np.sum(w)
                 distance_to_others.append(d)
-                
-                if d < limit0 * 2:
-                    self.catalogue['nearest_templates'][i].append(j)
+                #~ if d < limit0 * 2:
+                    #~ self.catalogue['nearest_templates'][i].append(j)
+            #~ print(distance_to_others)
             
-            #~ ind_nearest = np.argmin(distance_to_others)
-            #~ k_nearest = cluster_labels[ind_nearest]
-            #~ limit2 = distance_to_others[ind_nearest]
-            
-            print('limit0', limit0, 'limit1', limit1)
-            
-            print('k', k, 'i', i, 'i_near=', self.catalogue['nearest_templates'][i], 'k_near=', [cluster_labels[j] for j in self.catalogue['nearest_templates'][i]])
+            #~ print('limit0', limit0, 'limit1', limit1)
+            #~ print('k', k, 'i', i, 'i_near=', self.catalogue['nearest_templates'][i], 'k_near=', [cluster_labels[j] for j in self.catalogue['nearest_templates'][i]])
             
             #~ if limit2 < limit0 * 3:
                 #~ self.catalogue['nearest_templates'][i] = [ind_nearest]
@@ -2165,9 +2160,10 @@ class CatalogueConstructor:
             
             self.catalogue['distance_limit'][i] = limit
             
+            #~ if nearest_idx.size>1:
             #~ if True:
             if False:
-            #~ if k == 14:
+            #~ if k == 127:
             #~ if k in (7,9):
             #~ if len(self.catalogue['nearest_templates'][i]) > 0:
                 
@@ -2182,51 +2178,44 @@ class CatalogueConstructor:
                     #~ dist_l2 = dist_l2 * np.abs(center0[np.newaxis, :, sparse_mask_level2])
                 #~ distances = np.sum(np.sum(dist_l2, axis=1), axis=1)
             
-                bins = np.arange(0, 1, 1/100) * np.quantile(noise_distances, .98)
-                count, bins = np.histogram(distances, bins=bins)
-                count2, bins2 = np.histogram(noise_distances, bins=bins)
-                
+
                 n = len(cluster_labels)
                 colors_ = sns.color_palette('husl', n)
                 colors = {k: colors_[i] for i, k in enumerate(cluster_labels)}
+            
+                fig, ax = plt.subplots()
+                count, bins = np.histogram(sp_normed, bins=150)
+                ax.plot(bins[:-1], count, color='g')
+                ax.axvline(low_limit_sp_normed, color='g')
+                ax.axvline(high_limit_sp_normed, color='g')
+                count2, bins2 = np.histogram(sp_normed_with_other)
+                ax.plot(bins2[:-1], count2, color='r')
+                for j in nearest_idx:
+                    if i == j:
+                        continue
+                    k = cluster_labels[j]
+                    ax.axvline(sp_normed_with_other[j], color=colors[k])
+                
                 
                 fig, ax = plt.subplots()
+                bins = np.arange(0, 1, 1/100) * np.quantile(noise_distances, .98)
+                count, bins = np.histogram(distances, bins=bins)
+                count2, bins2 = np.histogram(noise_distances, bins=bins)
                 ax.plot(bins[:-1], count, color='g')
                 ax.plot(bins2[:-1], count2, color='r')
-
                 ax.axvline(limit, color='r', lw=3, ls='--')
                 ax.axvline(limit0, color='k', lw=2)
-                #~ ax.axvline(limit1, color='grey', lw=1)
-                #~ ax.axvline(limit2, color='grey', lw=1)
                 
-                # chi2 pdf
-                #~ fig, ax = plt.subplots()
-                #~ ax.plot(bins , chi2.pdf(bins / df, df) * wf0.shape[0], ls='--', color='grey')
-                
-                
-                #~ distance_to_others = []
-                #~ for k2 in cluster_labels:
-                    #~ if k2 ==k:
-                        #~ distance_to_others.append(np.inf)
-                        #~ continue
-                    #~ ind = self.index_of_label(k2)
-                    #~ wf_other = self.centroids_median[ind, :, :]
-                    #~ dist_l2 = (wf_other[:, sparse_mask_level2] - center0[:, sparse_mask_level2]) ** 2
-                    #~ dist_l2 = dist_l2 * np.abs(center0[:, sparse_mask_level2])
-                    #~ d = np.sum(dist_l2)
-                    #~ distance_to_others.append(d)
-                    #~ ax.axvline(d, color=colors[k2])
-                    
-                ind_min = np.argmin(distance_to_others)
-                k_nearest = cluster_labels[ind_min]
-                ax.axvline(distance_to_others[ind_min], color=colors[k_nearest])
-                
-                for j in self.catalogue['nearest_templates'][i]:
-                    #~ print(cluster_labels, len(cluster_labels))
-                    #~ print(ind)
+                #~ ind_min = np.argmin(distance_to_others)
+                #~ k_nearest = cluster_labels[ind_min]
+                #~ ax.axvline(distance_to_others[ind_min], color=colors[k_nearest])
+                #~ for j in self.catalogue['nearest_templates'][i]:
+                for j in nearest_idx:
+                    if i ==j:
+                        continue
                     k = cluster_labels[j]
                     ax.axvline(distance_to_others[j], color=colors[k])
-                
+                #~ plt.show()
                 
                 #~ print('k_nearest', k_nearest)
                     
@@ -2237,15 +2226,14 @@ class CatalogueConstructor:
                 #~ fig, ax = plt.subplots()
                 #~ ax.plot(wf0[:, 2:-2, sparse_mask_level2].swapaxes(1,2).reshape(wf0.shape[0], -1).T, color='k', alpha=0.4)
                 #~ ax.plot(center0[:, sparse_mask_level2].T.flatten(), color='r', lw=2)
-                fig, ax = plt.subplots()
-                ax.plot(wf0_masked_cleaned.swapaxes(1,2).reshape(wf0_masked_cleaned.shape[0], -1).T, color='k', alpha=0.4)
-                ax.plot(center0_masked.T.flatten(), color='r', lw=2)
-                ax.plot(np.median(wf0_masked_cleaned, axis=0).T.flatten(), color='m', lw=2)
-
-                fig, ax = plt.subplots()
-                ax.plot(wf0_masked.swapaxes(1,2).reshape(wf0_masked.shape[0], -1).T, color='k', alpha=0.4)
-                ax.plot(center0_masked.T.flatten(), color='r', lw=2)
-
+                #~ fig, ax = plt.subplots()
+                #~ mask = sparse_mask_level4
+                #~ ax.plot(wf0_cleaned[:, :, mask].swapaxes(1,2).reshape(wf0_cleaned.shape[0], -1).T, color='k', alpha=0.4)
+                #~ ax.plot(center0[:, mask].T.flatten(), color='r', lw=2)
+                
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(wf0.swapaxes(1,2).reshape(wf0.shape[0], -1).T, color='k', alpha=0.4)
+                #~ ax.plot(center0.T.flatten(), color='r', lw=2)
 
                 #~ fig, ax = plt.subplots()
                 #~ ax.plot(self.some_noise_snippet[:, :, sparse_mask_level2].swapaxes(1,2).reshape(self.some_noise_snippet.shape[0], -1).T, color='k', alpha=0.4)
@@ -2256,18 +2244,20 @@ class CatalogueConstructor:
                 fig, ax = plt.subplots()
                 #~ ax.plot(wf0[:, :, sparse_mask_level2].swapaxes(1, 2).reshape(wf0.shape[0], -1).T, color='k', alpha=.4)
                 
-                for j in self.catalogue['nearest_templates'][i]:
+                #~ for j in self.catalogue['nearest_templates'][i]:
+                for j in nearest_idx:
                     
                     k2 = cluster_labels[j]
                     #~ print('cluster_labels', cluster_labels)
                     #~ print('j', j, 'k2', k2, 'i', i, 'k', k)
                     wf_other = centroids[j, :, :]
-                    ax.plot(wf_other[:, sparse_mask_level2].T.flatten(), color=colors[k2])
-                ax.plot(center0[:, sparse_mask_level2].T.flatten(), color='k', lw=2)
+                    ax.plot(wf_other[:, mask].T.flatten(), color=colors[k2])
+                ax.plot(center0[:, mask].T.flatten(), color='k', lw=2)
                 
                 fig, ax = plt.subplots()
                 
-                for j in self.catalogue['nearest_templates'][i]:
+                #~ for j in self.catalogue['nearest_templates'][i]:
+                for j in nearest_idx:
                     k2 = cluster_labels[j]
                     wf_other = centroids[j, :, :]
                     ax.plot(wf_other[:, :].T.flatten(), color=colors[k2])
