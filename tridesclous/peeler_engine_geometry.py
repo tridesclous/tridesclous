@@ -375,10 +375,185 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #~ shift = None
         
         elif self.argmin_method == 'numba':
+            full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
+            
+            centers0 = self.catalogue['centers0']
+            inner_othogonal_projector = self.catalogue['inner_othogonal_projector']
+            othogonal_bondaries = self.catalogue['othogonal_bondaries']
+            low_boundary = othogonal_bondaries[:, 0]
+            high_boundary = othogonal_bondaries[:, 1]
+            
+            
+            n = centers0.shape[0]
+            flat_waveform = full_waveform.flatten()
+            flat_centers0 = centers0.reshape(n, -1)
+            
+            #~ scalar_products = np.zeros(n, dtype='float32')
+            #~ for i in range(n):
+                #~ sp = np.sum((flat_waveform - flat_centers0[i, :]) * inner_othogonal_projector[i, :])
+                #~ scalar_products[i] = sp
+            scalar_products = np.sum((flat_waveform[np.newaxis, :] - flat_centers0[:, :]) * inner_othogonal_projector[:, :], axis=1)
+            #~ print(scalar_products)
+            
+            possible_idx, = np.nonzero((scalar_products < high_boundary) & (scalar_products > low_boundary))
+            
+            if len(possible_idx) == 1:
+                cluster_idx = possible_idx[0]
+                extra_idx = None
+                candidates_idx = [cluster_idx] # for shift
+            elif len(possible_idx) == 0:
+                extra_idx, = np.nonzero((np.abs(scalar_products) < 0.5))
+                print('extra_idx', extra_idx)
+                if len(extra_idx) ==0:
+                    cluster_idx = None
+                    candidates_idx = []
+                    shift = None
+                else:
+                    cluster_idx = extra_idx[np.argmin(scalar_products[extra_idx])]
+                    candidates_idx = extra_idx
+            elif len(possible_idx) > 1 :
+                cluster_idx = np.argmin(scalar_products)
+                extra_idx = None
+                candidates_idx = possible_idx
+            
+            debug_plot_change = False
+            if len(candidates_idx):
+                candidates_idx = np.array(candidates_idx, dtype='int64')
+                shift_scalar_product, shift_distance = numba_explore_best_shift(self.fifo_residuals, left_ind, self.catalogue['centers0'],
+                                self.catalogue['inner_othogonal_projector'], candidates_idx, self.maximum_jitter_shift) 
+                #~ i0, i1 = np.unravel_index(np.argmin(np.abs(shift_scalar_product), axis=None), shift_scalar_product.shape)
+                i0, i1 = np.unravel_index(np.argmin(shift_distance, axis=None), shift_distance.shape)
+                best_idx = candidates_idx[i0]
+                shift = self.shifts[i1]
+                
+                
+                if best_idx != cluster_idx:
+                    print('*'*50)
+                    print('best_idx != cluster_idx', best_idx, cluster_idx)
+                    print('*'*50)
+                    cluster_idx = best_idx
+                    debug_plot_change = True
+                
+                
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(self.shifts, shift_scalar_product.T)
+                #~ plt.show()
+            
+            
+            #~ if cluster_idx in (3,6):
+            if False:
+            #~ if True:
+            #~ if len(possible_idx) != 1:
+            #~ if len(possible_idx) > 1:
+            
+            #~ if 7 in possible_idx or  cluster_idx == 7:
+            #~ if cluster_idx not in possible_idx and len(possible_idx) > 0:
+            #~ if debug_plot_change:
+            
+                print()
+                print('best cluster_idx', cluster_idx)
+                print('possible_idx', possible_idx)
+                print('extra_idx', extra_idx)
+                print(scalar_products[possible_idx])
+                print(high_boundary[possible_idx])
+                
+                
+                fig, ax = plt.subplots()
+                shift2 = 0 if shift is None else shift
+                full_waveform2 = self.fifo_residuals[left_ind+shift2:left_ind+shift2+self.peak_width,:]
+                
+                ax.plot(full_waveform2.T.flatten(), color='k')
+                if shift !=0:
+                    ax.plot(full_waveform.T.flatten(), color='grey', ls='--')
+                
+                for idx in candidates_idx:
+                    ax.plot(self.catalogue['centers0'][idx, :].T.flatten(), color='m')
+                if cluster_idx is not None:
+                    ax.plot(self.catalogue['centers0'][cluster_idx, :].T.flatten(), color='c', ls='--')
+                ax.set_title(f'best {cluster_idx} shift {shift} possible_idx {possible_idx}')
+                
+                if shift is not None:
+                    fig, ax = plt.subplots()
+                    ax.plot(self.shifts, np.abs(shift_scalar_product).T)
+
+                    fig, ax = plt.subplots()
+                    ax.plot(self.shifts, np.abs(shift_distance).T)
+                
+                plt.show()
+            
+            shift = 0
+            
+            return cluster_idx, shift, None
+
+        elif self.argmin_method == 'numba_not_so_old':
+            full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
+            
+            
+            mean_centroid = self.catalogue['mean_centroid']
+            projector = self.catalogue['projector']
+            feat_centroids = self.catalogue['feat_centroids']
+            
+            feat_waveform = (full_waveform.flatten() - mean_centroid) @ projector
+            
+            feat_distances = np.sum((feat_centroids - feat_waveform[np.newaxis])**2, axis=1)
+            #~ print(len(feat_distances), ':', feat_distances)
+            cluster_idx = np.argmin(feat_distances)
+            #~ print(feat_waveform.shape)
+            
+            
+            possible_idx, = np.nonzero(feat_distances < self.catalogue['feat_distance_boundaries'])
+            #~ print()
+            #~ print('best cluster_idx', cluster_idx)
+            #~ print('possible_idx', possible_idx)
+            
+            
+            
+            
+            #~ if len(possible_idx) != 1:
+            #~ if len(possible_idx) > 1:
+            if False:
+            #~ if cluster_idx not in possible_idx and len(possible_idx) > 0:
+                print()
+                print('best cluster_idx', cluster_idx)
+                print('possible_idx', possible_idx)
+                print(feat_distances[possible_idx])
+                print(self.catalogue['feat_distance_boundaries'][possible_idx])
+                
+                
+                
+                fig, ax = plt.subplots()
+                ax.plot(feat_centroids.T, alpha=0.5)
+                ax.plot(feat_waveform, color='k')
+                
+                fig, ax = plt.subplots()
+                ax.plot(full_waveform.T.flatten(), color='k')
+                for idx in possible_idx:
+                    ax.plot(self.catalogue['centers0'][idx, :].T.flatten(), color='m')
+                ax.plot(self.catalogue['centers0'][cluster_idx, :].T.flatten(), color='c', ls='--')
+                ax.set_title(f'best {cluster_idx} possible_idx {possible_idx}')
+                
+                plt.show()
+            
+            shift = 0
+            
+            return cluster_idx, shift, None
+            
+            #~ exit()
+            
+            
+        
+        elif self.argmin_method == 'numba_old2':
+            
+            # commmon mask
+            intercept_channel = self.sparse_mask_level3[:, chan_ind]
+            print('intercept_channel', np.sum(intercept_channel))
+            common_mask = np.sum(self.sparse_mask_level3[intercept_channel, :], axis=0) > 0
+            print('common_mask', np.sum(common_mask))
             
             
             scalar_products, weighted_distance = numba_explore_best_template(self.fifo_residuals, left_ind, chan_ind,
                                     self.catalogue['centers0'], self.catalogue['centers0_normed'], self.catalogue['template_weight'],
+                                    common_mask,
                                     self.catalogue['sparse_mask_level1'], 
                                     self.catalogue['sparse_mask_level2'], 
                                     self.catalogue['sparse_mask_level3'], 
@@ -395,28 +570,33 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                             #~ (scalar_products > self.catalogue['sp_normed_limit'][:, 0]) &
                             #~ (scalar_products < self.catalogue['sp_normed_limit'][:, 1]))
 
-            factor = 0.3
+            #~ factor = 0.3
+            #~ possibles_idx1, = np.nonzero(scalar_products > (self.catalogue['sp_normed_limit'][:, 0] * 0.8))
             #~ possibles_idx1, = np.nonzero(scalar_products > (self.catalogue['sp_normed_limit'][:, 0] * 0.5))
-            possibles_idx1, = np.nonzero(scalar_products > (self.catalogue['sp_normed_limit'][:, 0] * 0.1))
+            #~ possibles_idx1, = np.nonzero(scalar_products > (self.catalogue['sp_normed_limit'][:, 0] * 0.1))
             #~ possibles_idx1, = np.nonzero(scalar_products > 0)
+            possibles_idx1 = np.array([], dtype='int64')
 
             #~ possibles_idx, = np.nonzero(scalar_products>0)
 
             
-            min_ = min(weighted_distance)
-            
-            #~ factor = 1.5
+            #~ min_ = min(weighted_distance)
+            #~ factor = 2.
             #~ possibles_idx2, = np.nonzero(weighted_distance<(min_ * factor))
             
             #~ factor = 2
             #~ factor = 3
-            #~ possibles_idx2, = np.nonzero(weighted_distance<(self.distance_limit * factor))
-            possibles_idx2 = np.array([], dtype='int64')
+            #~ factor = 8
+            possibles_idx2, = np.nonzero(weighted_distance<(self.distance_limit))
+            #~ print(weighted_distance)
+            #~ print(self.distance_limit)
+            #~ possibles_idx2 = np.array([], dtype='int64')
             
-            candidates_idx = np.union1d(possibles_idx1, possibles_idx2)
+            #~ candidates_idx = np.union1d(possibles_idx1, possibles_idx2)
+            candidates_idx = possibles_idx2
             
             
-            #~ print()
+            print()
             #~ print(possibles_idx1, possibles_idx2)
             print(candidates_idx)
             if len(candidates_idx) == 0:
@@ -444,10 +624,25 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             
             common_mask = np.sum(self.sparse_mask_level2[candidates_idx, :], axis=0) > 0
             #~ common_mask = np.sum(self.sparse_mask_level3[candidates_idx, :], axis=0) > 0
+            if candidates_idx.size > 1:
+                discriminant_weight = np.zeros((self.peak_width, self.nb_channel), dtype='float32')
+                for clus1 in candidates_idx:
+                    for clus2 in candidates_idx:
+                        if clus1 < clus2:
+                            discriminant_weight += np.abs(self.catalogue['centers0'][clus1, :, :] - self.catalogue['centers0'][clus2, :, :])
+            else:
+                discriminant_weight = np.ones((self.peak_width, self.nb_channel), dtype='float32')
+            discriminant_weight[:, ~common_mask] = 0 
+            discriminant_weight /= np.sum(discriminant_weight)
+            #~ print(discriminant_weight)
             
-            shift_scalar_product, shift_distance = numba_explore_best_shift(self.fifo_residuals, left_ind, self.catalogue['centers0'], self.catalogue['centers0_normed'],
-                            candidates_idx, self.catalogue['template_weight'], common_mask, self.maximum_jitter_shift, self.catalogue['sparse_mask_level1'])
+
+            #~ shift_scalar_product, shift_distance = numba_explore_best_shift(self.fifo_residuals, left_ind, self.catalogue['centers0'], self.catalogue['centers0_normed'],
+                            #~ candidates_idx, self.catalogue['template_weight'], common_mask, self.maximum_jitter_shift, self.catalogue['sparse_mask_level1'])
                             
+            shift_scalar_product, shift_distance = numba_explore_best_shift(self.fifo_residuals, left_ind, self.catalogue['centers0'], self.catalogue['centers0_normed'],
+                            candidates_idx, discriminant_weight, common_mask, self.maximum_jitter_shift, self.catalogue['sparse_mask_level1'])
+
             
             
             #~ print(shift_scalar_product)
@@ -501,10 +696,23 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #~ ind_min = np.argmin(shifts_dist)
             #~ shift = self.shifts[ind_min]
             #~ distance = shifts_dist[ind_min]
+
+
+            # debug
+            mask = self.sparse_mask_level3[cluster_idx]
+            full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
+            wf = full_waveform[:, mask]
+            center0 = self.catalogue['centers0'][cluster_idx, :, :][:, mask]
+            w = self.catalogue['template_weight'][:, mask]
+            distance2 = np.sum((wf - center0)**2 * w)
+            distance2 /= np.sum(w)
+            # debug
             
             #~ if True:
-            #~ if distance >self.distance_limit[cluster_idx]:
+            #~ print(distance2, self.distance_limit[cluster_idx])
+            #~ if distance2 >self.distance_limit[cluster_idx] and cluster_idx in (7,9):
             if False:
+            #~ if len(candidates_idx) > 1:
                 print(scalar_products)
                 print(weighted_distance)
                 print('possibles_idx1', possibles_idx1)
@@ -846,6 +1054,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         if np.abs(jitter) > (self.maximum_jitter_shift - 0.5):
             return False
         
+        #~ print(left_ind, cluster_idx, jitter, distance)
         #~ if self.strict_template:
             #~ return slef.accept_template_sctrict(left_ind, cluster_idx, jitter)
         
@@ -857,22 +1066,48 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #~ self.nb_14 += 1
             #~ print(self.nb_14)
 
-        mask = self.sparse_mask_level4[cluster_idx]
+        #~ mask = self.sparse_mask_level3[cluster_idx]
+        #~ mask = self.sparse_mask_level4[cluster_idx]
+        #~ full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
+        #~ wf = full_waveform[:, mask]
+        #~ center0 = self.catalogue['centers0'][cluster_idx, :, :][:, mask]
+        #~ w = self.catalogue['template_weight'][:, mask]
+        #~ distance2 = np.sum((wf - center0)**2 * w)
+        #~ distance2 /= np.sum(w)
+        
+        
         full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
-        wf = full_waveform[:, mask]
-        center0 = self.catalogue['centers0'][cluster_idx, :, :][:, mask]
-        #~ w = np.abs(center0)
-        w = self.catalogue['template_weight'][:, mask]
-        distance2 = np.sum((wf - center0)**2 * w)
-        distance2 /= np.sum(w)
+        #~ mean_centroid = self.catalogue['mean_centroid']
+        #~ projector = self.catalogue['projector']
+        #~ feat_centroids = self.catalogue['feat_centroids']
+        #~ feat_waveform = (full_waveform.flatten() - mean_centroid) @ projector
+        #~ feat_distance = np.sum((feat_waveform - feat_centroids[cluster_idx,:])**2)
+
+        centers0 = self.catalogue['centers0']
+        othogonal_bondaries = self.catalogue['othogonal_bondaries']
+        inner_othogonal_projector = self.catalogue['inner_othogonal_projector']
+        high_boundary = othogonal_bondaries[:, 1]
+        low_boundary = othogonal_bondaries[:, 0]
+        
+        flat_waveform = full_waveform.flatten()
+        sp = np.sum((flat_waveform - centers0[cluster_idx, :].flatten()) * inner_othogonal_projector[cluster_idx, :])
+        
+        #~ high_boundary
+        
+
+        #~ print('sp',sp, 'boundary', high_boundary[cluster_idx])
+        
+        immediate_accept = low_boundary[cluster_idx] < sp < high_boundary[cluster_idx]
         
         #~ print('distance2', distance2, 'distance', distance)
 
         #~ if distance < self.distance_limit[cluster_idx]:
-        if distance2 < self.distance_limit[cluster_idx]:
+        #~ if distance2 < self.distance_limit[cluster_idx]:
+        if immediate_accept:
+            
         #~ if False:
             accept_template = True
-            immediate_accept = True
+            #~ immediate_accept = True
         else:
             
             # criteria multi channel
@@ -913,9 +1148,25 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #~ gain = (pred_wf**2 / wf**1 - 1) * np.abs(pred_wf) / np.sum(np.abs(pred_wf))
             #~ accept_template = np.sum(gain) > 0.8
             #~ accept_template = np.sum(gain) > 0.7
-            accept_template = np.sum(gain) > 0.6
+            accept_template0 = np.sum(gain) > 0.6
             #~ accept_template = np.sum(gain) > 0.5
             
+            # criteria max residual
+            max_res = np.max(np.abs(pred_wf - wf))
+            max_pred = np.max(np.abs(pred_wf))
+            accept_template1 = max_pred > max_res
+            
+            accept_template = accept_template0 and accept_template1
+            #~ accept_template = accept_template0
+            #~ accept_template = accept_template1
+            
+            # DEBUG
+            #~ accept_template = False
+            
+            
+            
+            
+            #~ accept_template = False
             
             # debug
             #~ limit_sp =self.catalogue['sp_normed_limit'][cluster_idx, :]
@@ -925,7 +1176,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             
             
             #~ accept_template = False
-            immediate_accept = False
+            #~ immediate_accept = False
             
             # DEBUG always refuse!!!!!
             #~ accept_template = False
@@ -939,30 +1190,31 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                 #~ accept_template = False
         
         # debug
-        if label == 13:
-            if not hasattr(self, 'count_accept'):
-                self.count_accept = {}
-                self.count_accept[label] = {'accept_template':0, 'immediate_accept':0, 'not_accepted':0}
+        #~ if label == 13:
+            #~ if not hasattr(self, 'count_accept'):
+                #~ self.count_accept = {}
+                #~ self.count_accept[label] = {'accept_template':0, 'immediate_accept':0, 'not_accepted':0}
             
-            if accept_template:
-                self.count_accept[label]['accept_template'] += 1
-                if immediate_accept:
-                    self.count_accept[label]['immediate_accept'] += 1
-            else:
-                self.count_accept[label]['not_accepted'] += 1
-            print(self.count_accept)
+            #~ if accept_template:
+                #~ self.count_accept[label]['accept_template'] += 1
+                #~ if immediate_accept:
+                    #~ self.count_accept[label]['immediate_accept'] += 1
+            #~ else:
+                #~ self.count_accept[label]['not_accepted'] += 1
+            #~ print(self.count_accept)
             
         #~ if not accept_template and label in []:
         #~ if not accept_template:
         #~ if accept_template:
         #~ if True:
-        #~ if False:
+        if False:
         #~ if not immediate_accept:
         #~ if immediate_accept:
         #~ if immediate_accept:
-        #~ if label == 6 and not accept_template:
+        #~ if label == 7 and not accept_template:
+        #~ if label == 7:
         #~ if label == 121:
-        if label == 13:
+        #~ if label == 5:
         
         #~ if label == 13 and accept_template and not immediate_accept:
         #~ if label == 13 and not accept_template:
@@ -973,12 +1225,13 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         #~ print(np.abs((left_ind - self.n_left) - nears) < 2)
         #~ if label == 5 and np.any(np.abs((left_ind - self.n_left) - nears) < 50):
             
-            if immediate_accept:
-                mask = self.sparse_mask_level2[cluster_idx]
-                full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
-                wf = full_waveform[:, mask]
-                _, pred_wf = make_prediction_one_spike(left_ind - self.n_left, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
-                pred_wf = pred_wf[:, mask]
+            #~ if immediate_accept:
+            
+            mask = self.sparse_mask_level2[cluster_idx]
+            full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
+            wf = full_waveform[:, mask]
+            _, pred_waveform = make_prediction_one_spike(left_ind - self.n_left, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
+            pred_wf = pred_waveform[:, mask]
     
             
             if accept_template:
@@ -993,31 +1246,44 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                 #~ fig, ax = plt.subplots()
                 #~ ax.plot(gain.T.flatten(), color=color)
                 #~ ax.set_title('{}'.format(np.sum(gain)))
-                
+
+            #~ fig, ax = plt.subplots()
+            #~ ax.plot(feat_centroids.T, alpha=0.5)
+            #~ ax.plot(feat_waveform, color='k')
+
             fig, ax = plt.subplots()
-            ax.plot(wf.T.flatten(), color='k')
-            ax.plot(pred_wf.T.flatten(), color=color)
+            ax.plot(full_waveform.T.flatten(), color='k')
+            ax.plot(pred_waveform.T.flatten(), color=color)
             
-            ax.plot( wf.T.flatten() - pred_wf.T.flatten(), color=color, ls='--')
+            l0, l1 = othogonal_bondaries[cluster_idx, :]
+            title = f'{cluster_idx} {sp:0.3f} lim [{l0:0.3f} {l1:0.3f}]'
+            ax.set_title(title)
+                
+            #~ fig, ax = plt.subplots()
+            #~ ax.plot(wf.T.flatten(), color='k')
+            #~ ax.plot(pred_wf.T.flatten(), color=color)
+            
+            #~ ax.plot( wf.T.flatten() - pred_wf.T.flatten(), color=color, ls='--')
             
             print()
+            print('cluster_idx',cluster_idx, 'immediate_accept', immediate_accept, 'accept_template', accept_template)
             #~ print(distance, self.distance_limit[cluster_idx])
-            print('distance', distance, distance2, 'limit_distance', self.distance_limit[cluster_idx])
+            #~ print('distance', distance, distance2, 'limit_distance', self.distance_limit[cluster_idx])
 
-            limit_sp =self.catalogue['sp_normed_limit'][cluster_idx, :]
+            #~ limit_sp =self.catalogue['sp_normed_limit'][cluster_idx, :]
             #~ sp = np.sum(self.catalogue['centers0_normed'] * full_waveform * self.catalogue['template_weight'])
-            sp = np.sum(self.catalogue['centers0_normed'] * full_waveform)
-            print('limit_sp', limit_sp, 'sp', sp)
+            #~ sp = np.sum(self.catalogue['centers0_normed'] * full_waveform)
+            #~ print('limit_sp', limit_sp, 'sp', sp)
             
-            if not immediate_accept:
-                print('np.sum(gain)', np.sum(gain))
+            #~ if not immediate_accept:
+                #~ print('np.sum(gain)', np.sum(gain))
 
 
-            fig, ax = plt.subplots()
-            res = wf - pred_wf
-            count, bins = np.histogram(res, bins=150, weights=np.abs(pred_wf))
-            ax.plot(bins[:-1], count)
-            plt.show()
+            #~ fig, ax = plt.subplots()
+            #~ res = wf - pred_wf
+            #~ count, bins = np.histogram(res, bins=150, weights=np.abs(pred_wf))
+            #~ ax.plot(bins[:-1], count)
+            #~ plt.show()
 
             
             
@@ -1135,7 +1401,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         
     
     def _plot_label_unclassified(self, left_ind, peak_chan, cluster_idx, jitter):
-        #~ return
+        return
         #~ print('LABEL UNCLASSIFIED', left_ind, cluster_idx)
         fig, ax = plt.subplots()
         

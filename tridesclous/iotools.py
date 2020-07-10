@@ -159,11 +159,13 @@ class ArrayCollection:
     def delete_array(self, name):
         if name not in self._array:
             return
-        #~ if self._array_attr[name]['memory_mode'] == 'memmap':
-            #~ #delete file if exist
-            #~ filename = self._fname(name)
+        
+        if self._array_attr[name]['memory_mode'] == 'memmap':
+            #delete file if exist
+            filename = self._fname(name)
+            os.remove(filename)
         self.detach_array(name)
-        raise(NotimplementedError)
+        #~ raise(NotimplementedError)
         
         
     def detach_array(self, name, mmap_close=False):
@@ -220,6 +222,33 @@ class ArrayCollection:
         if self.parent is not None:
             setattr(self.parent, name, self._array[name])
         self.flush_json()
+    
+    def append_array(self, name, arr):
+        # append array when not initialize_array (mode = 'a')
+        assert self._array_attr[name]['state'] != 'a'
+        #~ print('append_array', name, self._array[name].dtype, arr.dtype)
+        assert self._array[name].dtype == arr.dtype
+
+        memory_mode = self._array_attr[name]['memory_mode']
+        if memory_mode=='ram':
+            self._array[name].append(arr)
+        elif memory_mode=='memmap':
+            old_shape = self._array[name].shape
+            if len(old_shape) > 1:
+                for i in range(1, len(old_shape)):
+                    assert old_shape[i] == arr.shape[i] 
+            new_shape = (old_shape[0] + arr.shape[0], ) + old_shape[1:]
+            
+            nbytes = self._array[name].nbytes
+            # close memmap
+            self._array[name] = None 
+            #write
+            with open(self._fname(name), mode='ab+') as f:
+                f.seek(nbytes)
+                f.write(arr.tobytes(order='C'))
+            # reopen memmap
+            self._array[name] = np.memmap(self._fname(name), dtype=arr.dtype,
+                                                mode='r+', shape=new_shape)
     
     def flush_array(self, name):
         memory_mode = self._array_attr[name]['memory_mode']

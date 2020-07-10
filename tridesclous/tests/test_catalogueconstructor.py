@@ -142,6 +142,13 @@ def test_catalogue_constructor():
             
             print(cc)
         
+        
+        t1 = time.perf_counter()
+        cc.cache_some_waveforms()
+        t2 = time.perf_counter()
+        print('auto_split_cluster', t2-t1)
+        exit()
+        
         t1 = time.perf_counter()
         cc.auto_split_cluster()
         t2 = time.perf_counter()

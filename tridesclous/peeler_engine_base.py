@@ -128,7 +128,7 @@ class PeelerEngineBase(OpenCL_Helper):
             self.sparse_mask_level1 = self.catalogue['sparse_mask_level1']
             self.sparse_mask_level2 = self.catalogue['sparse_mask_level2']
             self.sparse_mask_level3 = self.catalogue['sparse_mask_level3']
-            self.sparse_mask_level4 = self.catalogue['sparse_mask_level4']
+            #~ self.sparse_mask_level4 = self.catalogue['sparse_mask_level4']
             
             
             #~ thresh = self.catalogue['peak_detector_params']['relative_threshold']
@@ -155,7 +155,7 @@ class PeelerEngineBase(OpenCL_Helper):
             #~ self.sparse_mask_level3 = dense_mask
             
         
-        self.distance_limit = self.catalogue['distance_limit']
+        #~ self.distance_limit = self.catalogue['distance_limit']
         
         # weight of template per channel masked with level3
         self.weight_per_template = np.zeros((self.nb_cluster, self.nb_channel), dtype='float32')
@@ -278,8 +278,10 @@ class PeelerEngineGeneric(PeelerEngineBase):
         self._plot_debug = False
         #~ self._plot_debug = True
         
-        
-        if self._plot_debug:
+        #~ if pos >= 19200:
+            #~ self._plot_debug = True
+        #~ if self._plot_debug:
+        if True:
             print('*'*10)
             print('process_one_chunk', pos)
         
@@ -307,7 +309,8 @@ class PeelerEngineGeneric(PeelerEngineBase):
         t3 = time.perf_counter()
         
         while True: # main loop
-            if self._plot_debug:
+            #~ if self._plot_debug:
+            if True:
                 print('** peeler level +1 **')
             nb_good_spike = 0
             
@@ -475,7 +478,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
 
 
                 
-                if cluster_idx<0:
+                if cluster_idx is None or cluster_idx<0:
                     #~ print('LABEL_UNCLASSIFIED cluster_idx<0')
                     label  = LABEL_UNCLASSIFIED
                     jitter = 0

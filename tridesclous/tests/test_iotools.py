@@ -38,6 +38,9 @@ def one_test_ArrayCollection(withparent=False, memory_mode='memmap'):
     ac.add_array('data', data, memory_mode)
     assert ac.get('data').size==4
     
+    # append_array
+    ac.append_array('data', data)
+    assert ac.get('data').size==8
     
     
     if memory_mode == 'memmap':
@@ -98,6 +101,7 @@ def one_test_ArrayCollection(withparent=False, memory_mode='memmap'):
     ac.annotate('data', one_annotation='yep')
     value = ac.get_annotation('data', 'one_annotation')
     assert value == 'yep'
+    
     
     
     

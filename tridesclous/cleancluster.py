@@ -18,15 +18,10 @@ import sklearn.decomposition
 
 from joblib import Parallel, delayed
 
-
-
-
 import matplotlib.pyplot as plt
 
-
-
 from .dip import diptest
-from .waveformtools import equal_template
+from .waveformtools import equal_template, compute_shared_channel_mask
 
 
 import hdbscan
@@ -35,12 +30,9 @@ debug_plot = False
 #~ debug_plot = True
 
 
-def _get_sparse_waveforms_flatten(cc, dense_mode, label, channel_adjacency, n_spike_for_centroid=None):
+def _get_sparse_waveforms_flatten(cc, dense_mode, label, channel_adjacency):
     peak_index, = np.nonzero(cc.all_peaks['cluster_label'] == label)
-    if n_spike_for_centroid is not None and peak_index.size>n_spike_for_centroid:
-        keep = np.random.choice(peak_index.size, n_spike_for_centroid, replace=False)
-        peak_index = peak_index[keep]
-
+    
     if dense_mode:
         waveforms = cc.get_some_waveforms(peak_index, channel_indexes=None)
         extremum_channel = 0
@@ -59,7 +51,7 @@ def _get_sparse_waveforms_flatten(cc, dense_mode, label, channel_adjacency, n_sp
         # TODO by sparsity level threhold and not radius
         adjacency = channel_adjacency[extremum_channel]
         waveforms = waveforms.take(adjacency, axis=2)
-        
+
     wf_flat = waveforms.swapaxes(1,2).reshape(waveforms.shape[0], -1)
     
     return waveforms, wf_flat, peak_index
@@ -71,6 +63,7 @@ def _compute_one_dip_test(cc, dirname, chan_grp, label, n_components_local_pca, 
     from .catalogueconstructor import CatalogueConstructor
     
     if cc is None:
+        # reload because parralel jobs
         dataio = DataIO(dirname)
         cc = CatalogueConstructor(dataio=dataio, chan_grp=chan_grp)
 
@@ -89,8 +82,21 @@ def _compute_one_dip_test(cc, dirname, chan_grp, label, n_components_local_pca, 
             nearest, = np.nonzero(cc.channel_distances[c, :] < adjacency_radius_um)
             channel_adjacency[c] = nearest
 
+    #~ waveforms, wf_flat, peak_index = _get_sparse_waveforms_flatten(cc, dense_mode, label, channel_adjacency)
+    waveforms = cc.get_cached_waveforms(label)
+    centroid = cc.get_one_centroid(label)
+    #~ print('label', label, waveforms.shape, centroid.shape)
+    if not dense_mode:
+        # TODO by sparsity level threhold and not radius
+        if peak_sign == '-':
+            extremum_channel = np.argmin(centroid[-n_left,:], axis=0)
+        elif peak_sign == '+':
+            extremum_channel = np.argmax(centroid[-n_left,:], axis=0)
+        adjacency = channel_adjacency[extremum_channel]
+        waveforms = waveforms.take(adjacency, axis=2)
+    wf_flat = waveforms.swapaxes(1,2).reshape(waveforms.shape[0], -1)
     
-    waveforms, wf_flat, peak_index = _get_sparse_waveforms_flatten(cc, dense_mode, label, channel_adjacency, n_spike_for_centroid=cc.n_spike_for_centroid)
+    
     
     
     #~ pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components_local_pca, whiten=True)
@@ -124,6 +130,9 @@ def auto_split(catalogueconstructor,
                         joblib_backend='loky',
             ):
     cc = catalogueconstructor
+    
+    assert cc.some_waveforms is not None, 'run cc.cache_some_waveforms() first'
+    
     peak_sign = cc.info['peak_detector_params']['peak_sign']
     dense_mode = cc.info['mode'] == 'dense'
     n_left = cc.info['waveform_extractor_params']['n_left']
@@ -167,11 +176,13 @@ def auto_split(catalogueconstructor,
     #~ print('splitable_labels', splitable_labels)
     
     #~ for label in splitable_labels:
+    #~ new_labels = []
     for ind in inds:
         label = cc.positive_cluster_labels[ind]
         pval = pvals[ind]
         
-        waveforms, wf_flat, peak_index = _get_sparse_waveforms_flatten(cc, dense_mode, label, channel_adjacency, n_spike_for_centroid=None)
+        # do not use cache to get ALL waveform
+        waveforms, wf_flat, peak_index = _get_sparse_waveforms_flatten(cc, dense_mode, label, channel_adjacency)
         
         #~ pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components_local_pca, whiten=True)
         n_components = min(wf_flat.shape[1]-1, n_components_local_pca)
@@ -191,7 +202,10 @@ def auto_split(catalogueconstructor,
 
         if debug_plot:
             fig, ax= plt.subplots()
-            ax.plot(np.median(wf_flat, axis=0))
+            
+            ax.plot(wf_flat.T, color='m', alpha=0.5)
+            
+            ax.plot(np.median(wf_flat, axis=0), color='k')
             ax.set_title('label '+str(label))
             for i in range(waveforms.shape[2]):
                 ax.axvline(i*peak_width-n_left, color='k')
@@ -211,12 +225,15 @@ def auto_split(catalogueconstructor,
                 if sub_label == -1 or not valid:
                     #~ cluster_labels[ind_keep[sub_mask]] = -1
                     cc.all_peaks['cluster_label'][peak_index[sub_mask]] = -1
+                    
+                    
                 else:
                     #~ cluster_labels[ind_keep[sub_mask]] = sub_label + m 
                     new_label = label + m
                     #~ print(label, m, new_label)
                     cc.all_peaks['cluster_label'][peak_index[sub_mask]] = new_label
                     cc.add_one_cluster(new_label)
+                    #~ new_labels.append(new_label)
                     
                     m += 1
             
@@ -345,8 +362,13 @@ def auto_merge(catalogueconstructor,
                         auto_merge_threshold=2.3,
                         maximum_shift=2,
                         amplitude_factor_thresh = 0.2,
+                        sparse_thresh=1.5,
+                        recursive_loop=False,
+                        
         ):
     cc = catalogueconstructor
+    assert cc.some_waveforms is not None, 'run cc.cache_some_waveforms() first'
+    
     peak_sign = cc.info['peak_detector_params']['peak_sign']
     #~ dense_mode = cc.info['mode'] == 'dense'
     n_left = cc.info['waveform_extractor_params']['n_left']
@@ -356,8 +378,13 @@ def auto_merge(catalogueconstructor,
     
     while True:
         
-        labels = cc.positive_cluster_labels.copy()
+        #~ labels = cc.positive_cluster_labels.copy()
         
+        keep = cc.cluster_labels>=0
+        labels = cc.clusters[keep]['cluster_label'].copy()
+        
+        centroids = cc.centroids_median[keep, :, :].copy()
+        share_channel_mask = compute_shared_channel_mask(centroids, cc.mode,  sparse_thresh)
         
         nb_merge = 0
         
@@ -378,23 +405,34 @@ def auto_merge(catalogueconstructor,
                     # this can have been removed yet
                     continue
                 
-                #~ print(k1, k2)
+                print(k1, k2)
                 #~ print('  k2', k2)
+                
+                if not share_channel_mask[i, j]:
+                    
+                    print('skip')
+                    continue
+                
                 
                 ind1 = cc.index_of_label(k1)
                 extremum_amplitude1 = np.abs(cc.clusters[ind1]['extremum_amplitude'])
                 centroid1 = cc.get_one_centroid(k1)
+                waveforms1 = cc.get_cached_waveforms(k1)
 
                 ind2 = cc.index_of_label(k2)
                 extremum_amplitude2 = np.abs(cc.clusters[ind2]['extremum_amplitude'])
                 centroid2 = cc.get_one_centroid(k2)
-        
-                thresh = max(extremum_amplitude1, extremum_amplitude2) * amplitude_factor_thresh
-                thresh = max(thresh, auto_merge_threshold)
-                #~ print('thresh', thresh)
+                waveforms2 = cc.get_cached_waveforms(k2)
                 
-                #~ t1 = time.perf_counter()
-                do_merge = equal_template(centroid1, centroid2, thresh=thresh, n_shift=maximum_shift)
+                # OLD way
+                #~ thresh = max(extremum_amplitude1, extremum_amplitude2) * amplitude_factor_thresh
+                #~ thresh = max(thresh, auto_merge_threshold)
+                #~ do_merge = equal_template(centroid1, centroid2, thresh=thresh, n_shift=maximum_shift)
+                
+                do_merge = equal_template(centroid1, waveforms1, centroid2, waveforms2, n_shift = 2)
+                #~ do_merge = False
+                
+                
                 #~ t2 = time.perf_counter()
                 #~ print('equal_template', t2-t1)
                 
@@ -416,29 +454,36 @@ def auto_merge(catalogueconstructor,
                 if do_merge:
                     #~ print('merge', k1, k2)
                     #~ cluster_labels2[cluster_labels2==k2] = k1
-
-                    mask = cc.all_peaks['cluster_label'] == k2
-                    cc.all_peaks['cluster_label'][mask] = k1
-                    
-                    #~ t1 = time.perf_counter()
-                    #~ cc.compute_one_centroid(k1)
-                    #~ t2 = time.perf_counter()
-                    #~ print('cc.compute_one_centroid', t2-t1)
-                    
-                    new_centroids.append(k1)
-                    pop_from_cluster.append(k2)
-                    
-                    labels[j] = -1
-                    
-                    nb_merge += 1
-                    
                     if debug_plot:
                     
                         fig, ax = plt.subplots()
-                        ax.plot(centroid1.T.flatten())
-                        ax.plot(centroid2.T.flatten())
+                        ax.plot(centroid1.T.flatten(), color='m')
+                        ax.plot(centroid2.T.flatten(), color='c')
                         ax.set_title('merge '+str(k1)+' '+str(k2))
+
+                        fig, ax = plt.subplots()
+                        ax.plot(waveforms1.swapaxes(1,2).reshape(waveforms1.shape[0], -1).T, color='m', alpha=0.2)
+                        ax.plot(waveforms2.swapaxes(1,2).reshape(waveforms2.shape[0], -1).T, color='c', alpha=0.2)
+                        ax.plot(centroid1.T.flatten(), color='k')
+                        ax.plot(centroid2.T.flatten(), color='k')
+                        ax.set_title('merge '+str(k1)+' '+str(k2))
+
+                        #~ fig, ax = plt.subplots()
+                        #~ ax.plot(np.median(waveforms1, axis=0).T.flatten(), color='m')
+                        #~ ax.plot(np.median(waveforms2, axis=0).T.flatten(), color='c')
+
                         plt.show()
+                    
+                    
+                    mask = cc.all_peaks['cluster_label'] == k2
+                    cc.all_peaks['cluster_label'][mask] = k1
+                    
+                    new_centroids.append(k1)
+                    pop_from_cluster.append(k2)
+                    labels[j] = -1
+                    nb_merge += 1
+                    
+
         
         #~ for k in np.unique(pop_from_cluster):
             #~ cc.pop_labels_from_cluster([k])
@@ -458,7 +503,11 @@ def auto_merge(catalogueconstructor,
                 #~ centroids.pop(k)
         
         #~ print('nb_merge', nb_merge)
-        if nb_merge == 0:
+        if recursive_loop:
+            if nb_merge == 0:
+                break
+        else:
+            # one loop only
             break
 
 

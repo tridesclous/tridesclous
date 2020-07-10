@@ -94,6 +94,7 @@ def numba_explore_shifts(long_waveform, one_center,  one_mask, maximum_jitter_sh
 
 @jit(parallel=True)
 def numba_explore_best_template(fifo_residuals, left_ind, peak_chan_ind, centers, centers_normed, template_weight,
+                                    common_mask,
                                     sparse_mask_level1, sparse_mask_level2, sparse_mask_level3, sparse_mask_level4):
     #~ full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
     
@@ -113,7 +114,9 @@ def numba_explore_best_template(fifo_residuals, left_ind, peak_chan_ind, centers
             sum_sc = 0.
             sum_wd = 0.
             for chan in range(nb_chan):
-                if sparse_mask_level1[clus_idx, chan]:
+                if sparse_mask_level4[clus_idx, chan]:
+                #~ if sparse_mask_level3[clus_idx, chan]:
+                #~ if common_mask[chan]:
                     for s in range(width):
                         v = fifo_residuals[left_ind+s, chan]
                         
@@ -121,8 +124,8 @@ def numba_explore_best_template(fifo_residuals, left_ind, peak_chan_ind, centers
                         
                         sum_sc += v * centers_normed[clus_idx, s, chan] # * w
                         
-                        #~ d = v - centers[clus_idx, s, chan]
-                        #~ sum_wd += d*d * w
+                        d = v - centers[clus_idx, s, chan]
+                        sum_wd += d*d * w
             
             scalar_product[clus_idx] = sum_sc
             weighted_distance[clus_idx] = sum_wd
@@ -131,8 +134,7 @@ def numba_explore_best_template(fifo_residuals, left_ind, peak_chan_ind, centers
 
 
 @jit(parallel=True)
-def numba_explore_best_shift(fifo_residuals, left_ind, centers, centers_normed, candidates_idx, template_weight,
-                    common_sparse_mask, maximum_jitter_shift, sparse_mask_level1):
+def numba_explore_best_shift(fifo_residuals, left_ind, centers, projector, candidates_idx,  maximum_jitter_shift):
 
     nb_clus, width, nb_chan = centers.shape
     
@@ -148,24 +150,19 @@ def numba_explore_best_shift(fifo_residuals, left_ind, centers, centers_normed, 
         for clus in prange(len(candidates_idx)):
             clus_idx = candidates_idx[clus]
             
-            sum_sc = 0.
-            sum_wd = 0.
+            sum_sp = 0.
+            sum_d = 0.
             for chan in range(nb_chan):
-                if common_sparse_mask[chan] or sparse_mask_level1[clus_idx, chan]:
+                for s in range(width):
+                    v = fifo_residuals[left_ind+s+shift, chan]
+                    ct = centers[clus_idx, s, chan]
                     
-                    for s in range(width):
-                        v = fifo_residuals[left_ind+s+shift, chan]
-                        w = template_weight[s, chan]
-                        
-                        if sparse_mask_level1[clus_idx, chan]:
-                            sum_sc += v * centers_normed[clus_idx, s, chan] # * w
-                        
-                        if common_sparse_mask[chan]:
-                            d = v - centers[clus_idx, s, chan]
-                            sum_wd += d * d * w
-            
-            shift_distance[clus, shi] = sum_wd
-            shift_scalar_product[clus, shi] = sum_sc
+                    sum_sp += (v - ct) * projector[clus_idx, s*chan] # 2D
+                    
+                    sum_d += (v - ct) * (v - ct)
+                    
+            shift_scalar_product[clus, shi] = sum_sp
+            shift_distance[clus, shi] = sum_d
     
     return shift_scalar_product, shift_distance
 

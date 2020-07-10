@@ -114,12 +114,28 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
         print('extract_some_features', t2-t1)
     
     t1 = time.perf_counter()
-    cc.find_clusters(method=params['cluster_method'], **params['cluster_kargs'])
+    cc.find_clusters(method=params['cluster_method'], recompute_centroid=False, order=False, **params['cluster_kargs'])
     t2 = time.perf_counter()
     if verbose:
         print('find_clusters', t2-t1)
     
+    t1 = time.perf_counter()
+    cc.cache_some_waveforms()
+    t2 = time.perf_counter()
+    if verbose:
+        print('cache_some_waveforms', t2-t1)
     
+    t1 = time.perf_counter()
+    cc.compute_all_centroid()
+    t2 = time.perf_counter()
+    if verbose:
+        print('compute_all_centroid', t2-t1)
+
+    #~ cc.order_clusters(by='waveforms_rms')
+    #~ t2 = time.perf_counter()
+    #~ if verbose:
+        #~ print('order_clusters', t2-t1)
+
     # clean cluster steps
     pclean = params['clean_cluster']
     
