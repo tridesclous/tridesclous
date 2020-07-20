@@ -1700,8 +1700,8 @@ class CatalogueConstructor:
         #~ from .waveformtools import nearest_neighbor_similarity
         
         #~ snn = nearest_neighbor_similarity(self)
-        
-    def compute_boundaries(self, sparse_thresh_level1=1.0, full_hyperplane=True):
+    
+    def compute_boundaries(self, sparse_thresh_level1=1.0, full_hyperplane=False):
         assert self.some_waveforms is not None, 'run cc.cache_some_waveforms() first'
 
 
@@ -1713,7 +1713,7 @@ class CatalogueConstructor:
         sparse_mask_level1 = compute_sparse_mask(centroids, self.mode, method='thresh', thresh=sparse_thresh_level1)
         #~ sparse_mask_level3 = compute_sparse_mask(centroids, self.mode, method='thresh', thresh=thresh)
         
-        share_channel_mask = compute_shared_channel_mask(centroids, self.mode,  sparse_thresh_level1)
+        #~ share_channel_mask = compute_shared_channel_mask(centroids, self.mode,  sparse_thresh_level1)
 
         # sparsify centroids
         #~ sparse_centroids = centroids.copy()
@@ -1737,6 +1737,8 @@ class CatalogueConstructor:
             print()
             print('cluster_idx0', cluster_idx0)
             
+        
+            # all channel
             if full_hyperplane:
                 # all centroids / all channelss
                 chan_mask = np.ones(self.nb_channel, dtype='bool')
@@ -1745,47 +1747,76 @@ class CatalogueConstructor:
             else:
                 # only centroids / channel that are on sparse mask
                 chan_mask = sparse_mask_level1[cluster_idx0, :]
+                
+                # case1 sharing chan_mask
                 #~ nover = np.sum(sparse_mask_level1[:, chan_mask], axis=1)
                 #~ clus_mask = (nover > 0)
-                clus_mask = np.ones(n, dtype='bool')
+                
+                # case2 5 nearest template
+                distances = np.sum((centroids - centroids[[cluster_idx0], :, :])**2, axis=(1,2))
+                print(distances)
+                order = np.argsort(distances)
+                print(order)
+                print(distances[order])
+                nearest = order[:5]
+                print(nearest)
+                clus_mask = np.zeros(n, dtype='bool')
+                clus_mask[nearest] = True
+                
+                
+                # case3 all cluster
+                #~ clus_mask = np.ones(n, dtype='bool')
+                
                 local_indexes0, = np.nonzero(clus_mask)
                 local_idx0 = np.nonzero(local_indexes0 == cluster_idx0)[0][0]
+                
             
             local_nclus = np.sum(clus_mask)
             local_chan = np.sum(chan_mask)
             flat_centroids = centroids[clus_mask, :, :][:, :, chan_mask].reshape(local_nclus, -1).T.copy()
+            print('local_nclus', local_nclus, 'local_chan', local_chan)
             
             
             flat_centroid0 = flat_centroids[:, local_idx0]
+            #~ flat_centroid0 = centroids[cluster_idx0, :, :][:, chan_mask].flatten()
             
             other_mask = np.ones(local_nclus, dtype='bool')
             other_mask[local_idx0] = False
             other_centroids = flat_centroids[:, other_mask]
-
+            
+            # without noise in hyper plan
             shift = -other_centroids[:, 0]
             centerred_other_centroids = other_centroids.copy()
             centerred_other_centroids += shift[:, np.newaxis]
-            #~ centerred_other_centroids = centerred_other_centroids[:, 1:]  # without noise in hyper plan
-            centerred_other_centroids = centerred_other_centroids[:, :] # with noise in hyper plan
-            
+            centerred_other_centroids = centerred_other_centroids[:, 1:]
             q, r = np.linalg.qr(centerred_other_centroids, mode='reduced')
             centroid0_proj = q @ q.T @ (flat_centroid0 + shift) - shift
-
+            
+            # with noise (center) in hyper plan
+            #~ centerred_other_centroids = other_centroids.copy()
+            #~ q, r = np.linalg.qr(centerred_other_centroids, mode='reduced')
+            #~ centroid0_proj = q @ q.T @ (flat_centroid0)
+            
             ortho_complement = centroid0_proj - flat_centroid0
             #~ print(ortho_complement)
             ortho_complement /= np.sum(ortho_complement**2)
             
             inner_othogonal_projector_3d[cluster_idx0, :, :][:, chan_mask] = ortho_complement.reshape(centroids.shape[1], local_chan)
             
-            projector = ortho_complement
+            #~ projector = 
+            
+
+                
+            
+            #~ projector = ortho_complement
+            projector =inner_othogonal_projector_3d[cluster_idx0, :][:, chan_mask].flatten()
             
             #~ fig, ax = plt.subplots()
             #~ ax.plot(ortho_complement)
             #~ plt.show()
             
-            
             wf0 = self.get_cached_waveforms(label0)
-            print('wf0.shape', wf0.shape)
+            flat_centroid0 = centroids[cluster_idx0, :, :][:, chan_mask].flatten()
             wf0 = wf0[:, :, chan_mask].copy()
             flat_wf0 = wf0.reshape(wf0.shape[0], -1)
             feat_wf0 = (flat_wf0 - flat_centroid0) @ projector
@@ -1869,14 +1900,14 @@ class CatalogueConstructor:
             
                 
 
-        if True:
-        #~ if False:
+        #~ if True:
+        if False:
             
             colors_ = sns.color_palette('husl', n)
             colors = {i: colors_[i] for i, k in enumerate(cluster_labels)}
             for cluster_idx0, label0 in enumerate(cluster_labels):
-                if not cluster_idx0 in (2,3):
-                    continue
+                #~ if not cluster_idx0 in (2,3):
+                    #~ continue
                 colors_ = sns.color_palette('husl', n)
                 colors = {i: colors_[i] for i, k in enumerate(cluster_labels)}
                 
@@ -1890,21 +1921,25 @@ class CatalogueConstructor:
                 ax.axvline(low, color='k')
                 ax.axvline(high, color='k')
                 
-
+                
+                fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
 
                 for cluster_idx1, label1 in enumerate(cluster_labels):
-                    if not cluster_idx1 in (2,3):
-                        continue
+                    #~ if not cluster_idx1 in (2,3):
+                        #~ continue
                     
 
-                    channel_shared = share_channel_mask[cluster_idx0, cluster_idx1]
+                    #~ channel_shared = share_channel_mask[cluster_idx0, cluster_idx1]
                     
                     #~ if not channel_shared:
                         #~ continue
-                
+
                     cross_sp = scalar_products[cluster_idx0, cluster_idx1]
                     count, bins = np.histogram(cross_sp, bins=150)
                     ax.plot(bins[:-1], count, color=colors[cluster_idx1])
+                    
+                    ax2.plot(centroids[cluster_idx1, :, :].T.flatten(),  color=colors[cluster_idx1])
+                    
                 
                 feat_noise = scalar_products[cluster_idx0, -1]
                 count, bins = np.histogram(feat_noise, bins=150)
@@ -1916,8 +1951,14 @@ class CatalogueConstructor:
                 title = f'scalar_products {cluster_idx0} {nearest}'
                 ax.set_title(title)
                 
-                #~ plt.show()
-            plt.show()
+                shape = centroids[cluster_idx0, :, :].shape
+                ax1.plot(inner_othogonal_projector[cluster_idx0, :].reshape(shape).T.flatten(), color='b')
+                #~ fig, ax = plt.subplots()
+                ax2.plot(centroids[cluster_idx0, :, :].T.flatten(), color='k', ls='--')
+                
+                
+                plt.show()
+            #~ plt.show()
 
             
             

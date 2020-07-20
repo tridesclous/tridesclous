@@ -398,43 +398,46 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             possible_idx, = np.nonzero((scalar_products < high_boundary) & (scalar_products > low_boundary))
             
             if len(possible_idx) == 1:
-                cluster_idx = possible_idx[0]
+                #~ cluster_idx = possible_idx[0]
                 extra_idx = None
-                candidates_idx = [cluster_idx] # for shift
+                #~ candidates_idx = [cluster_idx] # for shift
+                candidates_idx =possible_idx
             elif len(possible_idx) == 0:
                 extra_idx, = np.nonzero((np.abs(scalar_products) < 0.5))
                 print('extra_idx', extra_idx)
                 if len(extra_idx) ==0:
-                    cluster_idx = None
+                    #~ cluster_idx = None
                     candidates_idx = []
-                    shift = None
+                    #~ shift = None
                 else:
-                    cluster_idx = extra_idx[np.argmin(scalar_products[extra_idx])]
+                    #~ cluster_idx = extra_idx[np.argmin(scalar_products[extra_idx])]
                     candidates_idx = extra_idx
             elif len(possible_idx) > 1 :
-                cluster_idx = np.argmin(scalar_products)
+                #~ cluster_idx = np.argmin(scalar_products)
                 extra_idx = None
                 candidates_idx = possible_idx
             
             debug_plot_change = False
-            if len(candidates_idx):
+            if len(candidates_idx) > 0:
                 candidates_idx = np.array(candidates_idx, dtype='int64')
                 shift_scalar_product, shift_distance = numba_explore_best_shift(self.fifo_residuals, left_ind, self.catalogue['centers0'],
                                 self.catalogue['inner_othogonal_projector'], candidates_idx, self.maximum_jitter_shift) 
                 #~ i0, i1 = np.unravel_index(np.argmin(np.abs(shift_scalar_product), axis=None), shift_scalar_product.shape)
                 i0, i1 = np.unravel_index(np.argmin(shift_distance, axis=None), shift_distance.shape)
-                best_idx = candidates_idx[i0]
+                #~ best_idx = candidates_idx[i0]
                 shift = self.shifts[i1]
+                cluster_idx = candidates_idx[i0]
                 
                 
-                if best_idx != cluster_idx:
-                    print('*'*50)
-                    print('best_idx != cluster_idx', best_idx, cluster_idx)
-                    print('*'*50)
-                    cluster_idx = best_idx
-                    debug_plot_change = True
-                
-                
+                #~ if best_idx != cluster_idx:
+                    #~ print('*'*50)
+                    #~ print('best_idx != cluster_idx', best_idx, cluster_idx)
+                    #~ print('*'*50)
+                    #~ cluster_idx = best_idx
+                    #~ debug_plot_change = True
+            else:
+                cluster_idx = None
+                shift = None
                 #~ fig, ax = plt.subplots()
                 #~ ax.plot(self.shifts, shift_scalar_product.T)
                 #~ plt.show()
@@ -445,6 +448,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #~ if True:
             #~ if len(possible_idx) != 1:
             #~ if len(possible_idx) > 1:
+            #~ len(possible_idx) > 1
             
             #~ if 7 in possible_idx or  cluster_idx == 7:
             #~ if cluster_idx not in possible_idx and len(possible_idx) > 0:
@@ -463,7 +467,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                 full_waveform2 = self.fifo_residuals[left_ind+shift2:left_ind+shift2+self.peak_width,:]
                 
                 ax.plot(full_waveform2.T.flatten(), color='k')
-                if shift !=0:
+                if shift !=0 and shift is not None:
                     ax.plot(full_waveform.T.flatten(), color='grey', ls='--')
                 
                 for idx in candidates_idx:
@@ -1117,49 +1121,53 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #~ full_wf0 = self.catalogue['centers0'][cluster_idx,: , :][:, mask]
             #~ full_wf1 = self.catalogue['centers1'][cluster_idx,: , :][:, mask]
             #~ full_wf2 = self.catalogue['centers2'][cluster_idx,: , :][:, mask]
+            if np.sum(mask) == 0:
+                # normally not possible unless no clean step
+                accept_template = False
+            else:
+                
+                # waveform L2 on mask
+                full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
+                wf = full_waveform[:, mask]
+                #~ wf_nrj = np.sum(full_wf**2, axis=0)
+                
+                # prediction L2 on mask
+                #~ pred_wf = (full_wf0+jitter*full_wf1+jitter**2/2*full_wf2)
+                
+                # prediction with interpolation
+                _, pred_wf = make_prediction_one_spike(left_ind - self.n_left, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
+                pred_wf = pred_wf[:, mask]
             
-            # waveform L2 on mask
-            full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
-            wf = full_waveform[:, mask]
-            #~ wf_nrj = np.sum(full_wf**2, axis=0)
-            
-            # prediction L2 on mask
-            #~ pred_wf = (full_wf0+jitter*full_wf1+jitter**2/2*full_wf2)
-            
-            # prediction with interpolation
-            _, pred_wf = make_prediction_one_spike(left_ind - self.n_left, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
-            pred_wf = pred_wf[:, mask]
-        
-            dist = (pred_wf - wf) ** 2
-            
-            
-            # criteria per channel
-            #~ residual_nrj_by_chan = np.sum(dist, axis=0)
-            #~ wf_nrj = np.sum(wf**2, axis=0)
-            #~ weight = self.weight_per_template_dict[cluster_idx]
-            #~ crietria_weighted = (wf_nrj>residual_nrj_by_chan).astype('float') * weight
-            #~ accept_template = np.sum(crietria_weighted) >= 0.7 * np.sum(weight)
-            
-            # criteria per sample
-            #~ dist * np.abs(pred_wf) < 
-            #~ dist_w = dist / np.abs(pred_wf)
-            gain = (dist < wf**2).astype('float') * np.abs(pred_wf) / np.sum(np.abs(pred_wf))
-            #~ gain = (wf / pred_wf - 1) * np.abs(pred_wf) / np.sum(np.abs(pred_wf))
-            #~ gain = (pred_wf**2 / wf**1 - 1) * np.abs(pred_wf) / np.sum(np.abs(pred_wf))
-            #~ accept_template = np.sum(gain) > 0.8
-            #~ accept_template = np.sum(gain) > 0.7
-            accept_template0 = np.sum(gain) > 0.6
-            #~ accept_template = np.sum(gain) > 0.5
-            
-            # criteria max residual
-            max_res = np.max(np.abs(pred_wf - wf))
-            max_pred = np.max(np.abs(pred_wf))
-            accept_template1 = max_pred > max_res
-            
-            accept_template = accept_template0 and accept_template1
-            #~ accept_template = accept_template0
-            #~ accept_template = accept_template1
-            
+                dist = (pred_wf - wf) ** 2
+                
+                
+                # criteria per channel
+                #~ residual_nrj_by_chan = np.sum(dist, axis=0)
+                #~ wf_nrj = np.sum(wf**2, axis=0)
+                #~ weight = self.weight_per_template_dict[cluster_idx]
+                #~ crietria_weighted = (wf_nrj>residual_nrj_by_chan).astype('float') * weight
+                #~ accept_template = np.sum(crietria_weighted) >= 0.7 * np.sum(weight)
+                
+                # criteria per sample
+                #~ dist * np.abs(pred_wf) < 
+                #~ dist_w = dist / np.abs(pred_wf)
+                gain = (dist < wf**2).astype('float') * np.abs(pred_wf) / np.sum(np.abs(pred_wf))
+                #~ gain = (wf / pred_wf - 1) * np.abs(pred_wf) / np.sum(np.abs(pred_wf))
+                #~ gain = (pred_wf**2 / wf**1 - 1) * np.abs(pred_wf) / np.sum(np.abs(pred_wf))
+                #~ accept_template = np.sum(gain) > 0.8
+                #~ accept_template = np.sum(gain) > 0.7
+                accept_template0 = np.sum(gain) > 0.6
+                #~ accept_template = np.sum(gain) > 0.5
+                
+                # criteria max residual
+                max_res = np.max(np.abs(pred_wf - wf))
+                max_pred = np.max(np.abs(pred_wf))
+                accept_template1 = max_pred > max_res
+                
+                accept_template = accept_template0 and accept_template1
+                #~ accept_template = accept_template0
+                #~ accept_template = accept_template1
+                
             # DEBUG
             #~ accept_template = False
             
