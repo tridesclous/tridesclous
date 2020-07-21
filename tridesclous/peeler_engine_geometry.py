@@ -379,9 +379,11 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             
             centers0 = self.catalogue['centers0']
             inner_othogonal_projector = self.catalogue['inner_othogonal_projector']
-            othogonal_bondaries = self.catalogue['othogonal_bondaries']
-            low_boundary = othogonal_bondaries[:, 0]
-            high_boundary = othogonal_bondaries[:, 1]
+
+            strict_low = self.catalogue['boundaries'][:, 0]
+            strict_high = self.catalogue['boundaries'][:, 1]
+            flexible_low = self.catalogue['boundaries'][:, 2]
+            flexible_high = self.catalogue['boundaries'][:, 3]
             
             
             n = centers0.shape[0]
@@ -395,8 +397,10 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             scalar_products = np.sum((flat_waveform[np.newaxis, :] - flat_centers0[:, :]) * inner_othogonal_projector[:, :], axis=1)
             #~ print(scalar_products)
             
-            possible_idx, = np.nonzero((scalar_products < high_boundary) & (scalar_products > low_boundary))
+            possible_idx, = np.nonzero((scalar_products < strict_high) & (scalar_products > strict_low))
             
+            
+            #~ do_plot = False
             if len(possible_idx) == 1:
                 #~ cluster_idx = possible_idx[0]
                 extra_idx = None
@@ -404,7 +408,8 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                 candidates_idx =possible_idx
             elif len(possible_idx) == 0:
                 extra_idx, = np.nonzero((np.abs(scalar_products) < 0.5))
-                print('extra_idx', extra_idx)
+                #~ extra_idx, = np.nonzero((scalar_products < flexible_high) & (scalar_products > flexible_low))
+                
                 if len(extra_idx) ==0:
                     #~ cluster_idx = None
                     candidates_idx = []
@@ -420,13 +425,20 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             debug_plot_change = False
             if len(candidates_idx) > 0:
                 candidates_idx = np.array(candidates_idx, dtype='int64')
+                common_mask = np.sum(self.sparse_mask_level3[candidates_idx, :], axis=0) > 0
                 shift_scalar_product, shift_distance = numba_explore_best_shift(self.fifo_residuals, left_ind, self.catalogue['centers0'],
-                                self.catalogue['inner_othogonal_projector'], candidates_idx, self.maximum_jitter_shift) 
+                                self.catalogue['inner_othogonal_projector'], candidates_idx, self.maximum_jitter_shift, common_mask) 
                 #~ i0, i1 = np.unravel_index(np.argmin(np.abs(shift_scalar_product), axis=None), shift_scalar_product.shape)
                 i0, i1 = np.unravel_index(np.argmin(shift_distance, axis=None), shift_distance.shape)
                 #~ best_idx = candidates_idx[i0]
                 shift = self.shifts[i1]
                 cluster_idx = candidates_idx[i0]
+                if np.abs(shift) == self.maximum_jitter_shift:
+                    cluster_idx = None
+                    shift = None
+                    #~ print('maximum_jitter_shift >> cluster_idx = None ')
+                    #~ do_plot = True
+                
                 
                 
                 #~ if best_idx != cluster_idx:
@@ -444,6 +456,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             
             
             #~ if cluster_idx in (3,6):
+            #~ if do_plot:
             if False:
             #~ if True:
             #~ if len(possible_idx) != 1:
@@ -459,7 +472,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                 print('possible_idx', possible_idx)
                 print('extra_idx', extra_idx)
                 print(scalar_products[possible_idx])
-                print(high_boundary[possible_idx])
+                print(strict_high[possible_idx])
                 
                 
                 fig, ax = plt.subplots()
@@ -1088,20 +1101,23 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         #~ feat_distance = np.sum((feat_waveform - feat_centroids[cluster_idx,:])**2)
 
         centers0 = self.catalogue['centers0']
-        othogonal_bondaries = self.catalogue['othogonal_bondaries']
         inner_othogonal_projector = self.catalogue['inner_othogonal_projector']
-        high_boundary = othogonal_bondaries[:, 1]
-        low_boundary = othogonal_bondaries[:, 0]
+        
+        strict_low = self.catalogue['boundaries'][:, 0]
+        strict_high = self.catalogue['boundaries'][:, 1]
+        flexible_low = self.catalogue['boundaries'][:, 2]
+        flexible_high = self.catalogue['boundaries'][:, 3]
+        
         
         flat_waveform = full_waveform.flatten()
         sp = np.sum((flat_waveform - centers0[cluster_idx, :].flatten()) * inner_othogonal_projector[cluster_idx, :])
         
-        #~ high_boundary
+        #~ strict_high
         
 
-        #~ print('sp',sp, 'boundary', high_boundary[cluster_idx])
+        #~ print('sp',sp, 'boundary', strict_high[cluster_idx])
         
-        immediate_accept = low_boundary[cluster_idx] < sp < high_boundary[cluster_idx]
+        immediate_accept = strict_low[cluster_idx] < sp < strict_high[cluster_idx]
         
         #~ print('distance2', distance2, 'distance', distance)
 
@@ -1164,12 +1180,16 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                 max_pred = np.max(np.abs(pred_wf))
                 accept_template1 = max_pred > max_res
                 
+                
+                accept_template2 = flexible_low[cluster_idx] < sp < flexible_high[cluster_idx]
+                
                 accept_template = accept_template0 and accept_template1
+                #~ accept_template = accept_template0 and accept_template1 and accept_template2
                 #~ accept_template = accept_template0
                 #~ accept_template = accept_template1
                 
-            # DEBUG
-            #~ accept_template = False
+                #~ # DEBUG
+                accept_template = False
             
             
             
@@ -1263,7 +1283,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             ax.plot(full_waveform.T.flatten(), color='k')
             ax.plot(pred_waveform.T.flatten(), color=color)
             
-            l0, l1 = othogonal_bondaries[cluster_idx, :]
+            l0, l1 = strict_boundaries[cluster_idx, :]
             title = f'{cluster_idx} {sp:0.3f} lim [{l0:0.3f} {l1:0.3f}]'
             ax.set_title(title)
                 

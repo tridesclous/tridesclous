@@ -1708,6 +1708,8 @@ class CatalogueConstructor:
         keep = self.cluster_labels>=0
         cluster_labels = self.clusters[keep]['cluster_label'].copy()
         centroids = self.centroids_median[keep, :, :].copy()
+        
+        #~ centroids[np.abs(centroids)<0.5] = 0.
 
         thresh = self.info['peak_detector_params']['relative_threshold']
         sparse_mask_level1 = compute_sparse_mask(centroids, self.mode, method='thresh', thresh=sparse_thresh_level1)
@@ -1731,7 +1733,7 @@ class CatalogueConstructor:
         inner_othogonal_projector = np.zeros(flat_shape, dtype='float32')
         inner_othogonal_projector_3d = inner_othogonal_projector.reshape(centroids.shape)
         scalar_products = np.zeros((n+1, n+1), dtype=object)
-        othogonal_bondaries = np.zeros((n, 2), dtype='float32')
+        boundaries = np.zeros((n, 4), dtype='float32')
         
         for cluster_idx0, label0 in enumerate(cluster_labels):
             print()
@@ -1753,19 +1755,24 @@ class CatalogueConstructor:
                 #~ clus_mask = (nover > 0)
                 
                 # case2 5 nearest template
-                distances = np.sum((centroids - centroids[[cluster_idx0], :, :])**2, axis=(1,2))
-                print(distances)
-                order = np.argsort(distances)
-                print(order)
-                print(distances[order])
-                nearest = order[:5]
-                print(nearest)
-                clus_mask = np.zeros(n, dtype='bool')
-                clus_mask[nearest] = True
-                
+                #~ distances = np.sum((centroids - centroids[[cluster_idx0], :, :])**2, axis=(1,2))
+                #~ order = np.argsort(distances)
+                #~ nearest = order[:8]
+                #~ clus_mask = np.zeros(n, dtype='bool')
+                #~ clus_mask[nearest] = True
                 
                 # case3 all cluster
                 #~ clus_mask = np.ones(n, dtype='bool')
+                
+                # case 4 : sharing chan_mask + N nearest
+                nover = np.sum(sparse_mask_level1[:, chan_mask], axis=1)
+                sharing_mask = (nover > 0)
+                distances = np.sum((centroids - centroids[[cluster_idx0], :, :])**2, axis=(1,2))
+                distances[~sharing_mask] = np.inf
+                order = np.argsort(distances)
+                nearest = order[:8]
+                clus_mask = np.zeros(n, dtype='bool')
+                clus_mask[nearest] = True
                 
                 local_indexes0, = np.nonzero(clus_mask)
                 local_idx0 = np.nonzero(local_indexes0 == cluster_idx0)[0][0]
@@ -1782,24 +1789,32 @@ class CatalogueConstructor:
             
             other_mask = np.ones(local_nclus, dtype='bool')
             other_mask[local_idx0] = False
-            other_centroids = flat_centroids[:, other_mask]
             
-            # without noise in hyper plan
-            shift = -other_centroids[:, 0]
-            centerred_other_centroids = other_centroids.copy()
-            centerred_other_centroids += shift[:, np.newaxis]
-            centerred_other_centroids = centerred_other_centroids[:, 1:]
-            q, r = np.linalg.qr(centerred_other_centroids, mode='reduced')
-            centroid0_proj = q @ q.T @ (flat_centroid0 + shift) - shift
+            if np.sum(other_mask) > 0:
+                other_centroids = flat_centroids[:, other_mask]
+                # without noise in hyper plan
+                shift = -other_centroids[:, 0]
+                centerred_other_centroids = other_centroids.copy()
+                centerred_other_centroids += shift[:, np.newaxis]
+                centerred_other_centroids = centerred_other_centroids[:, 1:]
+                q, r = np.linalg.qr(centerred_other_centroids, mode='reduced')
+                centroid0_proj = q @ q.T @ (flat_centroid0 + shift) - shift
+
+                # with noise (center) in hyper plan
+                #~ centerred_other_centroids = other_centroids.copy()
+                #~ q, r = np.linalg.qr(centerred_other_centroids, mode='reduced')
+                #~ centroid0_proj = q @ q.T @ (flat_centroid0)
+                
+                ortho_complement = centroid0_proj - flat_centroid0
+                ortho_complement /= np.sum(ortho_complement**2)                
+                
+            else:
+                # alone one theses channels = make projection with noise
+                ortho_complement = 0 - flat_centroid0
+                ortho_complement /= np.sum(ortho_complement**2)                
             
-            # with noise (center) in hyper plan
-            #~ centerred_other_centroids = other_centroids.copy()
-            #~ q, r = np.linalg.qr(centerred_other_centroids, mode='reduced')
-            #~ centroid0_proj = q @ q.T @ (flat_centroid0)
+
             
-            ortho_complement = centroid0_proj - flat_centroid0
-            #~ print(ortho_complement)
-            ortho_complement /= np.sum(ortho_complement**2)
             
             inner_othogonal_projector_3d[cluster_idx0, :, :][:, chan_mask] = ortho_complement.reshape(centroids.shape[1], local_chan)
             
@@ -1817,6 +1832,8 @@ class CatalogueConstructor:
             
             wf0 = self.get_cached_waveforms(label0)
             flat_centroid0 = centroids[cluster_idx0, :, :][:, chan_mask].flatten()
+            
+            
             wf0 = wf0[:, :, chan_mask].copy()
             flat_wf0 = wf0.reshape(wf0.shape[0], -1)
             feat_wf0 = (flat_wf0 - flat_centroid0) @ projector
@@ -1850,6 +1867,7 @@ class CatalogueConstructor:
                 flat_wf1 = wf1.reshape(wf1.shape[0], -1) 
                 feat_centroid1 = (centroid1.flatten() - flat_centroid0) @ projector
                 feat_wf1 = (flat_wf1- flat_centroid0) @ projector
+                
                 #~ cross_dist = np.sum((feat_wf1 - feat_centroid0)**2, axis=0)
                 
                 scalar_products[cluster_idx0, cluster_idx1] = feat_wf1
@@ -1868,12 +1886,18 @@ class CatalogueConstructor:
             inner_sp = scalar_products[cluster_idx0, cluster_idx0]
             med, mad = median_mad(inner_sp)
             
+            mad_factor = 6
+            #~ mad_factor = 5
             #~ mad_factor = 4
-            mad_factor = 3
+            #~ mad_factor = 3
+            #~ mad_factor = 2.5
             #~ low = np.min(inner_sp)
-            low = max(np.max(med - mad_factor * mad), -0.5)
-            high = min(np.max(med + mad_factor * mad), 0.5)
-            high_mad3 = med + 3 * mad
+            #~ low = max(med - mad_factor * mad, -0.5)
+            low = med - mad_factor * mad
+            initial_low = low
+            #~ high = min(med + mad_factor * mad, 0.5)
+            high = med + mad_factor * mad
+            initial_high = high
 
             # TODO ajust boundaries
             for cluster_idx1, label1 in enumerate(cluster_labels):
@@ -1881,27 +1905,31 @@ class CatalogueConstructor:
                     continue
                 cross_sp = scalar_products[cluster_idx0, cluster_idx1]
                 med, mad = median_mad(cross_sp)
-                if (med - 3 * mad) < high:
-                    middle = (high_mad3 + (med - 3 * mad)) * 0.5
+                if (med - mad_factor * mad) < high:
+                    middle = (initial_high + (med - mad_factor * mad)) * 0.5
                     high = middle
                     
             noise_sp = scalar_products[cluster_idx0, -1]
             med, mad = median_mad(noise_sp)
             if (med - mad_factor * mad) < high:
-                #~ middle = (high_mad3 + (med - 3 * mad)) * 0.5
+                #~ middle = (initial_high + (med - mad_factor * mad)) * 0.5
                 high = med - mad_factor * mad
             
-            othogonal_bondaries[cluster_idx0, 0] = low
-            othogonal_bondaries[cluster_idx0, 1] = high
+            boundaries[cluster_idx0, 0] = low
+            boundaries[cluster_idx0, 1] = high
+            
+            # flexible boundaries
+            boundaries[cluster_idx0, 2] = initial_low
+            boundaries[cluster_idx0, 3] = initial_high
+            
             if high <0:
                 # too complicated
                 print('warning boundary', cluster_labels[cluster_idx0], 'cluster_idx0', cluster_idx0)
-                othogonal_bondaries[cluster_idx0, :] = 0.
-            
-                
+                boundaries[cluster_idx0, 0] = 0.
+                boundaries[cluster_idx0, 1] = 0.
 
-        #~ if True:
-        if False:
+        if True:
+        #~ if False:
             
             colors_ = sns.color_palette('husl', n)
             colors = {i: colors_[i] for i, k in enumerate(cluster_labels)}
@@ -1916,10 +1944,15 @@ class CatalogueConstructor:
                 fig, ax = plt.subplots()
                 count, bins = np.histogram(inner_sp, bins=150)
                 ax.plot(bins[:-1], count, color=colors[cluster_idx0])
-                low = othogonal_bondaries[cluster_idx0, 0]
-                high = othogonal_bondaries[cluster_idx0, 1]
+                low = boundaries[cluster_idx0, 0]
+                high = boundaries[cluster_idx0, 1]
                 ax.axvline(low, color='k')
                 ax.axvline(high, color='k')
+
+                low = boundaries[cluster_idx0, 2]
+                high = boundaries[cluster_idx0, 3]
+                ax.axvline(low, color='grey')
+                ax.axvline(high, color='grey')
                 
                 
                 fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
@@ -1962,7 +1995,7 @@ class CatalogueConstructor:
 
             
             
-        return inner_othogonal_projector, othogonal_bondaries
+        return inner_othogonal_projector, boundaries
         
         
 
@@ -2348,9 +2381,9 @@ class CatalogueConstructor:
         #~ self.catalogue['feat_centroids']  = feat_centroids
         #~ self.catalogue['projector']  = projector
 
-        inner_othogonal_projector, othogonal_bondaries = self.compute_boundaries(sparse_thresh_level1=sparse_thresh_level1)
+        inner_othogonal_projector, boundaries = self.compute_boundaries(sparse_thresh_level1=sparse_thresh_level1)
         self.catalogue['inner_othogonal_projector']  = inner_othogonal_projector
-        self.catalogue['othogonal_bondaries']  = othogonal_bondaries
+        self.catalogue['boundaries']  = boundaries
         
            
         

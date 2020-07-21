@@ -134,7 +134,7 @@ def numba_explore_best_template(fifo_residuals, left_ind, peak_chan_ind, centers
 
 
 @jit(parallel=True)
-def numba_explore_best_shift(fifo_residuals, left_ind, centers, projector, candidates_idx,  maximum_jitter_shift):
+def numba_explore_best_shift(fifo_residuals, left_ind, centers, projector, candidates_idx,  maximum_jitter_shift, common_mask):
 
     nb_clus, width, nb_chan = centers.shape
     
@@ -153,13 +153,14 @@ def numba_explore_best_shift(fifo_residuals, left_ind, centers, projector, candi
             sum_sp = 0.
             sum_d = 0.
             for chan in range(nb_chan):
-                for s in range(width):
-                    v = fifo_residuals[left_ind+s+shift, chan]
-                    ct = centers[clus_idx, s, chan]
-                    
-                    sum_sp += (v - ct) * projector[clus_idx, s*chan] # 2D
-                    
-                    sum_d += (v - ct) * (v - ct)
+                if common_mask[chan]:
+                    for s in range(width):
+                        v = fifo_residuals[left_ind+s+shift, chan]
+                        ct = centers[clus_idx, s, chan]
+                        
+                        sum_sp += (v - ct) * projector[clus_idx, s*chan] # 2D
+                        
+                        sum_d += (v - ct) * (v - ct)
                     
             shift_scalar_product[clus, shi] = sum_sp
             shift_distance[clus, shi] = sum_d

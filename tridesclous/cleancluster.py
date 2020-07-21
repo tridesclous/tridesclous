@@ -245,7 +245,7 @@ def auto_split(catalogueconstructor,
             #~ if True:
             #~ if False:
             if debug_plot:
-                print('label', label,'pval', pval, pval<pval_thresh)
+                #~ print('label', label,'pval', pval, pval<pval_thresh)
                 #~ print('label', label,'pval', pval, pval<pval_thresh)
                 
                 fig, axs = plt.subplots(ncols=4)
@@ -405,12 +405,12 @@ def auto_merge(catalogueconstructor,
                     # this can have been removed yet
                     continue
                 
-                print(k1, k2)
+                #~ print(k1, k2)
                 #~ print('  k2', k2)
                 
                 if not share_channel_mask[i, j]:
                     
-                    print('skip')
+                    #~ print('skip')
                     continue
                 
                 

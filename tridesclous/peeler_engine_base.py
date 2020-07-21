@@ -280,8 +280,8 @@ class PeelerEngineGeneric(PeelerEngineBase):
         
         #~ if pos >= 19200:
             #~ self._plot_debug = True
-        #~ if self._plot_debug:
-        if True:
+        if self._plot_debug:
+        #~ if True:
             print('*'*10)
             print('process_one_chunk', pos)
         
@@ -309,8 +309,8 @@ class PeelerEngineGeneric(PeelerEngineBase):
         t3 = time.perf_counter()
         
         while True: # main loop
-            #~ if self._plot_debug:
-            if True:
+            if self._plot_debug:
+            #~ if True:
                 print('** peeler level +1 **')
             nb_good_spike = 0
             
