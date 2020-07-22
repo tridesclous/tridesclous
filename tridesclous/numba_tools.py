@@ -134,6 +134,35 @@ def numba_explore_best_template(fifo_residuals, left_ind, peak_chan_ind, centers
 
 
 @jit(parallel=True)
+def numba_sparse_scalar_product(fifo_residuals, left_ind, centers, projector, peak_chan_ind,
+                        sparse_mask_level1, sparse_mask_level2, sparse_mask_level3,):
+    nb_clus, width, nb_chan = centers.shape
+    
+    scalar_product = np.zeros((nb_clus,), dtype=np.float32)
+    
+    for clus_idx in prange(nb_clus):
+        if not sparse_mask_level1[clus_idx, peak_chan_ind]:
+            scalar_product[clus_idx] = 10. # equivalent to np.inf
+        else:
+            sum_sp = 0.
+            for chan in range(nb_chan):
+                if sparse_mask_level1[clus_idx, chan]:
+                    for s in range(width):
+                        v = fifo_residuals[left_ind+s, chan]
+                        ct = centers[clus_idx, s, chan]
+                        
+                        sum_sp += (v - ct) * projector[clus_idx, s*nb_chan + chan] # 2D
+                    
+            scalar_product[clus_idx] = sum_sp
+    
+    return scalar_product
+    
+
+
+
+
+
+@jit(parallel=True)
 def numba_explore_best_shift(fifo_residuals, left_ind, centers, projector, candidates_idx,  maximum_jitter_shift, common_mask):
 
     nb_clus, width, nb_chan = centers.shape
@@ -158,7 +187,7 @@ def numba_explore_best_shift(fifo_residuals, left_ind, centers, projector, candi
                         v = fifo_residuals[left_ind+s+shift, chan]
                         ct = centers[clus_idx, s, chan]
                         
-                        sum_sp += (v - ct) * projector[clus_idx, s*chan] # 2D
+                        sum_sp += (v - ct) * projector[clus_idx, s*nb_chan + chan] # 2D
                         
                         sum_d += (v - ct) * (v - ct)
                     
@@ -166,6 +195,7 @@ def numba_explore_best_shift(fifo_residuals, left_ind, centers, projector, candi
             shift_distance[clus, shi] = sum_d
     
     return shift_scalar_product, shift_distance
+
 
 
 

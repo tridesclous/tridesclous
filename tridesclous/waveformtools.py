@@ -115,7 +115,7 @@ def equal_template(centroid0, waveforms0, centroid1, waveforms1, n_shift = 2, qu
     mask1 = np.any(np.abs(centroid1) > sparse_thresh, axis=0)
     mask = mask1 | mask0
     
-    print(centroid0.shape)
+    #~ print(centroid0.shape)
 
     #~ centroid0_ = centroid0[np.newaxis, n_shift:-n_shift, :]
     
@@ -168,18 +168,18 @@ def equal_template(centroid0, waveforms0, centroid1, waveforms1, n_shift = 2, qu
         
         #~ if np.median(dist_1_to_0)<limit:
         #~ if True:
-        if equal:
+        #~ if equal:
                 
-            import matplotlib.pyplot as plt
+            #~ import matplotlib.pyplot as plt
 
-            fig, ax = plt.subplots()
-            count, bins = np.histogram(inner_sp, bins=100)
-            ax.plot(bins[:-1], count, color='g')
-            count, bins = np.histogram(cross_sp, bins=100)
-            ax.plot(bins[:-1], count, color='r')
-            ax.axvline(l0)
-            ax.axvline(l1)
-            ax.set_title(f'merge {equal} shift {shift}')
+            #~ fig, ax = plt.subplots()
+            #~ count, bins = np.histogram(inner_sp, bins=100)
+            #~ ax.plot(bins[:-1], count, color='g')
+            #~ count, bins = np.histogram(cross_sp, bins=100)
+            #~ ax.plot(bins[:-1], count, color='r')
+            #~ ax.axvline(l0)
+            #~ ax.axvline(l1)
+            #~ ax.set_title(f'merge {equal} shift {shift}')
 
             
             #~ fig, ax = plt.subplots()

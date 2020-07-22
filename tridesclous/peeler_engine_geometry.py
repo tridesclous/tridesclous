@@ -29,7 +29,7 @@ from .peakdetector import get_peak_detector_class
 try:
     import numba
     HAVE_NUMBA = True
-    from .numba_tools import numba_loop_sparse_dist_with_geometry, numba_explore_shifts, numba_explore_best_template, numba_explore_best_shift
+    from .numba_tools import numba_loop_sparse_dist_with_geometry, numba_explore_shifts, numba_explore_best_template, numba_explore_best_shift, numba_sparse_scalar_product
 except ImportError:
     HAVE_NUMBA = False
 
@@ -394,8 +394,13 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #~ for i in range(n):
                 #~ sp = np.sum((flat_waveform - flat_centers0[i, :]) * inner_othogonal_projector[i, :])
                 #~ scalar_products[i] = sp
-            scalar_products = np.sum((flat_waveform[np.newaxis, :] - flat_centers0[:, :]) * inner_othogonal_projector[:, :], axis=1)
+            #~ scalar_products = np.sum((flat_waveform[np.newaxis, :] - flat_centers0[:, :]) * inner_othogonal_projector[:, :], axis=1)
             #~ print(scalar_products)
+            
+            scalar_products = numba_sparse_scalar_product(self.fifo_residuals, left_ind, centers0, inner_othogonal_projector, chan_ind,
+                        self.sparse_mask_level1, self.sparse_mask_level2, self.sparse_mask_level3,)
+            #~ print(scalar_products)
+            
             
             possible_idx, = np.nonzero((scalar_products < strict_high) & (scalar_products > strict_low))
             
@@ -1180,7 +1185,6 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                 max_pred = np.max(np.abs(pred_wf))
                 accept_template1 = max_pred > max_res
                 
-                
                 accept_template2 = flexible_low[cluster_idx] < sp < flexible_high[cluster_idx]
                 
                 accept_template = accept_template0 and accept_template1
@@ -1283,7 +1287,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             ax.plot(full_waveform.T.flatten(), color='k')
             ax.plot(pred_waveform.T.flatten(), color=color)
             
-            l0, l1 = strict_boundaries[cluster_idx, :]
+            l0, l1 = strict_low[cluster_idx], strict_high[cluster_idx]
             title = f'{cluster_idx} {sp:0.3f} lim [{l0:0.3f} {l1:0.3f}]'
             ax.set_title(title)
                 

@@ -1734,6 +1734,7 @@ class CatalogueConstructor:
         inner_othogonal_projector_3d = inner_othogonal_projector.reshape(centroids.shape)
         scalar_products = np.zeros((n+1, n+1), dtype=object)
         boundaries = np.zeros((n, 4), dtype='float32')
+        neighbors = {}
         
         for cluster_idx0, label0 in enumerate(cluster_labels):
             print()
@@ -1762,17 +1763,17 @@ class CatalogueConstructor:
                 #~ clus_mask[nearest] = True
                 
                 # case3 all cluster
-                #~ clus_mask = np.ones(n, dtype='bool')
+                clus_mask = np.ones(n, dtype='bool')
                 
                 # case 4 : sharing chan_mask + N nearest
-                nover = np.sum(sparse_mask_level1[:, chan_mask], axis=1)
-                sharing_mask = (nover > 0)
-                distances = np.sum((centroids - centroids[[cluster_idx0], :, :])**2, axis=(1,2))
-                distances[~sharing_mask] = np.inf
-                order = np.argsort(distances)
-                nearest = order[:8]
-                clus_mask = np.zeros(n, dtype='bool')
-                clus_mask[nearest] = True
+                #~ nover = np.sum(sparse_mask_level1[:, chan_mask], axis=1)
+                #~ sharing_mask = (nover > 0)
+                #~ distances = np.sum((centroids - centroids[[cluster_idx0], :, :])**2, axis=(1,2))
+                #~ distances[~sharing_mask] = np.inf
+                #~ order = np.argsort(distances)
+                #~ nearest = order[:8]
+                #~ clus_mask = np.zeros(n, dtype='bool')
+                #~ clus_mask[nearest] = True
                 
                 local_indexes0, = np.nonzero(clus_mask)
                 local_idx0 = np.nonzero(local_indexes0 == cluster_idx0)[0][0]
@@ -1792,21 +1793,84 @@ class CatalogueConstructor:
             
             if np.sum(other_mask) > 0:
                 other_centroids = flat_centroids[:, other_mask]
+                
                 # without noise in hyper plan
-                shift = -other_centroids[:, 0]
-                centerred_other_centroids = other_centroids.copy()
-                centerred_other_centroids += shift[:, np.newaxis]
-                centerred_other_centroids = centerred_other_centroids[:, 1:]
-                q, r = np.linalg.qr(centerred_other_centroids, mode='reduced')
-                centroid0_proj = q @ q.T @ (flat_centroid0 + shift) - shift
+                #~ shift = -other_centroids[:, 0]
+                #~ centerred_other_centroids = other_centroids.copy()
+                #~ centerred_other_centroids += shift[:, np.newaxis]
+                #~ centerred_other_centroids = centerred_other_centroids[:, 1:]
+                #~ q, r = np.linalg.qr(centerred_other_centroids, mode='reduced')
+                #~ centroid0_proj = q @ q.T @ (flat_centroid0 + shift) - shift
+                #~ ortho_complement = centroid0_proj - flat_centroid0
+                #~ ortho_complement /= np.sum(ortho_complement**2)                
 
                 # with noise (center) in hyper plan
                 #~ centerred_other_centroids = other_centroids.copy()
                 #~ q, r = np.linalg.qr(centerred_other_centroids, mode='reduced')
                 #~ centroid0_proj = q @ q.T @ (flat_centroid0)
+                #~ ortho_complement = centroid0_proj - flat_centroid0
+                #~ ortho_complement /= np.sum(ortho_complement**2)                
                 
-                ortho_complement = centroid0_proj - flat_centroid0
-                ortho_complement /= np.sum(ortho_complement**2)                
+
+                #TEST1
+                #~ centerred_other_centroids = other_centroids.copy()
+                #~ ind_min = np.argmin(np.abs(centerred_other_centroids - flat_centroid0[:, np.newaxis]), axis=1)
+                #~ centroid0_proj = centerred_other_centroids[np.arange(centerred_other_centroids.shape[0], dtype='int'), ind_min]
+                #TEST2
+                #~ centerred_other_centroids = other_centroids.copy()
+                #~ ind_min = np.argmin(np.sum((centerred_other_centroids - flat_centroid0[:, np.newaxis])**2, axis=0))
+                #~ centroid0_proj = centerred_other_centroids[:, ind_min]
+                #TEST3
+                ind_min = np.argmin(np.sum((other_centroids - flat_centroid0[:, np.newaxis])**2, axis=0))
+                other_select = [ind_min]
+                while True:
+                    if len(other_select) == 1:
+                        centroid0_proj = other_centroids[:, other_select[0]]
+                    else:
+                        #~ shift = -other_centroids[:, 0]
+                        centerred_other_centroids = other_centroids[:, other_select].copy()
+                        shift = -centerred_other_centroids[:, 0]
+                        centerred_other_centroids += shift[:, np.newaxis]
+                        centerred_other_centroids = centerred_other_centroids[:, 1:]
+                        q, r = np.linalg.qr(centerred_other_centroids, mode='reduced')
+                        centroid0_proj = q @ q.T @ (flat_centroid0 + shift) - shift
+                        
+                    local_projector = centroid0_proj - flat_centroid0
+                    local_projector /= np.sum(local_projector**2)                
+                    other_feat = (other_centroids - flat_centroid0[:, np.newaxis]).T @ local_projector
+                    
+                    ind,  = np.nonzero(np.abs(other_feat) < 1.)
+                    if np.all(np.in1d(ind, other_select)):
+                        break
+                    other_select.extend(ind)
+                    other_select = list(np.unique(other_select))
+                    
+                    #~ print('other_select', other_select)
+                    #~ print('other_feat', other_feat)
+                
+                print('other_select', len(other_select))
+                neighbors[cluster_idx0] = np.nonzero(clus_mask)[0][other_select]
+                
+                
+                
+                #~ exit()
+                ortho_complement = local_projector
+
+                    
+                    
+                    
+                    
+                
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(flat_centroid0.reshape(centroids.shape[1], -1).T.flatten())
+                #~ ax.plot(centroid0_proj.reshape(centroids.shape[1], -1).T.flatten())
+                #~ plt.show()
+                
+                #~ centerred_other_centroids = centerred_other_centroids[:, 1:]
+                #~ q, r = np.linalg.qr(centerred_other_centroids, mode='reduced')
+                #~ centroid0_proj = q @ q.T @ (flat_centroid0 + shift) - shift
+
+                
                 
             else:
                 # alone one theses channels = make projection with noise
@@ -1886,9 +1950,10 @@ class CatalogueConstructor:
             inner_sp = scalar_products[cluster_idx0, cluster_idx0]
             med, mad = median_mad(inner_sp)
             
-            mad_factor = 6
+            #~ mad_factor = 6
             #~ mad_factor = 5
             #~ mad_factor = 4
+            mad_factor = 3.5
             #~ mad_factor = 3
             #~ mad_factor = 2.5
             #~ low = np.min(inner_sp)
@@ -1905,31 +1970,35 @@ class CatalogueConstructor:
                     continue
                 cross_sp = scalar_products[cluster_idx0, cluster_idx1]
                 med, mad = median_mad(cross_sp)
-                if (med - mad_factor * mad) < high:
+                if med > high and (med - mad_factor * mad) < high:
                     middle = (initial_high + (med - mad_factor * mad)) * 0.5
                     high = middle
-                    
+                
+                if med < low and (med + mad_factor * mad) > low:
+                    middle = (low + (med + mad_factor * mad)) * 0.5
+                    low = middle
+            
             noise_sp = scalar_products[cluster_idx0, -1]
             med, mad = median_mad(noise_sp)
             if (med - mad_factor * mad) < high:
                 #~ middle = (initial_high + (med - mad_factor * mad)) * 0.5
                 high = med - mad_factor * mad
             
-            boundaries[cluster_idx0, 0] = low
-            boundaries[cluster_idx0, 1] = high
+            boundaries[cluster_idx0, 0] = max(low, -0.5)
+            boundaries[cluster_idx0, 1] = min(high, 0.5)
             
             # flexible boundaries
-            boundaries[cluster_idx0, 2] = initial_low
-            boundaries[cluster_idx0, 3] = initial_high
+            boundaries[cluster_idx0, 2] = max(initial_low, -0.5)
+            boundaries[cluster_idx0, 3] = min(initial_high, 0.5)
             
             if high <0:
                 # too complicated
-                print('warning boundary', cluster_labels[cluster_idx0], 'cluster_idx0', cluster_idx0)
+                print('warning boundary label=', cluster_labels[cluster_idx0], 'cluster_idx0=', cluster_idx0)
                 boundaries[cluster_idx0, 0] = 0.
                 boundaries[cluster_idx0, 1] = 0.
 
-        if True:
-        #~ if False:
+        #~ if True:
+        if False:
             
             colors_ = sns.color_palette('husl', n)
             colors = {i: colors_[i] for i, k in enumerate(cluster_labels)}
@@ -1938,6 +2007,10 @@ class CatalogueConstructor:
                     #~ continue
                 colors_ = sns.color_palette('husl', n)
                 colors = {i: colors_[i] for i, k in enumerate(cluster_labels)}
+                
+                print()
+                print(cluster_idx0)
+                print(neighbors[cluster_idx0])
                 
                 
                 inner_sp = scalar_products[cluster_idx0, cluster_idx0]
@@ -1951,11 +2024,11 @@ class CatalogueConstructor:
 
                 low = boundaries[cluster_idx0, 2]
                 high = boundaries[cluster_idx0, 3]
-                ax.axvline(low, color='grey')
-                ax.axvline(high, color='grey')
+                ax.axvline(low, color='grey', ls='--')
+                ax.axvline(high, color='grey', ls='--')
                 
                 
-                fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
+                #~ fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
 
                 for cluster_idx1, label1 in enumerate(cluster_labels):
                     #~ if not cluster_idx1 in (2,3):
@@ -1971,7 +2044,7 @@ class CatalogueConstructor:
                     count, bins = np.histogram(cross_sp, bins=150)
                     ax.plot(bins[:-1], count, color=colors[cluster_idx1])
                     
-                    ax2.plot(centroids[cluster_idx1, :, :].T.flatten(),  color=colors[cluster_idx1])
+                    #~ ax2.plot(centroids[cluster_idx1, :, :].T.flatten(),  color=colors[cluster_idx1])
                     
                 
                 feat_noise = scalar_products[cluster_idx0, -1]
@@ -1980,18 +2053,17 @@ class CatalogueConstructor:
                 
                 
                 #~ share_channel_clus, = np.nonzero(share_channel_mask[cluster_idx0])
-                nearest = None
+                nearest = neighbors[cluster_idx0]
                 title = f'scalar_products {cluster_idx0} {nearest}'
                 ax.set_title(title)
                 
-                shape = centroids[cluster_idx0, :, :].shape
-                ax1.plot(inner_othogonal_projector[cluster_idx0, :].reshape(shape).T.flatten(), color='b')
-                #~ fig, ax = plt.subplots()
-                ax2.plot(centroids[cluster_idx0, :, :].T.flatten(), color='k', ls='--')
+                #~ shape = centroids[cluster_idx0, :, :].shape
+                #~ ax1.plot(inner_othogonal_projector[cluster_idx0, :].reshape(shape).T.flatten(), color='b')
+                #~ ax2.plot(centroids[cluster_idx0, :, :].T.flatten(), color='k', ls='--')
                 
                 
-                plt.show()
-            #~ plt.show()
+                #~ plt.show()
+            plt.show()
 
             
             
@@ -2288,7 +2360,7 @@ class CatalogueConstructor:
                             inter_sample_oversampling=False,
                             #~ inter_sample_oversampling=True,
                             subsample_ratio='auto',
-                            sparse_thresh_level1=1.5,
+                            sparse_thresh_level1=1.,
                             sparse_thresh_level2=3,
                             sparse_channel_count=7,
                             #~ sparse_thresh_level2=5,
