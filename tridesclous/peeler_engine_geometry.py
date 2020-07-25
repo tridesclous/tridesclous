@@ -99,6 +99,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         chunksize = self.fifo_size-2*self.n_span # not the real chunksize here
         self.peakdetector = PeakDetector_class(self.sample_rate, self.nb_channel,
                                                         chunksize, self.internal_dtype, self.geometry)
+
         self.peakdetector.change_params(**p)
         
         # some attrs
@@ -114,6 +115,8 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             else:
                 self.channels_adjacency[c] = np.arange(self.nb_channel, dtype='int64')
         
+        
+        self.mask_already_tested = np.zeros((self.fifo_size, self.nb_channel), dtype='bool')
         
         if self.argmin_method == 'opencl'  and self.catalogue['centers0'].size>0:
             
@@ -192,62 +195,96 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
 
 
     def detect_local_peaks_before_peeling_loop(self):
+        # reset tested mask
+        self.mask_already_tested[:] = False
+        # and detect peak
+        self.re_detect_local_peak()
+        
+        #~ print('detect_local_peaks_before_peeling_loop', self.pending_peaks.size)
+
+    def re_detect_local_peak(self):
         mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
         if mask.ndim ==1:
-            local_peaks_indexes,   = np.nonzero(mask)
-            chan_indexes = np.zeros(local_peaks_indexes.size, dtype='int64')
+            #~ mask &= ~self.mask_already_tested[self.n_span:-self.n_span, 0]
+            sample_indexes,   = np.nonzero(mask)
+            sample_indexes += self.n_span
+            tested = self.mask_already_tested[sample_indexes, 0]
+            sample_indexes = sample_indexes[~tested]
+            chan_indexes = np.zeros(sample_indexes.size, dtype='int64')
         else:
-            local_peaks_indexes, chan_indexes  = np.nonzero(mask)
-        local_peaks_indexes += self.n_span
-        amplitudes = np.abs(self.fifo_residuals[local_peaks_indexes, chan_indexes])
+            #~ mask &= ~self.mask_already_tested[self.n_span:-self.n_span, :]
+            sample_indexes, chan_indexes  = np.nonzero(mask)
+            sample_indexes += self.n_span
+            tested = self.mask_already_tested[sample_indexes, chan_indexes]
+            sample_indexes = sample_indexes[~tested]
+            chan_indexes = chan_indexes[~tested]
+        
+        
+        amplitudes = np.abs(self.fifo_residuals[sample_indexes, chan_indexes])
         order = np.argsort(amplitudes)[::-1]
-        self.pending_peaks = list(zip(local_peaks_indexes[order], chan_indexes[order]))
-        self.already_tested = []
+        
+        #~ self.pending_peaks = list(zip(sample_indexes[order], chan_indexes[order]))
+        #~ self.already_tested = []
+        
+        dtype_peak = [('sample_index', 'int32'), ('chan_index', 'int32'), ('peak_value', 'float32')]
+        self.pending_peaks = np.zeros(sample_indexes.size, dtype=dtype_peak)
+        self.pending_peaks['sample_index'] = sample_indexes
+        self.pending_peaks['chan_index'] = chan_indexes
+        self.pending_peaks['peak_value'] = amplitudes
+        self.pending_peaks = self.pending_peaks[order]
+        #~ print('re_detect_local_peak', self.pending_peaks.size)
+
     
     def select_next_peak(self):
         #~ print(len(self.pending_peaks))
         if len(self.pending_peaks)>0:
-            peak_ind, chan_ind = self.pending_peaks[0]
+            sample_ind, chan_ind, ampl = self.pending_peaks[0]
             self.pending_peaks = self.pending_peaks[1:]
-            return peak_ind, chan_ind
+            return sample_ind, chan_ind
         else:
             return LABEL_NO_MORE_PEAK, None
 
     #~ def on_accepted_spike(self, spike):
-    def on_accepted_spike(self, peak_ind, cluster_idx, jitter):
+    def on_accepted_spike(self, sample_ind, cluster_idx, jitter):
         # remove spike prediction from fifo residuals
         #~ left_ind = spike.index + self.n_left
         #~ cluster_idx = self.catalogue['label_to_index'][spike.cluster_label]
         #~ peak_index = spike.index
         #~ pos, pred = make_prediction_one_spike(spike.index, cluster_idx, spike.jitter, self.fifo_residuals.dtype, self.catalogue)
-        pos, pred = make_prediction_one_spike(peak_ind, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
+        pos, pred = make_prediction_one_spike(sample_ind, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
         self.fifo_residuals[pos:pos+self.peak_width, :] -= pred
         
         # this prevent search peaks in the zone until next "reset_to_not_tested"
-        #~ self.set_already_tested_spike_zone(spike.index, cluster_idx)
-        self.set_already_tested_spike_zone(peak_ind, cluster_idx)
+        #~ self.clean_pending_peaks_zone(spike.index, cluster_idx)
+        self.clean_pending_peaks_zone(sample_ind, cluster_idx)
 
-    def set_already_tested_spike_zone(self, peak_ind, cluster_idx):
+    def clean_pending_peaks_zone(self, sample_ind, cluster_idx):
         # TODO test with sparse_mask_level3s!!!!!
         mask = self.sparse_mask_level1[cluster_idx, :]
-        #~ keep = [not((ind == peak_ind) and (mask[chan_ind])) for ind, chan_ind in self.pending_peaks]
-        #~ keep = [(ind != peak_ind) and not(mask[chan_ind]) for ind, chan_ind in self.pending_peaks]
+        #~ keep = [not((ind == sample_ind) and (mask[chan_ind])) for ind, chan_ind in self.pending_peaks]
+        #~ keep = [(ind != sample_ind) and not(mask[chan_ind]) for ind, chan_ind in self.pending_peaks]
         
-        pending_peaks_ = []
-        #~ for p, ok in zip(self.pending_peaks, keep):
-        for ind, chan_ind in self.pending_peaks:
-            #~ ok = (ind != peak_ind) and not(mask[chan_ind])
-            in_zone = mask[chan_ind] and (ind+self.n_left<peak_ind<ind+self.n_right)
+        #~ pending_peaks_ = []
+        keep = np.zeros(self.pending_peaks.size, dtype='bool')
+        for i, peak in enumerate(self.pending_peaks):
+            #~ ok = (ind != sample_ind) and not(mask[chan_ind])
+            in_zone = mask[peak['chan_index']] and (peak['sample_index']+self.n_left<sample_ind<peak['sample_index']+self.n_right)
             if in_zone:
-                self.already_tested.append((ind, chan_ind))
+                #~ self.already_tested.append((ind, chan_ind)) # ERREUR!!!!!!!
+                pass
+                keep[i] = False
             else:
-                pending_peaks_.append((ind, chan_ind))
-        self.pending_peaks = pending_peaks_
+                keep[i] = True
+        self.pending_peaks = self.pending_peaks[keep]
+        
+        #~ print('clean_pending_peaks_zone', self.pending_peaks.size)
     
-    def set_already_tested(self, peak_ind, peak_chan):
-        #~ self.mask_not_already_tested[peak_ind - self.n_span, peak_chan] = False
-        #~ self.pending_peaks = [p for p in self.pending_peaks if (p[0]!=peak_ind) and (peak_chan!=p[1])]
-        self.already_tested.append((peak_ind, peak_chan))
+    def set_already_tested(self, sample_ind, peak_chan):
+        #~ self.mask_not_already_tested[sample_ind - self.n_span, peak_chan] = False
+        #~ self.pending_peaks = [p for p in self.pending_peaks if (p[0]!=sample_ind) and (peak_chan!=p[1])]
+        #~ self.already_tested.append((sample_ind, peak_chan))
+        
+        self.mask_already_tested[sample_ind, peak_chan] = True
 
     def reset_to_not_tested(self, good_spikes):
         #~ print('reset_to_not_tested', len(good_spikes))
@@ -256,34 +293,31 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         for spike in good_spikes:
             # each good spike can remove from
             cluster_idx = self.catalogue['label_to_index'][spike.cluster_label]
-            mask = self.sparse_mask_level1[cluster_idx, :]
-            self.already_tested = [ p for p in self.already_tested if not((np.abs(p[0]-spike.index)<self.peak_width)  and mask[p[1]] ) ]
+            chan_mask = self.sparse_mask_level1[cluster_idx, :]
+            #~ self.already_tested = [ p for p in self.already_tested if not((np.abs(p[0]-spike.index)<self.peak_width)  and mask[p[1]] ) ]
+            self.mask_already_tested[spike.index + self.n_left:spike.index + self.n_right][:, chan_mask] = False
         #~ print('self.already_tested reduced', len(self.already_tested))
         # 
-        mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
         
-        # debug
-        #~ self.already_tested =[]
-
-        if mask.ndim ==1:
-            local_peaks_indexes,   = np.nonzero(mask)
-            chan_indexes = np.zeros(local_peaks_indexes.size, dtype='int64')
-        else:
-            local_peaks_indexes, chan_indexes  = np.nonzero(mask)
-
-        local_peaks_indexes += self.n_span
-        # TODO fix amplitudes when mask.ndim ==1
-        amplitudes = np.abs(self.fifo_residuals[local_peaks_indexes, chan_indexes])
-        order = np.argsort(amplitudes)[::-1]
-        possible_pending_peaks = list(zip(local_peaks_indexes[order], chan_indexes[order]))
+        self.re_detect_local_peak()
         
-        self.pending_peaks = []
-        for peak in possible_pending_peaks:
-            #~ ok = all((peak[0] != p[0]) and (peak[1] != p[1]) for p in self.already_tested)
-            if peak not in self.already_tested:
-                self.pending_peaks.append(peak)
+        #~ mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
+        
+        #~ if mask.ndim ==1:
+            #~ sample_indexes,   = np.nonzero(mask)
+            #~ chan_indexes = np.zeros(sample_indexes.size, dtype='int64')
+        #~ else:
+            #~ sample_indexes, chan_indexes  = np.nonzero(mask)
 
-        #~ print('self.pending_peaks', len(self.pending_peaks))
+        #~ sample_indexes += self.n_span
+        #~ amplitudes = np.abs(self.fifo_residuals[sample_indexes, chan_indexes])
+        #~ order = np.argsort(amplitudes)[::-1]
+        #~ possible_pending_peaks = list(zip(sample_indexes[order], chan_indexes[order]))
+        
+        #~ self.pending_peaks = []
+        #~ for peak in possible_pending_peaks:
+            #~ if peak not in self.already_tested:
+                #~ self.pending_peaks.append(peak)
 
     def get_no_label_peaks(self):
         mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
@@ -403,27 +437,28 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             
             
             possible_idx, = np.nonzero((scalar_products < strict_high) & (scalar_products > strict_low))
+            #~ possible_idx, = np.nonzero((scalar_products < flexible_high) & (scalar_products > flexible_low))
             
             
             #~ do_plot = False
             if len(possible_idx) == 1:
-                #~ cluster_idx = possible_idx[0]
                 extra_idx = None
-                #~ candidates_idx = [cluster_idx] # for shift
                 candidates_idx =possible_idx
             elif len(possible_idx) == 0:
-                extra_idx, = np.nonzero((np.abs(scalar_products) < 0.5))
-                #~ extra_idx, = np.nonzero((scalar_products < flexible_high) & (scalar_products > flexible_low))
-                
-                if len(extra_idx) ==0:
-                    #~ cluster_idx = None
-                    candidates_idx = []
-                    #~ shift = None
-                else:
-                    #~ cluster_idx = extra_idx[np.argmin(scalar_products[extra_idx])]
-                    candidates_idx = extra_idx
+                #~ extra_idx, = np.nonzero((np.abs(scalar_products) < 0.5))
+                extra_idx, = np.nonzero((scalar_products < flexible_high) & (scalar_products > flexible_low))
+                #~ if len(extra_idx) ==0:
+                    # give a try to very far ones.
+                    #~ extra_idx, = np.nonzero((np.abs(scalar_products) < 1.))
+                    #~ print('extra_idx', extra_idx)
+                #~ if len(extra_idx) ==0:
+                    #~ candidates_idx = []
+                #~ else:
+                    #~ candidates_idx = extra_idx
+                candidates_idx = extra_idx
+                #~ candidates_idx =possible_idx
+                #~ pass
             elif len(possible_idx) > 1 :
-                #~ cluster_idx = np.argmin(scalar_products)
                 extra_idx = None
                 candidates_idx = possible_idx
             
@@ -443,6 +478,15 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                     shift = None
                     #~ print('maximum_jitter_shift >> cluster_idx = None ')
                     #~ do_plot = True
+                #~ i0_bis, i1_bis = np.unravel_index(np.argmin(np.abs(shift_scalar_product), axis=None), shift_scalar_product.shape)
+                #~ if i0 != i0_bis:
+                    
+                    #~ debug_plot_change = True
+                    #~ print('Warning')
+                    #~ print(possible_idx)
+                    #~ print(shift_scalar_product)
+                    #~ print(shift_distance)
+                
                 
                 
                 
@@ -507,521 +551,6 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             
             return cluster_idx, shift, None
 
-        elif self.argmin_method == 'numba_not_so_old':
-            full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
-            
-            
-            mean_centroid = self.catalogue['mean_centroid']
-            projector = self.catalogue['projector']
-            feat_centroids = self.catalogue['feat_centroids']
-            
-            feat_waveform = (full_waveform.flatten() - mean_centroid) @ projector
-            
-            feat_distances = np.sum((feat_centroids - feat_waveform[np.newaxis])**2, axis=1)
-            #~ print(len(feat_distances), ':', feat_distances)
-            cluster_idx = np.argmin(feat_distances)
-            #~ print(feat_waveform.shape)
-            
-            
-            possible_idx, = np.nonzero(feat_distances < self.catalogue['feat_distance_boundaries'])
-            #~ print()
-            #~ print('best cluster_idx', cluster_idx)
-            #~ print('possible_idx', possible_idx)
-            
-            
-            
-            
-            #~ if len(possible_idx) != 1:
-            #~ if len(possible_idx) > 1:
-            if False:
-            #~ if cluster_idx not in possible_idx and len(possible_idx) > 0:
-                print()
-                print('best cluster_idx', cluster_idx)
-                print('possible_idx', possible_idx)
-                print(feat_distances[possible_idx])
-                print(self.catalogue['feat_distance_boundaries'][possible_idx])
-                
-                
-                
-                fig, ax = plt.subplots()
-                ax.plot(feat_centroids.T, alpha=0.5)
-                ax.plot(feat_waveform, color='k')
-                
-                fig, ax = plt.subplots()
-                ax.plot(full_waveform.T.flatten(), color='k')
-                for idx in possible_idx:
-                    ax.plot(self.catalogue['centers0'][idx, :].T.flatten(), color='m')
-                ax.plot(self.catalogue['centers0'][cluster_idx, :].T.flatten(), color='c', ls='--')
-                ax.set_title(f'best {cluster_idx} possible_idx {possible_idx}')
-                
-                plt.show()
-            
-            shift = 0
-            
-            return cluster_idx, shift, None
-            
-            #~ exit()
-            
-            
-        
-        elif self.argmin_method == 'numba_old2':
-            
-            # commmon mask
-            intercept_channel = self.sparse_mask_level3[:, chan_ind]
-            print('intercept_channel', np.sum(intercept_channel))
-            common_mask = np.sum(self.sparse_mask_level3[intercept_channel, :], axis=0) > 0
-            print('common_mask', np.sum(common_mask))
-            
-            
-            scalar_products, weighted_distance = numba_explore_best_template(self.fifo_residuals, left_ind, chan_ind,
-                                    self.catalogue['centers0'], self.catalogue['centers0_normed'], self.catalogue['template_weight'],
-                                    common_mask,
-                                    self.catalogue['sparse_mask_level1'], 
-                                    self.catalogue['sparse_mask_level2'], 
-                                    self.catalogue['sparse_mask_level3'], 
-                                    self.catalogue['sparse_mask_level4'])
-            
-            
-            
-            if max(scalar_products)<0:
-                cluster_idx = -1
-                shift = None
-                return cluster_idx, shift, None
-            
-            #~ possibles_idx1, = np.nonzero((scalar_products > 0) &
-                            #~ (scalar_products > self.catalogue['sp_normed_limit'][:, 0]) &
-                            #~ (scalar_products < self.catalogue['sp_normed_limit'][:, 1]))
-
-            #~ factor = 0.3
-            #~ possibles_idx1, = np.nonzero(scalar_products > (self.catalogue['sp_normed_limit'][:, 0] * 0.8))
-            #~ possibles_idx1, = np.nonzero(scalar_products > (self.catalogue['sp_normed_limit'][:, 0] * 0.5))
-            #~ possibles_idx1, = np.nonzero(scalar_products > (self.catalogue['sp_normed_limit'][:, 0] * 0.1))
-            #~ possibles_idx1, = np.nonzero(scalar_products > 0)
-            possibles_idx1 = np.array([], dtype='int64')
-
-            #~ possibles_idx, = np.nonzero(scalar_products>0)
-
-            
-            #~ min_ = min(weighted_distance)
-            #~ factor = 2.
-            #~ possibles_idx2, = np.nonzero(weighted_distance<(min_ * factor))
-            
-            #~ factor = 2
-            #~ factor = 3
-            #~ factor = 8
-            possibles_idx2, = np.nonzero(weighted_distance<(self.distance_limit))
-            #~ print(weighted_distance)
-            #~ print(self.distance_limit)
-            #~ possibles_idx2 = np.array([], dtype='int64')
-            
-            #~ candidates_idx = np.union1d(possibles_idx1, possibles_idx2)
-            candidates_idx = possibles_idx2
-            
-            
-            print()
-            #~ print(possibles_idx1, possibles_idx2)
-            print(candidates_idx)
-            if len(candidates_idx) == 0:
-                print()
-                
-                peak_val = self.fifo_residuals[left_ind-self.n_left, chan_ind]   # debug
-                print('No candidate', 'peak_val', peak_val, 'chan_ind', chan_ind)
-                cluster_idx = -1
-                shift = None
-                
-                #~ print('ici', self.catalogue['sparse_mask_level3'][:, chan_ind])
-                #~ print(np.nonzero(self.catalogue['sparse_mask_level3'][:, chan_ind]))
-                #~ print(scalar_products)
-                #~ print(self.catalogue['sp_normed_limit'][:, 0])
-                
-                #~ if True:
-                    #~ fig, ax = plt.subplots()
-                    #~ full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
-                    #~ ax.plot(full_waveform.T.flatten(), color='k')
-                    #~ ax.set_title('No candidate')
-                    #~ plt.show()                
-                return cluster_idx, shift, None                
-                
-            
-            
-            common_mask = np.sum(self.sparse_mask_level2[candidates_idx, :], axis=0) > 0
-            #~ common_mask = np.sum(self.sparse_mask_level3[candidates_idx, :], axis=0) > 0
-            if candidates_idx.size > 1:
-                discriminant_weight = np.zeros((self.peak_width, self.nb_channel), dtype='float32')
-                for clus1 in candidates_idx:
-                    for clus2 in candidates_idx:
-                        if clus1 < clus2:
-                            discriminant_weight += np.abs(self.catalogue['centers0'][clus1, :, :] - self.catalogue['centers0'][clus2, :, :])
-            else:
-                discriminant_weight = np.ones((self.peak_width, self.nb_channel), dtype='float32')
-            discriminant_weight[:, ~common_mask] = 0 
-            discriminant_weight /= np.sum(discriminant_weight)
-            #~ print(discriminant_weight)
-            
-
-            #~ shift_scalar_product, shift_distance = numba_explore_best_shift(self.fifo_residuals, left_ind, self.catalogue['centers0'], self.catalogue['centers0_normed'],
-                            #~ candidates_idx, self.catalogue['template_weight'], common_mask, self.maximum_jitter_shift, self.catalogue['sparse_mask_level1'])
-                            
-            shift_scalar_product, shift_distance = numba_explore_best_shift(self.fifo_residuals, left_ind, self.catalogue['centers0'], self.catalogue['centers0_normed'],
-                            candidates_idx, discriminant_weight, common_mask, self.maximum_jitter_shift, self.catalogue['sparse_mask_level1'])
-
-            
-            
-            #~ print(shift_scalar_product)
-            #~ print(shift_distance)
-            i0, i1 = np.unravel_index(np.argmin(shift_distance, axis=None), shift_distance.shape)
-            best_idx = candidates_idx[i0]
-            shift = self.shifts[i1]
-            
-            if shift == self.maximum_jitter_shift or shift == -self.maximum_jitter_shift:
-                #~ print('bad shift')
-                cluster_idx = -1
-                shift = None
-                
-                #~ if True:
-                    #~ fig, ax = plt.subplots()
-                    #~ ax.plot(self.shifts, shift_distance.T)
-                    #~ ax.set_title('bad shift')
-
-                    #~ common_mask = np.sum(self.sparse_mask_level3[candidates_idx, :], axis=0) > 0
-                    #~ full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
-                    #~ wf_common = full_waveform[:, common_mask]
-                    
-                    #~ fig, ax = plt.subplots()
-                    #~ ax.plot(wf_common.T.flatten(), color='k')
-                    #~ if len(candidates_idx)>0:
-                        #~ for idx in candidates_idx:
-                            #~ center0 = self.catalogue['centers0'][idx, : , :][:, common_mask]
-                            #~ ax.plot(center0.T.flatten(), label = str(idx))
-                        #~ ax.legend()
-                    #~ plt.show()      
-
-                return cluster_idx, shift, None                
-                
-            
-            distance = None
-            
-            cluster_idx = best_idx
-
-
-            
-            
-            #~ print(shift_distance)
-            #~ exit()
-            
-            
-            #~ best_idx = np.argmin(weighted_distance)
-            #~ cluster_idx = best_idx
-            #~ long_waveform = self.fifo_residuals[left_ind-self.maximum_jitter_shift:left_ind+self.peak_width+self.maximum_jitter_shift+1,:]
-            #~ shifts_dist = numba_explore_shifts(long_waveform, self.catalogue['centers0'][cluster_idx, : , :],
-                                #~ self.sparse_mask_level4[cluster_idx, :], self.maximum_jitter_shift, self.catalogue['template_weight'])
-            #~ ind_min = np.argmin(shifts_dist)
-            #~ shift = self.shifts[ind_min]
-            #~ distance = shifts_dist[ind_min]
-
-
-            # debug
-            mask = self.sparse_mask_level3[cluster_idx]
-            full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
-            wf = full_waveform[:, mask]
-            center0 = self.catalogue['centers0'][cluster_idx, :, :][:, mask]
-            w = self.catalogue['template_weight'][:, mask]
-            distance2 = np.sum((wf - center0)**2 * w)
-            distance2 /= np.sum(w)
-            # debug
-            
-            #~ if True:
-            #~ print(distance2, self.distance_limit[cluster_idx])
-            #~ if distance2 >self.distance_limit[cluster_idx] and cluster_idx in (7,9):
-            if False:
-            #~ if len(candidates_idx) > 1:
-                print(scalar_products)
-                print(weighted_distance)
-                print('possibles_idx1', possibles_idx1)
-                print('possibles_idx2', possibles_idx2)
-                print('candidates_idx', candidates_idx)
-                print('best_idx', best_idx)
-
-                common_mask = np.sum(self.sparse_mask_level3[candidates_idx, :], axis=0) > 0
-                full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
-                wf_common = full_waveform[:, common_mask]
-                
-                fig, ax = plt.subplots()
-                ax.plot(wf_common.T.flatten(), color='k')
-                if len(candidates_idx)>0:
-                    for idx in candidates_idx:
-                        center0 = self.catalogue['centers0'][idx, : , :][:, common_mask]
-                        ax.plot(center0.T.flatten(), label = str(idx))
-                    ax.legend()
-
-
-                fig, ax = plt.subplots()
-                ax.plot(self.shifts, shift_distance.T)
-
-                fig, ax = plt.subplots()
-                ax.plot(self.shifts, shift_scalar_product.T)
-                
-                
-                
-                
-                #~ plt.show()
-                
-                plt.show()
-            
-            
-            
-        elif self.argmin_method == 'numba_old':
-            
-            
-            
-            #TODO remove this rms_waveform_channel no more usefull
-            #~ rms_waveform_channel = np.sum(full_waveform**2, axis=0).astype('float32')
-            
-            #~ possibles_cluster_idx, = np.nonzero(self.sparse_mask_level1[:, chan_ind])
-            possibles_cluster_idx, = np.nonzero(self.sparse_mask_level3[:, chan_ind])
-            
-            if possibles_cluster_idx.size ==0:
-                cluster_idx = -1
-                shift = None
-            else:
-                # option by radius
-                #~ channel_considered = self.channels_adjacency[chan_ind]
-                #~ print()
-                #~ print('radius channel_considered', channel_considered)
-                
-                # option with template sparsity
-                #~ print(self.sparse_mask_level3[possibles_cluster_idx, :])
-                mask = np.sum(self.sparse_mask_level3[possibles_cluster_idx, :], axis=0)
-                #~ np.apply_along_axis(np.logical_or, 0, self.sparse_mask_level3[possibles_cluster_idx, :])
-                #~ print(mask)
-                channel_considered,  = np.nonzero(mask)
-                #~ print('mask channel_considered', channel_considered)
-                #~ exit()
-                
-                
-                
-                
-                #~ print('channel_considered', channel_considered)
-                
-                #~ mask = np.zeros(self.nb_channel, dtype='bool')
-                #~ for clus_idx in possibles_cluster_idx:
-                    #~ mask |= self.sparse_mask_level2[clus_idx, :] 
-                #~ channel_considered2,  = np.nonzero(mask)
-                #~ print('channel_considered2', channel_considered2)
-                
-                #~ s = numba_loop_sparse_dist_with_geometry(full_waveform, self.catalogue['centers0'],  
-                                                        #~ possibles_cluster_idx, rms_waveform_channel,channel_considered)
-                
-                
-                cluster_dist = numba_loop_sparse_dist_with_geometry(full_waveform, self.catalogue['centers0'],
-                                                    possibles_cluster_idx, channel_considered, self.catalogue['template_weight'])
-                best_cluster_idx1 = possibles_cluster_idx[np.argmin(cluster_dist)]
-                shift = None
-                
-                print()
-                print('possibles_cluster_idx', possibles_cluster_idx)
-                print('possible labels', self.catalogue['clusters']['cluster_label'][possibles_cluster_idx])
-                print('cluster_dist', cluster_dist)
-                print('channel_considered', channel_considered)
-                
-                #~ print('limits', self.catalogue['distance_limit'][possibles_cluster_idx])
-                
-
-
-                #~ # explore shift
-                #~ long_waveform = self.fifo_residuals[left_ind-self.maximum_jitter_shift:left_ind+self.peak_width+self.maximum_jitter_shift+1,:]
-                #~ shifts_dist = numba_explore_shifts(long_waveform, self.catalogue['centers0'][cluster_idx, : , :],  self.sparse_mask_level2[cluster_idx, :], self.maximum_jitter_shift, self.catalogue['template_weight'])
-                #~ ind_min = np.argmin(shifts_dist)
-                #~ shift = self.shifts[ind_min]
-                #~ distance = shifts_dist[ind_min]
-                
-                factor = 1.5
-                candidates_idx = possibles_cluster_idx[np.nonzero(cluster_dist<(min(cluster_dist) * factor))[0]]
-                if len(candidates_idx) == 1:
-                #~ if True:
-                    cluster_idx= candidates_idx[0]
-                    long_waveform = self.fifo_residuals[left_ind-self.maximum_jitter_shift:left_ind+self.peak_width+self.maximum_jitter_shift+1,:]
-                    shifts_dist = numba_explore_shifts(long_waveform, self.catalogue['centers0'][cluster_idx, : , :],  self.sparse_mask_level2[cluster_idx, :], self.maximum_jitter_shift, self.catalogue['template_weight'])
-                    ind_min = np.argmin(shifts_dist)
-                    shift = self.shifts[ind_min]
-                    distance = shifts_dist[ind_min]
-                    
-                else:
-                    common_mask = np.sum(self.sparse_mask_level3[candidates_idx, :], axis=0) > 0
-                    weight = np.std(self.catalogue['centers0'][candidates_idx, : , :], axis=0)
-                    weight[:, common_mask] /= np.sum(weight[:, common_mask])
-                    #~ print(weight)
-                    
-                    all_shifts = []
-                    all_distances = []
-                    #~ all_distance_limit_ratio = []
-                    for idx in candidates_idx:
-                        # explore shift
-                        long_waveform = self.fifo_residuals[left_ind-self.maximum_jitter_shift:left_ind+self.peak_width+self.maximum_jitter_shift+1,:]
-                        #~ shifts_dist = numba_explore_shifts(long_waveform, self.catalogue['centers0'][idx, : , :],  self.sparse_mask_level2[idx, :], self.maximum_jitter_shift, self.catalogue['template_weight'])
-                        shifts_dist = numba_explore_shifts(long_waveform, self.catalogue['centers0'][idx, : , :],  common_mask, self.maximum_jitter_shift, weight)
-                        ind_min = np.argmin(shifts_dist)
-                        #~ shift = self.shifts[ind_min]
-                        #~ distance = shifts_dist[ind_min]
-                        all_shifts.append(self.shifts[ind_min])
-                        all_distances.append(shifts_dist[ind_min])
-                        limit = self.catalogue['distance_limit'][idx]
-                        #~ all_distance_limit_ratio.append(shifts_dist[ind_min] / limit)
-                    
-                    #~ ind_min = np.argmin(all_distance_limit_ratio)
-                    #~ best_cluster_idx2 = candidates_idx[ind_min]
-                    ind_min = np.argmin(all_distances)
-                    cluster_idx = candidates_idx[ind_min]
-
-                    shift = all_shifts[ind_min]
-                    distance = all_distances[ind_min] # TODO this is wrong
-                    
-                    #~ if best_cluster_idx1 != best_cluster_idx2:
-                    
-                        #~ print()
-                        #~ print('possibles_cluster_idx', possibles_cluster_idx)
-                        #~ print('s', s)
-                        #~ print(min(s))
-                        #~ print('candidates_idx', candidates_idx)
-                        #~ print('all_shifts', all_shifts)
-                        #~ print('all_distances', all_distances)
-                        #~ print('best_cluster_idx1', best_cluster_idx1)
-                        #~ print('best_cluster_idx2', best_cluster_idx2)
-                        
-                        #~ common_mask = np.sum(self.sparse_mask_level3[candidates_idx, :], axis=0) > 0
-                        #~ wf_common = full_waveform[:, common_mask]                    
-                        #~ fig, ax = plt.subplots()
-                        #~ ax.plot(wf_common.T.flatten(), color='k')
-                        #~ for idx in candidates_idx:
-                            #~ center0 = self.catalogue['centers0'][idx, : , :][:, common_mask]
-                            #~ ax.plot(center0.T.flatten(), label = str(idx))
-                        #~ ax.legend()
-                        #~ ax.set_title(f'best_cluster_idx1 {best_cluster_idx1} best_cluster_idx2 {best_cluster_idx2}')
-                        #~ plt.show()                        
-                    
-                    
-                    #~ cluster_idx = best_cluster_idx2
-                    #~ cluster_idx = best_cluster_idx1
-                
-                #~ if best_cluster_idx1 != best_cluster_idx2:
-                            #~ fig, axs = plt.subplots(nrows=2, sharex=True)
-                            #~ axs[0].plot(wf_common.T.flatten(), color='k')
-                            #~ axs[0].plot(center0_extended.T.flatten(), color='g')
-                            #~ axs[0].plot(center0_nearest.T.flatten(), color='m')
-                            #~ axs[1].plot(wf_common.T.flatten()-center0_extended.T.flatten(), color='g', ls='--')
-                            #~ axs[1].plot(wf_common.T.flatten()-center0_nearest.T.flatten(), color='m', ls='--')
-                            #~ plt.show()                    
-                    
-
-                #~ if distance > self.catalogue['distance_limit'][cluster_idx]:
-                    #~ # no direct accept check other template in nearby
-                    #~ other_candidate = {}
-                    #~ for cluster_idx_nearest in self.catalogue['nearest_templates'][cluster_idx]:
-                        #~ common_mask = self.sparse_mask_level2[cluster_idx] | self.sparse_mask_level2[cluster_idx_nearest]
-                        #~ wf_common = full_waveform[:, common_mask]
-                        #~ center0_extended = self.catalogue['centers0'][cluster_idx, :, :][:, common_mask]
-                        #~ center0_nearest = self.catalogue['centers0'][cluster_idx_nearest, :, :][:, common_mask]
-                        
-                        #~ weight = np.abs(center0_extended - center0_nearest)
-                        #~ dist = np.sum((wf_common - center0_extended)**2 * weight)
-                        #~ dist /= np.sum(weight)
-                        
-                        #~ dist_nearest = np.sum((wf_common - center0_nearest)**2 * weight)
-                        #~ dist_nearest /= np.sum(weight)
-                        
-                        #~ if dist_nearest < dist:
-                            #~ other_candidate[cluster_idx_nearest] = dist_nearest / dist
-                    
-                    #~ if len(other_candidate)>0:
-                        #~ cluster_idx_nearest = min(other_candidate, key=lambda x: other_candidate[x])
-                        
-                        
-                        #~ cluster_idx = cluster_idx_nearest
-                        #~ all_dist = numba_explore_shifts(long_waveform, self.catalogue['centers0'][cluster_idx, : , :],  self.sparse_mask_level2[cluster_idx, :], self.maximum_jitter_shift, self.catalogue['template_weight'])
-                        #~ ind_min = np.argmin(all_dist)
-                        #~ shift = self.shifts[ind_min]
-                        #~ distance = all_dist[ind_min]
-
-                        #~ label = self.catalogue['clusters']['cluster_label'][cluster_idx]
-                
-                
-                
-                
-                #~ # experimental explore all shift for all templates!!!!!
-                #~ shifts = list(range(-self.maximum_jitter_shift, self.maximum_jitter_shift+1))
-                #~ channel_considered = self.channels_adjacency[chan_ind]
-                #~ all_s = []
-                #~ for shift in shifts:
-                    #~ waveform = self.fifo_residuals[left_ind+shift:left_ind+self.peak_width+shift,:]
-                    #~ s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  
-                                                        #~ possibles_cluster_idx, rms_waveform_channel,channel_considered)                    
-                    #~ all_s.append(s)
-                #~ all_s = np.array(all_s)
-                #~ shift_ind, ind_clus = np.unravel_index(np.argmin(all_s, axis=None), all_s.shape)
-                #~ cluster_idx = possibles_cluster_idx[ind_clus]
-                #~ shift = shifts[shift_ind]
-                #~ distance = all_s[shift_ind][ind_clus]
-                
-                
-                #~ label = self.catalogue['clusters']['cluster_label'][cluster_idx]
-                #~ if label == 7:
-                    #~ fig, ax = plt.subplots()
-                    #~ print(len(possibles_cluster_idx))
-                    #~ ax.plot(waveform[:, channel_considered].T.flatten(), color='k')
-                    #~ for clus_idx in possibles_cluster_idx:
-                        #~ center0 = self.catalogue['centers0'][clus_idx, :, :]
-                        #~ if clus_idx == cluster_idx:
-                            #~ lw=2
-                        #~ else:
-                            #~ lw=1
-                        
-                        #~ k = self.catalogue['clusters']['cluster_label'][clus_idx]
-                        #~ color = self.colors[k]
-                        #~ print('k', k, color)
-                        #~ ax.plot(center0[:, channel_considered].T.flatten(), lw=lw, color=color)
-                    
-                    #~ label = self.catalogue['clusters']['cluster_label'][cluster_idx]
-                    #~ ax.set_title(f'label={label} n_possible{len(possibles_cluster_idx)}')
-                    #~ ax.axvline(list(channel_considered).index(chan_ind)*self.peak_width - self.n_left, color='k')
-                    
-                    #~ fig, ax = plt.subplots()
-                    #~ print(cluster_idx)
-                    #~ print(possibles_cluster_idx)
-                    #~ print(s)
-                    #~ for i, clus_idx in enumerate(possibles_cluster_idx):
-                        #~ k = self.catalogue['clusters']['cluster_label'][clus_idx]
-                        #~ color = self.colors[k]
-                        #~ ax.axvline(s[i], color=color)
-                
-                #~ plt.show()
-                
-                
-                
-            
-                #~ print('      shift', shift)
-            
-            
-            #~ fig, ax = plt.subplots()
-            #~ ax.plot(self.shifts, all_dist, marker='o')
-            #~ ax.set_title(f'{left_ind-self.n_left} {chan_ind} {shift}')
-            #~ plt.show()            
-            
-            #~ shifts = list(range(-self.maximum_jitter_shift, self.maximum_jitter_shift+1))
-            #~ all_s = []
-            #~ for shift in shifts:
-                #~ waveform = self.fifo_residuals[left_ind+shift:left_ind+self.peak_width+shift,:]
-                #~ s = numba_loop_sparse_dist_with_geometry(waveform, self.catalogue['centers0'],  self.sparse_mask_level1, possibles_cluster_idx, self.channels_adjacency[chan_ind])
-                #~ all_s.append(s)
-            #~ all_s = np.array(all_s)
-            #~ shift_ind, cluster_idx = np.unravel_index(np.argmin(all_s, axis=None), all_s.shape)
-            #~ cluster_idx = possibles_cluster_idx[cluster_idx]
-            #~ shift = shifts[shift_ind]
-            
-            #~ if self._plot_debug:
-                #~ fig, ax = plt.subplots()
-                #~ ax.plot(self.shifts, all_dist, marker='o')
-                #~ ax.set_title(f'{left_ind-self.n_left} {chan_ind} {shift}')
-        
         elif self.argmin_method == 'numpy':
             assert not self.use_sparse_template
             # replace by this (indentique but faster, a but)
@@ -1038,35 +567,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         else:
             raise(NotImplementedError())
         
-        
-        #~ print('cluster_idx', cluster_idx)
-        #~ print('chan_ind', chan_ind)
-        
-        
-        #~ fig, ax = plt.subplots()
-        #~ chan_order = np.argsort(self.channel_distances[0, :])
-        #~ channels = self.channels_adjacency[chan_ind]
-        #~ channels = chan_order
-        #~ wf = waveform[:, channels]
-        #~ wf0 = self.catalogue['centers0'][cluster_idx, :, :][:, channels]
-        #~ wf = waveform
-        #~ wf0 = self.catalogue['centers0'][cluster_idx, :, :]
-        
-        #~ ax.plot(wf.T.flatten(), color='k')
-        #~ ax.plot(wf0.T.flatten(), color='m')
-        
-        #~ plot_chan = channels.tolist().index(chan_ind)
-        #~ plot_chan = chan_ind
-        #~ ax.axvline(plot_chan * self.peak_width - self.n_left)
-        
-        #~ plt.show()
-
-        
-        #~ label = self.catalogue['cluster_labels'][cluster_idx]
         return cluster_idx, shift, distance
-    
-    #~ def estimate_jitter(self, left_ind, cluster_idx):
-        #~ return 0.
 
     def accept_tempate(self, left_ind, cluster_idx, jitter, distance):
         if jitter is None:
@@ -1424,10 +925,10 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         ax.axvline(-self.n_left, color='r')
 
         mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
-        peak_inds, chan_inds= np.nonzero(mask)
-        peak_inds += self.n_span
+        sample_inds, chan_inds= np.nonzero(mask)
+        sample_inds += self.n_span
         
-        ax.scatter(peak_inds, plot_sigs[peak_inds, chan_inds], color='r')
+        ax.scatter(sample_inds, plot_sigs[sample_inds, chan_inds], color='r')
         
         #~ 
         
@@ -1464,9 +965,9 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         ax.axvline(-self.n_left, color='r')
 
         mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
-        peak_inds, chan_inds= np.nonzero(mask)
-        peak_inds += self.n_span
-        ax.scatter(peak_inds, plot_sigs[peak_inds, chan_inds], color='r')
+        sample_inds, chan_inds= np.nonzero(mask)
+        sample_inds += self.n_span
+        ax.scatter(sample_inds, plot_sigs[sample_inds, chan_inds], color='r')
         
         
         

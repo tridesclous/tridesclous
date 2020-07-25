@@ -1952,8 +1952,8 @@ class CatalogueConstructor:
             
             #~ mad_factor = 6
             #~ mad_factor = 5
-            #~ mad_factor = 4
-            mad_factor = 3.5
+            mad_factor = 4
+            #~ mad_factor = 3.5
             #~ mad_factor = 3
             #~ mad_factor = 2.5
             #~ low = np.min(inner_sp)

@@ -76,6 +76,12 @@ class PeelerEngineBase(OpenCL_Helper):
         
         self.colors = make_color_dict(self.catalogue['clusters'])
         
+        
+        # DEBUG
+        #~ self.catalogue['peak_detector_params']['adjacency_radius_um'] = 0.
+        #~ self.catalogue['peak_detector_params']['peak_span_ms'] = 0.
+        
+        
         # precompute some value for jitter estimation
         if self.inter_sample_oversampling:
             n = self.catalogue['cluster_labels'].size
@@ -275,8 +281,8 @@ class PeelerEngineGeneric(PeelerEngineBase):
             #~ self._plot_debug = True
         #~ else:
             #~ self._plot_debug = False
-        self._plot_debug = False
-        #~ self._plot_debug = True
+        #~ self._plot_debug = False
+        self._plot_debug = True
         
         #~ if pos >= 19200:
             #~ self._plot_debug = True
