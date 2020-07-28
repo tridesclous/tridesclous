@@ -1730,8 +1730,8 @@ class CatalogueConstructor:
         print('n', n)
         
         flat_shape = n, centroids.shape[1] * centroids.shape[2]
-        inner_othogonal_projector = np.zeros(flat_shape, dtype='float32')
-        inner_othogonal_projector_3d = inner_othogonal_projector.reshape(centroids.shape)
+        projections = np.zeros(flat_shape, dtype='float32')
+        projections_3d = projections.reshape(centroids.shape)
         scalar_products = np.zeros((n+1, n+1), dtype=object)
         boundaries = np.zeros((n, 4), dtype='float32')
         neighbors = {}
@@ -1880,7 +1880,7 @@ class CatalogueConstructor:
 
             
             
-            inner_othogonal_projector_3d[cluster_idx0, :, :][:, chan_mask] = ortho_complement.reshape(centroids.shape[1], local_chan)
+            projections_3d[cluster_idx0, :, :][:, chan_mask] = ortho_complement.reshape(centroids.shape[1], local_chan)
             
             #~ projector = 
             
@@ -1888,7 +1888,7 @@ class CatalogueConstructor:
                 
             
             #~ projector = ortho_complement
-            projector =inner_othogonal_projector_3d[cluster_idx0, :][:, chan_mask].flatten()
+            projector =projections_3d[cluster_idx0, :][:, chan_mask].flatten()
             
             #~ fig, ax = plt.subplots()
             #~ ax.plot(ortho_complement)
@@ -2058,7 +2058,7 @@ class CatalogueConstructor:
                 ax.set_title(title)
                 
                 #~ shape = centroids[cluster_idx0, :, :].shape
-                #~ ax1.plot(inner_othogonal_projector[cluster_idx0, :].reshape(shape).T.flatten(), color='b')
+                #~ ax1.plot(projections[cluster_idx0, :].reshape(shape).T.flatten(), color='b')
                 #~ ax2.plot(centroids[cluster_idx0, :, :].T.flatten(), color='k', ls='--')
                 
                 
@@ -2067,7 +2067,7 @@ class CatalogueConstructor:
 
             
             
-        return inner_othogonal_projector, boundaries
+        return projections, boundaries
         
         
 
@@ -2453,8 +2453,8 @@ class CatalogueConstructor:
         #~ self.catalogue['feat_centroids']  = feat_centroids
         #~ self.catalogue['projector']  = projector
 
-        inner_othogonal_projector, boundaries = self.compute_boundaries(sparse_thresh_level1=sparse_thresh_level1)
-        self.catalogue['inner_othogonal_projector']  = inner_othogonal_projector
+        projections, boundaries = self.compute_boundaries(sparse_thresh_level1=sparse_thresh_level1)
+        self.catalogue['projections']  = projections
         self.catalogue['boundaries']  = boundaries
         
            
@@ -2593,7 +2593,9 @@ class CatalogueConstructor:
                 #interpolate centers0 for reconstruction inbetween bsample when jitter is estimated
                 f = scipy.interpolate.interp1d(original_time, center0_large, axis=0, kind='cubic', )
                 oversampled_center = f(subsample_time)
-            
+                
+                extremum_channel = self.catalogue['clusters'][i]['extremum_channel']
+                
                 #find max  channel for each cluster for peak alignement
                 ind_max = np.argmax(np.abs(oversampled_center[(-n_left + 1)*subsample_ratio:(-n_left + 3)*subsample_ratio, extremum_channel]))
                 ind_max += (-n_left +1)*subsample_ratio

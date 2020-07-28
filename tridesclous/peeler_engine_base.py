@@ -164,16 +164,20 @@ class PeelerEngineBase(OpenCL_Helper):
         #~ self.distance_limit = self.catalogue['distance_limit']
         
         # weight of template per channel masked with level3
-        self.weight_per_template = np.zeros((self.nb_cluster, self.nb_channel), dtype='float32')
-        self.weight_per_template_dict = {}
-        centers = self.catalogue['centers0']
-        for i, k in enumerate(self.catalogue['cluster_labels']):
-            mask = self.sparse_mask_level2[i, :]
-            wf = centers[i, :, :][:, mask]
-            w = np.sum(wf**2, axis=0)
-            self.weight_per_template[i, mask] = w
-            self.weight_per_template_dict[i] = w
-
+        #~ self.weight_per_template = np.zeros((self.nb_cluster, self.nb_channel), dtype='float32')
+        #~ self.weight_per_template_dict = {}
+        #~ centers = self.catalogue['centers0']
+        #~ for i, k in enumerate(self.catalogue['cluster_labels']):
+            #~ mask = self.sparse_mask_level2[i, :]
+            #~ wf = centers[i, :, :][:, mask]
+            #~ w = np.sum(wf**2, axis=0)
+            #~ self.weight_per_template[i, mask] = w
+            #~ self.weight_per_template_dict[i] = w
+        
+        
+        self.projections = self.catalogue['projections']
+        self.boundaries = self.catalogue['boundaries']
+        
 
 
         #~ for i in range(centers.shape[0]):

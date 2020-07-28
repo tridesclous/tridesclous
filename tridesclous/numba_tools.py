@@ -28,114 +28,11 @@ def numba_loop_sparse_dist(waveform, centers,  mask):
     
     return waveform_distance
 
-# OLD
-@jit(parallel=True)
-#~ def numba_loop_sparse_dist_with_geometry(waveform, centers,  possibles_cluster_idx, rms_waveform_channel,channel_considered):
-def numba_loop_sparse_dist_with_geometry(waveform, centers,  possibles_cluster_idx, channel_considered, template_weight):
-    
-    nb_total_clus, width, nb_chan = centers.shape
-    nb_clus = possibles_cluster_idx.size
-    
-    #rms_waveform_channel = np.sum(waveform**2, axis=0)#.astype('float32')
-    waveform_distance = np.zeros((nb_clus,), dtype=np.float32)
-    
-    for clus in prange(len(possibles_cluster_idx)):
-        cluster_idx = possibles_cluster_idx[clus]
-        sum = 0
-        sum_w = 0
-        for c in channel_considered:
-            #~ if mask[cluster_idx, c]:
-            for s in range(width):
-                d = waveform[s, c] - centers[cluster_idx, s, c]
-                #~ sum += d*d
-                sum += d*d * template_weight[s, c]
-                
-                #~ w = np.abs(centers[cluster_idx, s, c])
-                #~ sum += d*d*w
-                #~ sum_w += w
-
-                #~ sum += waveform[s, c] * centers[cluster_idx, s, c]
-
-                
-            #~ else:
-                #~ sum +=rms_waveform_channel[c]
-        waveform_distance[clus] = sum
-        #~ waveform_distance[clus] = sum / sum_w
-    
-    return waveform_distance
-
-
-# OLD
-@jit(parallel=True)
-def numba_explore_shifts(long_waveform, one_center,  one_mask, maximum_jitter_shift, template_weight):
-    width, nb_chan = one_center.shape
-    n = maximum_jitter_shift*2 +1
-    
-    all_dist = np.zeros((n, ), dtype=np.float32)
-    
-    for shift in prange(n):
-        sum = 0
-        sum_w = 0
-        for c in range(nb_chan):
-            if one_mask[c]:
-                for s in range(width):
-                    d = long_waveform[shift+s, c] - one_center[s, c]
-                    #~ w = np.abs(one_center[s, c])
-                    w = template_weight[s, c]
-                    #~ sum += d*d
-                    sum += d*d*w
-                    sum_w += w
-        #~ all_dist[shift] = sum
-        all_dist[shift] = sum / sum_w
-    
-    return all_dist
-
-
-
-@jit(parallel=True)
-def numba_explore_best_template(fifo_residuals, left_ind, peak_chan_ind, centers, centers_normed, template_weight,
-                                    common_mask,
-                                    sparse_mask_level1, sparse_mask_level2, sparse_mask_level3, sparse_mask_level4):
-    #~ full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
-    
-    nb_clus, width, nb_chan = centers.shape
-    
-    scalar_product = np.zeros((nb_clus,), dtype=np.float32)
-    weighted_distance = np.zeros((nb_clus,), dtype=np.float32)
-    
-    for clus_idx in prange(nb_clus):
-        
-        if not sparse_mask_level3[clus_idx, peak_chan_ind]:
-            # peak chan is not in template at all!!
-            # do not compute  : faster
-            scalar_product[clus_idx] = -1.
-            weighted_distance[clus_idx] = np.inf
-        else:
-            sum_sc = 0.
-            sum_wd = 0.
-            for chan in range(nb_chan):
-                if sparse_mask_level4[clus_idx, chan]:
-                #~ if sparse_mask_level3[clus_idx, chan]:
-                #~ if common_mask[chan]:
-                    for s in range(width):
-                        v = fifo_residuals[left_ind+s, chan]
-                        
-                        w = template_weight[s, chan]
-                        
-                        sum_sc += v * centers_normed[clus_idx, s, chan] # * w
-                        
-                        d = v - centers[clus_idx, s, chan]
-                        sum_wd += d*d * w
-            
-            scalar_product[clus_idx] = sum_sc
-            weighted_distance[clus_idx] = sum_wd
-    
-    return scalar_product, weighted_distance
 
 
 @jit(parallel=True)
 def numba_sparse_scalar_product(fifo_residuals, left_ind, centers, projector, peak_chan_ind,
-                        sparse_mask_level1, sparse_mask_level2, sparse_mask_level3,):
+                        sparse_mask_level1, ):
     nb_clus, width, nb_chan = centers.shape
     
     scalar_product = np.zeros((nb_clus,), dtype=np.float32)
@@ -150,8 +47,9 @@ def numba_sparse_scalar_product(fifo_residuals, left_ind, centers, projector, pe
                     for s in range(width):
                         v = fifo_residuals[left_ind+s, chan]
                         ct = centers[clus_idx, s, chan]
+                        w = projector[clus_idx, s*nb_chan + chan] # 2D
                         
-                        sum_sp += (v - ct) * projector[clus_idx, s*nb_chan + chan] # 2D
+                        sum_sp += (v - ct) * w
                     
             scalar_product[clus_idx] = sum_sp
     
@@ -163,7 +61,7 @@ def numba_sparse_scalar_product(fifo_residuals, left_ind, centers, projector, pe
 
 
 @jit(parallel=True)
-def numba_explore_best_shift(fifo_residuals, left_ind, centers, projector, candidates_idx,  maximum_jitter_shift, common_mask):
+def numba_explore_best_shift(fifo_residuals, left_ind, centers, projector, candidates_idx,  maximum_jitter_shift, common_mask, sparse_mask_level1):
 
     nb_clus, width, nb_chan = centers.shape
     
@@ -182,14 +80,16 @@ def numba_explore_best_shift(fifo_residuals, left_ind, centers, projector, candi
             sum_sp = 0.
             sum_d = 0.
             for chan in range(nb_chan):
-                if common_mask[chan]:
+                if common_mask[chan] or sparse_mask_level1[clus_idx, chan]:
                     for s in range(width):
                         v = fifo_residuals[left_ind+s+shift, chan]
                         ct = centers[clus_idx, s, chan]
                         
-                        sum_sp += (v - ct) * projector[clus_idx, s*nb_chan + chan] # 2D
+                        if sparse_mask_level1[clus_idx, chan]:
+                            sum_sp += (v - ct) * projector[clus_idx, s*nb_chan + chan]
                         
-                        sum_d += (v - ct) * (v - ct)
+                        if common_mask[chan]:
+                            sum_d += (v - ct) * (v - ct)
                     
             shift_scalar_product[clus, shi] = sum_sp
             shift_distance[clus, shi] = sum_d

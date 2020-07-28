@@ -21,7 +21,7 @@ else:
 try:
     import numba
     HAVE_NUMBA = True
-    from .numba_tools import numba_loop_sparse_dist
+    #~ from .numba_tools import numba_loop_sparse_dist
 except ImportError:
     HAVE_NUMBA = False
 

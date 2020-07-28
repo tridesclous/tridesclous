@@ -29,7 +29,7 @@ from .peakdetector import get_peak_detector_class
 try:
     import numba
     HAVE_NUMBA = True
-    from .numba_tools import numba_loop_sparse_dist_with_geometry, numba_explore_shifts, numba_explore_best_template, numba_explore_best_shift, numba_sparse_scalar_product
+    from .numba_tools import numba_explore_best_shift, numba_sparse_scalar_product
 except ImportError:
     HAVE_NUMBA = False
 
@@ -412,7 +412,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
             
             centers0 = self.catalogue['centers0']
-            inner_othogonal_projector = self.catalogue['inner_othogonal_projector']
+            projections = self.catalogue['projections']
 
             strict_low = self.catalogue['boundaries'][:, 0]
             strict_high = self.catalogue['boundaries'][:, 1]
@@ -426,13 +426,13 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             
             #~ scalar_products = np.zeros(n, dtype='float32')
             #~ for i in range(n):
-                #~ sp = np.sum((flat_waveform - flat_centers0[i, :]) * inner_othogonal_projector[i, :])
+                #~ sp = np.sum((flat_waveform - flat_centers0[i, :]) * projections[i, :])
                 #~ scalar_products[i] = sp
-            #~ scalar_products = np.sum((flat_waveform[np.newaxis, :] - flat_centers0[:, :]) * inner_othogonal_projector[:, :], axis=1)
+            #~ scalar_products = np.sum((flat_waveform[np.newaxis, :] - flat_centers0[:, :]) * projections[:, :], axis=1)
             #~ print(scalar_products)
             
-            scalar_products = numba_sparse_scalar_product(self.fifo_residuals, left_ind, centers0, inner_othogonal_projector, chan_ind,
-                        self.sparse_mask_level1, self.sparse_mask_level2, self.sparse_mask_level3,)
+            scalar_products = numba_sparse_scalar_product(self.fifo_residuals, left_ind, centers0, projections, chan_ind,
+                        self.sparse_mask_level1, )
             #~ print(scalar_products)
             
             
@@ -467,7 +467,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                 candidates_idx = np.array(candidates_idx, dtype='int64')
                 common_mask = np.sum(self.sparse_mask_level3[candidates_idx, :], axis=0) > 0
                 shift_scalar_product, shift_distance = numba_explore_best_shift(self.fifo_residuals, left_ind, self.catalogue['centers0'],
-                                self.catalogue['inner_othogonal_projector'], candidates_idx, self.maximum_jitter_shift, common_mask) 
+                                self.catalogue['projections'], candidates_idx, self.maximum_jitter_shift, common_mask, self.sparse_mask_level1)
                 #~ i0, i1 = np.unravel_index(np.argmin(np.abs(shift_scalar_product), axis=None), shift_scalar_product.shape)
                 i0, i1 = np.unravel_index(np.argmin(shift_distance, axis=None), shift_distance.shape)
                 #~ best_idx = candidates_idx[i0]
@@ -510,7 +510,6 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #~ if True:
             #~ if len(possible_idx) != 1:
             #~ if len(possible_idx) > 1:
-            #~ len(possible_idx) > 1
             
             #~ if 7 in possible_idx or  cluster_idx == 7:
             #~ if cluster_idx not in possible_idx and len(possible_idx) > 0:
@@ -607,7 +606,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         #~ feat_distance = np.sum((feat_waveform - feat_centroids[cluster_idx,:])**2)
 
         centers0 = self.catalogue['centers0']
-        inner_othogonal_projector = self.catalogue['inner_othogonal_projector']
+        projections = self.catalogue['projections']
         
         strict_low = self.catalogue['boundaries'][:, 0]
         strict_high = self.catalogue['boundaries'][:, 1]
@@ -616,7 +615,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         
         
         flat_waveform = full_waveform.flatten()
-        sp = np.sum((flat_waveform - centers0[cluster_idx, :].flatten()) * inner_othogonal_projector[cluster_idx, :])
+        sp = np.sum((flat_waveform - centers0[cluster_idx, :].flatten()) * projections[cluster_idx, :])
         
         #~ strict_high
         
