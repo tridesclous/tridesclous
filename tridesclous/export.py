@@ -136,7 +136,9 @@ def export_catalogue_spikes(cc, export_path=None, formats=None):
         raise ValueError()
         
     for seg_num in range(dataio.nb_segment):
-        spikes = cc.all_peaks
+        in_segment = (cc.all_peaks['segment'] == seg_num)
+        pos_label = (cc.all_peaks['cluster_label'] >= 0)
+        spikes = cc.all_peaks[in_segment & pos_label]
         
         if spikes is None: continue
         

@@ -50,12 +50,10 @@ _default_catalogue_params = {
         'nb_snippet': 300,
     },
     'extract_waveforms': {
-        #DEBUG
-        #~ 'wf_left_ms': -1.5,
-        #~ 'wf_right_ms': 2.5,
-        'wf_left_ms': -2.5,
-        'wf_right_ms': 3.5,
-
+        'wf_left_ms': -1.,
+        'wf_right_ms': 1.5,
+        'wf_left_long_ms': -2.5,
+        'wf_right_long_ms': 3.5,
     },
     'clean_peaks': {
         'alien_value_threshold': None,

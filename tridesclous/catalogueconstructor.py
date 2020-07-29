@@ -52,7 +52,7 @@ _global_params_attr = ('chunksize', 'memory_mode', 'internal_dtype', 'mode', 'sp
 _persistent_metrics = ('spike_waveforms_similarity', 'cluster_similarity',
                         'cluster_ratio_similarity', 'spike_silhouette')
 
-_centroids_arrays = ('centroids_median', 'centroids_mad', 'centroids_mean', 'centroids_std', 'centroids_sparse_mask')
+_centroids_arrays = ('centroids_median', 'centroids_median_long', 'centroids_mad', 'centroids_mean', 'centroids_std', 'centroids_sparse_mask')
 # centroids_sparse_mask is for plotting only
 
 
@@ -743,7 +743,9 @@ class CatalogueConstructor:
     
     
     def set_waveform_extractor_params(self, n_left=None, n_right=None,
-                            wf_left_ms=None, wf_right_ms=None):
+                            wf_left_ms=None, wf_right_ms=None,
+                            wf_left_long_ms=None, wf_right_long_ms=None,
+                            ):
         if n_left is None or n_right is None:
             if 'waveform_extractor_params' in self.info:
                 n_left = self.info['waveform_extractor_params']['n_left']
@@ -753,7 +755,20 @@ class CatalogueConstructor:
                 n_right = int(wf_right_ms / 1000. * self.dataio.sample_rate)
             else:
                 raise(ValueError('Must provide wf_left_ms/wf_right_ms'))
-        self.info['waveform_extractor_params'] = dict(n_left=n_left, n_right=n_right)
+        if wf_left_long_ms is None:
+            n_left_long = 2 * n_nleft
+        else:
+            n_left_long = int(wf_left_long_ms / 1000. * self.dataio.sample_rate)
+        if wf_right_long_ms is None:
+            n_right_long = 2 * n_right
+        else:
+            n_right_long = int(wf_right_long_ms / 1000. * self.dataio.sample_rate)
+        
+        assert n_left < n_right
+        assert n_left_long < n_left
+        assert n_right_long > n_right
+        
+        self.info['waveform_extractor_params'] = dict(n_left=n_left, n_right=n_right, n_left_long=n_left_long, n_right_long=n_right_long)
         self.flush_info()
         
         self.projector = None
@@ -847,6 +862,9 @@ class CatalogueConstructor:
         n_left = self.info['waveform_extractor_params']['n_left']
         n_right = self.info['waveform_extractor_params']['n_right']
         peak_width = n_right - n_left
+        n_left_long = self.info['waveform_extractor_params']['n_left_long']
+        n_right_long = self.info['waveform_extractor_params']['n_right_long']
+        peak_width_long = n_right_long - n_left_long
             
         
         # this is important to not take 2 times the sames, this leads to bad mad/median
@@ -859,7 +877,7 @@ class CatalogueConstructor:
         for seg_num in seg_nums:
             in_seg_mask = self.all_peaks[some_peaks_index]['segment'] == seg_num
             indexes  = self.all_peaks[some_peaks_index]['index']
-            in_seg_keep = (indexes > peak_width) & (indexes < self.dataio.get_segment_length(seg_num) - peak_width)
+            in_seg_keep = (indexes > peak_width_long) & (indexes < self.dataio.get_segment_length(seg_num) - peak_width_long)
             keep |= in_seg_mask & in_seg_keep
         some_peaks_index = some_peaks_index[keep]        
         
@@ -888,29 +906,13 @@ class CatalogueConstructor:
             assert self.some_peaks_index is not None
             peaks_index = self.some_peaks_index
 
-        
         nb = peaks_index.size
-        
         
         if n_left is None:
             n_left = self.info['waveform_extractor_params']['n_left']
         if n_right is None:
             n_right = self.info['waveform_extractor_params']['n_right']
         peak_width = n_right - n_left
-        
-        
-        #~ if self.mode == 'sparse':
-            #~ channel_adjacency = self.dataio.get_channel_adjacency(chan_grp=self.chan_grp, adjacency_radius_um=self.adjacency_radius_um)
-            #~ assert self.info['peak_detector_params']['method'] == 'geometrical'
-        #~ elif self.mode == 'dense':
-            #~ channel_adjacency = None
-        #~ else:
-            #~ raise(NotImplementedError)
-        
-        # make it persitent
-        #~ self.arrays.create_array('some_peaks_index', 'int64', (nb,), self.memory_mode)
-        #~ self.some_peaks_index[:] = some_peaks_index
-        #~ self.arrays.add_array('some_peaks_index', some_peaks_index, self.memory_mode)
         
         if channel_indexes is None:
             nb_chan = self.nb_channel
@@ -919,19 +921,9 @@ class CatalogueConstructor:
         
         shape = (nb, peak_width, nb_chan)
         some_waveforms = np.zeros(shape, dtype=self.info['internal_dtype'])
-        #~ self.arrays.create_array('some_waveforms', self.info['internal_dtype'], shape, self.memory_mode)
-        #~ shape = (nb, self.nb_channel)
-        #~ self.arrays.create_array('some_waveforms_sparse_mask', 'bool', shape, self.memory_mode)
         
-        #~ if self.mode == 'sparse':
-            #~ self.some_waveforms[:] = 0
-            #~ self.some_waveforms_sparse_mask[:] = False
-        #~ elif self.mode == 'dense':
-            #~ self.some_waveforms_sparse_mask[:] = True
-
         peak_mask = np.zeros(self.nb_peak, dtype='bool')
         peak_mask[peaks_index] = True
-        
         
         seg_nums = self.all_peaks[peak_mask]['segment']
         peak_sample_indexes = self.all_peaks[peak_mask]['index']
@@ -943,9 +935,9 @@ class CatalogueConstructor:
 
 
     def cache_some_waveforms(self):
-        n_left = self.info['waveform_extractor_params']['n_left']
-        n_right = self.info['waveform_extractor_params']['n_right']
-        peak_width = n_right - n_left
+        n_left_long = self.info['waveform_extractor_params']['n_left_long']
+        n_right_long = self.info['waveform_extractor_params']['n_right_long']
+        peak_width_long = n_right - n_left
         
         if 'some_waveforms' in self.arrays.keys():
             self.arrays.delete_array('some_waveforms')
@@ -963,7 +955,7 @@ class CatalogueConstructor:
         selected_indexes = np.concatenate(selected_indexes)
         
         n = selected_indexes.size
-        shape = (n, peak_width, self.nb_channel)
+        shape = (n, peak_width_long, self.nb_channel)
         self.arrays.create_array('some_waveforms',  self.info['internal_dtype'] , shape, self.memory_mode)
         self.arrays.create_array('some_waveform_index', 'int64', n, self.memory_mode)
         
@@ -972,13 +964,13 @@ class CatalogueConstructor:
         peak_sample_indexes = self.all_peaks[selected_indexes]['index']
         
         self.dataio.get_some_waveforms(seg_nums=seg_nums, chan_grp=self.chan_grp,
-                                                peak_sample_indexes=peak_sample_indexes, n_left=n_left, n_right=n_right,
+                                                peak_sample_indexes=peak_sample_indexes, n_left=n_left_long, n_right=n_right_long,
                                                 waveforms=self.some_waveforms, channel_indexes=None)
         self.some_waveform_index[:] = selected_indexes
 
     def extend_cached_waveforms(self, label):
-        n_left = self.info['waveform_extractor_params']['n_left']
-        n_right = self.info['waveform_extractor_params']['n_right']
+        n_left_long = self.info['waveform_extractor_params']['n_left_long']
+        n_right_long = self.info['waveform_extractor_params']['n_right_long']
         
         selected, = np.nonzero(self.all_peaks['cluster_label']==label)
         if selected.size>self.n_spike_for_centroid:
@@ -989,19 +981,31 @@ class CatalogueConstructor:
         peak_sample_indexes = self.all_peaks[selected]['index']
 
         new_waveforms = self.dataio.get_some_waveforms(seg_nums=seg_nums, chan_grp=self.chan_grp,
-                                                peak_sample_indexes=peak_sample_indexes, n_left=n_left, n_right=n_right,
+                                                peak_sample_indexes=peak_sample_indexes, n_left=n_left_long, n_right=n_right_long,
                                                 waveforms=None, channel_indexes=None)
 
         self.arrays.append_array('some_waveforms',  new_waveforms)
         self.arrays.append_array('some_waveform_index', selected)
 
-    def get_cached_waveforms(self, label):
+    def get_cached_waveforms(self, label, long=False):
         assert self.some_waveforms is not None, 'run cc.cache_some_waveforms() first'
         
         cached_labels = self.all_peaks[self.some_waveform_index]['cluster_label']
         
         mask = cached_labels == label
-        wfs = self.some_waveforms[mask].copy()  # avoid memmap ref for ploting
+        if long:
+            wfs = self.some_waveforms[mask]
+        else:
+            n_left = self.info['waveform_extractor_params']['n_left']
+            n_right = self.info['waveform_extractor_params']['n_right']
+            n_left_long = self.info['waveform_extractor_params']['n_left_long']
+            n_right_long = self.info['waveform_extractor_params']['n_right_long']
+            i0 = n_left - n_left_long
+            i1 = n_right_long - n_right
+            wfs = self.some_waveforms[mask][:, i0:-i1]
+        
+        # avoid memmap ref for ploting
+        wfs = wfs.copy()
         return wfs
 
 
@@ -1278,7 +1282,10 @@ class CatalogueConstructor:
         
         ind = self.index_of_label(k)
         
-        n_left = int(self.info['waveform_extractor_params']['n_left'])
+        n_left = self.info['waveform_extractor_params']['n_left']
+        n_right = self.info['waveform_extractor_params']['n_right']
+        n_left_long = int(self.info['waveform_extractor_params']['n_left_long'])
+        n_right_long = int(self.info['waveform_extractor_params']['n_right_long'])
         peak_sign = self.info['peak_detector_params']['peak_sign']
         
         
@@ -1288,23 +1295,27 @@ class CatalogueConstructor:
             if selected.size>n_spike_for_centroid:
                 keep = np.random.choice(selected.size, n_spike_for_centroid, replace=False)
                 selected = selected[keep]
-                wf = self.get_some_waveforms(peaks_index=self.some_peaks_index[selected], channel_indexes=None)
+                wf = self.get_some_waveforms(peaks_index=self.some_peaks_index[selected], channel_indexes=None,
+                        n_left=n_left_long, n_right=n_right_long)
         else:
-            wf = self.get_cached_waveforms(k)
+            wf = self.get_cached_waveforms(k, long=False)
         
-        #~ wf = self.some_waveforms[self.all_peaks['cluster_label'][self.some_peaks_index]==k]
-        #~ wf = self.some_waveforms[selected, :, :]
-        
-        
-        
-        median, mad = median_mad(wf, axis = 0)
+        median_long, mad_long = median_mad(wf, axis = 0)
         # mean, std = np.mean(wf, axis=0), np.std(wf, axis=0) # TODO rome the mean/std
         if peak_sign == '-':
-            extremum_channel = np.argmin(median[-n_left,:], axis=0)
+            extremum_channel = np.argmin(median_long[-n_left_long,:], axis=0)
         elif peak_sign == '+':
-            extremum_channel = np.argmax(median[-n_left,:], axis=0)
+            extremum_channel = np.argmax(median_long[-n_left_long,:], axis=0)
+
+        i0 = n_left - n_left_long
+        i1 = n_right_long - n_right
+        wfs = self.some_waveforms[mask][:, i0:-i1]
+        
+        median = median_long[:, i0:-i1]
+        mad = mad_long[:, i0:-i1]
         
         # to persistant arrays
+        self.centroids_median_long[ind, :, :] = median_long
         self.centroids_median[ind, :, :] = median
         self.centroids_mad[ind, :, :] = mad
         #~ self.centroids_mean[ind, :, :] = mean
@@ -1344,24 +1355,33 @@ class CatalogueConstructor:
                 setattr(self, name, None)
             return
         
-        n_left = int(self.info['waveform_extractor_params']['n_left'])
-        n_right = int(self.info['waveform_extractor_params']['n_right'])
+        n_left = self.info['waveform_extractor_params']['n_left']
+        n_right = self.info['waveform_extractor_params']['n_right']
+        n_left_long = int(self.info['waveform_extractor_params']['n_left_long'])
+        n_right_long = int(self.info['waveform_extractor_params']['n_right_long'])
+        
         
 
         for name in ('centroids_median', 'centroids_mad', 'centroids_mean', 'centroids_std',):
             empty = np.zeros((self.cluster_labels.size, n_right - n_left, self.nb_channel), dtype=self.info['internal_dtype'])
             self.arrays.add_array(name, empty, self.memory_mode)
-        
+
+        empty = np.zeros((self.cluster_labels.size, n_right_long - n_left_long, self.nb_channel), dtype=self.info['internal_dtype'])
+        self.arrays.add_array('centroids_median_long', empty, self.memory_mode)
+
         mask = np.zeros((self.cluster_labels.size, self.nb_channel), dtype='bool')
         self.arrays.add_array('centroids_sparse_mask', mask, self.memory_mode)
         
         self.compute_several_centroids(self.positive_cluster_labels, n_spike_for_centroid=n_spike_for_centroid)
     
-    def get_one_centroid(self, label, metric='median'):
+    def get_one_centroid(self, label, metric='median', long=False):
         ind = self.index_of_label(label)
-        attr = getattr(self, 'centroids_'+metric)
-        # make a copy to avoid too much reference on the memmap object
-        centroid = attr[ind, :, :].copy()
+        if long:
+            centroid = self.centroids_median_long[ind, :, :].copy()
+        else:
+            attr = getattr(self, 'centroids_'+metric)
+            # make a copy to avoid too much reference on the memmap object
+            centroid = attr[ind, :, :].copy()
         
         return centroid
     
@@ -1464,24 +1484,6 @@ class CatalogueConstructor:
     
     def trash_small_cluster(self, **kargs):
         cleancluster.trash_small_cluster(self, **kargs)
-
-    #~ def compute_spike_waveforms_similarity(self, method='cosine_similarity', size_max = 1e7):
-        #~ """This compute the similarity spike by spike.
-        #~ """
-        #~ spike_waveforms_similarity = None
-        #~ if self.some_waveforms is not None:
-            #~ wf = self.some_waveforms
-            #~ wf = wf.reshape(wf.shape[0], -1)
-            #~ if wf.size<size_max:
-                #~ spike_waveforms_similarity = metrics.compute_similarity(wf, method)
-        
-        #~ if spike_waveforms_similarity is None:
-            #~ self.arrays.detach_array('spike_waveforms_similarity')
-            #~ self.spike_waveforms_similarity = None
-        #~ else:
-            #~ self.arrays.add_array('spike_waveforms_similarity', spike_waveforms_similarity.astype('float32'), self.memory_mode)
-
-        #~ return self.spike_waveforms_similarity
 
     def compute_cluster_similarity(self, method='cosine_similarity_with_max'):
         if self.centroids_median is None:
@@ -1737,6 +1739,8 @@ class CatalogueConstructor:
         neighbors = {}
         
         for cluster_idx0, label0 in enumerate(cluster_labels):
+            #~ if cluster_idx0 != 6:
+                #~ continue
             print()
             print('cluster_idx0', cluster_idx0)
             
@@ -1821,8 +1825,21 @@ class CatalogueConstructor:
                 #~ ind_min = np.argmin(np.sum((centerred_other_centroids - flat_centroid0[:, np.newaxis])**2, axis=0))
                 #~ centroid0_proj = centerred_other_centroids[:, ind_min]
                 #TEST3
+                #~ fig, ax = plt.subplots()
+                #~ dists = np.sum((other_centroids - flat_centroid0[:, np.newaxis])**2, axis=0)
+                #~ ax.plot(dists)
+                #~ plt.show()
+                
                 ind_min = np.argmin(np.sum((other_centroids - flat_centroid0[:, np.newaxis])**2, axis=0))
                 other_select = [ind_min]
+                
+                #~ print('ind_min', ind_min, np.nonzero(other_mask)[0][ind_min])
+                
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(flat_centroid0.reshape(-1, local_chan).T.flatten(), color='k')
+                #~ ax.plot(other_centroids[:, ind_min].reshape(-1, local_chan).T.flatten(), color='m')
+                #~ plt.show()
+                
                 while True:
                     if len(other_select) == 1:
                         centroid0_proj = other_centroids[:, other_select[0]]
@@ -1832,12 +1849,22 @@ class CatalogueConstructor:
                         shift = -centerred_other_centroids[:, 0]
                         centerred_other_centroids += shift[:, np.newaxis]
                         centerred_other_centroids = centerred_other_centroids[:, 1:]
-                        q, r = np.linalg.qr(centerred_other_centroids, mode='reduced')
-                        centroid0_proj = q @ q.T @ (flat_centroid0 + shift) - shift
+                        
+                        #~ q, r = np.linalg.qr(centerred_other_centroids, mode='reduced')
+                        #~ centroid0_proj = q @ q.T @ (flat_centroid0 + shift) - shift
+                        
+                        #~ u,s,vh = np.linalg.svd(centerred_other_centroids, full_matrices=False)
+                        u,s,vh = scipy.linalg.svd(centerred_other_centroids, full_matrices=False)
+                        centroid0_proj = u @ u.T @ (flat_centroid0 + shift) - shift
+                        
                         
                     local_projector = centroid0_proj - flat_centroid0
                     local_projector /= np.sum(local_projector**2)                
                     other_feat = (other_centroids - flat_centroid0[:, np.newaxis]).T @ local_projector
+                    
+                    #~ fig, ax = plt.subplots()
+                    #~ ax.plot(other_feat)
+                    #~ plt.show()
                     
                     ind,  = np.nonzero(np.abs(other_feat) < 1.)
                     if np.all(np.in1d(ind, other_select)):
@@ -1849,7 +1876,7 @@ class CatalogueConstructor:
                     #~ print('other_feat', other_feat)
                 
                 print('other_select', len(other_select))
-                neighbors[cluster_idx0] = np.nonzero(clus_mask)[0][other_select]
+                neighbors[cluster_idx0] = np.nonzero(other_mask)[0][other_select]
                 
                 
                 
@@ -1946,6 +1973,9 @@ class CatalogueConstructor:
             
         
         for cluster_idx0, label0 in enumerate(cluster_labels):
+            #~ if cluster_idx0 != 6:
+                #~ continue
+            
             print(cluster_idx0)
             inner_sp = scalar_products[cluster_idx0, cluster_idx0]
             med, mad = median_mad(inner_sp)
@@ -1997,13 +2027,13 @@ class CatalogueConstructor:
                 boundaries[cluster_idx0, 0] = 0.
                 boundaries[cluster_idx0, 1] = 0.
 
-        #~ if True:
-        if False:
+        if True:
+        #~ if False:
             
             colors_ = sns.color_palette('husl', n)
             colors = {i: colors_[i] for i, k in enumerate(cluster_labels)}
             for cluster_idx0, label0 in enumerate(cluster_labels):
-                #~ if not cluster_idx0 in (2,3):
+                #~ if not cluster_idx0 in (6, ):
                     #~ continue
                 colors_ = sns.color_palette('husl', n)
                 colors = {i: colors_[i] for i, k in enumerate(cluster_labels)}
@@ -2015,7 +2045,7 @@ class CatalogueConstructor:
                 
                 inner_sp = scalar_products[cluster_idx0, cluster_idx0]
                 fig, ax = plt.subplots()
-                count, bins = np.histogram(inner_sp, bins=150)
+                count, bins = np.histogram(inner_sp, bins=150, density=True)
                 ax.plot(bins[:-1], count, color=colors[cluster_idx0])
                 low = boundaries[cluster_idx0, 0]
                 high = boundaries[cluster_idx0, 1]
@@ -2031,6 +2061,8 @@ class CatalogueConstructor:
                 #~ fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
 
                 for cluster_idx1, label1 in enumerate(cluster_labels):
+                    if cluster_idx1 == cluster_idx0:
+                        continue
                     #~ if not cluster_idx1 in (2,3):
                         #~ continue
                     
@@ -2048,7 +2080,7 @@ class CatalogueConstructor:
                     
                 
                 feat_noise = scalar_products[cluster_idx0, -1]
-                count, bins = np.histogram(feat_noise, bins=150)
+                count, bins = np.histogram(feat_noise, bins=150, density=True)
                 ax.plot(bins[:-1], count, color='k')
                 
                 
@@ -2062,8 +2094,8 @@ class CatalogueConstructor:
                 #~ ax2.plot(centroids[cluster_idx0, :, :].T.flatten(), color='k', ls='--')
                 
                 
-                #~ plt.show()
-            plt.show()
+                plt.show()
+            #~ plt.show()
 
             
             

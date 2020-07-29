@@ -622,7 +622,8 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
 
         #~ print('sp',sp, 'boundary', strict_high[cluster_idx])
         
-        immediate_accept = strict_low[cluster_idx] < sp < strict_high[cluster_idx]
+        #~ immediate_accept = strict_low[cluster_idx] < sp < strict_high[cluster_idx]
+        immediate_accept = flexible_low[cluster_idx] < sp < flexible_high[cluster_idx]
         
         #~ print('distance2', distance2, 'distance', distance)
 
@@ -633,6 +634,22 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         #~ if False:
             accept_template = True
             #~ immediate_accept = True
+
+        
+            #~ mask = self.sparse_mask_level2[cluster_idx]
+            #~ full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
+            #~ wf = full_waveform[:, mask]
+            #~ _, pred_wf = make_prediction_one_spike(left_ind - self.n_left, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
+            #~ pred_wf = pred_wf[:, mask]
+            
+            #~ max_res = np.max(np.abs(pred_wf - wf))
+            #~ max_pred = np.max(np.abs(pred_wf))
+            #~ accept_template1 = max_pred > (max_res * 0.5)
+            
+            #~ accept_template = immediate_accept and accept_template1
+            
+            
+            
         else:
             
             # criteria multi channel
@@ -735,11 +752,12 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
                 #~ self.count_accept[label]['not_accepted'] += 1
             #~ print(self.count_accept)
             
+        if self._plot_debug:
         #~ if not accept_template and label in []:
         #~ if not accept_template:
         #~ if accept_template:
         #~ if True:
-        if False:
+        #~ if False:
         #~ if not immediate_accept:
         #~ if immediate_accept:
         #~ if immediate_accept:
@@ -928,8 +946,9 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         sample_inds += self.n_span
         
         ax.scatter(sample_inds, plot_sigs[sample_inds, chan_inds], color='r')
+        ax.set_title(f'nb peak {sample_inds.size}')
         
-        #~ 
+        plt.show()
         
     
     def _plot_label_unclassified(self, left_ind, peak_chan, cluster_idx, jitter):
