@@ -81,6 +81,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             assert self.ctx is self.signalpreprocessor.ctx
         
         wf_size = self.peak_width * self.nb_channel
+        wf_size_long = self.peak_width_long * self.nb_channel
         
         if self.inter_sample_oversampling:
             subsample_ratio = self.catalogue['subsample_ratio']
@@ -99,10 +100,14 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                     fifo_size=self.fifo_size,
                     n_left=self.n_left,
                     n_right=self.n_right,
+                    n_left_long=self.n_left_long,
+                    n_right_long=self.n_right_long,
                     peak_width=self.peak_width,
+                    peak_width_long=self.peak_width_long,
                     maximum_jitter_shift=self.maximum_jitter_shift,
                     n_cluster=self.nb_cluster,
                     wf_size=wf_size,
+                    wf_size_long=wf_size_long,
                     subsample_ratio=subsample_ratio,
                     nb_neighbour=self.nb_max_neighbour, 
                     inter_sample_oversampling=int(self.inter_sample_oversampling),
@@ -193,6 +198,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         self.next_spike_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.next_spike)
 
         self.catalogue_center0_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['centers0'].astype('float32'))
+        self.catalogue_center0_long_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['centers0_long'].astype('float32'))
         
         if self.inter_sample_oversampling:
             self.catalogue_center1_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['centers1'].astype('float32'))
@@ -398,7 +404,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         self.kern_remove_spike_from_fifo = getattr(self.opencl_prg, 'remove_spike_from_fifo')
         self.kern_remove_spike_from_fifo.set_args(self.fifo_residuals_cl,
                                                         self.next_spike_cl,
-                                                        self.catalogue_center0_cl,
+                                                        self.catalogue_center0_long_cl,
                                                         self.catalogue_inter_center0_cl,
                                                         )
 
@@ -757,8 +763,8 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             #~ print()
             
             if self.next_spike[0]['cluster_idx'] >= 0:
-                global_size = (self.peak_width, )
-                local_size = (self.peak_width, )
+                global_size = (self.peak_width_long, )
+                local_size = (self.peak_width_long, )
                 t0 = time.perf_counter()
                 event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_remove_spike_from_fifo, global_size, local_size,)
                 #~ event.wait()
@@ -973,10 +979,14 @@ kernel_peeler_cl = """
 #define fifo_size %(fifo_size)d
 #define n_left %(n_left)d
 #define n_right %(n_right)d
+#define n_left_long %(n_left_long)d
+#define n_right_long %(n_right_long)d
 #define peak_width %(peak_width)d
+#define peak_width_long %(peak_width_long)d
 #define maximum_jitter_shift %(maximum_jitter_shift)d
 #define n_cluster %(n_cluster)d
 #define wf_size %(wf_size)d
+#define wf_size_long %(wf_size_long)d
 #define subsample_ratio %(subsample_ratio)d
 #define nb_neighbour %(nb_neighbour)d
 #define inter_sample_oversampling %(inter_sample_oversampling)d
@@ -1207,13 +1217,13 @@ __kernel void select_next_peak(
         pending_peaks[i_peak].peak_value = 0.0;
         
         
-        int left_ind = peak.sample_index + n_left;
+        int left_ind_long = peak.sample_index + n_left_long;
         
-        if (left_ind+peak_width+maximum_jitter_shift+1>=fifo_size){
+        if (left_ind_long+peak_width_long+maximum_jitter_shift+1>=fifo_size){
             spike.sample_index = peak.sample_index;
             spike.cluster_idx = LABEL_RIGHT_LIMIT;
             spike.jitter = 0.0f;
-        } else if (left_ind<=maximum_jitter_shift){
+        } else if (left_ind_long<=maximum_jitter_shift){
             spike.sample_index = peak.sample_index;
             spike.cluster_idx = LABEL_LEFT_LIMIT;
             spike.jitter = 0.0f;
@@ -1222,10 +1232,13 @@ __kernel void select_next_peak(
             spike.cluster_idx  = LABEL_UNCLASSIFIED;
             spike.jitter = 0.0f;
         }else {
+            
+            
             spike.sample_index = peak.sample_index;
             spike.cluster_idx = LABEL_NOT_YET;
             spike.jitter = 0.0f;
             if (alien_value_threshold>0.0f){
+                int left_ind = peak.sample_index + n_left;
                 for (int s=0; s<peak_width; ++s){
                     if ((fifo_residuals[(left_ind+s)*nb_channel + peak.chan_index]>alien_value_threshold) || (fifo_residuals[(left_ind+s)*nb_channel + peak.chan_index]<-alien_value_threshold)){
                         spike.cluster_idx = LABEL_ALIEN;
@@ -1612,13 +1625,14 @@ __kernel void best_shift_and_jitter(
         }
         
         // security to not be outside the fifo
+        int left_ind_long = spike.sample_index + n_left_long;
         
         shift = - ((int) round(jitter));
         if (abs(shift) >maximum_jitter_shift){
             spike.cluster_idx = LABEL_MAXIMUM_SHIFT;
-        } else if ((left_ind+shift+peak_width) >= fifo_size){
+        } else if ((left_ind_long+shift+peak_width_long) >= fifo_size){
             spike.cluster_idx = LABEL_RIGHT_LIMIT;
-        } else if ((left_ind+shift)<0) {
+        } else if ((left_ind_long+shift)<0) {
             spike.cluster_idx = LABEL_LEFT_LIMIT;
         }
         
@@ -1819,7 +1833,7 @@ __kernel void finalize_next_spike(
 __kernel void remove_spike_from_fifo(
                                             __global  float *fifo_residuals,
                                             __global st_spike *next_spike,
-                                            __global  float *catalogue_center0,
+                                            __global  float *catalogue_center0_long,
                                             __global  float *catalogue_inter_center0
                                             ){
                                             
@@ -1833,8 +1847,8 @@ __kernel void remove_spike_from_fifo(
     
     st_spike spike;
     spike = *next_spike;
-    int left_ind;
-    left_ind = spike.sample_index + n_left;
+    int left_ind_long;
+    left_ind_long = spike.sample_index + n_left_long;
     
     // on_accepted_spike
     float v;
@@ -1846,12 +1860,12 @@ __kernel void remove_spike_from_fifo(
         
         for (int c=0; c<nb_channel; ++c){
             v = catalogue_inter_center0[subsample_ratio*wf_size*spike.cluster_idx + nb_channel*(s*subsample_ratio+int_jitter) + c];
-            fifo_residuals[(left_ind+s)*nb_channel + c] -= v;
+            fifo_residuals[(left_ind_long+s)*nb_channel + c] -= v;
         }
     } else{
         for (int c=0; c<nb_channel; ++c){
-            v = catalogue_center0[wf_size*spike.cluster_idx + nb_channel*s + c];
-            fifo_residuals[(left_ind+s)*nb_channel + c] -= v;
+            v = catalogue_center0_long[wf_size_long*spike.cluster_idx + nb_channel*s + c];
+            fifo_residuals[(left_ind_long+s)*nb_channel + c] -= v;
         }
     }
 

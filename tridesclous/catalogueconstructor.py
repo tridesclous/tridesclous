@@ -937,7 +937,7 @@ class CatalogueConstructor:
     def cache_some_waveforms(self):
         n_left_long = self.info['waveform_extractor_params']['n_left_long']
         n_right_long = self.info['waveform_extractor_params']['n_right_long']
-        peak_width_long = n_right - n_left
+        peak_width_long = n_right_long - n_left_long
         
         if 'some_waveforms' in self.arrays.keys():
             self.arrays.delete_array('some_waveforms')
@@ -1298,7 +1298,7 @@ class CatalogueConstructor:
                 wf = self.get_some_waveforms(peaks_index=self.some_peaks_index[selected], channel_indexes=None,
                         n_left=n_left_long, n_right=n_right_long)
         else:
-            wf = self.get_cached_waveforms(k, long=False)
+            wf = self.get_cached_waveforms(k, long=True)
         
         median_long, mad_long = median_mad(wf, axis = 0)
         # mean, std = np.mean(wf, axis=0), np.std(wf, axis=0) # TODO rome the mean/std
@@ -1309,12 +1309,12 @@ class CatalogueConstructor:
 
         i0 = n_left - n_left_long
         i1 = n_right_long - n_right
-        wfs = self.some_waveforms[mask][:, i0:-i1]
-        
-        median = median_long[:, i0:-i1]
-        mad = mad_long[:, i0:-i1]
+        median = median_long[i0:-i1, :]
+        mad = mad_long[i0:-i1, :]
         
         # to persistant arrays
+        print(i0, i1)
+        print(median_long.shape, median.shape)
         self.centroids_median_long[ind, :, :] = median_long
         self.centroids_median[ind, :, :] = median
         self.centroids_mad[ind, :, :] = mad
@@ -1729,7 +1729,7 @@ class CatalogueConstructor:
         #~ flat_centroids = centroids.reshape(centroids.shape[0], -1).T.copy()
         
         n = len(cluster_labels)
-        print('n', n)
+        #~ print('n', n)
         
         flat_shape = n, centroids.shape[1] * centroids.shape[2]
         projections = np.zeros(flat_shape, dtype='float32')
@@ -1741,8 +1741,8 @@ class CatalogueConstructor:
         for cluster_idx0, label0 in enumerate(cluster_labels):
             #~ if cluster_idx0 != 6:
                 #~ continue
-            print()
-            print('cluster_idx0', cluster_idx0)
+            #~ print()
+            #~ print('cluster_idx0', cluster_idx0)
             
         
             # all channel
@@ -1786,7 +1786,7 @@ class CatalogueConstructor:
             local_nclus = np.sum(clus_mask)
             local_chan = np.sum(chan_mask)
             flat_centroids = centroids[clus_mask, :, :][:, :, chan_mask].reshape(local_nclus, -1).T.copy()
-            print('local_nclus', local_nclus, 'local_chan', local_chan)
+            #~ print('local_nclus', local_nclus, 'local_chan', local_chan)
             
             
             flat_centroid0 = flat_centroids[:, local_idx0]
@@ -1875,7 +1875,7 @@ class CatalogueConstructor:
                     #~ print('other_select', other_select)
                     #~ print('other_feat', other_feat)
                 
-                print('other_select', len(other_select))
+                #~ print('other_select', len(other_select))
                 neighbors[cluster_idx0] = np.nonzero(other_mask)[0][other_select]
                 
                 
@@ -1976,7 +1976,7 @@ class CatalogueConstructor:
             #~ if cluster_idx0 != 6:
                 #~ continue
             
-            print(cluster_idx0)
+            #~ print(cluster_idx0)
             inner_sp = scalar_products[cluster_idx0, cluster_idx0]
             med, mad = median_mad(inner_sp)
             
@@ -2027,8 +2027,8 @@ class CatalogueConstructor:
                 boundaries[cluster_idx0, 0] = 0.
                 boundaries[cluster_idx0, 1] = 0.
 
-        if True:
-        #~ if False:
+        #~ if True:
+        if False:
             
             colors_ = sns.color_palette('husl', n)
             colors = {i: colors_[i] for i, k in enumerate(cluster_labels)}
@@ -2407,26 +2407,24 @@ class CatalogueConstructor:
         
         
         t1 = time.perf_counter()
-        self.catalogue = {}
+        
         
         n_left = self.info['waveform_extractor_params']['n_left']
         n_right = self.info['waveform_extractor_params']['n_right']
+        n_left_long = self.info['waveform_extractor_params']['n_left_long']
+        n_right_long = self.info['waveform_extractor_params']['n_right_long']
         peak_sign = self.info['peak_detector_params']['peak_sign']
         
         self.catalogue = {}
         self.catalogue['chan_grp'] = self.chan_grp
-        # be carefull n_left/n_right are shorter in the catalogue due to derivative
-        #~ self.catalogue['n_left'] = int(self.info['waveform_extractor_params']['n_left'] +2)
-        #~ self.catalogue['n_right'] = int(self.info['waveform_extractor_params']['n_right'] -2)
-        self.catalogue['n_left'] = n_left
-        self.catalogue['n_right'] = n_right
-        self.catalogue['peak_width'] = self.catalogue['n_right'] - self.catalogue['n_left']
-        
         self.catalogue['inter_sample_oversampling'] = inter_sample_oversampling
-        
         self.catalogue['mode'] = self.mode
         
-        #~ self.catalogue['sparse_thresh_level2'] = sparse_thresh_level2
+        self.catalogue['n_left'] = n_left
+        self.catalogue['n_right'] = n_right
+        self.catalogue['n_left_long'] = n_left_long
+        self.catalogue['n_right_long'] = n_right_long
+        #~ self.catalogue['peak_width'] = self.catalogue['n_right'] - self.catalogue['n_left']
         
         
         #for colors
@@ -2449,6 +2447,7 @@ class CatalogueConstructor:
         self.catalogue['cluster_labels'] = cluster_labels
         self.catalogue['clusters'] = self.clusters[keep].copy()
         centroids = self.centroids_median[keep, :, :].copy()
+        centroids_long = self.centroids_median_long[keep, :, :].copy()
 
         
         
@@ -2463,15 +2462,20 @@ class CatalogueConstructor:
         #~ full_width = self.info['waveform_extractor_params']['n_right'] - self.info['waveform_extractor_params']['n_left']
         
         catalogue_width = n_right - n_left
+        catalogue_width_long = n_right_long - n_left_long
+        
         full_width = catalogue_width + 4
         #~ nchan = self.nb_channel
         
         centers0 = np.zeros((len(cluster_labels), catalogue_width, self.nb_channel), dtype=self.info['internal_dtype'])
         self.catalogue['centers0'] = centers0 # median of wavforms
+        centers0_long = np.zeros((len(cluster_labels), catalogue_width_long, self.nb_channel), dtype=self.info['internal_dtype'])
+        self.catalogue['centers0_long'] = centers0_long # median of wavforms
+        
         
         # normed and sparse centers0
-        centers0_normed = np.zeros((len(cluster_labels), catalogue_width, self.nb_channel), dtype=self.info['internal_dtype'])
-        self.catalogue['centers0_normed'] = centers0_normed
+        #~ centers0_normed = np.zeros((len(cluster_labels), catalogue_width, self.nb_channel), dtype=self.info['internal_dtype'])
+        #~ self.catalogue['centers0_normed'] = centers0_normed
         
         
 
@@ -2522,11 +2526,16 @@ class CatalogueConstructor:
         #~ self.catalogue['nearest_templates'] = {}
         
         
+        
         # first loop to compute mask and centers_normed
         for i, k in enumerate(cluster_labels):
             self.catalogue['label_to_index'][k] = i
             center0 = centroids[i, :,:]
             centers0[i,:,:] = center0
+            
+            center0_long = centroids_long[i, :,:]
+            centers0_long[i,:,:] = center0_long
+            
 
             #~ if self.mode == 'dense':
                 #~ # see notes in PeelerEngineBase for which sparse mask is for what
@@ -2579,6 +2588,7 @@ class CatalogueConstructor:
         # loop to get some waveform again to compute:
         #  * derivative if necessary
         if inter_sample_oversampling:
+            raise NotImplementedError # TODO propagate center_long to this section and peeler
             centers1 = np.zeros_like(centers0)
             centers2 = np.zeros_like(centers0)
             self.catalogue['centers1'] = centers1 # median of first derivative of wavforms

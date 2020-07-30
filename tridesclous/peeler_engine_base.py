@@ -102,66 +102,22 @@ class PeelerEngineBase(OpenCL_Helper):
         #~ print('self.use_sparse_template', self.use_sparse_template)
 
         # make kernels
-        centers = self.catalogue['centers0']
-        self.nb_cluster = centers.shape[0]
-        self.peak_width = centers.shape[1]
-        self.nb_channel = centers.shape[2]
+        #~ centers = self.catalogue['centers0']
+        #~ self.nb_cluster = centers.shape[0]
+        #~ self.peak_width = centers.shape[1]
+        #~ self.nb_channel = centers.shape[2]
         
         
         self.threshold = self.catalogue['peak_detector_params']['relative_threshold']
         
         #~ print(centers.shape)
-        abs_centers = np.abs(centers)
-        if self.use_sparse_template:
-            # sparse_mask_level1 : low mad (1.5)
-            #    * used to reset spike zone arroud spike
-            # sparse_mask_level2 : typically subthrehold (3)
-            #    * use to pre compute distance distribution in make_catalogue and limits (accept_template)
-            #    * use to explore shifts 
-            # sparse_mask_level3 : equal threhold
-            #   NOT ANY MORE only radius * used to compute distance spike<->centroid (get_best_template)
-            #    * use to reduce possible template list with detection channel
-            
-            #~ print(centers.shape)
-            # TODO use less memory
-            #~ abs_centers = np.abs(centers)
-            
-            #~ self.sparse_mask_level1 = np.any(abs_centers > sparse_threshold_mad, axis=1)
-            
-            #~ thresh = self.catalogue['sparse_thresh_level2']
-            #~ self.sparse_mask_level2 = np.any(abs_centers > thresh, axis=1)
-            
-            self.sparse_mask_level1 = self.catalogue['sparse_mask_level1']
-            self.sparse_mask_level2 = self.catalogue['sparse_mask_level2']
-            self.sparse_mask_level3 = self.catalogue['sparse_mask_level3']
-            #~ self.sparse_mask_level4 = self.catalogue['sparse_mask_level4']
-            
-            
-            #~ thresh = self.catalogue['peak_detector_params']['relative_threshold']
-            #~ self.sparse_mask_level3 = np.any(np.abs(centers)>thresh, axis=1)
-            
-            #~ print(self.sparse_mask_level1.shape)
-            #~ print(self.sparse_mask_level1.sum(axis=0))
-            #~ fig, ax = plt.subplots()
-            #~ ax.matshow(self.sparse_mask_level1, cmap='Greens')
-            #~ fig, ax = plt.subplots()
-            #~ ax.matshow(self.sparse_mask_level3, cmap='Greens')
-            #~ plt.show()
+        #~ abs_centers = np.abs(centers)
 
-        else:
-            #~ dense_mask = np.ones((centers.shape[0], centers.shape[2]), dtype='bool')
-            #~ self.sparse_mask_level1 = dense_mask
-            
-            # this must be the same as in make_catalogue
-            #~ thresh = self.catalogue['sparse_thresh_level2']
-            #~ self.sparse_mask_level2 = np.any(abs_centers > thresh, axis=1)
-            self.sparse_mask_level1 = self.catalogue['sparse_mask_level1']
-            self.sparse_mask_level2 = self.catalogue['sparse_mask_level2']
-            self.sparse_mask_level3 = self.catalogue['sparse_mask_level3']
-            #~ self.sparse_mask_level3 = dense_mask
-            
+        self.sparse_mask_level1 = self.catalogue['sparse_mask_level1']
+        self.sparse_mask_level2 = self.catalogue['sparse_mask_level2']
+        self.sparse_mask_level3 = self.catalogue['sparse_mask_level3']
         
-        #~ self.distance_limit = self.catalogue['distance_limit']
+
         
         # weight of template per channel masked with level3
         #~ self.weight_per_template = np.zeros((self.nb_cluster, self.nb_channel), dtype='float32')
@@ -238,11 +194,22 @@ class PeelerEngineBase(OpenCL_Helper):
         peak_span_ms = self.catalogue['peak_detector_params']['peak_span_ms']
         self.n_span = int(sample_rate * peak_span_ms / 1000.)//2
         self.n_span = max(1, self.n_span)
-        self.peak_width = self.catalogue['peak_width']
-        self.extra_size = self.peak_width + self.maximum_jitter_shift*2 + self.n_span*2 + 1
-        self.fifo_size = self.chunksize + self.extra_size
-        self.n_right = self.catalogue['n_right']
+        #~ self.peak_width = self.catalogue['peak_width']
+        
+        centers = self.catalogue['centers0']
+        self.nb_cluster = centers.shape[0]
+        #~ self.peak_width = centers.shape[1]
+        self.nb_channel = centers.shape[2]
+        
         self.n_left = self.catalogue['n_left']
+        self.n_right = self.catalogue['n_right']
+        self.n_left_long = self.catalogue['n_left_long']
+        self.n_right_long = self.catalogue['n_right_long']
+        self.peak_width = self.n_right - self.n_left
+        self.peak_width_long = self.n_right_long - self.n_left_long
+        
+        self.extra_size = self.peak_width_long + self.maximum_jitter_shift*2 + self.n_span*2 + 1
+        self.fifo_size = self.chunksize + self.extra_size
         
         assert self.chunksize > (self.extra_size+1), 'chunksize is too small because of n_size'
         
@@ -437,8 +404,9 @@ class PeelerEngineGeneric(PeelerEngineBase):
         
         # left_ind is the waveform left border
         left_ind = proposed_peak_ind + self.n_left
+        left_ind_long = proposed_peak_ind + self.n_left_long
 
-        if left_ind+self.peak_width+self.maximum_jitter_shift+1>=self.fifo_size:
+        if left_ind_long+self.peak_width_long+self.maximum_jitter_shift+1>=self.fifo_size:
         #~ if left_ind+self.peak_width >=self.fifo_size:
             # TODO : remove this because maybe unecessry
             # too near right limits no label
@@ -446,7 +414,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
             jitter = 0
             if self._plot_debug:
                 print('LABEL_RIGHT_LIMIT', proposed_peak_ind, peak_chan)
-        elif left_ind<=self.maximum_jitter_shift:
+        elif left_ind_long<=self.maximum_jitter_shift:
         #~ elif left_ind<0:
             # TODO : remove this because maybe unecessry
             # too near left limits no label
@@ -482,6 +450,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
                 cluster_idx, shift, distance = self.get_best_template(left_ind, peak_chan)
                 if shift is not None:
                     left_ind += shift
+                    left_ind_long +=shift
                 
                 # cluster_idx can be <0 when no possible cluster with geometrical
                 
@@ -504,17 +473,19 @@ class PeelerEngineGeneric(PeelerEngineBase):
                     t1 = time.perf_counter()
                     #~ print('left_ind', left_ind, 'proposed_peak_ind', proposed_peak_ind)
                     if self.inter_sample_oversampling:
+                        raise NotImplementedError # TODO propagate center_long to this section and peeler
                         jitter = self.estimate_jitter(left_ind, cluster_idx)
                         shift = -int(np.round(jitter))
                         
                         if (np.abs(jitter) > 0.5) and \
-                                        (left_ind+shift+self.peak_width<self.fifo_size) and\
-                                        ((left_ind + shift) >= 0):
+                                        (left_ind_long+shift+self.peak_width_long<self.fifo_size) and\
+                                        ((left_ind_long + shift) >= 0):
                             # try better jitter
                             new_jitter = self.estimate_jitter(left_ind + shift, cluster_idx)
                             if np.abs(new_jitter)<np.abs(jitter):
                                 jitter = new_jitter
                                 left_ind += shift
+                                left_ind_long += shift
                                 shift = -int(np.round(new_jitter))
                         
                         # security to not be outside the fifo
@@ -522,12 +493,12 @@ class PeelerEngineGeneric(PeelerEngineBase):
                             label = LABEL_MAXIMUM_SHIFT
                             if self._plot_debug:
                                 print('LABEL_MAXIMUM_SHIFT', proposed_peak_ind, peak_chan)
-                        elif (left_ind+shift+self.peak_width)>=self.fifo_size:
+                        elif (left_ind_long+shift+self.peak_width_long)>=self.fifo_size:
                             # normally this should be resolve in the next chunk
                             label = LABEL_RIGHT_LIMIT
                             if self._plot_debug:
                                 print('LABEL_RIGHT_LIMIT 2', proposed_peak_ind, peak_chan)
-                        elif (left_ind + shift) < 0:
+                        elif (left_ind_long + shift) < 0:
                             label = LABEL_LEFT_LIMIT
                             if self._plot_debug:
                                 print('LABEL_LEFT_LIMIT 2', proposed_peak_ind, peak_chan)
@@ -547,13 +518,13 @@ class PeelerEngineGeneric(PeelerEngineBase):
         
         # second security check for borders
         if label>=0 and jitter is not None:
-            left_ind_check = left_ind - np.round(jitter).astype('int64')
+            left_ind_check = left_ind_long - np.round(jitter).astype('int64')
             if left_ind_check<0:
                 label = LABEL_LEFT_LIMIT
                 if self._plot_debug:
                     print('!!!!!!!ici LABEL_LEFT_LIMIT', label)
 
-            elif (left_ind_check+self.peak_width) >=self.fifo_size:
+            elif (left_ind_check+self.peak_width_long) >=self.fifo_size:
                 label = LABEL_RIGHT_LIMIT
                 if self._plot_debug:
                     print('!!!!!!!ici LABEL_RIGHT_LIMIT', label)
@@ -601,6 +572,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
                 if shift !=0:
                     jitter = jitter + shift
                     left_ind = left_ind + shift
+                    left_ind_long = left_ind_long + shift
             
             peak_ind = left_ind - self.n_left
             

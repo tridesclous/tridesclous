@@ -252,7 +252,8 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         #~ peak_index = spike.index
         #~ pos, pred = make_prediction_one_spike(spike.index, cluster_idx, spike.jitter, self.fifo_residuals.dtype, self.catalogue)
         pos, pred = make_prediction_one_spike(sample_ind, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
-        self.fifo_residuals[pos:pos+self.peak_width, :] -= pred
+        
+        self.fifo_residuals[pos:pos+self.peak_width_long, :] -= pred
         
         # this prevent search peaks in the zone until next "reset_to_not_tested"
         #~ self.clean_pending_peaks_zone(spike.index, cluster_idx)
@@ -295,7 +296,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             cluster_idx = self.catalogue['label_to_index'][spike.cluster_label]
             chan_mask = self.sparse_mask_level1[cluster_idx, :]
             #~ self.already_tested = [ p for p in self.already_tested if not((np.abs(p[0]-spike.index)<self.peak_width)  and mask[p[1]] ) ]
-            self.mask_already_tested[spike.index + self.n_left:spike.index + self.n_right][:, chan_mask] = False
+            self.mask_already_tested[spike.index + self.n_left_long:spike.index + self.n_right_long][:, chan_mask] = False
         #~ print('self.already_tested reduced', len(self.already_tested))
         # 
         
