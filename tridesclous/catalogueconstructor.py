@@ -1046,7 +1046,7 @@ class CatalogueConstructor:
             if possible_indexes.size == 0:
                 print('WARNING no noise snipet possible!!! Take random sigs instead', seg_num)
                 # take random places
-                print('length', length)
+                #~ print('length', length)
                 inds = np.sort(np.random.choice(length, size=n_by_seg))
             else:
                 inds = possible_indexes[np.sort(np.random.choice(possible_indexes.size, size=n_by_seg))]
@@ -1313,8 +1313,6 @@ class CatalogueConstructor:
         mad = mad_long[i0:-i1, :]
         
         # to persistant arrays
-        print(i0, i1)
-        print(median_long.shape, median.shape)
         self.centroids_median_long[ind, :, :] = median_long
         self.centroids_median[ind, :, :] = median
         self.centroids_mad[ind, :, :] = mad
@@ -1862,8 +1860,12 @@ class CatalogueConstructor:
                     local_projector /= np.sum(local_projector**2)                
                     other_feat = (other_centroids - flat_centroid0[:, np.newaxis]).T @ local_projector
                     
-                    #~ fig, ax = plt.subplots()
-                    #~ ax.plot(other_feat)
+                    fig, ax = plt.subplots()
+                    ax.plot(other_feat)
+                    other_idx = np.nonzero(other_mask)[0][other_select]
+                    title = f'{cluster_idx0} {other_idx}'
+                    ax.set_title(title)
+                    ax.set_ylim(-2, 2)
                     #~ plt.show()
                     
                     ind,  = np.nonzero(np.abs(other_feat) < 1.)
@@ -1874,6 +1876,8 @@ class CatalogueConstructor:
                     
                     #~ print('other_select', other_select)
                     #~ print('other_feat', other_feat)
+                
+                plt.show()
                 
                 #~ print('other_select', len(other_select))
                 neighbors[cluster_idx0] = np.nonzero(other_mask)[0][other_select]
@@ -2026,7 +2030,7 @@ class CatalogueConstructor:
                 print('warning boundary label=', cluster_labels[cluster_idx0], 'cluster_idx0=', cluster_idx0)
                 boundaries[cluster_idx0, 0] = 0.
                 boundaries[cluster_idx0, 1] = 0.
-
+        
         #~ if True:
         if False:
             

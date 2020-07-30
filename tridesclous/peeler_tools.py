@@ -58,8 +58,10 @@ def make_prediction_signals(spikes, dtype, shape, catalogue, safe=True):
         
         pos, pred = make_prediction_on_spike_with_label(spikes[i]['index'], spikes[i]['cluster_label'], spikes[i]['jitter'], dtype, catalogue)
         
-        if pos>=0 and  pos+catalogue['peak_width']<shape[0]:
-            prediction[pos:pos+catalogue['peak_width'], :] += pred
+        peak_width_long = catalogue['centers0_long'].shape[1]
+        
+        if pos>=0 and  pos+peak_width_long<shape[0]:
+            prediction[pos:pos+peak_width_long, :] += pred
         else:
             if not safe:
                 print(spikes)

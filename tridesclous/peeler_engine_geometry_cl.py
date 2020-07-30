@@ -695,7 +695,6 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             #~ t1 = time.perf_counter()
             #~ print('kern_make_common_mask',( t1-t0)*1000)
 
-
             #~ if True:
                 #~ event = pyopencl.enqueue_copy(self.queue,  self.common_mask, self.common_mask_cl)
                 #~ event = pyopencl.enqueue_copy(self.queue,  self.nb_candidate, self.nb_candidate_cl)
@@ -892,6 +891,10 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         pyopencl.enqueue_copy(self.queue,  self.nb_pending_peaks, self.nb_pending_peaks_cl)
         pyopencl.enqueue_copy(self.queue,  self.pending_peaks, self.pending_peaks_cl)
         pending_peaks =  self.pending_peaks[:self.nb_pending_peaks[0]]
+        print('ici')
+        print(pending_peaks)
+        keep = pending_peaks['peak_value'] > 0
+        pending_peaks = pending_peaks[keep]
         sample_inds = pending_peaks['sample_ind']
         chan_inds = pending_peaks['chan_index']
         
@@ -906,20 +909,27 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
         ax.plot(self._plot_sigs_before, color='b')
         
-        ax.axvline(self.fifo_size - self.n_right, color='r')
-        ax.axvline(-self.n_left, color='r')
+        ax.axvline(self.fifo_size - self.n_right_long, color='r')
+        ax.axvline(-self.n_left_long, color='r')
 
         ax.scatter(sample_inds, plot_sigs[sample_inds, chan_inds], color='r')
         
         
+
+        plot_res = self.fifo_residuals.copy()
+        for c in range(self.nb_channel):
+            plot_res[:, c] += c*30
+        ax.plot(plot_res, color='k', alpha=0.3)
         
         good_spikes = np.array(good_spikes, dtype=_dtype_spike)
         pred = make_prediction_signals(good_spikes, self.internal_dtype, plot_sigs.shape, self.catalogue, safe=True)
         plot_pred = pred.copy()
         for c in range(self.nb_channel):
             plot_pred[:, c] += c*30
-        
         ax.plot(plot_pred, color='m')
+        
+        
+        
         
         plt.show()
 
@@ -1340,7 +1350,7 @@ __kernel void get_candidate_template(
         }else{
             candidate_template[cluster_idx].strict = 0;
         }
-        if ((sp > boundaries[cluster_idx*4 + 3]) && (sp < boundaries[cluster_idx*4 + 2])){
+        if ((sp > boundaries[cluster_idx*4 + 2]) && (sp < boundaries[cluster_idx*4 + 3])){
             candidate_template[cluster_idx].flexible = 1;
             atomic_inc(nb_flexible_candidate);
         } else{
@@ -1840,7 +1850,7 @@ __kernel void remove_spike_from_fifo(
     
     int s = get_global_id(0);
     
-    if (s>=peak_width){
+    if (s>=peak_width_long){
         return;
     }
     
