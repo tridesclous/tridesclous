@@ -246,27 +246,16 @@ def get_auto_params_for_peelers(dataio, chan_grp=0):
 
     if nb_chan <= limit_dense_sparse:
         params['engine'] = 'geometrical'
-        params['argmin_method'] = 'numba'
         
     else:
         if HAVE_PYOPENCL:
-            if nb_chan <=16:
-                params['engine'] = 'geometrical'
-                params['argmin_method'] = 'opencl'
-            else:
-                params['engine'] = 'geometrical_opencl' # Still experimental
-        elif HAVE_NUMBA:
+            params['engine'] = 'geometrical_opencl'
+        else:
             params['engine'] = 'geometrical'
-            params['argmin_method'] = 'numba'
+
     
-    params['adjacency_radius_um'] = 50
-    
-    # DEBUG
+    # DEBUG force 'geometrical'
     params['engine'] = 'geometrical'
-    params['argmin_method'] = 'numba'
         
-        #~ else:
-            #~ params['argmin_method'] = 'numpy'
-            #~ params['engine'] = 'geometrical'
 
     return params

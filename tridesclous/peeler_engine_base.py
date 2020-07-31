@@ -447,7 +447,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
                 t1 = time.perf_counter()
                 #TODO try usewaveform to avoid new buffer ????
                 
-                cluster_idx, shift, distance = self.get_best_template(left_ind, peak_chan)
+                cluster_idx, shift, best_template_info = self.get_best_template(left_ind, peak_chan)
                 if shift is not None:
                     left_ind += shift
                     left_ind_long +=shift
@@ -507,7 +507,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
                     
                     if label is None:
                         t1 = time.perf_counter()
-                        ok = self.accept_tempate(left_ind, cluster_idx, jitter, distance)
+                        ok = self.accept_tempate(left_ind, cluster_idx, jitter, best_template_info)
                         if ok:
                             label = self.catalogue['cluster_labels'][cluster_idx]
                         else:

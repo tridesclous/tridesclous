@@ -1737,7 +1737,7 @@ class CatalogueConstructor:
         neighbors = {}
         
         for cluster_idx0, label0 in enumerate(cluster_labels):
-            #~ if cluster_idx0 != 6:
+            #~ if cluster_idx0 != 13:
                 #~ continue
             #~ print()
             #~ print('cluster_idx0', cluster_idx0)
@@ -1838,7 +1838,9 @@ class CatalogueConstructor:
                 #~ ax.plot(other_centroids[:, ind_min].reshape(-1, local_chan).T.flatten(), color='m')
                 #~ plt.show()
                 
+                #~ last_loop = False
                 while True:
+                    # TODO : try to add them one by one!!!!!!!
                     if len(other_select) == 1:
                         centroid0_proj = other_centroids[:, other_select[0]]
                     else:
@@ -1860,24 +1862,48 @@ class CatalogueConstructor:
                     local_projector /= np.sum(local_projector**2)                
                     other_feat = (other_centroids - flat_centroid0[:, np.newaxis]).T @ local_projector
                     
-                    fig, ax = plt.subplots()
-                    ax.plot(other_feat)
-                    other_idx = np.nonzero(other_mask)[0][other_select]
-                    title = f'{cluster_idx0} {other_idx}'
-                    ax.set_title(title)
-                    ax.set_ylim(-2, 2)
+                    #~ fig, ax = plt.subplots()
+                    #~ ax.plot(other_feat)
+                    #~ other_idx = np.nonzero(other_mask)[0][other_select]
+                    #~ title = f'{cluster_idx0} {other_idx}'
+                    #~ ax.set_title(title)
+                    #~ ax.set_ylim(-2, 2)
                     #~ plt.show()
                     
+                    #~ if last_loop:
+                        #~ ind,  = np.nonzero(np.abs(other_feat) < 1.)
+                    #~ else:
+                        #~ ind,  = np.nonzero(np.abs(other_feat) < 0.5)
+                    #~ if np.all(np.in1d(ind, other_select)):
+                        #~ if last_loop:
+                            #~ break
+                        #~ else:
+                            #~ last_loop = True
+                    #~ other_select.extend(ind)
+                    #~ other_select = list(np.unique(other_select))
+
+
                     ind,  = np.nonzero(np.abs(other_feat) < 1.)
-                    if np.all(np.in1d(ind, other_select)):
+
+                    if ind.size == 0:
                         break
-                    other_select.extend(ind)
-                    other_select = list(np.unique(other_select))
+                    else:
+                        not_in = np.ones(other_feat.size, dtype='bool')
+                        not_in[other_select] = False
+                        too_small = (np.abs(other_feat) < 1.)
+                        others_candidate, = np.nonzero(not_in & too_small)
+                        if others_candidate.size ==0:
+                            break
+                        smallest_ind = np.argmin(np.abs(other_feat[others_candidate]))
+                        other_select.append(others_candidate[smallest_ind])
+                    
+                    
+                    
                     
                     #~ print('other_select', other_select)
                     #~ print('other_feat', other_feat)
                 
-                plt.show()
+                #~ plt.show()
                 
                 #~ print('other_select', len(other_select))
                 neighbors[cluster_idx0] = np.nonzero(other_mask)[0][other_select]
@@ -1977,16 +2003,16 @@ class CatalogueConstructor:
             
         
         for cluster_idx0, label0 in enumerate(cluster_labels):
-            #~ if cluster_idx0 != 6:
+            #~ if cluster_idx0 != 13:
                 #~ continue
             
             #~ print(cluster_idx0)
             inner_sp = scalar_products[cluster_idx0, cluster_idx0]
             med, mad = median_mad(inner_sp)
             
-            #~ mad_factor = 6
+            mad_factor = 6
             #~ mad_factor = 5
-            mad_factor = 4
+            #~ mad_factor = 4
             #~ mad_factor = 3.5
             #~ mad_factor = 3
             #~ mad_factor = 2.5
@@ -1998,38 +2024,127 @@ class CatalogueConstructor:
             high = med + mad_factor * mad
             initial_high = high
 
-            # TODO ajust boundaries
+            # method with factor
+            #~ for cluster_idx1, label1 in enumerate(cluster_labels):
+                #~ if cluster_idx1 == cluster_idx0:
+                    #~ continue
+                #~ cross_sp = scalar_products[cluster_idx0, cluster_idx1]
+                #~ med, mad = median_mad(cross_sp)
+                #~ if med > high and (med - mad_factor * mad) < high:
+                    #~ middle = (initial_high + (med - mad_factor * mad)) * 0.5
+                    #~ high = middle
+                
+                #~ if med < low and (med + mad_factor * mad) > low:
+                    #~ middle = (low + (med + mad_factor * mad)) * 0.5
+                    #~ low = middle
+            #~ noise_sp = scalar_products[cluster_idx0, -1]
+            #~ med, mad = median_mad(noise_sp)
+            #~ if (med - mad_factor * mad) < high:
+                #~ ## middle = (initial_high + (med - mad_factor * mad)) * 0.5
+                #~ high = med - mad_factor * mad
+            
+            #~ boundaries[cluster_idx0, 0] = max(low, -0.5)
+            #~ boundaries[cluster_idx0, 1] = min(high, 0.5)
+            
+            #~ boundaries[cluster_idx0, 2] = max(initial_low, -0.5)
+            #~ boundaries[cluster_idx0, 3] = min(initial_high, 0.5)                    
+
+            #~ if high <0:
+                #~ # too complicated
+                #~ print('warning boundary label=', cluster_labels[cluster_idx0], 'cluster_idx0=', cluster_idx0)
+                #~ boundaries[cluster_idx0, 0] = 0.
+                #~ boundaries[cluster_idx0, 1] = 0.
+            
+            # optimze boudaries with accuracy
+            
+            high_clust = []
+            high_lim = []
+            low_clust = []
+            low_lim = []
             for cluster_idx1, label1 in enumerate(cluster_labels):
+                # select dangerous cluster
                 if cluster_idx1 == cluster_idx0:
                     continue
                 cross_sp = scalar_products[cluster_idx0, cluster_idx1]
                 med, mad = median_mad(cross_sp)
-                if med > high and (med - mad_factor * mad) < high:
-                    middle = (initial_high + (med - mad_factor * mad)) * 0.5
-                    high = middle
-                
+                if med > high and (med - mad_factor * mad) < high :
+                    high_clust.append(cluster_idx1)
+                    high_lim.append(med - mad_factor * mad)
                 if med < low and (med + mad_factor * mad) > low:
-                    middle = (low + (med + mad_factor * mad)) * 0.5
-                    low = middle
-            
+                    low_clust.append(cluster_idx1)
+                    low_lim.append(med + mad_factor * mad)
+
             noise_sp = scalar_products[cluster_idx0, -1]
             med, mad = median_mad(noise_sp)
-            if (med - mad_factor * mad) < high:
-                #~ middle = (initial_high + (med - mad_factor * mad)) * 0.5
-                high = med - mad_factor * mad
+            if med > high and (med - mad_factor * mad) < high :
+                high_clust.append(-1)
+                high_lim.append(med - mad_factor * mad)
+            # TODO if noise in low limits
+            #~ print()
+            #~ print('initial_low', initial_low)
+            #~ print('initial_high', initial_high)
+            #~ print('high_clust', high_clust, 'high_lim', high_lim)
+            #~ print('low_clust', low_clust, 'low_lim', low_lim)
+
+            if len(high_clust) > 0:
+                l0 = min(high_lim)
+                l1 = initial_high
+                step = (l1-l0)/20.
+                
+                all_sp = np.concatenate([scalar_products[cluster_idx0, idx1] for idx1 in high_clust])
+                limits = np.arange(l0, l1, step) 
+                accuracies = []
+                for l in limits:
+                    tp = scalar_products[cluster_idx0, cluster_idx0].size
+                    fn = np.sum(scalar_products[cluster_idx0, cluster_idx0] > l)
+                    fp = np.sum(all_sp < l)
+                    accuracy = tp / (tp + fn + fp)
+                    accuracies.append(accuracy)
+                best_lim = limits[np.argmax(accuracies)]
+                boundaries[cluster_idx0, 1] = min(best_lim, 0.5)
+                
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(limits, accuracies)
+                #~ ax.axvline(best_lim)
+                #~ ax.set_title(f'high {cluster_idx0}')
+                #~ plt.show()
+                
+            else:
+                boundaries[cluster_idx0, 1] = min(initial_high, 0.5)
             
-            boundaries[cluster_idx0, 0] = max(low, -0.5)
-            boundaries[cluster_idx0, 1] = min(high, 0.5)
+            if len(low_clust) > 0:
+                l1 = max(low_lim)
+                l0 = initial_low
+                step = (l1-l0)/20.
+                
+                all_sp = np.concatenate([scalar_products[cluster_idx0, idx1] for idx1 in low_clust])
+                limits = np.arange(l0, l1, step) 
+                accuracies = []
+                for l in limits:
+                    tp = scalar_products[cluster_idx0, cluster_idx0].size
+                    fn = np.sum(scalar_products[cluster_idx0, cluster_idx0] <l)
+                    fp = np.sum(all_sp > l)
+                    accuracy = tp / (tp + fn + fp)
+                    accuracies.append(accuracy)
+                best_lim = limits[np.argmax(accuracies)]
+                boundaries[cluster_idx0, 0] = max(best_lim, -0.5)
+                
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(limits, accuracies)
+                #~ ax.axvline(best_lim)
+                #~ ax.set_title(f'low {cluster_idx0}')
+                #~ plt.show()
+
+            else:
+                boundaries[cluster_idx0, 0] = max(initial_low, -0.5)
+
             
-            # flexible boundaries
             boundaries[cluster_idx0, 2] = max(initial_low, -0.5)
-            boundaries[cluster_idx0, 3] = min(initial_high, 0.5)
+            boundaries[cluster_idx0, 3] = min(initial_high, 0.5)                    
             
-            if high <0:
-                # too complicated
-                print('warning boundary label=', cluster_labels[cluster_idx0], 'cluster_idx0=', cluster_idx0)
-                boundaries[cluster_idx0, 0] = 0.
-                boundaries[cluster_idx0, 1] = 0.
+
+            
+
         
         #~ if True:
         if False:
@@ -2037,7 +2152,7 @@ class CatalogueConstructor:
             colors_ = sns.color_palette('husl', n)
             colors = {i: colors_[i] for i, k in enumerate(cluster_labels)}
             for cluster_idx0, label0 in enumerate(cluster_labels):
-                #~ if not cluster_idx0 in (6, ):
+                #~ if  cluster_idx0 != 13:
                     #~ continue
                 colors_ = sns.color_palette('husl', n)
                 colors = {i: colors_[i] for i, k in enumerate(cluster_labels)}
@@ -2098,8 +2213,8 @@ class CatalogueConstructor:
                 #~ ax2.plot(centroids[cluster_idx0, :, :].T.flatten(), color='k', ls='--')
                 
                 
-                plt.show()
-            #~ plt.show()
+                #~ plt.show()
+            plt.show()
 
             
             

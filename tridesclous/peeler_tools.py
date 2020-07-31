@@ -30,13 +30,14 @@ def make_prediction_on_spike_with_label(spike_index, spike_label, spike_jitter, 
     cluster_idx = catalogue['label_to_index'][spike_label]
     return make_prediction_one_spike(spike_index, cluster_idx, spike_jitter, dtype, catalogue)
 
-def make_prediction_one_spike(spike_index, cluster_idx, spike_jitter, dtype, catalogue):
-    
-    
-    pos = spike_index + catalogue['n_left_long']
-    #~ if spike_jitter is None or np.isnan(spike_jitter):
+def make_prediction_one_spike(spike_index, cluster_idx, spike_jitter, dtype, catalogue, long=True):
     if not catalogue['inter_sample_oversampling'] or spike_jitter is None or np.isnan(spike_jitter):
-        pred = catalogue['centers0_long'][cluster_idx, :, :]
+        if long:
+            pos = spike_index + catalogue['n_left_long']
+            pred = catalogue['centers0_long'][cluster_idx, :, :]
+        else:
+            pos = spike_index + catalogue['n_left']
+            pred = catalogue['centers0'][cluster_idx, :, :]
     else:
         raise NotImplementedError # TODO propagate center_long to this section and peeler
         r = catalogue['subsample_ratio']
