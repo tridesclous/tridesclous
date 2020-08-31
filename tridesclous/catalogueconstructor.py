@@ -1007,7 +1007,12 @@ class CatalogueConstructor:
         # avoid memmap ref for ploting
         wfs = wfs.copy()
         return wfs
-
+    
+    def delete_waveforms_cache(self):
+        if 'some_waveforms' in self.arrays.keys():
+            self.arrays.delete_array('some_waveforms')
+        if 'some_waveform_index' in self.arrays.keys():
+            self.arrays.delete_array('some_waveform_index')        
 
     def extract_some_noise(self, nb_snippet=300):
         """
@@ -1128,7 +1133,9 @@ class CatalogueConstructor:
         selection is mask bool size all_peaks
         """
         #done in a separate module cluster.py
-
+    
+        self.delete_waveforms_cache()
+        
         if selection is not None:
             old_labels = np.unique(self.all_peaks['cluster_label'][selection])
             #~ print(old_labels)
@@ -1295,7 +1302,7 @@ class CatalogueConstructor:
             if selected.size>n_spike_for_centroid:
                 keep = np.random.choice(selected.size, n_spike_for_centroid, replace=False)
                 selected = selected[keep]
-                wf = self.get_some_waveforms(peaks_index=self.some_peaks_index[selected], channel_indexes=None,
+            wf = self.get_some_waveforms(peaks_index=self.some_peaks_index[selected], channel_indexes=None,
                         n_left=n_left_long, n_right=n_right_long)
         else:
             wf = self.get_cached_waveforms(k, long=True)
