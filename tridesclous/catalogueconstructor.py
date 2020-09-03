@@ -1490,6 +1490,9 @@ class CatalogueConstructor:
     def trash_small_cluster(self, **kargs):
         cleancluster.trash_small_cluster(self, **kargs)
 
+    def remove_overlap(self, **kargs):
+        cleancluster.remove_overlap(self, **kargs)
+
     def compute_cluster_similarity(self, method='cosine_similarity_with_max'):
         if self.centroids_median is None:
             self.compute_all_centroid()

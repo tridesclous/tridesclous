@@ -544,3 +544,94 @@ def trash_small_cluster(cc, minimum_size=10):
             cc.all_peaks['cluster_label'][mask] = -1
             to_remove.append(k)
     cc.pop_labels_from_cluster(to_remove)
+
+
+def remove_overlap(cc, thresh_mad=8):
+    print(cc)
+
+    print(cc.clusters['cluster_label'])
+    
+    
+    # TODO change this masking suff
+    print(cc.centroids_mad.shape)
+    #~ keep,  = np.nonzero(cc.clusters['cluster_label']>=0)
+    keep = cc.clusters['cluster_label']>=0
+    print(keep)
+    mads = cc.centroids_mad[keep, :, :]
+    print(mads.shape)
+    centers = cc.centroids_median[keep, :, :]
+    
+    max_mad = np.max(mads, axis=(1,2))
+    print(max_mad)
+
+    
+    for i, label in enumerate(cc.positive_cluster_labels):
+        
+        
+        #~ mad = cc.get_one_centroid(label, metric='mad', long=False)
+        mad = mads[i, :, :]
+        
+        if np.max(mad) < thresh_mad:
+            continue
+        
+        center = centers[i]
+        
+        
+        pairs = []
+        distances = []
+        for j, label0 in enumerate(cc.positive_cluster_labels):
+            if i == j:
+                continue
+            for k, label1 in enumerate(cc.positive_cluster_labels):
+                if j == k or i==k:
+                    continue
+                
+                center0 = centers[j]
+                center1 = centers[k]
+                center_add = center0 + center1
+                dist = np.sum((center - center_add)**2)
+
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(center.T.flatten(), color='b')
+                #~ ax.plot(center_add.T.flatten(), color='c', ls='--')
+                #~ ax.set_title(f'{label} = {label0} + {label1}')
+                #~ plt.show()                
+                
+                
+                pairs.append((j,k))
+                distances.append(dist)
+        
+        print(distances)
+        print(pairs)
+        ind_min = np.argmin(distances)
+        
+        j, k = pairs[ind_min]
+        print('best', j, k)
+        center0 = centers[j]
+        center1 = centers[k]
+        center_add = center0 + center1
+        
+        
+        fig, ax = plt.subplots()
+        ax.plot(center.T.flatten(), color='b')
+        ax.plot(center0.T.flatten(), color='r')
+        ax.plot(center1.T.flatten(), color='g')
+        ax.plot(center_add.T.flatten(), color='c', ls='--')
+        label0 = cc.positive_cluster_labels[j]
+        label1 = cc.positive_cluster_labels[k]
+        ax.set_title(f'{label} = {label0} + {label1}')
+        plt.show()
+        
+        
+        #~ fig, axs = plt.subplots(nrows=2, sharex=True)
+        #~ axs[0].plot(center.T.flatten())
+        #~ axs[1].plot(mad.T.flatten())
+        #~ axs[0].set_title(f'{label}')
+        #~ plt.show()
+        
+        
+        
+        
+        
+
+    
