@@ -57,7 +57,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         chunksize = self.fifo_size-2*self.n_span # not the real chunksize here
         self.peakdetector = PeakDetector_class(self.sample_rate, self.nb_channel,
                                                         chunksize, self.internal_dtype, self.geometry)
-
+        
         self.peakdetector.change_params(**p)
         
         # some attrs
@@ -561,7 +561,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         ax.scatter(sample_inds, plot_sigs[sample_inds, chan_inds], color='r')
         ax.set_title(f'nb peak {sample_inds.size}')
         
-        plt.show()
+        #~ plt.show()
         
     
     def _plot_label_unclassified(self, left_ind, peak_chan, cluster_idx, jitter):

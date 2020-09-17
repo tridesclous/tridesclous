@@ -417,8 +417,6 @@ class PeakDetectorGeometricalNumpy(BasePeakDetector):
             neighb, = np.nonzero(neighbour_mask[c, :])
             self.neighbours[c, :neighb.size] = neighb
         
-        #~ print('self.nb_max_neighbour', self.nb_max_neighbour)
-        
         self.fifo_sigs = FifoBuffer((self.chunksize+2*self.n_span, self.nb_channel), self.dtype)
     
     def reset_fifo_index(self):

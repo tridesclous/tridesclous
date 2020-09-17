@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.linalg
 import joblib
 
 
@@ -257,27 +258,27 @@ def equal_template(centroid0, waveforms0, centroid1, waveforms1, n_shift = 2, qu
 
 
 
-def get_normalized_centroids(centroids, peak_sign, sparse_thresh=None):
-    nb_clus, width, nb_chan = centroids.shape
+#~ def get_normalized_centroids(centroids, peak_sign, sparse_thresh=None):
+    #~ nb_clus, width, nb_chan = centroids.shape
     
-    normalized_centroids = np.zeros_like(centroids)
+    #~ normalized_centroids = np.zeros_like(centroids)
     
-    for cluster_idx in range(nb_clus):
-        centroid = centroids[cluster_idx, :, :]
-        centroid_normalized = centroid.copy()
+    #~ for cluster_idx in range(nb_clus):
+        #~ centroid = centroids[cluster_idx, :, :]
+        #~ centroid_normalized = centroid.copy()
         
-        if sparse_thresh is not None:
-            mask = np.any(np.abs(centroid) > sparse_thresh, axis=0)
-            centroid_normalized[:, ~mask] = 0
+        #~ if sparse_thresh is not None:
+            #~ mask = np.any(np.abs(centroid) > sparse_thresh, axis=0)
+            #~ centroid_normalized[:, ~mask] = 0
             
-        if peak_sign == '-':
-            centroid_normalized /= np.abs(np.min(centroid_normalized))
-        elif peak_sign == '+':
-            centroid_normalized /= np.abs(np.max(centroid_normalized))
-        centroid_normalized /= np.sum(centroid_normalized**2)
-        normalized_centroids[cluster_idx, :] = centroid_normalized
+        #~ if peak_sign == '-':
+            #~ centroid_normalized /= np.abs(np.min(centroid_normalized))
+        #~ elif peak_sign == '+':
+            #~ centroid_normalized /= np.abs(np.max(centroid_normalized))
+        #~ centroid_normalized /= np.sum(centroid_normalized**2)
+        #~ normalized_centroids[cluster_idx, :] = centroid_normalized
 
-    return normalized_centroids
+    #~ return normalized_centroids
 
 
 def compute_sparse_mask(centroids, mode, method='thresh', thresh=None, nbest=None):
@@ -354,6 +355,132 @@ def compute_shared_channel_mask(centroids, mode, sparse_thresh):
     return share_channel_mask
 
 
+
+
+def compute_projection(centroids, sparse_mask_level1):
+
+    n = centroids.shape[0]
+    #~ print('n', n)
+    
+    flat_shape = n, centroids.shape[1] * centroids.shape[2]
+    projections_flat = np.zeros(flat_shape, dtype='float32')
+    projections_3d = projections_flat.reshape(centroids.shape)
+    
+    neighbors = {}
+    
+    for cluster_idx0 in range(n):
+    
+        # only centroids / channel that are on sparse mask
+        chan_mask = sparse_mask_level1[cluster_idx0, :]
+        
+        # case1 sharing chan_mask
+        #~ nover = np.sum(sparse_mask_level1[:, chan_mask], axis=1)
+        #~ clus_mask = (nover > 0)
+        
+        # case2 5 nearest template
+        #~ distances = np.sum((centroids - centroids[[cluster_idx0], :, :])**2, axis=(1,2))
+        #~ order = np.argsort(distances)
+        #~ nearest = order[:8]
+        #~ clus_mask = np.zeros(n, dtype='bool')
+        #~ clus_mask[nearest] = True
+        
+        # case3 all cluster
+        clus_mask = np.ones(n, dtype='bool')
+        
+        # case 4 : sharing chan_mask + N nearest
+        #~ nover = np.sum(sparse_mask_level1[:, chan_mask], axis=1)
+        #~ sharing_mask = (nover > 0)
+        #~ distances = np.sum((centroids - centroids[[cluster_idx0], :, :])**2, axis=(1,2))
+        #~ distances[~sharing_mask] = np.inf
+        #~ order = np.argsort(distances)
+        #~ nearest = order[:8]
+        #~ clus_mask = np.zeros(n, dtype='bool')
+        #~ clus_mask[nearest] = True
+        
+        local_indexes0, = np.nonzero(clus_mask)
+        local_idx0 = np.nonzero(local_indexes0 == cluster_idx0)[0][0]
+            
+        local_nclus = np.sum(clus_mask)
+        local_chan = np.sum(chan_mask)
+        flat_centroids = centroids[clus_mask, :, :][:, :, chan_mask].reshape(local_nclus, -1).T.copy()
+        #~ print('local_nclus', local_nclus, 'local_chan', local_chan)
+        
+        
+        flat_centroid0 = flat_centroids[:, local_idx0]
+        #~ flat_centroid0 = centroids[cluster_idx0, :, :][:, chan_mask].flatten()
+        
+        other_mask = np.ones(local_nclus, dtype='bool')
+        other_mask[local_idx0] = False
+        
+        if np.sum(other_mask) > 0:
+            other_centroids = flat_centroids[:, other_mask]
+
+            ind_min = np.argmin(np.sum((other_centroids - flat_centroid0[:, np.newaxis])**2, axis=0))
+            other_select = [ind_min]
+            
+            
+            while True:
+                if len(other_select) == 1:
+                    centroid0_proj = other_centroids[:, other_select[0]]
+                else:
+                    # This find point in orthogonal hyperplan to the centroid
+                    centerred_other_centroids = other_centroids[:, other_select].copy()
+                    shift = -centerred_other_centroids[:, 0]
+                    centerred_other_centroids += shift[:, np.newaxis]
+                    centerred_other_centroids = centerred_other_centroids[:, 1:]
+                    u,s,vh = scipy.linalg.svd(centerred_other_centroids, full_matrices=False)
+                    centroid0_proj = u @ u.T @ (flat_centroid0 + shift) - shift
+                
+                local_projector = centroid0_proj - flat_centroid0
+                local_projector /= np.sum(local_projector**2)                
+
+                # test if noise (0,0,0, ...) must be in the hyperplane
+                noise_feat = (- flat_centroid0).T @ local_projector
+                if np.abs(noise_feat) < 1.:
+                    centerred_other_centroids = other_centroids[:, other_select].copy()
+                    u,s,vh = scipy.linalg.svd(centerred_other_centroids, full_matrices=False)
+                    centroid0_proj = u @ u.T @ (flat_centroid0)
+                    local_projector = centroid0_proj - flat_centroid0
+                    local_projector /= np.sum(local_projector**2)
+                    #~ print('cluster_idx0', cluster_idx0, 'WITH noise')
+                #~ else:
+                    #~ print('cluster_idx0', cluster_idx0, 'WITHOUT noise')
+                    
+                other_feat = (other_centroids - flat_centroid0[:, np.newaxis]).T @ local_projector
+                
+                ind,  = np.nonzero(np.abs(other_feat) < 1.)
+                
+                if ind.size == 0:
+                    break
+                else:
+                    # TODO : try to add them one by one and not sevral at each loop
+                    not_in = np.ones(other_feat.size, dtype='bool')
+                    not_in[other_select] = False
+                    too_small = (np.abs(other_feat) < 1.)
+                    others_candidate, = np.nonzero(not_in & too_small)
+                    if others_candidate.size ==0:
+                        break
+                    smallest_ind = np.argmin(np.abs(other_feat[others_candidate]))
+                    other_select.append(others_candidate[smallest_ind])
+                    #~ print(cluster_idx0, 'other_select', other_select)
+                
+            neighbors[cluster_idx0] = np.nonzero(other_mask)[0][other_select]
+            ortho_complement = local_projector
+        else:
+            # alone one theses channels = make projection with noise
+            ortho_complement = 0 - flat_centroid0
+            ortho_complement /= np.sum(ortho_complement**2)                
+            
+            neighbors[cluster_idx0] = {}
+        
+        #~ print('neighbors[cluster_idx0]', neighbors[cluster_idx0])
+
+        
+        
+        projections_3d[cluster_idx0, :, :][:, chan_mask] = ortho_complement.reshape(centroids.shape[1], local_chan)
+
+    
+    return projections_3d, neighbors
 
 
 

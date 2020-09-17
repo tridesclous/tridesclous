@@ -44,7 +44,7 @@ from . import labelcodes
 
 from .cataloguetools import apply_all_catalogue_steps
 
-from .waveformtools import get_normalized_centroids, compute_sparse_mask, compute_shared_channel_mask
+from .waveformtools import  compute_sparse_mask, compute_shared_channel_mask, compute_projection
 
 
 _global_params_attr = ('chunksize', 'memory_mode', 'internal_dtype', 'mode', 'sparse_threshold', 'n_spike_for_centroid', 'n_jobs') # 'adjacency_radius_um'
@@ -1714,7 +1714,6 @@ class CatalogueConstructor:
     def compute_boundaries(self, sparse_thresh_level1=1.0, full_hyperplane=False):
         assert self.some_waveforms is not None, 'run cc.cache_some_waveforms() first'
 
-
         keep = self.cluster_labels>=0
         cluster_labels = self.clusters[keep]['cluster_label'].copy()
         centroids = self.centroids_median[keep, :, :].copy()
@@ -1723,273 +1722,34 @@ class CatalogueConstructor:
 
         thresh = self.info['peak_detector_params']['relative_threshold']
         sparse_mask_level1 = compute_sparse_mask(centroids, self.mode, method='thresh', thresh=sparse_thresh_level1)
-        #~ sparse_mask_level3 = compute_sparse_mask(centroids, self.mode, method='thresh', thresh=thresh)
         
-        #~ share_channel_mask = compute_shared_channel_mask(centroids, self.mode,  sparse_thresh_level1)
-
-        # sparsify centroids
-        #~ sparse_centroids = centroids.copy()
-        #~ for cluster_idx0, label0 in enumerate(cluster_labels):
-            #~ rem = ~sparse_mask_level1[cluster_idx0, :]
-            #~ sparse_centroids[cluster_idx0, :, rem] = 0.
-            
-
-        #~ flat_centroids = centroids.reshape(centroids.shape[0], -1).T.copy()
+        #~ flat_shape = centroids.shape[0], centroids.shape[1] * centroids.shape[2]
+        
+        projections_3d, neighbors = compute_projection(centroids, sparse_mask_level1)
+        #~ projections_flat = projections_3d.reshape(flat_shape)
         
         n = len(cluster_labels)
-        #~ print('n', n)
         
-        flat_shape = n, centroids.shape[1] * centroids.shape[2]
-        projections = np.zeros(flat_shape, dtype='float32')
-        projections_3d = projections.reshape(centroids.shape)
         scalar_products = np.zeros((n+1, n+1), dtype=object)
         boundaries = np.zeros((n, 4), dtype='float32')
-        neighbors = {}
         
+        # compute all scalar product with projection
         for cluster_idx0, label0 in enumerate(cluster_labels):
-            #~ if cluster_idx0 != 13:
-                #~ continue
-            #~ print()
-            #~ print('cluster_idx0', cluster_idx0)
-            
-        
-            # all channel
-            if full_hyperplane:
-                # all centroids / all channelss
-                chan_mask = np.ones(self.nb_channel, dtype='bool')
-                clus_mask = np.ones(n, dtype='bool')
-                local_idx0 = cluster_idx0
-            else:
-                # only centroids / channel that are on sparse mask
-                chan_mask = sparse_mask_level1[cluster_idx0, :]
-                
-                # case1 sharing chan_mask
-                #~ nover = np.sum(sparse_mask_level1[:, chan_mask], axis=1)
-                #~ clus_mask = (nover > 0)
-                
-                # case2 5 nearest template
-                #~ distances = np.sum((centroids - centroids[[cluster_idx0], :, :])**2, axis=(1,2))
-                #~ order = np.argsort(distances)
-                #~ nearest = order[:8]
-                #~ clus_mask = np.zeros(n, dtype='bool')
-                #~ clus_mask[nearest] = True
-                
-                # case3 all cluster
-                clus_mask = np.ones(n, dtype='bool')
-                
-                # case 4 : sharing chan_mask + N nearest
-                #~ nover = np.sum(sparse_mask_level1[:, chan_mask], axis=1)
-                #~ sharing_mask = (nover > 0)
-                #~ distances = np.sum((centroids - centroids[[cluster_idx0], :, :])**2, axis=(1,2))
-                #~ distances[~sharing_mask] = np.inf
-                #~ order = np.argsort(distances)
-                #~ nearest = order[:8]
-                #~ clus_mask = np.zeros(n, dtype='bool')
-                #~ clus_mask[nearest] = True
-                
-                local_indexes0, = np.nonzero(clus_mask)
-                local_idx0 = np.nonzero(local_indexes0 == cluster_idx0)[0][0]
-                
-            
-            local_nclus = np.sum(clus_mask)
-            local_chan = np.sum(chan_mask)
-            flat_centroids = centroids[clus_mask, :, :][:, :, chan_mask].reshape(local_nclus, -1).T.copy()
-            #~ print('local_nclus', local_nclus, 'local_chan', local_chan)
-            
-            
-            flat_centroid0 = flat_centroids[:, local_idx0]
-            #~ flat_centroid0 = centroids[cluster_idx0, :, :][:, chan_mask].flatten()
-            
-            other_mask = np.ones(local_nclus, dtype='bool')
-            other_mask[local_idx0] = False
-            
-            if np.sum(other_mask) > 0:
-                other_centroids = flat_centroids[:, other_mask]
-                
-                # without noise in hyper plan
-                #~ shift = -other_centroids[:, 0]
-                #~ centerred_other_centroids = other_centroids.copy()
-                #~ centerred_other_centroids += shift[:, np.newaxis]
-                #~ centerred_other_centroids = centerred_other_centroids[:, 1:]
-                #~ q, r = np.linalg.qr(centerred_other_centroids, mode='reduced')
-                #~ centroid0_proj = q @ q.T @ (flat_centroid0 + shift) - shift
-                #~ ortho_complement = centroid0_proj - flat_centroid0
-                #~ ortho_complement /= np.sum(ortho_complement**2)                
-
-                # with noise (center) in hyper plan
-                #~ centerred_other_centroids = other_centroids.copy()
-                #~ q, r = np.linalg.qr(centerred_other_centroids, mode='reduced')
-                #~ centroid0_proj = q @ q.T @ (flat_centroid0)
-                #~ ortho_complement = centroid0_proj - flat_centroid0
-                #~ ortho_complement /= np.sum(ortho_complement**2)                
-                
-
-                #TEST1
-                #~ centerred_other_centroids = other_centroids.copy()
-                #~ ind_min = np.argmin(np.abs(centerred_other_centroids - flat_centroid0[:, np.newaxis]), axis=1)
-                #~ centroid0_proj = centerred_other_centroids[np.arange(centerred_other_centroids.shape[0], dtype='int'), ind_min]
-                #TEST2
-                #~ centerred_other_centroids = other_centroids.copy()
-                #~ ind_min = np.argmin(np.sum((centerred_other_centroids - flat_centroid0[:, np.newaxis])**2, axis=0))
-                #~ centroid0_proj = centerred_other_centroids[:, ind_min]
-                #TEST3
-                #~ fig, ax = plt.subplots()
-                #~ dists = np.sum((other_centroids - flat_centroid0[:, np.newaxis])**2, axis=0)
-                #~ ax.plot(dists)
-                #~ plt.show()
-                
-                ind_min = np.argmin(np.sum((other_centroids - flat_centroid0[:, np.newaxis])**2, axis=0))
-                other_select = [ind_min]
-                
-                #~ print('ind_min', ind_min, np.nonzero(other_mask)[0][ind_min])
-                
-                #~ fig, ax = plt.subplots()
-                #~ ax.plot(flat_centroid0.reshape(-1, local_chan).T.flatten(), color='k')
-                #~ ax.plot(other_centroids[:, ind_min].reshape(-1, local_chan).T.flatten(), color='m')
-                #~ plt.show()
-                
-                #~ last_loop = False
-                while True:
-                    # TODO : try to add them one by one!!!!!!!
-                    if len(other_select) == 1:
-                        centroid0_proj = other_centroids[:, other_select[0]]
-                    else:
-                        #~ shift = -other_centroids[:, 0]
-                        centerred_other_centroids = other_centroids[:, other_select].copy()
-                        shift = -centerred_other_centroids[:, 0]
-                        centerred_other_centroids += shift[:, np.newaxis]
-                        centerred_other_centroids = centerred_other_centroids[:, 1:]
-                        
-                        #~ q, r = np.linalg.qr(centerred_other_centroids, mode='reduced')
-                        #~ centroid0_proj = q @ q.T @ (flat_centroid0 + shift) - shift
-                        
-                        #~ u,s,vh = np.linalg.svd(centerred_other_centroids, full_matrices=False)
-                        u,s,vh = scipy.linalg.svd(centerred_other_centroids, full_matrices=False)
-                        centroid0_proj = u @ u.T @ (flat_centroid0 + shift) - shift
-                        
-                        
-                    local_projector = centroid0_proj - flat_centroid0
-                    local_projector /= np.sum(local_projector**2)                
-                    other_feat = (other_centroids - flat_centroid0[:, np.newaxis]).T @ local_projector
-                    
-                    #~ fig, ax = plt.subplots()
-                    #~ ax.plot(other_feat)
-                    #~ other_idx = np.nonzero(other_mask)[0][other_select]
-                    #~ title = f'{cluster_idx0} {other_idx}'
-                    #~ ax.set_title(title)
-                    #~ ax.set_ylim(-2, 2)
-                    #~ plt.show()
-                    
-                    #~ if last_loop:
-                        #~ ind,  = np.nonzero(np.abs(other_feat) < 1.)
-                    #~ else:
-                        #~ ind,  = np.nonzero(np.abs(other_feat) < 0.5)
-                    #~ if np.all(np.in1d(ind, other_select)):
-                        #~ if last_loop:
-                            #~ break
-                        #~ else:
-                            #~ last_loop = True
-                    #~ other_select.extend(ind)
-                    #~ other_select = list(np.unique(other_select))
-
-
-                    ind,  = np.nonzero(np.abs(other_feat) < 1.)
-
-                    if ind.size == 0:
-                        break
-                    else:
-                        not_in = np.ones(other_feat.size, dtype='bool')
-                        not_in[other_select] = False
-                        too_small = (np.abs(other_feat) < 1.)
-                        others_candidate, = np.nonzero(not_in & too_small)
-                        if others_candidate.size ==0:
-                            break
-                        smallest_ind = np.argmin(np.abs(other_feat[others_candidate]))
-                        other_select.append(others_candidate[smallest_ind])
-                    
-                    
-                    
-                    
-                    #~ print('other_select', other_select)
-                    #~ print('other_feat', other_feat)
-                
-                #~ plt.show()
-                
-                #~ print('other_select', len(other_select))
-                neighbors[cluster_idx0] = np.nonzero(other_mask)[0][other_select]
-                
-                
-                
-                #~ exit()
-                ortho_complement = local_projector
-
-                    
-                    
-                    
-                    
-                
-                #~ fig, ax = plt.subplots()
-                #~ ax.plot(flat_centroid0.reshape(centroids.shape[1], -1).T.flatten())
-                #~ ax.plot(centroid0_proj.reshape(centroids.shape[1], -1).T.flatten())
-                #~ plt.show()
-                
-                #~ centerred_other_centroids = centerred_other_centroids[:, 1:]
-                #~ q, r = np.linalg.qr(centerred_other_centroids, mode='reduced')
-                #~ centroid0_proj = q @ q.T @ (flat_centroid0 + shift) - shift
-
-                
-                
-            else:
-                # alone one theses channels = make projection with noise
-                ortho_complement = 0 - flat_centroid0
-                ortho_complement /= np.sum(ortho_complement**2)                
-            
-
-            
-            
-            projections_3d[cluster_idx0, :, :][:, chan_mask] = ortho_complement.reshape(centroids.shape[1], local_chan)
-            
-            #~ projector = 
-            
-
-                
-            
-            #~ projector = ortho_complement
+            chan_mask = sparse_mask_level1[cluster_idx0, :]
             projector =projections_3d[cluster_idx0, :][:, chan_mask].flatten()
-            
-            #~ fig, ax = plt.subplots()
-            #~ ax.plot(ortho_complement)
-            #~ plt.show()
             
             wf0 = self.get_cached_waveforms(label0)
             flat_centroid0 = centroids[cluster_idx0, :, :][:, chan_mask].flatten()
-            
             
             wf0 = wf0[:, :, chan_mask].copy()
             flat_wf0 = wf0.reshape(wf0.shape[0], -1)
             feat_wf0 = (flat_wf0 - flat_centroid0) @ projector
             feat_centroid0 = (flat_centroid0 - flat_centroid0) @ projector
             
-            #~ print('feat_centroid0', feat_centroid0)
-            #~ print(feat_wf0)
-            #~ feat_centroid0 = 0
-            
-            #~ inner_dist = np.sum((feat_wf0 - feat_centroid0)**2, axis=0)
-            
             scalar_products[cluster_idx0, cluster_idx0] = feat_wf0
             
-            
             for cluster_idx1, label1 in enumerate(cluster_labels):
-
-                #~ channel_shared = share_channel_mask[cluster_idx0, cluster_idx1]
-                
-                #~ if not channel_shared:
-                    #~ continue
-                
-                #~ print(' cluster_idx1', cluster_idx1, 'label1', label1)
-                
                 if cluster_idx0 == cluster_idx1:
-                    #~ scalar_products[cluster_idx0, cluster_idx1] = None
                     continue
                 
                 centroid1 = centroids[cluster_idx1, :, :][:, chan_mask]
@@ -1999,8 +1759,6 @@ class CatalogueConstructor:
                 feat_centroid1 = (centroid1.flatten() - flat_centroid0) @ projector
                 feat_wf1 = (flat_wf1- flat_centroid0) @ projector
                 
-                #~ cross_dist = np.sum((feat_wf1 - feat_centroid0)**2, axis=0)
-                
                 scalar_products[cluster_idx0, cluster_idx1] = feat_wf1
             
             noise = self.some_noise_snippet
@@ -2008,15 +1766,9 @@ class CatalogueConstructor:
             flat_noise = noise.reshape(noise.shape[0], -1)
             feat_noise = (flat_noise - flat_centroid0) @ projector
             scalar_products[cluster_idx0, -1] = feat_noise
-            
-            
-            
         
+        # find boudaries
         for cluster_idx0, label0 in enumerate(cluster_labels):
-            #~ if cluster_idx0 != 13:
-                #~ continue
-            
-            #~ print(cluster_idx0)
             inner_sp = scalar_products[cluster_idx0, cluster_idx0]
             med, mad = median_mad(inner_sp)
             
@@ -2138,21 +1890,24 @@ class CatalogueConstructor:
                     accuracies.append(accuracy)
                 best_lim = limits[np.argmax(accuracies)]
                 boundaries[cluster_idx0, 0] = max(best_lim, -0.5)
-                
-                #~ fig, ax = plt.subplots()
-                #~ ax.plot(limits, accuracies)
-                #~ ax.axvline(best_lim)
-                #~ ax.set_title(f'low {cluster_idx0}')
-                #~ plt.show()
-
+            
             else:
                 boundaries[cluster_idx0, 0] = max(initial_low, -0.5)
 
             
             boundaries[cluster_idx0, 2] = max(initial_low, -0.5)
             boundaries[cluster_idx0, 3] = min(initial_high, 0.5)                    
-            
-
+        
+        
+        
+        
+        # DEBUG
+        print('DEBUG boudaries -0.5 0.5')
+        boundaries[:, 0] = -0.5
+        boundaries[:, 1] = 0.5
+        boundaries[:, 2] = -0.5
+        boundaries[:, 3] = 0.5
+        #/ DEBUG
             
 
         
@@ -2225,297 +1980,10 @@ class CatalogueConstructor:
                 
                 #~ plt.show()
             plt.show()
-
-            
-            
-        return projections, boundaries
         
-        
-
-    def compute_boundaries_old(self, sparse_thresh_level1=1.5, n_nearest=5):
-        assert self.some_waveforms is not None, 'run cc.cache_some_waveforms() first'
-        
-        
-        n_left = self.info['waveform_extractor_params']['n_left']
-        n_right = self.info['waveform_extractor_params']['n_right']
-        peak_sign = self.info['peak_detector_params']['peak_sign']
-
-        keep = self.cluster_labels>=0
-        
-        cluster_labels = self.clusters[keep]['cluster_label'].copy()
-        
-        #~ centers0 = np.zeros((len(cluster_labels), catalogue_width, self.nb_channel), dtype=self.info['internal_dtype'])
-        centroids = self.centroids_median[keep, :, :].copy()
-
-        thresh = self.info['peak_detector_params']['relative_threshold']
-        sparse_mask_level1 = compute_sparse_mask(centroids, self.mode, method='thresh', thresh=sparse_thresh_level1)
-        sparse_mask_level3 = compute_sparse_mask(centroids, self.mode, method='thresh', thresh=thresh)
-
-
-        
-        # sparsify centroids
-        sparse_centroids = centroids.copy()
-        for cluster_idx0, label0 in enumerate(cluster_labels):
-            rem = ~sparse_mask_level1[cluster_idx0, :]
-            sparse_centroids[cluster_idx0, :, rem] = 0.
-
-
-        #~ fig, ax = plt.subplots()
-        #~ ax.plot(centroids.swapaxes(1,2).reshape(centroids.shape[0], -1).T)
-        #~ fig, ax = plt.subplots()
-        #~ ax.plot(sparse_centroids.swapaxes(1,2).reshape(sparse_centroids.shape[0], -1).T)
-
-        #~ fig, ax = plt.subplots()
-        #~ ax.plot(centroids[-1].T.flatten())
-        #~ ax.plot(sparse_centroids[-1].T.flatten())
-
-        #~ plt.show()        
-
-        flat_centroids = centroids.reshape(centroids.shape[0], -1).T.copy()
-        mean_centroid = np.mean(flat_centroids, axis=1)
-        #~ mean_centroid[:] = 0 # debug
-        print('mean_centroid.Shape', mean_centroid.shape)
-        flat_centroids -= mean_centroid[:, np.newaxis]
-        print('flat_centroids.Shape', flat_centroids.shape)
-        #~ u,s,vh = np.linalg.svd(flat_centroids)
-        #~ print(u.shape, s.shape, vh.shape)
-        u,s,vh = np.linalg.svd(flat_centroids, full_matrices=False)
-        print(u.shape, s.shape, vh.shape)
-        
-        projector = u[:, :centroids.shape[0]].copy()
-        print('projector.shape', projector.shape)
-        #~ exit()
-        
-
-        n = len(cluster_labels)
-        
-        scalar_products = np.zeros((n+1, n+1), dtype=object)
-        feat_scalar_products = np.zeros((n+1, n+1), dtype=object)
-        feat_distances = np.zeros((n+1, n+1), dtype=object)
-        wf_distances = np.zeros((n+1, n+1), dtype=object)
-        
-        
-        feat_centroids = (centroids.reshape(centroids.shape[0], -1) - mean_centroid) @ projector
-        #~ print(feat_centroids.shape)
-        
-        
-        #~ share_channel_mask = np.zeros((n, n), dtype='bool')
-        share_channel_mask = compute_shared_channel_mask(centroids, self.mode,  sparse_thresh_level1)
-        #~ fig, ax = plt.subplots()
-        #~ ax.matshow(share_channel_mask)
-        #~ plt.show()
-        
-        n_nearest_idx = []
-        for cluster_idx0, label0 in enumerate(cluster_labels):
-            
-            print('cluster_idx0', cluster_idx0)
-            
-            centroid0 = centroids[cluster_idx0, :, :]
-            
-            #~ feat_centroid0 = (centroid0.flatten() - mean_centroid) @ projector
-            feat_centroid0 = feat_centroids[cluster_idx0, :]
-            
-            
-            feat_dist_to_other = np.sum((feat_centroids - feat_centroid0)**2, axis=1)
-            nearests = np.argsort(feat_dist_to_other)
-            n_nearest_idx.append(nearests[1:n_nearest])
-            
-            
-            #~ fig, ax = plt.subplots()
-            #~ ax.plot(feat_centroid0)
-            #~ ax.plot(feat_centroids[cluster_idx0, :], color='k', ls='--')
-            #~ plt.show()
-            
-            
-            
-            
-            # sample waveforms
-            wf0 = self.get_cached_waveforms(label0)
-            feat_wf0 = (wf0.reshape(wf0.shape[0], -1) - mean_centroid) @ projector
-            
-            inner_feat_dist = np.sum((feat_wf0 - feat_centroid0)**2, axis=1)
-            feat_distances[cluster_idx0, cluster_idx0] = inner_feat_dist
-            
-            inner_wf_dist = np.sum((wf0 - centroid0)**2, axis=(1, 2))
-            wf_distances[cluster_idx0, cluster_idx0] = inner_wf_dist
-            
-            for cluster_idx1, label1 in enumerate(cluster_labels):
-
-                #~ channel_shared = share_channel_mask[cluster_idx0, cluster_idx1]
-                #~ if not channel_shared:
-                    #~ continue
-                if cluster_idx1 not in n_nearest_idx[cluster_idx0]:
-                    continue
-                
-                #~ print(' cluster_idx1', cluster_idx1, 'label1', label1)
-                
-                if cluster_idx0 == cluster_idx1:
-                    #~ scalar_products[cluster_idx0, cluster_idx1] = None
-                    continue
-                
-                centroid1 = centroids[cluster_idx1, :, :]
-                wf1 = self.get_cached_waveforms(label1)
-                
-                #~ feat_centroid1 = (centroid1.flatten() - mean_centroid) @ projector
-                feat_centroid1 = feat_centroids[cluster_idx1, :]
-                feat_wf1 = (wf1.reshape(wf1.shape[0], -1) - mean_centroid) @ projector
-                
-                
-                mask = sparse_mask_level3[cluster_idx0, :]
-                vector_0_1 = (centroid1 - centroid0)
-                vector_0_1 =vector_0_1[:, mask]
-                vector_0_1 /= np.sum(vector_0_1**2)
-                
-                inner_sp = np.sum((wf0[:,:,mask] - centroid0[np.newaxis,:,:][:,:,mask]) * vector_0_1[np.newaxis,:,:], axis=(1,2))
-                cross_sp = np.sum((wf1[:,:,mask] - centroid0[np.newaxis,:,:][:,:,mask]) * vector_0_1[np.newaxis,:,:], axis=(1,2))
-
-
-                feat_vector_0_1 = (feat_centroid1 - feat_centroid0)
-                feat_vector_0_1 /= np.sum(feat_vector_0_1**2)
-
-                inner_feat_sp = np.sum((feat_wf0 - feat_centroid0[np.newaxis,:]) * feat_vector_0_1[np.newaxis,:], axis=1)
-                cross_feat_sp = np.sum((feat_wf1 - feat_centroid0[np.newaxis,:]) * feat_vector_0_1[np.newaxis,:], axis=1)
-                
-                cross_feat_dist = np.sum((feat_wf1 - feat_centroid0)**2, axis=1)
-                cross_wf_dist = np.sum((wf1 - centroid0)**2, axis=(1, 2))
-                
-                scalar_products[cluster_idx0, cluster_idx1] = (inner_sp, cross_sp)
-                feat_scalar_products[cluster_idx0, cluster_idx1] = (inner_feat_sp, cross_feat_sp)
-                feat_distances[cluster_idx0, cluster_idx1] = cross_feat_dist
-                wf_distances[cluster_idx0, cluster_idx1] = cross_wf_dist
-        
-        
-        feat_distance_boundaries = np.zeros(n, dtype='float32')
-        nearest_idx = []
-        for cluster_idx0, label0 in enumerate(cluster_labels):
-            d = feat_distances[cluster_idx0, cluster_idx0] 
-            inner_lim_max = np.quantile(d, 0.9)
-            
-            low_limits = []
-            for cluster_idx1, label1 in enumerate(cluster_labels):
-                
-                if cluster_idx0 == cluster_idx1:
-                    l = np.inf
-                #~ elif not share_channel_mask[cluster_idx0, cluster_idx1]:
-                elif cluster_idx1 not in n_nearest_idx[cluster_idx0]:
-                    l = np.inf
-                else:
-                    d = feat_distances[cluster_idx0, cluster_idx1] 
-                    l = np.quantile(d, 0.1)
-                low_limits.append(l)
-            print()
-            print('low_limits', low_limits)
-            nearest = np.argmin(low_limits)
-            print('nearest', nearest)
-            nearest_idx.append(nearest)
-            #~ share_channel_clus, = np.nonzero(share_channel_mask[cluster_idx0])
-            #~ print('share_channel_clus', share_channel_clus)
-            
-            print('cluster_idx0', cluster_idx0, 'nearest', nearest)
-            #~ if low_limits[nearest] > inner_lim_max:
-                #~ print('ok')
-                #~ lim = (inner_lim_max + low_limits[nearest]) / 2.
-            #~ else:
-                #~ # TODO find something better
-                #~ lim = low_limits[nearest]
-            #~ if low_limits[nearest] > inner_lim_max:
-                #~ print('ok')
-                #~ lim = inner_lim_max + (low_limits[nearest] - inner_lim_max) * 0.1
-                #~ lim = inner_lim_max
-            #~ else:
-                # TODO find something better
-                #~ lim = low_limits[nearest]
-            
-            lim = np.sum(( feat_centroids[cluster_idx0, :]-feat_centroids[nearest, :])**2) / 2.
-
-            
-
-            feat_distance_boundaries[cluster_idx0] = lim
-            
-        #~ print(scalar_products)
-        
-
-        #~ if True:
-        if False:
-            
-            colors_ = sns.color_palette('husl', n)
-            colors = {i: colors_[i] for i, k in enumerate(cluster_labels)}
-            for cluster_idx0, label0 in enumerate(cluster_labels):
-                
-                #~ if not cluster_idx0 in (12, 13):
-                    #~ continue
-                
-                #~ share_channel_clus, = np.nonzero(share_channel_mask[cluster_idx0])
-                n_nearest = n_nearest_idx[cluster_idx0]
-                nearest = nearest_idx[cluster_idx0]
-                title = f' cluster_idx {cluster_idx0} {n_nearest} {nearest}'
-                
-                fig, ax1 = plt.subplots()
-                ax1.set_title('projection2by2' + title)
-                
-                fig, ax2 = plt.subplots()
-                ax2.set_title('projection2by2' + title)
-
-                fig, ax3 = plt.subplots()
-                ax3.set_title('distance feat' + title)
-                lim = feat_distance_boundaries[cluster_idx0]
-                ax3.axvline(lim, color='k', lw=3)
-
-                fig, ax4 = plt.subplots()
-                ax4.set_title('distance wf' + title)
-
-                
-                for cluster_idx1, label1 in enumerate(cluster_labels):
-                    
-                    #~ if not share_channel_mask[cluster_idx0, cluster_idx1]:
-                        #~ continue
-                    if cluster_idx1 not in n_nearest_idx[cluster_idx0] and cluster_idx0 != cluster_idx1:
-                        continue
-
-
-                    feat_dist = feat_distances[cluster_idx0, cluster_idx1]
-                    count, bins = np.histogram(feat_dist, bins=150)
-                    ax3.plot(bins[:-1], count, color=colors[cluster_idx1])
-
-                    feat_centroid0 = feat_centroids[cluster_idx0, :]
-                    feat_centroid1 = feat_centroids[cluster_idx1, :]
-                    dist_feat_centroid = np.sum((feat_centroid1-feat_centroid0)**2)
-                    ax3.axvline(dist_feat_centroid, color=colors[cluster_idx1])
-                    
-
-                    wf_dist = wf_distances[cluster_idx0, cluster_idx1]
-                    count, bins = np.histogram(wf_dist, bins=150)
-                    ax4.plot(bins[:-1], count, color=colors[cluster_idx1])
-                    
-                    
-                    if cluster_idx0 == cluster_idx1:
-                        continue
-                    
-                    
-                    inner_sp, cross_sp = scalar_products[cluster_idx0, cluster_idx1]
-                    count, bins = np.histogram(inner_sp, bins=150)
-                    ax1.plot(bins[:-1], count, color=colors[cluster_idx1])
-                    count, bins = np.histogram(cross_sp, bins=150)
-                    ax1.plot(bins[:-1], count, color=colors[cluster_idx1])
-                    
-                    
-                    
-
-                    inner_sp, cross_sp = feat_scalar_products[cluster_idx0, cluster_idx1]
-                    count, bins = np.histogram(inner_sp, bins=150)
-                    ax2.plot(bins[:-1], count, color=colors[cluster_idx1])
-                    count, bins = np.histogram(cross_sp, bins=150)
-                    ax2.plot(bins[:-1], count, color=colors[cluster_idx1])
-
-                    
-                    
-                plt.show()
-
-
-        #~ return distance_limit
-        
-        return mean_centroid, projector, feat_centroids, feat_distance_boundaries
-    
+        # TODO return projection_3d
+        projections_flat = projections_3d.reshape(projections_3d.shape[0], -1)
+        return projections_flat, boundaries
 
     def make_catalogue(self,
                             inter_sample_oversampling=False,

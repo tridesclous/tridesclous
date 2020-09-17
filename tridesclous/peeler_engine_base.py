@@ -78,9 +78,10 @@ class PeelerEngineBase(OpenCL_Helper):
         
         
         # DEBUG
+        #~ print('DEBUG peakdetector all neigboor')
         #~ self.catalogue['peak_detector_params']['adjacency_radius_um'] = 0.
         #~ self.catalogue['peak_detector_params']['peak_span_ms'] = 0.
-        
+        # / DEBUG
         
         # precompute some value for jitter estimation
         if self.inter_sample_oversampling:
