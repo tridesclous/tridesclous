@@ -2,6 +2,7 @@ import numpy as np
 import scipy.linalg
 import joblib
 
+from .tools import median_mad
 
 
 
@@ -481,6 +482,154 @@ def compute_projection(centroids, sparse_mask_level1):
 
     
     return projections_3d, neighbors
+
+
+
+
+def compute_boundaries(cc, centroids, sparse_mask_level1, projections_3d, neighbors, plot_debug=False):
+    #~ n = len(cluster_labels)
+    n = centroids.shape[0]
+
+    keep = cc.cluster_labels>=0
+    cluster_labels = cc.clusters[keep]['cluster_label'].copy()
+
+    
+    scalar_products = np.zeros((n+1, n+1), dtype=object)
+    boundaries = np.zeros((n, 4), dtype='float32')
+    
+    # compute all scalar product with projection
+    for cluster_idx0, label0 in enumerate(cluster_labels):
+        chan_mask = sparse_mask_level1[cluster_idx0, :]
+        projector =projections_3d[cluster_idx0, :][:, chan_mask].flatten()
+        
+        wf0 = cc.get_cached_waveforms(label0)
+        flat_centroid0 = centroids[cluster_idx0, :, :][:, chan_mask].flatten()
+        
+        wf0 = wf0[:, :, chan_mask].copy()
+        flat_wf0 = wf0.reshape(wf0.shape[0], -1)
+        feat_wf0 = (flat_wf0 - flat_centroid0) @ projector
+        feat_centroid0 = (flat_centroid0 - flat_centroid0) @ projector
+        
+        scalar_products[cluster_idx0, cluster_idx0] = feat_wf0
+        
+        for cluster_idx1, label1 in enumerate(cluster_labels):
+            if cluster_idx0 == cluster_idx1:
+                continue
+            
+            centroid1 = centroids[cluster_idx1, :, :][:, chan_mask]
+            wf1 = cc.get_cached_waveforms(label1)
+            wf1 = wf1[:, :, chan_mask].copy()
+            flat_wf1 = wf1.reshape(wf1.shape[0], -1) 
+            feat_centroid1 = (centroid1.flatten() - flat_centroid0) @ projector
+            feat_wf1 = (flat_wf1- flat_centroid0) @ projector
+            
+            scalar_products[cluster_idx0, cluster_idx1] = feat_wf1
+        
+        noise = cc.some_noise_snippet
+        noise = noise[:, :, chan_mask].copy()
+        flat_noise = noise.reshape(noise.shape[0], -1)
+        feat_noise = (flat_noise - flat_centroid0) @ projector
+        scalar_products[cluster_idx0, -1] = feat_noise
+    
+    # find boudaries
+    for cluster_idx0, label0 in enumerate(cluster_labels):
+        inner_sp = scalar_products[cluster_idx0, cluster_idx0]
+        med, mad = median_mad(inner_sp)
+        
+        mad_factor = 6
+        low = med - mad_factor * mad
+        initial_low = low
+        high = med + mad_factor * mad
+        initial_high = high
+
+
+        # optimze boudaries with accuracy
+        high_clust = []
+        high_lim = []
+        low_clust = []
+        low_lim = []
+        for cluster_idx1, label1 in enumerate(cluster_labels):
+            # select dangerous cluster
+            if cluster_idx1 == cluster_idx0:
+                continue
+            cross_sp = scalar_products[cluster_idx0, cluster_idx1]
+            med, mad = median_mad(cross_sp)
+            if med > high and (med - mad_factor * mad) < high :
+                high_clust.append(cluster_idx1)
+                high_lim.append(med - mad_factor * mad)
+            if med < low and (med + mad_factor * mad) > low:
+                low_clust.append(cluster_idx1)
+                low_lim.append(med + mad_factor * mad)
+
+        noise_sp = scalar_products[cluster_idx0, -1]
+        med, mad = median_mad(noise_sp)
+        if med > high and (med - mad_factor * mad) < high :
+            high_clust.append(-1)
+            high_lim.append(med - mad_factor * mad)
+        # TODO if noise in low limits
+        #~ print()
+        #~ print('initial_low', initial_low)
+        #~ print('initial_high', initial_high)
+        #~ print('high_clust', high_clust, 'high_lim', high_lim)
+        #~ print('low_clust', low_clust, 'low_lim', low_lim)
+
+        if len(high_clust) > 0:
+            l0 = min(high_lim)
+            l1 = initial_high
+            step = (l1-l0)/20.
+            
+            all_sp = np.concatenate([scalar_products[cluster_idx0, idx1] for idx1 in high_clust])
+            limits = np.arange(l0, l1, step) 
+            accuracies = []
+            for l in limits:
+                tp = scalar_products[cluster_idx0, cluster_idx0].size
+                fn = np.sum(scalar_products[cluster_idx0, cluster_idx0] > l)
+                fp = np.sum(all_sp < l)
+                accuracy = tp / (tp + fn + fp)
+                accuracies.append(accuracy)
+            best_lim = limits[np.argmax(accuracies)]
+            boundaries[cluster_idx0, 1] = min(best_lim, 0.5)
+            
+            #~ fig, ax = plt.subplots()
+            #~ ax.plot(limits, accuracies)
+            #~ ax.axvline(best_lim)
+            #~ ax.set_title(f'high {cluster_idx0}')
+            #~ plt.show()
+            
+        else:
+            boundaries[cluster_idx0, 1] = min(initial_high, 0.5)
+        
+        if len(low_clust) > 0:
+            l1 = max(low_lim)
+            l0 = initial_low
+            step = (l1-l0)/20.
+            
+            all_sp = np.concatenate([scalar_products[cluster_idx0, idx1] for idx1 in low_clust])
+            limits = np.arange(l0, l1, step) 
+            accuracies = []
+            for l in limits:
+                tp = scalar_products[cluster_idx0, cluster_idx0].size
+                fn = np.sum(scalar_products[cluster_idx0, cluster_idx0] <l)
+                fp = np.sum(all_sp > l)
+                accuracy = tp / (tp + fn + fp)
+                accuracies.append(accuracy)
+            best_lim = limits[np.argmax(accuracies)]
+            boundaries[cluster_idx0, 0] = max(best_lim, -0.5)
+        
+        else:
+            boundaries[cluster_idx0, 0] = max(initial_low, -0.5)
+
+        
+        boundaries[cluster_idx0, 2] = max(initial_low, -0.5)
+        boundaries[cluster_idx0, 3] = min(initial_high, 0.5)                    
+    
+    #~ if plot_debug:
+        #~ import matplotlib.pyplot as plt
+        
+        
+    
+    
+    return boundaries, scalar_products
 
 
 

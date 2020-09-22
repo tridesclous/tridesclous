@@ -44,7 +44,7 @@ from . import labelcodes
 
 from .cataloguetools import apply_all_catalogue_steps
 
-from .waveformtools import  compute_sparse_mask, compute_shared_channel_mask, compute_projection
+from .waveformtools import  compute_sparse_mask, compute_shared_channel_mask, compute_projection, compute_boundaries
 
 
 _global_params_attr = ('chunksize', 'memory_mode', 'internal_dtype', 'mode', 'sparse_threshold', 'n_spike_for_centroid', 'n_jobs') # 'adjacency_radius_um'
@@ -1726,180 +1726,7 @@ class CatalogueConstructor:
         #~ flat_shape = centroids.shape[0], centroids.shape[1] * centroids.shape[2]
         
         projections_3d, neighbors = compute_projection(centroids, sparse_mask_level1)
-        #~ projections_flat = projections_3d.reshape(flat_shape)
-        
-        n = len(cluster_labels)
-        
-        scalar_products = np.zeros((n+1, n+1), dtype=object)
-        boundaries = np.zeros((n, 4), dtype='float32')
-        
-        # compute all scalar product with projection
-        for cluster_idx0, label0 in enumerate(cluster_labels):
-            chan_mask = sparse_mask_level1[cluster_idx0, :]
-            projector =projections_3d[cluster_idx0, :][:, chan_mask].flatten()
-            
-            wf0 = self.get_cached_waveforms(label0)
-            flat_centroid0 = centroids[cluster_idx0, :, :][:, chan_mask].flatten()
-            
-            wf0 = wf0[:, :, chan_mask].copy()
-            flat_wf0 = wf0.reshape(wf0.shape[0], -1)
-            feat_wf0 = (flat_wf0 - flat_centroid0) @ projector
-            feat_centroid0 = (flat_centroid0 - flat_centroid0) @ projector
-            
-            scalar_products[cluster_idx0, cluster_idx0] = feat_wf0
-            
-            for cluster_idx1, label1 in enumerate(cluster_labels):
-                if cluster_idx0 == cluster_idx1:
-                    continue
-                
-                centroid1 = centroids[cluster_idx1, :, :][:, chan_mask]
-                wf1 = self.get_cached_waveforms(label1)
-                wf1 = wf1[:, :, chan_mask].copy()
-                flat_wf1 = wf1.reshape(wf1.shape[0], -1) 
-                feat_centroid1 = (centroid1.flatten() - flat_centroid0) @ projector
-                feat_wf1 = (flat_wf1- flat_centroid0) @ projector
-                
-                scalar_products[cluster_idx0, cluster_idx1] = feat_wf1
-            
-            noise = self.some_noise_snippet
-            noise = noise[:, :, chan_mask].copy()
-            flat_noise = noise.reshape(noise.shape[0], -1)
-            feat_noise = (flat_noise - flat_centroid0) @ projector
-            scalar_products[cluster_idx0, -1] = feat_noise
-        
-        # find boudaries
-        for cluster_idx0, label0 in enumerate(cluster_labels):
-            inner_sp = scalar_products[cluster_idx0, cluster_idx0]
-            med, mad = median_mad(inner_sp)
-            
-            mad_factor = 6
-            #~ mad_factor = 5
-            #~ mad_factor = 4
-            #~ mad_factor = 3.5
-            #~ mad_factor = 3
-            #~ mad_factor = 2.5
-            #~ low = np.min(inner_sp)
-            #~ low = max(med - mad_factor * mad, -0.5)
-            low = med - mad_factor * mad
-            initial_low = low
-            #~ high = min(med + mad_factor * mad, 0.5)
-            high = med + mad_factor * mad
-            initial_high = high
-
-            # method with factor
-            #~ for cluster_idx1, label1 in enumerate(cluster_labels):
-                #~ if cluster_idx1 == cluster_idx0:
-                    #~ continue
-                #~ cross_sp = scalar_products[cluster_idx0, cluster_idx1]
-                #~ med, mad = median_mad(cross_sp)
-                #~ if med > high and (med - mad_factor * mad) < high:
-                    #~ middle = (initial_high + (med - mad_factor * mad)) * 0.5
-                    #~ high = middle
-                
-                #~ if med < low and (med + mad_factor * mad) > low:
-                    #~ middle = (low + (med + mad_factor * mad)) * 0.5
-                    #~ low = middle
-            #~ noise_sp = scalar_products[cluster_idx0, -1]
-            #~ med, mad = median_mad(noise_sp)
-            #~ if (med - mad_factor * mad) < high:
-                #~ ## middle = (initial_high + (med - mad_factor * mad)) * 0.5
-                #~ high = med - mad_factor * mad
-            
-            #~ boundaries[cluster_idx0, 0] = max(low, -0.5)
-            #~ boundaries[cluster_idx0, 1] = min(high, 0.5)
-            
-            #~ boundaries[cluster_idx0, 2] = max(initial_low, -0.5)
-            #~ boundaries[cluster_idx0, 3] = min(initial_high, 0.5)                    
-
-            #~ if high <0:
-                #~ # too complicated
-                #~ print('warning boundary label=', cluster_labels[cluster_idx0], 'cluster_idx0=', cluster_idx0)
-                #~ boundaries[cluster_idx0, 0] = 0.
-                #~ boundaries[cluster_idx0, 1] = 0.
-            
-            # optimze boudaries with accuracy
-            
-            high_clust = []
-            high_lim = []
-            low_clust = []
-            low_lim = []
-            for cluster_idx1, label1 in enumerate(cluster_labels):
-                # select dangerous cluster
-                if cluster_idx1 == cluster_idx0:
-                    continue
-                cross_sp = scalar_products[cluster_idx0, cluster_idx1]
-                med, mad = median_mad(cross_sp)
-                if med > high and (med - mad_factor * mad) < high :
-                    high_clust.append(cluster_idx1)
-                    high_lim.append(med - mad_factor * mad)
-                if med < low and (med + mad_factor * mad) > low:
-                    low_clust.append(cluster_idx1)
-                    low_lim.append(med + mad_factor * mad)
-
-            noise_sp = scalar_products[cluster_idx0, -1]
-            med, mad = median_mad(noise_sp)
-            if med > high and (med - mad_factor * mad) < high :
-                high_clust.append(-1)
-                high_lim.append(med - mad_factor * mad)
-            # TODO if noise in low limits
-            #~ print()
-            #~ print('initial_low', initial_low)
-            #~ print('initial_high', initial_high)
-            #~ print('high_clust', high_clust, 'high_lim', high_lim)
-            #~ print('low_clust', low_clust, 'low_lim', low_lim)
-
-            if len(high_clust) > 0:
-                l0 = min(high_lim)
-                l1 = initial_high
-                step = (l1-l0)/20.
-                
-                all_sp = np.concatenate([scalar_products[cluster_idx0, idx1] for idx1 in high_clust])
-                limits = np.arange(l0, l1, step) 
-                accuracies = []
-                for l in limits:
-                    tp = scalar_products[cluster_idx0, cluster_idx0].size
-                    fn = np.sum(scalar_products[cluster_idx0, cluster_idx0] > l)
-                    fp = np.sum(all_sp < l)
-                    accuracy = tp / (tp + fn + fp)
-                    accuracies.append(accuracy)
-                best_lim = limits[np.argmax(accuracies)]
-                boundaries[cluster_idx0, 1] = min(best_lim, 0.5)
-                
-                #~ fig, ax = plt.subplots()
-                #~ ax.plot(limits, accuracies)
-                #~ ax.axvline(best_lim)
-                #~ ax.set_title(f'high {cluster_idx0}')
-                #~ plt.show()
-                
-            else:
-                boundaries[cluster_idx0, 1] = min(initial_high, 0.5)
-            
-            if len(low_clust) > 0:
-                l1 = max(low_lim)
-                l0 = initial_low
-                step = (l1-l0)/20.
-                
-                all_sp = np.concatenate([scalar_products[cluster_idx0, idx1] for idx1 in low_clust])
-                limits = np.arange(l0, l1, step) 
-                accuracies = []
-                for l in limits:
-                    tp = scalar_products[cluster_idx0, cluster_idx0].size
-                    fn = np.sum(scalar_products[cluster_idx0, cluster_idx0] <l)
-                    fp = np.sum(all_sp > l)
-                    accuracy = tp / (tp + fn + fp)
-                    accuracies.append(accuracy)
-                best_lim = limits[np.argmax(accuracies)]
-                boundaries[cluster_idx0, 0] = max(best_lim, -0.5)
-            
-            else:
-                boundaries[cluster_idx0, 0] = max(initial_low, -0.5)
-
-            
-            boundaries[cluster_idx0, 2] = max(initial_low, -0.5)
-            boundaries[cluster_idx0, 3] = min(initial_high, 0.5)                    
-        
-        
-        
+        boundaries, scalar_products = compute_boundaries(self, centroids, sparse_mask_level1, projections_3d, neighbors, plot_debug=False)
         
         # DEBUG
         print('DEBUG boudaries -0.5 0.5')
@@ -1913,6 +1740,8 @@ class CatalogueConstructor:
         
         #~ if True:
         if False:
+        
+            n = centroids.shape[0]
             
             colors_ = sns.color_palette('husl', n)
             colors = {i: colors_[i] for i, k in enumerate(cluster_labels)}
