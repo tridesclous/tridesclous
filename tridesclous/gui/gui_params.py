@@ -174,7 +174,7 @@ waveforms_params = [
     {'name': 'wf_left_ms', 'type': 'float', 'value':-1.0, 'suffix': 'ms', 'step': .1,},
     {'name': 'wf_right_ms', 'type': 'float', 'value': 1.5,  'suffix': 'ms','step': .1,},
     {'name': 'wf_left_long_ms', 'type': 'float', 'value':-2.5, 'suffix': 'ms', 'step': .1,},
-    {'name': 'wf_right__long_ms', 'type': 'float', 'value': 3.5,  'suffix': 'ms','step': .1,},
+    {'name': 'wf_right_long_ms', 'type': 'float', 'value': 3.5,  'suffix': 'ms','step': .1,},
 ]
 
 
