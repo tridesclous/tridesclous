@@ -1,15 +1,19 @@
 import sys
+import os
+
 import numpy as np
 cimport numpy as np
 from cython cimport view
-import tridesclous as tdc
 import zmq
-import pyacq
 import json
 import time
 import threading
 import pyacq
 from pprint import pprint
+
+
+import pyacq
+
 
 
 isDebug = False
@@ -76,7 +80,7 @@ class OpenephysTridesclousPyPlugin(object):
         self.chan_enabled = []
         
         print('*'*20)
-        print('Plugin python tridesclous', tdc.__version__)
+        print('Plugin pyacq tridesclous')
         print('*'*20)
     
     def __del__(self):
@@ -88,7 +92,7 @@ class OpenephysTridesclousPyPlugin(object):
     def startup(self, nchans, srate, states):
         """to be run upon startup"""
         print('*'*20)
-        print('startup TDC')
+        print('startup pyacq oe')
         print('*'*20)
         
         
