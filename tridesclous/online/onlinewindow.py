@@ -2,6 +2,7 @@ import os, sys
 import time
 import shutil
 import datetime
+from pprint import pprint
 
 import numpy as np
 from ..gui import QT
@@ -256,10 +257,12 @@ class TdcOnlineWindow(MainWindowNode):
         
         self.cataloguewindows = {}
         
+        # TODO use autoparams
+        
         # peeler params = 
         self.peeler_params = {
             'engine': 'geometrical',
-            'argmin_method': 'numba',
+            #~ 'argmin_method': 'numba',
             #~ 'argmin_method': 'opencl',
         }
         self.peeler_params.update(peeler_params)
@@ -292,7 +295,9 @@ class TdcOnlineWindow(MainWindowNode):
         # make auto params
         fisrt_chan_grp = list(self.channel_groups.keys())[0]
         n = len(self.channel_groups[fisrt_chan_grp]['channels'])
-        params = get_auto_params_for_catalogue(dataio=None, chan_grp=fisrt_chan_grp,  nb_chan=n, sample_rate=self.sample_rate)
+        params = get_auto_params_for_catalogue(dataio=None, chan_grp=fisrt_chan_grp,
+                                        nb_chan=n, sample_rate=self.sample_rate, context='online')
+        print('get_auto_params_for_catalogue in after_input_connect ')
         d = dict(params)
         for k in ('feature_method', 'feature_kargs', 'cluster_method', 'cluster_kargs'):
             d.pop(k)
@@ -737,7 +742,7 @@ class TdcOnlineWindow(MainWindowNode):
         for chan_grp, channel_group in self.channel_groups.items():
             channel_indexes = np.array(channel_group['channels'])
             params = self.get_catalogue_params()
-            params['peak_detector_params']['relative_threshold'] = np.inf
+            params['peak_detector_params']['relative_threshold'] = 10000000.0 # np.inf do not work with opencl
             catalogue = make_empty_catalogue(chan_grp=chan_grp,channel_indexes=channel_indexes,**params)
             self.change_one_catalogue(catalogue)
         

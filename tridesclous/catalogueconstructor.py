@@ -1924,8 +1924,9 @@ class CatalogueConstructor:
         #~ self.catalogue['sp_normed_limit'] = np.zeros((len(cluster_labels),2), dtype=self.info['internal_dtype'])
         
         nb_cluster = cluster_labels.size
-        self.catalogue['extremum_channel'] = np.zeros(nb_cluster, dtype='int64')
-        self.catalogue['extremum_amplitude'] = np.zeros(nb_cluster, dtype='float32')
+        #~ self.catalogue['extremum_channel'] = np.zeros(nb_cluster, dtype='int64')
+        #~ self.catalogue['extremum_amplitude'] = np.zeros(nb_cluster, dtype='float32')
+        
         
         #~ self.catalogue['sparse_mask_level1'] = np.zeros((nb_cluster,self.nb_channel),  dtype='bool')
         #~ self.catalogue['sparse_mask_level2'] = np.zeros((nb_cluster,self.nb_channel),  dtype='bool')

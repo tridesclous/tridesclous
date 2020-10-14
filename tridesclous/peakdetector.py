@@ -517,7 +517,7 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
         self.mask_peaks_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.mask_peaks)
         
         kernel_ = opencl_kernel_geometrical_part1 + opencl_kernel_geometrical_part2
-
+        
         kernel = kernel_ % dict(fifo_size=self.fifo_size, nb_channel=self.nb_channel, n_span=self.n_span,
                     relative_threshold=self.relative_threshold, peak_sign={'+':1, '-':-1}[self.peak_sign], nb_neighbour=self.nb_max_neighbour)
         
@@ -532,7 +532,7 @@ opencl_kernel_geometrical_part1 =  """
 #define fifo_size %(fifo_size)d
 #define n_span %(n_span)d
 #define nb_channel %(nb_channel)d
-#define relative_threshold %(relative_threshold)d
+#define relative_threshold %(relative_threshold)f
 #define peak_sign %(peak_sign)d
 #define nb_neighbour %(nb_neighbour)d
 """

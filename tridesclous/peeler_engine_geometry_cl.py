@@ -983,7 +983,7 @@ kernel_peeler_cl = """
 #define n_span %(n_span)d
 #define nb_channel %(nb_channel)d
 #define nb_cluster %(nb_cluster)d
-#define relative_threshold %(relative_threshold)d
+#define relative_threshold %(relative_threshold)f
 #define peak_sign %(peak_sign)d
 #define extra_size %(extra_size)d
 #define fifo_size %(fifo_size)d

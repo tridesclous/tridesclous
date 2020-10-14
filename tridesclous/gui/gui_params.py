@@ -279,6 +279,8 @@ fullchain_params = [
     {'name' : 'mode', 'type' : 'list', 'values' : ['dense', 'sparse']},
     {'name':'sparse_threshold', 'type': 'float', 'value':1.5},
     {'name' : 'n_spike_for_centroid', 'type' : 'int', 'value' : 350},
+    {'name' : 'n_jobs', 'type' : 'int', 'value' : -1},
+    
     
     # params for each steps
     {'name':'preprocessor', 'type':'group', 'children': preprocessor_params},
@@ -320,7 +322,7 @@ _classic_peeler_params = _common_peeler_params + [
 ]
 
 _geometrical_peeler_params = _common_peeler_params + [
-    {'name': 'argmin_method', 'type': 'list', 'values' : [ 'numpy', 'opencl', 'numba',]},
+    #~ {'name': 'argmin_method', 'type': 'list', 'values' : [ 'numpy', 'opencl', 'numba',]},
     {'name':'adjacency_radius_um', 'type': 'float', 'value':100., 'suffix': 'µm', 'siPrefix': False},
 ]
 

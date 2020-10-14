@@ -25,8 +25,7 @@ _default_catalogue_params = {
     'memory_mode': 'memmap',
     'n_spike_for_centroid':350,
     'n_jobs' :-1,
-    
-    
+
     'preprocessor': {
         'highpass_freq': 300.,
         'lowpass_freq': 5000.,
@@ -94,11 +93,16 @@ _default_catalogue_params = {
 
 
 
-def get_auto_params_for_catalogue(dataio=None, chan_grp=0, nb_chan=None, sample_rate=None):
+def get_auto_params_for_catalogue(dataio=None, chan_grp=0,
+                            nb_chan=None, sample_rate=None,
+                            context='offline'):
     """
     Automatic selection of parameters.
     This totally empiric paramerters.
     """
+    
+    assert context in ('offline', 'online')
+    
     params = copy.deepcopy(_default_catalogue_params)
 
     # TODO make this more complicated
@@ -229,7 +233,8 @@ def get_auto_params_for_catalogue(dataio=None, chan_grp=0, nb_chan=None, sample_
         params['cluster_kargs']['adjacency_radius_um'] = 50.
         params['cluster_kargs']['high_adjacency_radius_um'] = 30.
 
-    
+    if context == 'online':
+        params['n_jobs' ] = 1
     
     return params
 

@@ -31,6 +31,8 @@ def make_empty_catalogue(chan_grp=0,
                 channel_indexes=[],
                 n_left=-20,
                 n_right=40,
+                n_left_long=-40,
+                n_right_long=80,
                 internal_dtype='float32',
                 
                 preprocessor_params={},
@@ -46,6 +48,8 @@ def make_empty_catalogue(chan_grp=0,
     catalogue['chan_grp'] = chan_grp
     catalogue['n_left'] = n_left
     catalogue['n_right'] = n_right
+    catalogue['n_left_long'] = n_left_long
+    catalogue['n_right_long'] = n_right_long
     catalogue['peak_width'] = catalogue['n_right'] - catalogue['n_left']
     
     catalogue['cluster_labels'] = np.array([], dtype='int64')
@@ -108,9 +112,9 @@ def make_empty_catalogue(chan_grp=0,
     catalogue['signals_mads'] = signals_mads
     
     catalogue['empty_catalogue'] = True # a key to detect real/fake catalogue
-    
-    
-    
+
+    catalogue['projections'] = np.zeros((0,), dtype='float32')
+    catalogue['boundaries'] = np.zeros((0,), dtype='float32')
     
     
     return catalogue

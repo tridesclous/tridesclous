@@ -9,7 +9,7 @@ from pyacq import WidgetNode,ThreadPollInput, StreamConverter, InputStream
 from pyacq.viewers import QOscilloscope
 
 #~ _dtype_spike = [('index', 'int64'), ('label', 'int64'), ('jitter', 'float64'),]
-from ..peeler import _dtype_spike
+from ..peeler_tools import _dtype_spike
 from ..tools import make_color_dict
 from ..labelcodes import LABEL_UNCLASSIFIED
 
@@ -160,9 +160,9 @@ class OnlineTraceViewer(QOscilloscope):
                 keep = k==spikes['cluster_label']
                 if np.sum(keep)>0:
                     if k>=0:
-                        chan = self.catalogue['extremum_channel'][i]
+                        chan = self.catalogue['clusters']['extremum_channel'][i]
                         if visibles[chan]:
-                            times, amps = peak_times[keep], spikes_amplitude[keep, chan]
+                            times, amps = peak_times[keep], spikes_amplitude[keep, :][:, chan]
                         else:
                             times, amps = [], []
                             
