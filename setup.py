@@ -16,7 +16,7 @@ install_requires = [
                     'neo>=0.8',
                     'tqdm',
                     # 'PyQt5',  make conda buggy
-                    'pyqtgraph==0.10.0',
+                    'pyqtgraph',
                     'joblib',
                     'numba',
                     'hdbscan',
