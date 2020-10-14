@@ -21,3 +21,5 @@ if HAVE_PYACQ:
     from .onlinewindow import TdcOnlineWindow
     from .onlinewaveformhistviewer import OnlineWaveformHistViewer
     from .launcher import make_pyacq_device_from_buffer, start_online_window, start_online_pyacq_buffer_demo, start_online_openephys
+    from .probeactivityviewer import ProbeActivityViewer
+

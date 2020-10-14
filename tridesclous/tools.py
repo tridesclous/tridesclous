@@ -112,6 +112,7 @@ def open_prb(probe_filename):
     channel_groups = d['channel_groups']
     return channel_groups
 
+read_prb = open_prb
 
 def create_prb_file_from_dict(channel_groups, filename):
     # transform array to list
