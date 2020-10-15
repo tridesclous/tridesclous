@@ -504,6 +504,7 @@ def compute_boundaries(cc, centroids, sparse_mask_level1, projections_3d, neighb
         
         wf0 = cc.get_cached_waveforms(label0)
         flat_centroid0 = centroids[cluster_idx0, :, :][:, chan_mask].flatten()
+        #~ print('cluster_idx0',cluster_idx0, wf0.shape)
         
         wf0 = wf0[:, :, chan_mask].copy()
         flat_wf0 = wf0.reshape(wf0.shape[0], -1)

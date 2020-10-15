@@ -208,6 +208,9 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         possible_idx, = np.nonzero((scalar_products < strict_high) & (scalar_products > strict_low))
         #~ possible_idx, = np.nonzero((scalar_products < flexible_high) & (scalar_products > flexible_low))
         
+        #~ print('possible_idx', possible_idx)
+        #~ print('scalar_products[possible_idx]', scalar_products[possible_idx])
+        
         
         #~ do_plot = False
         if len(possible_idx) == 1:
@@ -243,6 +246,10 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             shift = self.shifts[i1]
             cluster_idx = candidates_idx[i0]
             final_scalar_product = shift_scalar_product[i0, i1]
+            #~ print('shift', shift)
+            #~ print('cluster_idx', cluster_idx)
+            #~ print('final_scalar_product', final_scalar_product)
+            
             
             if np.abs(shift) == self.maximum_jitter_shift:
                 cluster_idx = None
@@ -282,6 +289,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         #~ if cluster_idx in (3,6):
         #~ if do_plot:
         if False:
+        #~ if final_scalar_product is not None and np.abs(final_scalar_product) > 0.5:
             import matplotlib.pyplot as plt
         #~ if True:
         #~ if len(possible_idx) != 1:
@@ -316,7 +324,10 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             
             if shift is not None:
                 fig, ax = plt.subplots()
-                ax.plot(self.shifts, np.abs(shift_scalar_product).T)
+                #~ ax.plot(self.shifts, np.abs(shift_scalar_product).T)
+                ax.plot(self.shifts, shift_scalar_product.T)
+                ax.axhline(0)
+                
 
                 fig, ax = plt.subplots()
                 ax.plot(self.shifts, np.abs(shift_distance).T)
@@ -558,8 +569,8 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         
         ax.plot(plot_sigs, color='k')
 
-        ax.axvline(self.fifo_size - self.n_right, color='r')
-        ax.axvline(-self.n_left, color='r')
+        ax.axvline(self.fifo_size - self.n_right_long, color='r')
+        ax.axvline(-self.n_left_long, color='r')
 
         mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
         sample_inds, chan_inds= np.nonzero(mask)
@@ -601,8 +612,8 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         
         ax.plot(self._plot_sigs_before, color='b')
         
-        ax.axvline(self.fifo_size - self.n_right, color='r')
-        ax.axvline(-self.n_left, color='r')
+        ax.axvline(self.fifo_size - self.n_right_long, color='r')
+        ax.axvline(-self.n_left_long, color='r')
 
         mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
         sample_inds, chan_inds= np.nonzero(mask)

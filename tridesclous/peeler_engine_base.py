@@ -303,7 +303,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
                 #~ t2 = time.perf_counter()
                 #~ print('  classify_and_align_next_spike', (t2-t1)*1000, spike)
                 #~ if spike.cluster_label <0:
-                    #~ print('   spike.label', spike.cluster_label, 'peak_ind, peak_chan', peak_ind, peak_chan)
+                    #~ print('   spike.label', spike.cluster_label, 'spike.index', spike.index)
 
                 if spike.cluster_label == LABEL_NO_MORE_PEAK:
                     break

@@ -1711,7 +1711,7 @@ class CatalogueConstructor:
         
         #~ snn = nearest_neighbor_similarity(self)
     
-    def compute_boundaries(self, sparse_thresh_level1=1.0, full_hyperplane=False):
+    def compute_boundaries(self, sparse_thresh_level1=1.5, full_hyperplane=False):
         assert self.some_waveforms is not None, 'run cc.cache_some_waveforms() first'
 
         keep = self.cluster_labels>=0
@@ -1738,8 +1738,8 @@ class CatalogueConstructor:
             
 
         
-        #~ if True:
-        if False:
+        if True:
+        #~ if False:
             import matplotlib.pyplot as plt
         
             n = centroids.shape[0]
@@ -1750,18 +1750,22 @@ class CatalogueConstructor:
             for cluster_idx0, label0 in enumerate(cluster_labels):
                 #~ if  cluster_idx0 != 13:
                     #~ continue
-                colors_ = sns.color_palette('husl', n)
+                colors_ = get_color_palette(n, palette='husl', output='rgb')
                 colors = {i: colors_[i] for i, k in enumerate(cluster_labels)}
+                
                 
                 print()
                 print(cluster_idx0)
                 print(neighbors[cluster_idx0])
+                bins = np.arange(-3,3, 0.01)
                 
                 
                 inner_sp = scalar_products[cluster_idx0, cluster_idx0]
                 fig, ax = plt.subplots()
-                count, bins = np.histogram(inner_sp, bins=150, density=True)
+                count, bins = np.histogram(inner_sp, bins=bins, density=True)
+                count = count / count.size
                 ax.plot(bins[:-1], count, color=colors[cluster_idx0])
+                ax.plot(bins[:-1], count, color='grey', ls='--', alpha=0.5)
                 low = boundaries[cluster_idx0, 0]
                 high = boundaries[cluster_idx0, 1]
                 ax.axvline(low, color='k')
@@ -1788,14 +1792,16 @@ class CatalogueConstructor:
                         #~ continue
 
                     cross_sp = scalar_products[cluster_idx0, cluster_idx1]
-                    count, bins = np.histogram(cross_sp, bins=150)
+                    count, bins = np.histogram(cross_sp, bins=bins)
+                    count = count / count.size
                     ax.plot(bins[:-1], count, color=colors[cluster_idx1])
                     
                     #~ ax2.plot(centroids[cluster_idx1, :, :].T.flatten(),  color=colors[cluster_idx1])
                     
                 
                 feat_noise = scalar_products[cluster_idx0, -1]
-                count, bins = np.histogram(feat_noise, bins=150, density=True)
+                count, bins = np.histogram(feat_noise, bins=bins, density=True)
+                count = count / count.size
                 ax.plot(bins[:-1], count, color='k')
                 
                 

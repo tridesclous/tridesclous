@@ -218,8 +218,9 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             self.wf2_norm2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=fake_buf)
             self.wf1_dot_wf2_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=fake_buf)
             
-            
-        self.extremum_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['extremum_channel'].astype('int32'))
+        extremum_channel = self.catalogue['clusters']['extremum_channel'].astype('int32')
+        #~ self.extremum_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.catalogue['extremum_channel'].astype('int32'))
+        self.extremum_channel_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=extremum_channel)
         
         #~ self.weight_per_template = np.zeros((self.nb_cluster, self.nb_channel), dtype='float32')
         #~ centers = self.catalogue['centers0']
