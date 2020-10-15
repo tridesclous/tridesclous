@@ -15,7 +15,6 @@ from . import labelcodes
 from .tools import median_mad
 
 
-import matplotlib.pyplot as plt
 from .dip import diptest
 
 from .sawchaincut import SawChainCut

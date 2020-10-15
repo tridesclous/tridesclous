@@ -9,7 +9,7 @@ from .peeler_engine_base import PeelerEngineGeneric
 from .peakdetector import get_peak_detector_class
 
 
-import matplotlib.pyplot as plt
+
 
 
 from . import pythran_tools
@@ -117,7 +117,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
         self.local_peaks_mask = self.peakdetector.get_mask_peaks_in_chunk(self.fifo_residuals)
         
         
-        
+        #~ import matplotlib.pyplot as plt
         #~ peak_inds,  =  np.nonzero(self.local_peaks_mask )
         #~ peak_chans =  np.argmin(self.fifo_residuals[peak_inds, :], axis=1)
         #~ peak_inds = peak_inds + self.n_span
@@ -349,6 +349,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
 
         label = self.catalogue['clusters'][cluster_idx]['cluster_label']
         #~ if True:
+        #~ import matplotlib.pyplot as plt
         #~ if np.random.rand()<0.05:
         #~ if label == 151:
         #~ if self._plot_debug:
@@ -394,6 +395,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
     
     
     def _plot_before_peeling_loop(self):
+        import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         plot_sigs = self.fifo_residuals.copy()
         
@@ -419,6 +421,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
         #~ plt.show()
     
     def _plot_label_unclassified(self, left_ind, peak_chan, cluster_idx, jitter):
+        import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         
         wf = self.fifo_residuals[left_ind:left_ind+self.peak_width, :]
@@ -430,6 +433,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
         ax.set_title(f'label_unclassified {left_ind-self.n_left} {cluster_idx}')
 
     def _plot_after_peeling_loop(self, good_spikes):
+        import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         plot_sigs = self.fifo_residuals.copy()
         

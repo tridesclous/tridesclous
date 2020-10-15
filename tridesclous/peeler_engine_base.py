@@ -27,7 +27,7 @@ except ImportError:
     HAVE_NUMBA = False
 
 
-import matplotlib.pyplot as plt
+
 
 
 class PeelerEngineBase(OpenCL_Helper):
@@ -136,7 +136,7 @@ class PeelerEngineBase(OpenCL_Helper):
         self.boundaries = self.catalogue['boundaries']
         
 
-
+        #~ import matplotlib.pyplot as plt
         #~ for i in range(centers.shape[0]):
             #~ fig, ax = plt.subplots()
             #~ center = centers[i,:,:].copy()
@@ -532,6 +532,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
                 
         
         #~ if self._plot_debug:
+            #~ import matplotlib.pyplot as plt
             #~ if label in (LABEL_LEFT_LIMIT, LABEL_RIGHT_LIMIT, LABEL_UNCLASSIFIED):
                 #~ fig, ax = plt.subplots()
                 #~ waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]

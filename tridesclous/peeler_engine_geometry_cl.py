@@ -26,7 +26,7 @@ try:
 except ImportError:
     HAVE_PYOPENCL = False
 
-import matplotlib.pyplot as plt
+
 
 
 class PeelerEngineGeometricalCl(PeelerEngineGeneric):
@@ -513,6 +513,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             #~ abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
         
         #~ if self._debug_cl:
+            #~ import matplotlib.pyplot as plt
             #~ pyopencl.enqueue_copy(self.queue,  self.fifo_residuals, self.fifo_residuals_cl)
             #~ fig, ax = plt.subplots()
             #~ ax.plot(self.fifo_residuals)
@@ -549,6 +550,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_detect_local_peaks, global_size, local_size,)
 
         #~ if self._plot_debug:
+            #~ import matplotlib.pyplot as plt
             #~ pyopencl.enqueue_copy(self.queue,  self.fifo_residuals, self.fifo_residuals_cl)
             #~ pyopencl.enqueue_copy(self.queue,  self.nb_pending_peaks, self.nb_pending_peaks_cl)
             #~ pyopencl.enqueue_copy(self.queue,  self.pending_peaks, self.pending_peaks_cl)
@@ -846,6 +848,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
     
     def _plot_before_peeling_loop(self):
+        import matplotlib.pyplot as plt
         pyopencl.enqueue_copy(self.queue,  self.fifo_residuals, self.fifo_residuals_cl)
         self._plot_sigs_before = self.fifo_residuals.copy()
 
@@ -874,6 +877,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         #~ plt.show()
     
     def _plot_after_peeling_loop(self, good_spikes):
+        import matplotlib.pyplot as plt
         pyopencl.enqueue_copy(self.queue,  self.fifo_residuals, self.fifo_residuals_cl)
         
         self.mask_already_tested[:] = 0
@@ -936,6 +940,9 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
     def _plot_after_inner_peeling_loop(self):
         return
+        
+        import matplotlib.pyplot as plt
+        
         #~ pyopencl.enqueue_copy(self.queue,  self.nb_pending_peaks, self.nb_pending_peaks_cl)
         #~ pyopencl.enqueue_copy(self.queue,  self.pending_peaks, self.pending_peaks_cl)
         pyopencl.enqueue_copy(self.queue,  self.fifo_residuals, self.fifo_residuals_cl)

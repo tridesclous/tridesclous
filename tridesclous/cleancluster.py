@@ -18,7 +18,7 @@ import sklearn.decomposition
 
 from joblib import Parallel, delayed
 
-import matplotlib.pyplot as plt
+
 
 from .dip import diptest
 from .waveformtools import equal_template, compute_shared_channel_mask
@@ -201,6 +201,7 @@ def auto_split(catalogueconstructor,
             peak_is_aligned = check_peak_all_aligned(sub_labels, waveforms, peak_sign, n_left, maximum_shift)
 
         if debug_plot:
+            import matplotlib.pyplot as plt
             fig, ax= plt.subplots()
             
             ax.plot(wf_flat.T, color='m', alpha=0.5)
@@ -247,7 +248,7 @@ def auto_split(catalogueconstructor,
             if debug_plot:
                 #~ print('label', label,'pval', pval, pval<pval_thresh)
                 #~ print('label', label,'pval', pval, pval<pval_thresh)
-                
+                import matplotlib.pyplot as plt
                 fig, axs = plt.subplots(ncols=4)
                 colors = plt.cm.get_cmap('Set3', len(unique_sub_labels))
                 colors = {unique_sub_labels[l]:colors(l) for l in range(len(unique_sub_labels))}
@@ -337,6 +338,7 @@ def trash_not_aligned(cc, maximum_shift=2):
 
         if np.abs(-n_left - extremum_index)>maximum_shift:
             if debug_plot:
+                import matplotlib.pyplot as plt
                 n_left = cc.info['waveform_extractor_params']['n_left']
                 n_right = cc.info['waveform_extractor_params']['n_right']
                 peak_width = n_right - n_left
@@ -455,7 +457,7 @@ def auto_merge(catalogueconstructor,
                     #~ print('merge', k1, k2)
                     #~ cluster_labels2[cluster_labels2==k2] = k1
                     if debug_plot:
-                    
+                        import matplotlib.pyplot as plt
                         fig, ax = plt.subplots()
                         ax.plot(centroid1.T.flatten(), color='m')
                         ax.plot(centroid2.T.flatten(), color='c')
@@ -618,7 +620,7 @@ def remove_overlap(cc, thresh_mad=6):
                     dist = np.sum((center - center_add)**2)
                     
                 
-
+                    #~ import matplotlib.pyplot as plt
                     #~ fig, ax = plt.subplots()
                     #~ ax.plot(center.T.flatten(), color='b')
                     #~ ax.plot(center_add.T.flatten(), color='c', ls='--')
@@ -641,7 +643,7 @@ def remove_overlap(cc, thresh_mad=6):
             #~ center_add = center0 + center1
             center_add = _shift_add(center0, center1, shift)
             
-            
+            import matplotlib.pyplot as plt
             fig, axs = plt.subplots(nrows=2, sharex=True)
             ax = axs[0]
             ax.plot(center.T.flatten(), color='b')

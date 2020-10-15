@@ -20,8 +20,6 @@ from pprint import pprint
 import numpy as np
 import scipy.signal
 import scipy.interpolate
-import seaborn as sns
-sns.set_style("white")
 
 import sklearn
 import sklearn.metrics
@@ -32,13 +30,14 @@ from . import decomposition
 from . import cluster 
 from . import metrics
 
-from .tools import median_mad, get_pairs_over_threshold, int32_to_rgba, rgba_to_int32, make_color_dict
+from .tools import (median_mad, get_pairs_over_threshold, int32_to_rgba,
+                                rgba_to_int32, make_color_dict, get_color_palette)
 from . import cleancluster
 
 
 from .iotools import ArrayCollection
 
-import matplotlib.pyplot as plt
+
 
 from . import labelcodes
 
@@ -756,7 +755,7 @@ class CatalogueConstructor:
             else:
                 raise(ValueError('Must provide wf_left_ms/wf_right_ms'))
         if wf_left_long_ms is None:
-            n_left_long = 2 * n_nleft
+            n_left_long = 2 * n_left
         else:
             n_left_long = int(wf_left_long_ms / 1000. * self.dataio.sample_rate)
         if wf_right_long_ms is None:
@@ -1423,7 +1422,8 @@ class CatalogueConstructor:
             n = np.sum((self.clusters['cluster_label']>=0) & (self.clusters['color']==0))
 
         if n>0:
-            colors_int32 = np.array([rgba_to_int32(r,g,b) for r,g,b in sns.color_palette(palette, n)])
+            colors_int32 = get_color_palette(n, palette=palette, output='int32')
+            
             
             if reset and interleaved and n>1:
                 colors_int32 = colors_int32.reshape(n1, n2).T.flatten()
@@ -1740,10 +1740,12 @@ class CatalogueConstructor:
         
         #~ if True:
         if False:
+            import matplotlib.pyplot as plt
         
             n = centroids.shape[0]
             
-            colors_ = sns.color_palette('husl', n)
+            colors_ = get_color_palette(n, palette='husl', output='rgb')
+            
             colors = {i: colors_[i] for i, k in enumerate(cluster_labels)}
             for cluster_idx0, label0 in enumerate(cluster_labels):
                 #~ if  cluster_idx0 != 13:
@@ -2003,6 +2005,7 @@ class CatalogueConstructor:
             #~ center0_normed /= np.sum(center0_normed**2)
             #~ self.catalogue['centers0_normed'][i, :] = center0_normed
             
+        #~ import matplotlib.pyplot as plt
         #~ fig, ax = plt.subplots()
         #~ ax.plot(centers0_normed.swapaxes(1,2).reshape(centers0_normed.shape[0], -1).T)
         #~ plt.show()

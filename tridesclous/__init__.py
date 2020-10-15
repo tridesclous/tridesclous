@@ -12,21 +12,21 @@
 """
 from .version import version as __version__
 
-import PyQt5 # this force pyqtgraph to deal with Qt5
+#~ import PyQt5 # this force pyqtgraph to deal with Qt5
 
-# For matplotlib to Qt5 : 
-#   * this avoid tinker problem when not installed
-#   * work better with GUI
-#   * trigger a warning on notebook
-import matplotlib
-import warnings
-with warnings.catch_warnings():
-    try:                                                                                                                                                                                                                                    
-        warnings.simplefilter("ignore")
-        matplotlib.use('Qt5Agg')                                                                                                                                                                                                            
-    except:
-        # on server without screen this is not possible.
-        pass
+#~ # For matplotlib to Qt5 : 
+#~ #   * this avoid tinker problem when not installed
+#~ #   * work better with GUI
+#~ #   * trigger a warning on notebook
+#~ import matplotlib
+#~ import warnings
+#~ with warnings.catch_warnings():
+    #~ try:                                                                                                                                                                                                                                    
+        #~ warnings.simplefilter("ignore")
+        #~ matplotlib.use('Qt5Agg')                                                                                                                                                                                                            
+    #~ except:
+        #~ # on server without screen this is not possible.
+        #~ pass
 
 
 from .datasets import download_dataset, get_dataset
@@ -50,7 +50,7 @@ from .autoparams import get_auto_params_for_catalogue, get_auto_params_for_peele
 
 from .importers import import_from_spykingcircus, import_from_spike_interface
 
-from .matplotlibplot import *
+#~ from .matplotlibplot import *
 from .report import *
 
 from .gui import *

@@ -19,7 +19,7 @@ import sklearn.metrics
 
 
 
-import matplotlib.pyplot as plt
+
 
 from .dip import diptest
 from .waveformtools import equal_template
@@ -730,7 +730,7 @@ class PruningShears:
         if not self.debug_plot:
             return
         
-        
+        import matplotlib.pyplot as plt
         from .matplotlibplot import plot_waveforms_density
         fig, axs = plt.subplots(ncols=3, nrows=2)
         

@@ -1,6 +1,6 @@
 
 import os
-import matplotlib.pyplot as plt
+
 import numpy as np
 
 from .catalogueconstructor import CatalogueConstructor
@@ -70,6 +70,7 @@ def summary_catalogue_clusters(dataio, chan_grp=None, labels=None, label=None,
         
         print(text)
         
+        import matplotlib.pyplot as plt
         fig, axs = plt.subplots(ncols=2)
         plot_centroids(cc, labels=[label,], ax=axs[0], show_channels=show_channels, neighborhood_radius=neighborhood_radius)
         axs[0].set_title('cluster {}'.format(label))

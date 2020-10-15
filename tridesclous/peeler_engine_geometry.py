@@ -36,7 +36,7 @@ except ImportError:
 
 
 
-import matplotlib.pyplot as plt
+
 
 
 class PeelerEngineGeometrical(PeelerEngineGeneric):
@@ -272,6 +272,8 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             cluster_idx = None
             shift = None
             final_scalar_product = None
+            
+            #~ import matplotlib.pyplot as plt
             #~ fig, ax = plt.subplots()
             #~ ax.plot(self.shifts, shift_scalar_product.T)
             #~ plt.show()
@@ -280,6 +282,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         #~ if cluster_idx in (3,6):
         #~ if do_plot:
         if False:
+            import matplotlib.pyplot as plt
         #~ if True:
         #~ if len(possible_idx) != 1:
         #~ if len(possible_idx) > 1:
@@ -438,6 +441,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         #~ if accept_template:
         #~ if True:
         if False:
+            
         #~ if not immediate_accept:
         #~ if immediate_accept:
         #~ if immediate_accept:
@@ -457,6 +461,8 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         #~ if label == 5 and np.any(np.abs((left_ind - self.n_left) - nears) < 50):
             
             #~ if immediate_accept:
+            
+            import matplotlib.pyplot as plt
             
             mask = self.sparse_mask_level2[cluster_idx]
             full_waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:]
@@ -540,6 +546,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         pass
 
     def _plot_before_peeling_loop(self):
+        import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         plot_sigs = self.fifo_residuals.copy()
         self._plot_sigs_before = plot_sigs
@@ -566,6 +573,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
     
     def _plot_label_unclassified(self, left_ind, peak_chan, cluster_idx, jitter):
         return
+        import matplotlib.pyplot as plt
         #~ print('LABEL UNCLASSIFIED', left_ind, cluster_idx)
         fig, ax = plt.subplots()
         
@@ -582,6 +590,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         plt.show()
 
     def _plot_after_peeling_loop(self, good_spikes):
+        import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         plot_sigs = self.fifo_residuals.copy()
         
