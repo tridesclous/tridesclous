@@ -129,24 +129,44 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
 
     def on_accepted_spike(self, sample_ind, cluster_idx, jitter):
         # remove spike prediction from fifo residuals
+        #~ t1 = time.perf_counter()
         pos, pred = make_prediction_one_spike(sample_ind, cluster_idx, jitter, self.fifo_residuals.dtype, self.catalogue)
+        #~ t2 = time.perf_counter()
+        #~ print('    make_prediction_one_spike', (t2-t1)*1000)
+        
+        #~ t1 = time.perf_counter()
         self.fifo_residuals[pos:pos+self.peak_width_long, :] -= pred
+        #~ t2 = time.perf_counter()
+        #~ print('     self.fifo_residuals -', (t2-t1)*1000)
+
         # this prevent search peaks in the zone until next "reset_to_not_tested"
+        #~ t1 = time.perf_counter()
         self.clean_pending_peaks_zone(sample_ind, cluster_idx)
+        #~ t2 = time.perf_counter()
+        #~ print('     self.clean_pending_peaks_zone -', (t2-t1)*1000)
+
 
     def clean_pending_peaks_zone(self, sample_ind, cluster_idx):
         # TODO test with sparse_mask_level3s!!!!!
         mask = self.sparse_mask_level1[cluster_idx, :]
 
-        keep = np.zeros(self.pending_peaks.size, dtype='bool')
-        for i, peak in enumerate(self.pending_peaks):
-            in_zone = mask[peak['chan_index']] and (peak['sample_index']+self.n_left<sample_ind<peak['sample_index']+self.n_right)
-            if in_zone:
-                #~ self.already_tested.append((ind, chan_ind)) # ERREUR!!!!!!!
-                pass
-                keep[i] = False
-            else:
-                keep[i] = True
+        
+        #~ t1 = time.perf_counter()
+        #~ keep = np.zeros(self.pending_peaks.size, dtype='bool')
+        #~ for i, peak in enumerate(self.pending_peaks):
+            #~ in_zone = mask[peak['chan_index']] and \
+                                #~ (peak['sample_index']+self.n_left)<sample_ind and \
+                                #~ sample_ind<(peak['sample_index']+self.n_right)
+            #~ keep[i] = not(in_zone)
+        
+        peaks = self.pending_peaks
+        in_zone = mask[peaks['chan_index']] &\
+                            ((peaks['sample_index']+self.n_left)<sample_ind) & \
+                            ((peaks['sample_index']+self.n_right)>sample_ind)
+        keep = ~ in_zone
+        #~ t2 = time.perf_counter()
+        #~ print('     clean_pending_peaks_zone loop', (t2-t1)*1000)
+        
         self.pending_peaks = self.pending_peaks[keep]
         
         #~ print('clean_pending_peaks_zone', self.pending_peaks.size)
@@ -200,8 +220,12 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         #~ scalar_products = np.sum((flat_waveform[np.newaxis, :] - flat_centers0[:, :]) * projections[:, :], axis=1)
         #~ print(scalar_products)
         
+        #~ t1 = time.perf_counter()
         scalar_products = numba_sparse_scalar_product(self.fifo_residuals, left_ind, centers0, projections, chan_ind,
                     self.sparse_mask_level1, )
+        #~ t2 = time.perf_counter()
+        #~ print('numba_sparse_scalar_product', (t2-t1)*1000)
+
         #~ print(scalar_products)
         
         
@@ -236,6 +260,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         
         debug_plot_change = False
         if len(candidates_idx) > 0:
+            #~ t1 = time.perf_counter()
             candidates_idx = np.array(candidates_idx, dtype='int64')
             common_mask = np.sum(self.sparse_mask_level3[candidates_idx, :], axis=0) > 0
             shift_scalar_product, shift_distance = numba_explore_best_shift(self.fifo_residuals, left_ind, self.catalogue['centers0'],
@@ -246,6 +271,13 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             shift = self.shifts[i1]
             cluster_idx = candidates_idx[i0]
             final_scalar_product = shift_scalar_product[i0, i1]
+            #~ t2 = time.perf_counter()
+            #~ print('numba_explore_best_shift', (t2-t1)*1000)
+
+
+
+            
+            
             #~ print('shift', shift)
             #~ print('cluster_idx', cluster_idx)
             #~ print('final_scalar_product', final_scalar_product)

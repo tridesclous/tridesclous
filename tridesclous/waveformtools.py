@@ -363,9 +363,8 @@ def compute_projection(centroids, sparse_mask_level1):
     n = centroids.shape[0]
     #~ print('n', n)
     
-    flat_shape = n, centroids.shape[1] * centroids.shape[2]
-    projections_flat = np.zeros(flat_shape, dtype='float32')
-    projections_3d = projections_flat.reshape(centroids.shape)
+    #~ flat_shape = n, centroids.shape[1] * centroids.shape[2]
+    projections = np.zeros(centroids.shape, dtype='float32')
     
     neighbors = {}
     
@@ -478,15 +477,15 @@ def compute_projection(centroids, sparse_mask_level1):
 
         
         
-        projections_3d[cluster_idx0, :, :][:, chan_mask] = ortho_complement.reshape(centroids.shape[1], local_chan)
+        projections[cluster_idx0, :, :][:, chan_mask] = ortho_complement.reshape(centroids.shape[1], local_chan)
 
     
-    return projections_3d, neighbors
+    return projections, neighbors
 
 
 
 
-def compute_boundaries(cc, centroids, sparse_mask_level1, projections_3d, neighbors, plot_debug=False):
+def compute_boundaries(cc, centroids, sparse_mask_level1, projections, neighbors, plot_debug=False):
     #~ n = len(cluster_labels)
     n = centroids.shape[0]
 
@@ -500,7 +499,7 @@ def compute_boundaries(cc, centroids, sparse_mask_level1, projections_3d, neighb
     # compute all scalar product with projection
     for cluster_idx0, label0 in enumerate(cluster_labels):
         chan_mask = sparse_mask_level1[cluster_idx0, :]
-        projector =projections_3d[cluster_idx0, :][:, chan_mask].flatten()
+        projector =projections[cluster_idx0, :][:, chan_mask].flatten()
         
         wf0 = cc.get_cached_waveforms(label0)
         flat_centroid0 = centroids[cluster_idx0, :, :][:, chan_mask].flatten()

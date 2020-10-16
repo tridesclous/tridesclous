@@ -298,10 +298,11 @@ class PeelerEngineGeneric(PeelerEngineBase):
             
             # loop : one more peeler level
             while True: 
-                #~ t1 = time.perf_counter()
+                #~ print()
+                t1 = time.perf_counter()
                 spike = self.classify_and_align_next_spike()
-                #~ t2 = time.perf_counter()
-                #~ print('  classify_and_align_next_spike', (t2-t1)*1000, spike)
+                t2 = time.perf_counter()
+                print('  classify_and_align_next_spike', (t2-t1)*1000, spike)
                 #~ if spike.cluster_label <0:
                     #~ print('   spike.label', spike.cluster_label, 'spike.index', spike.index)
 
@@ -445,10 +446,12 @@ class PeelerEngineGeneric(PeelerEngineBase):
 
             else:
                 
-                t1 = time.perf_counter()
+                #~ t1 = time.perf_counter()
                 #TODO try usewaveform to avoid new buffer ????
                 
                 cluster_idx, shift, best_template_info = self.get_best_template(left_ind, peak_chan)
+                
+                
                 if shift is not None:
                     left_ind += shift
                     left_ind_long +=shift
@@ -471,7 +474,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
                     
                 else:
                     label = None
-                    t1 = time.perf_counter()
+                    #~ t1 = time.perf_counter()
                     #~ print('left_ind', left_ind, 'proposed_peak_ind', proposed_peak_ind)
                     if self.inter_sample_oversampling:
                         raise NotImplementedError # TODO propagate center_long to this section and peeler
@@ -507,7 +510,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
                         jitter = None
                     
                     if label is None:
-                        t1 = time.perf_counter()
+                        #~ t1 = time.perf_counter()
                         ok = self.accept_tempate(left_ind, cluster_idx, jitter, best_template_info)
                         if ok:
                             label = self.catalogue['cluster_labels'][cluster_idx]
@@ -516,6 +519,8 @@ class PeelerEngineGeneric(PeelerEngineBase):
                             jitter = 0
                             if self._plot_debug:
                                 self._plot_label_unclassified(left_ind, peak_chan, cluster_idx, jitter)
+                        #~ t2 = time.perf_counter()
+                        #~ print('    accept_tempate', (t2-t1)*1000)
         
         # second security check for borders
         if label>=0 and jitter is not None:
@@ -562,7 +567,11 @@ class PeelerEngineGeneric(PeelerEngineBase):
             #~ self.mask_not_already_tested[proposed_peak_ind - self.n_span] = False
             peak_ind = proposed_peak_ind
             #~ jitter = peak_chan
+            #~ t1 = time.perf_counter()
             self.set_already_tested(peak_ind, peak_chan)
+            #~ t2 = time.perf_counter()
+            #~ print('    set_already_tested', (t2-t1)*1000)
+
 
         #~ self.update_peak_mask(peak_ind, label)
         #~ t2 = time.perf_counter()
@@ -580,7 +589,10 @@ class PeelerEngineGeneric(PeelerEngineBase):
             
             
             # remove from residulals
+            #~ t1 = time.perf_counter()
             self.on_accepted_spike(peak_ind, cluster_idx, jitter)
+            #~ t2 = time.perf_counter()
+            #~ print('    on_accepted_spike', (t2-t1)*1000)
             
         
         if self._plot_debug:

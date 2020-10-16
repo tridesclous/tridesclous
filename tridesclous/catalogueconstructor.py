@@ -1711,7 +1711,7 @@ class CatalogueConstructor:
         
         #~ snn = nearest_neighbor_similarity(self)
     
-    def compute_boundaries(self, sparse_thresh_level1=1.5, full_hyperplane=False):
+    def compute_boundaries(self, sparse_thresh_level1=1.5, plot_debug=False):
         assert self.some_waveforms is not None, 'run cc.cache_some_waveforms() first'
 
         keep = self.cluster_labels>=0
@@ -1738,7 +1738,8 @@ class CatalogueConstructor:
             
 
         
-        if True:
+        if plot_debug:
+        #~ if True:
         #~ if False:
             import matplotlib.pyplot as plt
         
@@ -1818,9 +1819,7 @@ class CatalogueConstructor:
                 #~ plt.show()
             plt.show()
         
-        # TODO return projection_3d
-        projections_flat = projections_3d.reshape(projections_3d.shape[0], -1)
-        return projections_flat, boundaries
+        return projections_3d, boundaries
 
     def make_catalogue(self,
                             inter_sample_oversampling=False,
@@ -1924,10 +1923,9 @@ class CatalogueConstructor:
         #~ self.catalogue['projector']  = projector
 
         projections, boundaries = self.compute_boundaries(sparse_thresh_level1=sparse_thresh_level1)
+        
         self.catalogue['projections']  = projections
         self.catalogue['boundaries']  = boundaries
-        
-           
         
         #~ self.catalogue['sp_normed_limit'] = np.zeros((len(cluster_labels),2), dtype=self.info['internal_dtype'])
         

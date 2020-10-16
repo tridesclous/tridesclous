@@ -47,7 +47,7 @@ def numba_sparse_scalar_product(fifo_residuals, left_ind, centers, projector, pe
                     for s in range(width):
                         v = fifo_residuals[left_ind+s, chan]
                         ct = centers[clus_idx, s, chan]
-                        w = projector[clus_idx, s*nb_chan + chan] # 2D
+                        w = projector[clus_idx, s, chan]
                         
                         sum_sp += (v - ct) * w
                     
@@ -86,7 +86,7 @@ def numba_explore_best_shift(fifo_residuals, left_ind, centers, projector, candi
                         ct = centers[clus_idx, s, chan]
                         
                         if sparse_mask_level1[clus_idx, chan]:
-                            sum_sp += (v - ct) * projector[clus_idx, s*nb_chan + chan]
+                            sum_sp += (v - ct) * projector[clus_idx, s, chan]
                         
                         if common_mask[chan]:
                             sum_d += (v - ct) * (v - ct)
