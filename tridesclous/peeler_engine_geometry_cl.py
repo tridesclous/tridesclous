@@ -644,15 +644,15 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             event = pyopencl.enqueue_copy(self.queue,  self.scalar_products_shifts_cl, self.scalar_products_shifts)
             
             
-            print()
+            #~ print()
             global_size = (1, )
             local_size = (1, )
-            t0 = time.perf_counter()
+            #~ t0 = time.perf_counter()
             event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_select_next_peak, global_size, local_size,)
             
-            event.wait()
-            t1 = time.perf_counter()
-            print('kern_select_next_peak',( t1-t0)*1000)
+            #~ event.wait()
+            #~ t1 = time.perf_counter()
+            #~ print('kern_select_next_peak',( t1-t0)*1000)
             
             #~ if True:
                 #~ event = pyopencl.enqueue_copy(self.queue,  self.nb_pending_peaks, self.nb_pending_peaks_cl)
@@ -660,13 +660,13 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                 #~ nb = self.nb_pending_peaks[0]
                 #~ print(self.pending_peaks[:nb])
             
-            t0 = time.perf_counter()
+            #~ t0 = time.perf_counter()
             global_size, local_size = self.sizes_explore_templates
             event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_explore_templates, global_size, local_size,)
             
-            event.wait()
-            t1 = time.perf_counter()
-            print('kern_explore_templates',( t1-t0)*1000)
+            #~ event.wait()
+            #~ t1 = time.perf_counter()
+            #~ print('kern_explore_templates',( t1-t0)*1000)
 
             #~ if True:
                 #~ event = pyopencl.enqueue_copy(self.queue,  self.next_spike, self.next_spike_cl)
@@ -675,12 +675,12 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                 #~ print(self.scalar_products)
             
             global_size, local_size = self.sizes_get_candidate_template
-            t0 = time.perf_counter()
+            #~ t0 = time.perf_counter()
             event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_get_candidate_template, global_size, local_size,)
             
-            event.wait()
-            t1 = time.perf_counter()
-            print('kern_get_candidate_template', ( t1-t0)*1000)
+            #~ event.wait()
+            #~ t1 = time.perf_counter()
+            #~ print('kern_get_candidate_template', ( t1-t0)*1000)
 
             #~ if True:
                 #~ event = pyopencl.enqueue_copy(self.queue,  self.candidate_template, self.candidate_template_cl)
@@ -691,12 +691,12 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             
             global_size = (1, )
             local_size = (1, )
-            t0 = time.perf_counter()
+            #~ t0 = time.perf_counter()
             event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_make_common_mask, global_size, local_size,)
             
-            event.wait()
-            t1 = time.perf_counter()
-            print('kern_make_common_mask',( t1-t0)*1000)
+            #~ event.wait()
+            #~ t1 = time.perf_counter()
+            #~ print('kern_make_common_mask',( t1-t0)*1000)
 
             #~ if True:
                 #~ event = pyopencl.enqueue_copy(self.queue,  self.common_mask, self.common_mask_cl)
@@ -704,13 +704,13 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                 #~ print(self.common_mask)
                 #~ print(self.nb_candidate)
 
-            t0 = time.perf_counter()
+            #~ t0 = time.perf_counter()
             (global_size, local_size) = self.sizes_explore_shifts
             event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_explore_shifts, global_size, local_size,)
             
-            event.wait()
-            t1 = time.perf_counter()
-            print('kern_explore_shifts', ( t1-t0)*1000)        
+            #~ event.wait()
+            #~ t1 = time.perf_counter()
+            #~ print('kern_explore_shifts', ( t1-t0)*1000)        
 
             #~ if True:
                 #~ event = pyopencl.enqueue_copy(self.queue,  self.scalar_products_shifts, self.scalar_products_shifts_cl)
@@ -721,12 +721,12 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
 
             global_size = (1, )
             local_size = (1, )
-            t0 = time.perf_counter()
+            #~ t0 = time.perf_counter()
             event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_best_shift_and_jitter, global_size, local_size,)
             
-            event.wait()
-            t1 = time.perf_counter()
-            print('kern_best_shift_and_jitter',( t1-t0)*1000)
+            #~ event.wait()
+            #~ t1 = time.perf_counter()
+            #~ print('kern_best_shift_and_jitter',( t1-t0)*1000)
             
             #~ if True:
                 #~ event = pyopencl.enqueue_copy(self.queue,  self.next_spike, self.next_spike_cl)
@@ -738,12 +738,12 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             
             global_size = (1, )
             local_size = (1, )
-            t0 = time.perf_counter()
+            #~ t0 = time.perf_counter()
             event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_finalize_next_spike, global_size, local_size,)
             
-            event.wait()
-            t1 = time.perf_counter()
-            print('kern_finalize_next_spike',( t1-t0)*1000)        
+            #~ event.wait()
+            #~ t1 = time.perf_counter()
+            #~ print('kern_finalize_next_spike',( t1-t0)*1000)        
             
             
             #~ if True:
@@ -755,7 +755,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             
             
             
-            t0 = time.perf_counter()
+            #~ t0 = time.perf_counter()
             event = pyopencl.enqueue_copy(self.queue,  self.next_spike, self.next_spike_cl)
             event.wait()
             
@@ -767,11 +767,12 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
             if self.next_spike[0]['cluster_idx'] >= 0:
                 global_size = (self.peak_width_long, )
                 local_size = (self.peak_width_long, )
-                t0 = time.perf_counter()
+                #~ t0 = time.perf_counter()
                 event = pyopencl.enqueue_nd_range_kernel(self.queue,  self.kern_remove_spike_from_fifo, global_size, local_size,)
-                event.wait()
-                t1 = time.perf_counter()
-                print('kern_remove_spike_from_fifo',( t1-t0)*1000)        
+                
+                #~ event.wait()
+                #~ t1 = time.perf_counter()
+                #~ print('kern_remove_spike_from_fifo',( t1-t0)*1000)        
             
             
             

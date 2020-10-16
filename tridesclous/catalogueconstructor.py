@@ -1725,8 +1725,8 @@ class CatalogueConstructor:
         
         #~ flat_shape = centroids.shape[0], centroids.shape[1] * centroids.shape[2]
         
-        projections_3d, neighbors = compute_projection(centroids, sparse_mask_level1)
-        boundaries, scalar_products = compute_boundaries(self, centroids, sparse_mask_level1, projections_3d, neighbors, plot_debug=False)
+        projections, neighbors = compute_projection(centroids, sparse_mask_level1)
+        boundaries, scalar_products = compute_boundaries(self, centroids, sparse_mask_level1, projections, neighbors, plot_debug=False)
         
         # DEBUG
         print('DEBUG boudaries -0.5 0.5')
@@ -1762,11 +1762,13 @@ class CatalogueConstructor:
                 
                 
                 inner_sp = scalar_products[cluster_idx0, cluster_idx0]
-                fig, ax = plt.subplots()
+                fig, axs = plt.subplots(nrows=3)
+                
+                ax = axs[0]
                 count, bins = np.histogram(inner_sp, bins=bins, density=True)
-                count = count / count.size
+                count = count / np.sum(count)
                 ax.plot(bins[:-1], count, color=colors[cluster_idx0])
-                ax.plot(bins[:-1], count, color='grey', ls='--', alpha=0.5)
+                #~ ax.plot(bins[:-1], count, color='grey', ls='--', alpha=0.5)
                 low = boundaries[cluster_idx0, 0]
                 high = boundaries[cluster_idx0, 1]
                 ax.axvline(low, color='k')
@@ -1778,23 +1780,13 @@ class CatalogueConstructor:
                 ax.axvline(high, color='grey', ls='--')
                 
                 
-                #~ fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
-
                 for cluster_idx1, label1 in enumerate(cluster_labels):
                     if cluster_idx1 == cluster_idx0:
                         continue
-                    #~ if not cluster_idx1 in (2,3):
-                        #~ continue
-                    
-
-                    #~ channel_shared = share_channel_mask[cluster_idx0, cluster_idx1]
-                    
-                    #~ if not channel_shared:
-                        #~ continue
 
                     cross_sp = scalar_products[cluster_idx0, cluster_idx1]
                     count, bins = np.histogram(cross_sp, bins=bins)
-                    count = count / count.size
+                    count = count / np.sum(count)
                     ax.plot(bins[:-1], count, color=colors[cluster_idx1])
                     
                     #~ ax2.plot(centroids[cluster_idx1, :, :].T.flatten(),  color=colors[cluster_idx1])
@@ -1802,7 +1794,7 @@ class CatalogueConstructor:
                 
                 feat_noise = scalar_products[cluster_idx0, -1]
                 count, bins = np.histogram(feat_noise, bins=bins, density=True)
-                count = count / count.size
+                count = count / np.sum(count)
                 ax.plot(bins[:-1], count, color='k')
                 
                 
@@ -1815,11 +1807,28 @@ class CatalogueConstructor:
                 #~ ax1.plot(projections[cluster_idx0, :].reshape(shape).T.flatten(), color='b')
                 #~ ax2.plot(centroids[cluster_idx0, :, :].T.flatten(), color='k', ls='--')
                 
+                ax = axs[1]
+                proj = projections[cluster_idx0, :, :]
+                #~ proj = proj / np.sum(np.abs(proj))
+                proj = proj.T.flatten()
+                cent = centroids[cluster_idx0, :, :].T.flatten()
+                #~ fact = np.max(np.abs(cent))  / 6
+                
+                ax.plot(cent,  color=colors[cluster_idx0])
+                #~ ax.plot(cent + cent *proj*fact,  color='k')
+                #~ ax.plot(cent - cent *proj*fact,  color='k')
+                for cluster_idx1 in neighbors[cluster_idx0]:
+                    ax.plot(centroids[cluster_idx1, :, :].T.flatten(),  color=colors[cluster_idx1])
+                
+                ax = axs[2]
+                ax.plot(proj, color='k')
+                ax.get_shared_x_axes().join(axs[1], axs[2])
+                
                 
                 #~ plt.show()
             plt.show()
         
-        return projections_3d, boundaries
+        return projections, boundaries
 
     def make_catalogue(self,
                             inter_sample_oversampling=False,

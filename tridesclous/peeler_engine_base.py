@@ -299,10 +299,10 @@ class PeelerEngineGeneric(PeelerEngineBase):
             # loop : one more peeler level
             while True: 
                 #~ print()
-                t1 = time.perf_counter()
+                #~ t1 = time.perf_counter()
                 spike = self.classify_and_align_next_spike()
-                t2 = time.perf_counter()
-                print('  classify_and_align_next_spike', (t2-t1)*1000, spike)
+                #~ t2 = time.perf_counter()
+                #~ print('  classify_and_align_next_spike', (t2-t1)*1000, spike)
                 #~ if spike.cluster_label <0:
                     #~ print('   spike.label', spike.cluster_label, 'spike.index', spike.index)
 
@@ -329,6 +329,9 @@ class PeelerEngineGeneric(PeelerEngineBase):
             if self._plot_debug:
                 self._plot_after_inner_peeling_loop()
         
+
+        #~ t4 = time.perf_counter()
+        #~ print('mainloop classify_and_align ', len(good_spikes), ' spike', (t4-t3)*1000, 'ms', 'n_loop', n_loop)
         
         if self._plot_debug:
         #~ if True:
