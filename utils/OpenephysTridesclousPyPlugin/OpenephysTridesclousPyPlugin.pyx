@@ -36,7 +36,7 @@ class ThreadConfig(threading.Thread):
         url = 'tcp://127.0.0.1:{}'.format(self.port)
         
         context = zmq.Context.instance()
-        self.socket_info = context.socket(zmq.PAIR)
+        self.socket_info = context.socket(zmq.REP)
         self.socket_info.linger = 1000  # don't let socket deadlock when exiting
         self.socket_info.bind(url)
 
