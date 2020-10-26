@@ -21,7 +21,7 @@ from joblib import Parallel, delayed
 
 
 from .dip import diptest
-from .waveformtools import equal_template, compute_shared_channel_mask
+from .waveformtools import  compute_shared_channel_mask, equal_template_with_distrib_overlap, equal_template_with_distance
 
 
 import hdbscan
@@ -362,9 +362,12 @@ def trash_not_aligned(cc, maximum_shift=2):
 
 def auto_merge(catalogueconstructor,
                         auto_merge_threshold=2.3,
-                        maximum_shift=2,
-                        amplitude_factor_thresh = 0.2,
-                        sparse_thresh=1.5,
+                        #~ maximum_shift=2,
+                        amplitude_factor_thresh = 0.3,
+                        n_shift=2,
+                        #~ sparse_thresh=1.5,
+                        sparse_thresh=3,
+                        quantile_limit=0.9,
                         recursive_loop=False,
                         
         ):
@@ -400,6 +403,15 @@ def auto_merge(catalogueconstructor,
             if k1 == -1:
                 # this can have been removed yet
                 continue
+
+            #~ t1 = time.perf_counter()
+            ind1 = cc.index_of_label(k1)
+            extremum_amplitude1 = np.abs(cc.clusters[ind1]['extremum_amplitude'])
+            centroid1 = cc.get_one_centroid(k1)
+            waveforms1 = cc.get_cached_waveforms(k1)
+            #~ t2 = time.perf_counter()
+            #~ print('get_cached_waveforms(k1)', (t2-t1)*1000.)
+
             
             for j in range(i+1, n):
                 k2 = labels[j]
@@ -411,27 +423,46 @@ def auto_merge(catalogueconstructor,
                 #~ print('  k2', k2)
                 
                 if not share_channel_mask[i, j]:
-                    
                     #~ print('skip')
                     continue
                 
-                
-                ind1 = cc.index_of_label(k1)
-                extremum_amplitude1 = np.abs(cc.clusters[ind1]['extremum_amplitude'])
-                centroid1 = cc.get_one_centroid(k1)
-                waveforms1 = cc.get_cached_waveforms(k1)
 
+
+                
+                
+                #~ t1 = time.perf_counter()
                 ind2 = cc.index_of_label(k2)
                 extremum_amplitude2 = np.abs(cc.clusters[ind2]['extremum_amplitude'])
                 centroid2 = cc.get_one_centroid(k2)
                 waveforms2 = cc.get_cached_waveforms(k2)
+                #~ t2 = time.perf_counter()
+                #~ print('get_cached_waveforms(k2)', (t2-t1)*1000.)
                 
-                # OLD way
-                #~ thresh = max(extremum_amplitude1, extremum_amplitude2) * amplitude_factor_thresh
-                #~ thresh = max(thresh, auto_merge_threshold)
-                #~ do_merge = equal_template(centroid1, centroid2, thresh=thresh, n_shift=maximum_shift)
                 
-                do_merge = equal_template(centroid1, waveforms1, centroid2, waveforms2, n_shift = 2)
+                #~ t2 = time.perf_counter()
+                thresh = max(extremum_amplitude1, extremum_amplitude2) * amplitude_factor_thresh
+                thresh = max(thresh, auto_merge_threshold)
+                should_merge = equal_template_with_distance(centroid1, centroid2, thresh=thresh, n_shift=n_shift)
+                if not should_merge:
+                    continue
+                #~ t2 = time.perf_counter()
+                #~ print('equal_template_with_distance', (t2-t1)*1000.)
+                #~ print('should_merge', should_merge)
+                
+                #~ t1 = time.perf_counter()
+                do_merge = equal_template_with_distrib_overlap(centroid1, waveforms1, centroid2, waveforms2,
+                                        n_shift=n_shift, quantile_limit=quantile_limit, sparse_thresh=sparse_thresh)
+                #~ t2 = time.perf_counter()
+                #~ print('equal_template_with_distrib_overlap', (t2-t1)*1000.)
+                #~ print('do_merge', do_merge)
+                
+                #~ if should_merge != do_merge:
+                    #~ # this is for debug
+                    #~ print('debug merge', k1,k2)
+                    #~ do_merge = equal_template_with_distrib_overlap(centroid1, waveforms1, centroid2, waveforms2,
+                                        #~ n_shift=n_shift, quantile_limit=quantile_limit, sparse_thresh=sparse_thresh, debug=True)
+                    #~ print('*' *50)
+                
                 #~ do_merge = False
                 
                 

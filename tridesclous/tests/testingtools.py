@@ -27,7 +27,8 @@ ON_CI_CLOUD = is_running_on_ci_cloud()
     
     
 
-def setup_catalogue(dirname, dataset_name='olfactory_bulb', duration=None, peak_sampler_mode=None):
+def setup_catalogue(dirname, dataset_name='olfactory_bulb', 
+                duration=None, peak_sampler_mode=None):
     if os.path.exists(dirname):
         shutil.rmtree(dirname)
         
@@ -91,7 +92,8 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb', duration=None, peak_
     # already done in apply_all_catalogue_steps:
     # cc.make_catalogue_for_peeler(inter_sample_oversampling=False, catalogue_name='initial') 
     
-    cc.make_catalogue_for_peeler(inter_sample_oversampling=True, catalogue_name='with_oversampling')
+    # DEBUG
+    #~ cc.make_catalogue_for_peeler(inter_sample_oversampling=True, catalogue_name='with_oversampling')
     
     return cc, params
 

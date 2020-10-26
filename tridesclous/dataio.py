@@ -537,7 +537,8 @@ class DataIO:
         
         return data
     
-    def iter_over_chunk(self, seg_num=0, chan_grp=0,  i_stop=None, chunksize=1024, pad_width=0, with_last_chunk=False,   **kargs):
+    def iter_over_chunk(self, seg_num=0, chan_grp=0,  i_stop=None,
+                        chunksize=1024, pad_width=0, with_last_chunk=False,   **kargs):
         """
         Create an iterable on signals. ('initial' or 'processed')
         

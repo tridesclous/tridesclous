@@ -22,7 +22,6 @@ import sklearn.metrics
 
 
 from .dip import diptest
-from .waveformtools import equal_template
 
 
 import hdbscan

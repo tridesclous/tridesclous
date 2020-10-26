@@ -440,7 +440,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
             #~ t2 = time.perf_counter()
             #~ print('    get_waveform', (t2-t1)*1000)
             
-            if self.alien_value_threshold is not None and \
+            if self.alien_value_threshold is not None and self.alien_value_threshold >= 0 and \
                     np.any((waveform>self.alien_value_threshold) | (waveform<-self.alien_value_threshold)) :
                 label  = LABEL_ALIEN
                 jitter = 0

@@ -55,7 +55,8 @@ _default_catalogue_params = {
         'wf_right_long_ms': 3.5,
     },
     'clean_peaks': {
-        'alien_value_threshold': None,
+        #~ 'alien_value_threshold': None,
+        'alien_value_threshold':-1., # equivalent to None
         'mode': 'extremum_amplitude',
     },
     'peak_sampler': {
@@ -123,7 +124,7 @@ def get_auto_params_for_catalogue(dataio=None, chan_grp=0,
         sample_rate = dataio.sample_rate
         total_duration = sum(dataio.get_segment_length(seg_num=seg_num) / dataio.sample_rate for seg_num in range(dataio.nb_segment))
         # auto chunsize of 100 ms
-        params['chunksize'] = int(sample_rate * 0.1)
+        params['chunksize'] = int(sample_rate * 1.0)
         params['duration'] = 601.
         
         # segment durartion is not so big then take the whole duration

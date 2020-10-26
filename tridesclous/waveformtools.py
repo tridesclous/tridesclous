@@ -75,9 +75,11 @@ def extract_chunks(signals, left_sample_indexes, width,
 
 
 
-def equal_template_old(centroid0, centroid1, thresh=2.0, n_shift = 2):
+def equal_template_with_distance(centroid0, centroid1, thresh=2.0, n_shift = 2):
     """
-    Check if two centroid are mor or less equal for some jitter.
+    Test template equality based on distance between centroids.
+    Do this for some jitter (n_shift)
+    
     """
     wf0 = centroid0[n_shift:-n_shift, :]
     
@@ -112,7 +114,15 @@ def equal_template_old(centroid0, centroid1, thresh=2.0, n_shift = 2):
 
 
 
-def equal_template(centroid0, waveforms0, centroid1, waveforms1, n_shift = 2, quantile_limit=0.8, sparse_thresh=1.5):
+def equal_template_with_distrib_overlap(centroid0, waveforms0, centroid1, waveforms1,
+                    n_shift = 2, quantile_limit=0.8, sparse_thresh=1.5,
+                    debug=False
+                    ):
+    """
+    Test template equality with checking distribution overlap.
+    Do this for some jitter (n_shift)
+    
+    """
     mask0 = np.any(np.abs(centroid0) > sparse_thresh, axis=0)
     mask1 = np.any(np.abs(centroid1) > sparse_thresh, axis=0)
     mask = mask1 | mask0
@@ -139,74 +149,41 @@ def equal_template(centroid0, waveforms0, centroid1, waveforms1, n_shift = 2, qu
     for shift in range(n_shift*2+1):
         #~ print('shift', shift)
         wfs1 = waveforms1[:, shift:centroid0_.shape[0]+shift, :].copy()
-        #~ dist_1_to_0 = np.sum((centroid0_[:,:, mask] - wfs1[:,:, mask]) ** 2, axis=(1,2))
-        #~ print(dist_1_to_0)
         
-        #~ print(centroid0_.shape)
-        #~ print(wfs0.shape)
-        #~ print(wfs1.shape)
-        #~ exit()
-        #~ print(vector_0_1.shape)
-
-        #~ print(wfs0)
-        #~ print(vector_0_1)
         inner_sp = np.sum((wfs0[:,:,mask] - centroid0_[np.newaxis,:,:][:,:,mask]) * vector_0_1[np.newaxis,:,:], axis=(1,2))
         cross_sp = np.sum((wfs1[:,:,mask] - centroid0_[np.newaxis,:,:][:,:,mask]) * vector_0_1[np.newaxis,:,:], axis=(1,2))
-        #~ print(inner_sp)
-        
-        #~ print(cross_sp)
-        
         
         l0 = np.quantile(inner_sp, quantile_limit)
         l1 = np.quantile(cross_sp, 1 - quantile_limit)
         
         equal = l0 >= l1
         
-        #~ print(l0, l1, equal)
-        
-
-        
 
         
         #~ if np.median(dist_1_to_0)<limit:
         #~ if True:
         #~ if equal:
+        if debug:
                 
-            #~ import matplotlib.pyplot as plt
+            import matplotlib.pyplot as plt
 
-            #~ fig, ax = plt.subplots()
-            #~ count, bins = np.histogram(inner_sp, bins=100)
-            #~ ax.plot(bins[:-1], count, color='g')
-            #~ count, bins = np.histogram(cross_sp, bins=100)
-            #~ ax.plot(bins[:-1], count, color='r')
-            #~ ax.axvline(l0)
-            #~ ax.axvline(l1)
-            #~ ax.set_title(f'merge {equal} shift {shift}')
+            fig, ax = plt.subplots()
+            count, bins = np.histogram(inner_sp, bins=100)
+            ax.plot(bins[:-1], count, color='g')
+            count, bins = np.histogram(cross_sp, bins=100)
+            ax.plot(bins[:-1], count, color='r')
+            ax.axvline(l0)
+            ax.axvline(l1)
+            ax.set_title(f'merge {equal} shift {shift}')
 
             
-            #~ fig, ax = plt.subplots()
-            #~ ax.plot(centroid0.T.flatten())
-            #~ ax.plot(centroid1.T.flatten())
-            #~ ax.set_title(f'shift {shift}')
+            fig, ax = plt.subplots()
+            ax.plot(centroid0.T.flatten())
+            ax.plot(centroid1.T.flatten())
+            ax.set_title(f'shift {shift}')
             
-            #~ plt.show()
+            plt.show()
             
-            #~ fig, ax = plt.subplots()
-            #~ count, bins = np.histogram(dist_0_to_0, bins=100)
-            #~ ax.plot(bins[:-1], count, color='g')
-            #~ count, bins = np.histogram(dist_1_to_0, bins=100)
-            #~ ax.plot(bins[:-1], count, color='r')
-            #~ ax.axvline(limit)
-
-
-            #~ fig, ax = plt.subplots()
-            #~ ax.plot(wfs0.swapaxes(1,2).reshape(wfs0.shape[0], -1).T, color='m')
-            #~ ax.plot(wfs1.swapaxes(1,2).reshape(wfs1.shape[0], -1).T, color='c')
-            #~ ax.plot(centroid2.T.flatten())
-            #~ ax.set_title('merge '+str(k1)+' '+str(k2))
-            
-            
-            #~ plt.show()
         
         if equal:
             break
