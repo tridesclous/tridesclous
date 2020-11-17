@@ -55,8 +55,8 @@ _default_catalogue_params = {
         'wf_right_long_ms': 3.5,
     },
     'clean_peaks': {
-        #~ 'alien_value_threshold': None,
-        'alien_value_threshold':-1., # equivalent to None
+        'alien_value_threshold': None,
+        #~ 'alien_value_threshold':-1., # equivalent to None (no this make many make bug)
         'mode': 'extremum_amplitude',
     },
     'peak_sampler': {
