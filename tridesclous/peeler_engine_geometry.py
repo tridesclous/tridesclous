@@ -78,7 +78,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
 
     def initialize_before_each_segment(self, **kargs):
         PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
-        self.peakdetector.reset_fifo_index()
+        self.peakdetector.initialize_stream()
 
 
     def detect_local_peaks_before_peeling_loop(self):
@@ -322,7 +322,7 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         #~ if do_plot:
         if False:
         #~ if final_scalar_product is not None and np.abs(final_scalar_product) > 0.5:
-            import matplotlib.pyplot as plt
+            
         #~ if True:
         #~ if len(possible_idx) != 1:
         #~ if len(possible_idx) > 1:
@@ -331,7 +331,9 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
         #~ if 7 in possible_idx or  cluster_idx == 7:
         #~ if cluster_idx not in possible_idx and len(possible_idx) > 0:
         #~ if debug_plot_change:
-        
+            
+            import matplotlib.pyplot as plt
+            
             print()
             print('best cluster_idx', cluster_idx)
             print('possible_idx', possible_idx)

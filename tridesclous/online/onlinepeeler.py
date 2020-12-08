@@ -52,26 +52,26 @@ class PeelerThread(ThreadPollInput):
     def change_params(self, **peeler_params):
         #~ print('PeelerThread.change_params')
         with self.mutex:
-            # complicated hack lostfront_chunksize can be changed on the fly
+            # complicated hack pad_width can be changed on the fly
             # because it break the index stream with advance or delay
             # so we always forec the prvious one!!!!
             if hasattr(self.peeler, 'peeler_engine') and hasattr(self.peeler.peeler_engine, 'signalpreprocessor'):
-                #~ print(self.peeler.peeler_engine.signalpreprocessor.lostfront_chunksize)
-                prev_lostfront_chunksize = self.peeler.peeler_engine.signalpreprocessor.lostfront_chunksize
-                #~ if 'lostfront_chunksize' in catalogue['signal_preprocessor_params']:
-                peeler_params['catalogue']['signal_preprocessor_params']['lostfront_chunksize'] = prev_lostfront_chunksize
+                #~ print(self.peeler.peeler_engine.signalpreprocessor.pad_width)
+                prev_pad_width = self.peeler.peeler_engine.signalpreprocessor.pad_width
+                #~ if 'pad_width' in catalogue['signal_preprocessor_params']:
+                peeler_params['catalogue']['signal_preprocessor_params']['pad_width'] = prev_pad_width
                 #~ print('*'*50)
-                #~ print('Force prev_lostfront_chunksize', prev_lostfront_chunksize)
+                #~ print('Force prev_pad_width', prev_pad_width)
                 #~ print('*'*50)
             else:
-                prev_lostfront_chunksize = None
+                prev_pad_width = None
 
             self.peeler.change_params(**peeler_params)
             
             buffer_spike_index = self.output_streams['spikes'].last_index
             #~ print('buffer_spike_index', buffer_spike_index)
             
-            # TODO check tha lostfront_chunksize have not changed bechause
+            # TODO check tha pad_width have not changed bechause
             # head index will be out
             
             
@@ -83,7 +83,7 @@ class PeelerThread(ThreadPollInput):
                                                 )
             
             #~ print('*'*50)
-            #~ print(self.peeler.peeler_engine.signalpreprocessor.lostfront_chunksize)
+            #~ print(self.peeler.peeler_engine.signalpreprocessor.pad_width)
             #~ print('*'*50)
             
             #~ print('self.peeler.peeler_engine.total_spike', self.peeler.peeler_engine.total_spike)

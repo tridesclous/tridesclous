@@ -58,8 +58,8 @@ class Peeler:
     The main difficulty in the implemtation is to deal with edge because spikes 
     waveforms can spread out in between 2 chunk.
     
-    Note that the global latency depend on this é paramters:
-      * lostfront_chunksize
+    Note that the global latency depend on this paramters:
+      * pad_width
       * chunksize
 
     

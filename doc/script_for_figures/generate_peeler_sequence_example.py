@@ -40,7 +40,7 @@ def make_catalogue():
         'preprocessor' : {
             'highpass_freq' : 300.,
             'chunksize' : 1024,
-            'lostfront_chunksize' : 100,
+            'pad_width' : 100,
         },
         'peak_detector' : {
             'peak_sign' : '-',

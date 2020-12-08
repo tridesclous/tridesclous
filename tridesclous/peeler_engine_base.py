@@ -182,7 +182,7 @@ class PeelerEngineBase(OpenCL_Helper):
             self.signalpreprocessor.change_params(**p)
             self.internal_dtype = self.signalpreprocessor.output_dtype
             
-            assert self.chunksize>self.signalpreprocessor.lostfront_chunksize, 'lostfront_chunksize ({}) is greater than chunksize ({})!'.format(self.signalpreprocessor.lostfront_chunksize, self.chunksize)
+            assert self.chunksize>self.signalpreprocessor.pad_width, 'pad_width ({}) is greater than chunksize ({})!'.format(self.signalpreprocessor.pad_width, self.chunksize)
             
         else:
             # no need
@@ -229,7 +229,7 @@ class PeelerEngineBase(OpenCL_Helper):
         self.fifo_residuals = np.zeros((self.fifo_size, self.nb_channel), dtype=self.internal_dtype)
         
         if self.signalpreprocessor is not None:
-            self.signalpreprocessor.reset_fifo_index()
+            self.signalpreprocessor.initialize_stream()
         
         self.already_processed = already_processed
 

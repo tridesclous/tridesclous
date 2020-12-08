@@ -31,7 +31,7 @@ _default_catalogue_params = {
         'lowpass_freq': 5000.,
         'smooth_size': 0,
         
-        'lostfront_chunksize': -1,   # this auto
+        'pad_width': -1,   # this auto
         'engine': 'numpy',
         'common_ref_removal':False,
     },
@@ -163,8 +163,12 @@ def get_auto_params_for_catalogue(dataio=None, chan_grp=0,
         #~ params['adjacency_radius_um'] = 0.
         params['sparse_threshold'] = 1.5
         
-        params['peak_detector']['method'] = 'global'
-        params['peak_detector']['engine'] = 'numpy'
+        #~ params['peak_detector']['method'] = 'global'
+        #~ params['peak_detector']['engine'] = 'numpy'
+
+        params['peak_detector']['method'] = 'geometrical'
+        params['peak_detector']['engine'] = 'numba'
+        
         params['peak_detector']['adjacency_radius_um'] = 200. # useless
         params['peak_detector']['smooth_radius_um' ] = None
 

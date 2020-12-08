@@ -16,8 +16,8 @@ Preprocessor
        can substract it. This is as if all channels would re referenced numerically to there medians.
     * chunksize (int): the whole processing chain is applied chunk by chunk, this is the chunk size in sample. Typically 1024.
        The smaller size lead to less memory but more CPU comsuption in Peeler. For online, this will be more or less the latency.
-    * lostfront_chunksize (int): size in sample of the margin at the front edge for each chunk to avoid border effect in backward filter.
-       In you don't known put None then lostfront_chunksize will be int(sample_rate/highpass_freq)*3 which is quite robust (<5% error)
+    * pad_width (int): size in sample of the margin at the front edge for each chunk to avoid border effect in backward filter.
+       In you don't known put None then pad_width will be int(sample_rate/highpass_freq)*3 which is quite robust (<5% error)
        compared to a true offline filtfilt.
     * engine (str): 'numpy' or 'opencl'. There is a double implementation for signal preprocessor : With numpy/scipy
       flavor (and so CPU) or opencl with home made CL kernel (and so use GPU computing). If you have big fat GPU and are able to install
@@ -157,7 +157,7 @@ preprocessor_params = [
     {'name': 'smooth_size', 'type': 'int', 'value':0},
     {'name': 'common_ref_removal', 'type': 'bool', 'value':False},
     #~ {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
-    {'name': 'lostfront_chunksize', 'type': 'int', 'value':-1, 'decimals':10, 'limits': (-1, np.inf),},
+    {'name': 'pad_width', 'type': 'int', 'value':-1, 'decimals':10, 'limits': (-1, np.inf),},
     {'name': 'engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl']},
 ]
 

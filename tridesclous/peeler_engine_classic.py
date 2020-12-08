@@ -107,7 +107,7 @@ class PeelerEngineClassic(PeelerEngineGeneric):
     
     def initialize_before_each_segment(self, **kargs):
         PeelerEngineGeneric.initialize_before_each_segment(self, **kargs)
-        self.peakdetector.reset_fifo_index()
+        self.peakdetector.initialize_stream()
         self.mask_not_already_tested[:] = 1
     
 

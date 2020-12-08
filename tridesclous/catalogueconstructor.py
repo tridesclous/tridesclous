@@ -45,6 +45,8 @@ from .cataloguetools import apply_all_catalogue_steps
 
 from .waveformtools import  compute_sparse_mask, compute_shared_channel_mask, compute_projection, compute_boundaries
 
+from .jobtools import run_parallel_read_process_write
+
 
 _global_params_attr = ('chunksize', 'memory_mode', 'internal_dtype', 'mode', 'sparse_threshold', 'n_spike_for_centroid', 'n_jobs') # 'adjacency_radius_um'
 
@@ -132,7 +134,7 @@ class CatalogueConstructor:
             highpass_freq=300.,
             lowpass_freq=5000.,
             common_ref_removal=True,
-            lostfront_chunksize=64,
+            pad_width=64,
             peak_sign='-', 
             relative_threshold=5.5,
             peak_span_ms=0.3,
@@ -393,7 +395,7 @@ class CatalogueConstructor:
             smooth_size=0,
             common_ref_removal=False,
             
-            lostfront_chunksize=None,
+            pad_width=None,
             
             
             #peak detector
@@ -420,23 +422,23 @@ class CatalogueConstructor:
             like a low pass filter. Can be use instead lowpass_freq.
         common_ref_removal: bool. False by dfault.
             The remove the median of all channel sample by sample.
-        lostfront_chunksize: int. default None
+        pad_width: int. default None
             size in sample of the margin at the front edge for each chunk to avoid border effect in backward filter.
-            In you don't known put None then lostfront_chunksize will be int(sample_rate/highpass_freq)*3 which is quite robust (<5% error)
+            In you don't known put None then pad_width will be int(sample_rate/highpass_freq)*3 which is quite robust (<5% error)
             compared to a true offline filtfilt.
         """
 
         
         self._reset_arrays(_persitent_arrays)
         
-        # set default lostfront_chunksize if none is provided
-        if lostfront_chunksize is None or lostfront_chunksize<=0:
-            assert highpass_freq is not None, 'lostfront_chunksize=None needs a highpass_freq'
-            lostfront_chunksize = int(self.dataio.sample_rate/highpass_freq*3)
+        # set default pad_width if none is provided
+        if pad_width is None or pad_width<=0:
+            assert highpass_freq is not None, 'pad_width=None needs a highpass_freq'
+            pad_width = int(self.dataio.sample_rate/highpass_freq*3)
         
         self.signal_preprocessor_params = dict(highpass_freq=highpass_freq, lowpass_freq=lowpass_freq, 
                         smooth_size=smooth_size, common_ref_removal=common_ref_removal,
-                        lostfront_chunksize=lostfront_chunksize, output_dtype=self.internal_dtype,
+                        pad_width=pad_width, output_dtype=self.internal_dtype,
                         engine=engine)
         SignalPreprocessor_class = signalpreprocessor.signalpreprocessor_engines[engine]
         self.signalpreprocessor = SignalPreprocessor_class(self.dataio.sample_rate, self.nb_channel, self.chunksize, self.dataio.source_dtype)
@@ -515,7 +517,7 @@ class CatalogueConstructor:
         assert length<self.dataio.get_segment_length(seg_num), 'duration exeed size'
         
         name = 'filetered_sigs_for_noise_estimation_seg_{}'.format(seg_num)
-        shape=(length - self.signal_preprocessor_params['lostfront_chunksize'], self.nb_channel)
+        shape=(length - self.signal_preprocessor_params['pad_width'], self.nb_channel)
         filtered_sigs = self.arrays.create_array(name, self.info['internal_dtype'], shape, 'memmap')
         
         params2 = dict(self.signal_preprocessor_params)
@@ -526,7 +528,7 @@ class CatalogueConstructor:
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp, chunksize=self.chunksize, i_stop=length,
                                                     signal_type='initial')
         for pos, sigs_chunk in iterator:
-            pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
+            pos2, preprocessed_chunk = self.signalpreprocessor.process_buffer_stream(pos, sigs_chunk)
             if preprocessed_chunk is not None:
                 filtered_sigs[pos2-preprocessed_chunk.shape[0]:pos2, :] = preprocessed_chunk
 
@@ -541,33 +543,6 @@ class CatalogueConstructor:
         self.arrays.detach_array(name)
         
 
-    #~ def signalprocessor_one_chunk(self, pos, sigs_chunk, seg_num, detect_peak=True):
-
-        #~ pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
-        #~ if preprocessed_chunk is  None:
-            #~ return
-        
-        #~ self.dataio.set_signals_chunk(preprocessed_chunk, seg_num=seg_num, chan_grp=self.chan_grp,
-                        #~ i_start=pos2-preprocessed_chunk.shape[0], i_stop=pos2, signal_type='processed')
-        
-        #~ if detect_peak:
-            #~ index_chunk_peaks, peak_chan_index = self.peakdetector.process_data(pos2, preprocessed_chunk)
-            
-            #~ # chan_index can be None for some method
-            
-            #~ if index_chunk_peaks is not None:
-                #~ peaks = np.zeros(index_chunk_peaks.size, dtype=_dtype_peak)
-                #~ peaks['index'] = index_chunk_peaks
-                #~ peaks['segment'][:] = seg_num
-                #~ peaks['cluster_label'][:] = labelcodes.LABEL_NO_WAVEFORM
-                #~ if peak_chan_index is None:
-                    #~ peaks['channel'][:] = -1
-                #~ else:
-                    #~ peaks['channel'][:] = peak_chan_index
-                #~ self.arrays.append_chunk('all_peaks',  peaks)
-        
-    
-    
     def run_signalprocessor_loop_one_segment(self, seg_num=0, duration=60., detect_peak=True):
         
         if detect_peak:
@@ -576,6 +551,8 @@ class CatalogueConstructor:
         
         length = int(duration*self.dataio.sample_rate)
         length = min(length, self.dataio.get_segment_length(seg_num))
+        
+        print( 'OLD length', length, 'seg_num', seg_num)
         
         #~ length -= length%self.chunksize
 
@@ -587,24 +564,22 @@ class CatalogueConstructor:
         p['signals_mads'] = self.signals_mads
         self.signalpreprocessor.change_params(**p)
         
-        self.peakdetector.reset_fifo_index()
+        self.peakdetector.initialize_stream()
         
         # iterate a bit more on the rigth border
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp,
                         chunksize=self.chunksize, i_stop=length, signal_type='initial',
-                        pad_width=self.info['signal_preprocessor_params']['lostfront_chunksize'],
+                        pad_width=self.info['signal_preprocessor_params']['pad_width'],
                         with_last_chunk=True)
         for pos, sigs_chunk in iterator:
-            #~ print(seg_num, pos, sigs_chunk.shape)
-            #~ self.signalprocessor_one_chunk(pos, sigs_chunk, seg_num, detect_peak=detect_peak)
             
-            pos2, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
+            pos2, preprocessed_chunk = self.signalpreprocessor.process_buffer_stream(pos, sigs_chunk)
             if preprocessed_chunk is  None:
                 continue
             
             
             if detect_peak:
-                index_chunk_peaks, peak_chan_index, peak_val_peaks = self.peakdetector.process_data(pos2, preprocessed_chunk)
+                index_chunk_peaks, peak_chan_index, peak_val_peaks = self.peakdetector.process_buffer_stream(pos2, preprocessed_chunk)
                 
                 # chan_index can be None for some method
                 # peak_chan_indexcan be None for some method
@@ -635,7 +610,7 @@ class CatalogueConstructor:
         self.dataio.flush_processed_signals(seg_num=seg_num, chan_grp=self.chan_grp, processed_length=int(pos2))
     
     
-    def run_signalprocessor(self, duration=60., detect_peak=True):
+    def run_signalprocessor_OLD(self, duration=60., detect_peak=True):
         """
         this run (chunk by chunk), the signal preprocessing chain on
         all segments.
@@ -657,29 +632,49 @@ class CatalogueConstructor:
         
         """
         self.arrays.initialize_array('all_peaks', self.memory_mode,  _dtype_peak, (-1, ))
-        
-        #~ duration_per_segment = []
-        #~ total_duration = duration
-        #~ for seg_num in range(self.dataio.nb_segment):
-            #~ dur = self.dataio.get_segment_length(seg_num=seg_num) / self.dataio.sample_rate
-            #~ if total_duration ==0:
-                #~ duration_per_segment.append(0.)
-            #~ elif dur <=total_duration:
-                #~ duration_per_segment.append(dur)
-                #~ total_duration -= dur
-            #~ else:
-                #~ duration_per_segment.append(total_duration)
-                #~ total_duration = 0.
         duration_per_segment = self.dataio.get_duration_per_segments(duration)
-        #~ print(duration_per_segment)
         for seg_num in range(self.dataio.nb_segment):
-            self.run_signalprocessor_loop_one_segment(seg_num=seg_num, duration=duration_per_segment[seg_num], detect_peak=detect_peak)
+            if duration_per_segment[seg_num] > 0.:
+                self.run_signalprocessor_loop_one_segment(seg_num=seg_num, duration=duration_per_segment[seg_num], detect_peak=detect_peak)
         
         # flush peaks
         self.arrays.finalize_array('all_peaks')
         
         self._reset_arrays(_reset_after_peak_arrays)
         self.on_new_cluster()
+    
+    def run_signalprocessor_NEW(self, duration=60., detect_peak=True):
+        
+        assert detect_peak
+        
+        self.arrays.initialize_array('all_peaks', self.memory_mode,  _dtype_peak, (-1, ))
+        duration_per_segment = self.dataio.get_duration_per_segments(duration)
+        for seg_num in range(self.dataio.nb_segment):
+            length = int(duration_per_segment[seg_num]*self.dataio.sample_rate)
+            print('length', length, 'seg_num', seg_num)
+            #~ run_parallel_read_process_write(self, seg_num, length, self.n_jobs)
+            if length > 0:
+                run_parallel_read_process_write(self, seg_num, length, 1)
+        
+        # flush peaks
+        self.arrays.finalize_array('all_peaks')
+        
+        self._reset_arrays(_reset_after_peak_arrays)
+        self.on_new_cluster()
+    
+    def run_signalprocessor(self, duration=60., detect_peak=True):
+        #~ print('new')
+        self.run_signalprocessor_NEW(duration=duration, detect_peak=detect_peak)
+        #~ print(self.all_peaks.size)
+        #~ print(self.all_peaks[:10])
+        #~ print(self.all_peaks[-10:])
+
+        #~ print('old')
+        #~ self.run_signalprocessor_OLD(duration=duration, detect_peak=detect_peak)
+        #~ print(self.all_peaks.size)
+        #~ print(self.all_peaks[:10])
+        #~ print(self.all_peaks[-10:])
+
     
     
     def re_detect_peak(self, **kargs):
@@ -708,14 +703,14 @@ class CatalogueConstructor:
         
         for seg_num in range(self.dataio.nb_segment):
             
-            self.peakdetector.reset_fifo_index()
+            self.peakdetector.initialize_stream()
             
             i_stop = self.dataio.get_processed_length(seg_num=seg_num, chan_grp=self.chan_grp)
             
             iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp,
                             chunksize=self.info['chunksize'], i_stop=i_stop, signal_type='processed')
             for pos, preprocessed_chunk in iterator:
-                index_chunk_peaks, peak_chan_index, peak_val_peaks = self.peakdetector.process_data(pos, preprocessed_chunk)
+                index_chunk_peaks, peak_chan_index, peak_val_peaks = self.peakdetector.process_buffer_stream(pos, preprocessed_chunk)
                 
                 # peak_chan_index can be None
                 # peak_val_peaks can be None

@@ -67,7 +67,7 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     t2 = time.perf_counter()
     if verbose:
         print('run_signalprocessor', t2-t1)
-
+    
     #~ t1 = time.perf_counter()
     #~ cc.extract_some_waveforms(**params['extract_waveforms'], recompute_all_centroid=False)
     #~ t2 = time.perf_counter()
@@ -105,13 +105,15 @@ def apply_all_catalogue_steps(catalogueconstructor, params, verbose=True):
     if verbose:
         print('extract_some_noise', t2-t1)
     
-    #~ print(cc)
+    print(cc)
     
     t1 = time.perf_counter()
     cc.extract_some_features(method=params['feature_method'], **params['feature_kargs'])
     t2 = time.perf_counter()
     if verbose:
         print('extract_some_features', t2-t1)
+    
+    print(cc)
     
     t1 = time.perf_counter()
     cc.find_clusters(method=params['cluster_method'], recompute_centroid=False, order=False, **params['cluster_kargs'])

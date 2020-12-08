@@ -53,7 +53,7 @@ def test_catalogue_constructor():
                     lowpass_freq=5000.,
                     common_ref_removal=False,
                     smooth_size=0,
-                    lostfront_chunksize = None)
+                    pad_width = None)
             
             
             cc.set_peak_detector_params(
@@ -221,7 +221,7 @@ def compare_nb_waveforms():
             lowpass_freq=5000.,
             common_ref_removal=False,
             smooth_size=0,
-            lostfront_chunksize = None)
+            pad_width = None)
     
     
     cc.set_peak_detector_params(
@@ -344,7 +344,7 @@ if __name__ == '__main__':
     
     #~ compare_nb_waveforms()
     
-    test_make_catalogue()
+    #~ test_make_catalogue()
     #~ test_ratio_amplitude()
     
     #~ test_create_savepoint_catalogue_constructor()

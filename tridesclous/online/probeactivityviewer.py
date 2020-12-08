@@ -445,6 +445,10 @@ class ProbeActivityViewer(WidgetNode):
         x = self.roi.state['pos'].x() + r
         y = self.roi.state['pos'].y() + r
         
+        #~ roi_shape = self.roi.shape()
+        #~ print(roi_shape)
+        
+        
         mask_visible = np.sqrt(np.sum((self.geometry - np.array([[x, y]]))**2, axis=1)) < r
         
         for c in range(self.nb_channel):
@@ -454,5 +458,5 @@ class ProbeActivityViewer(WidgetNode):
 
     def start_new_noise_estimation(self):
         self.thread.start_new_noise_estimation()
-        
+
 

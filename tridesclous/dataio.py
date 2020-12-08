@@ -174,7 +174,7 @@ class DataIO:
     def _check_tridesclous_version(self):
         folder_version= self.info.get('tridesclous_version', 'unknown')
         
-        if folder_version is 'unknown':
+        if folder_version == 'unknown':
             w = True
         else:
             v1 = distutils.version.LooseVersion(tridesclous_version).version
@@ -502,7 +502,7 @@ class DataIO:
     
     def get_signals_chunk(self, seg_num=0, chan_grp=0,
                 i_start=None, i_stop=None,
-                signal_type='initial'): #return_type='raw_numpy'
+                signal_type='initial', pad_width=0):
         """
         Get a chunk of signal for for a given segment index and channel group.
         
@@ -521,11 +521,28 @@ class DataIO:
             stop index (not included)
         signal_type: str
             'initial' or 'processed'
-        
-        
+        pad_width: int (0 default)
+            Add optional pad on each sides
+            usefull for filtering border effect
         
         """
         channels = self.channel_groups[chan_grp]['channels']
+        
+        after_padding = False
+        after_padding_left = 0
+        after_padding_right = 0
+        if pad_width > 0:
+            i_start = i_start - pad_width
+            i_stop =  i_stop + pad_width
+        
+            if i_start < 0:
+                after_padding = True
+                after_padding_left = -i_start
+                i_start = 0
+            if i_stop > self.get_segment_length(seg_num):
+                after_padding = True
+                i_stop = self.get_segment_length(seg_num)
+                after_padding_right = i_stop - self.get_segment_length(seg_num)
         
         if signal_type=='initial':
             data = self.datasource.get_signals_chunk(seg_num=seg_num, i_start=i_start, i_stop=i_stop)
@@ -534,6 +551,12 @@ class DataIO:
             data = self.arrays[chan_grp][seg_num].get('processed_signals')[i_start:i_stop, :]
         else:
             raise(ValueError, 'signal_type is not valide')
+        
+        if after_padding:
+            # finalize padding on border
+            data2 = np.zeros((data.shape[0] + after_padding_left + after_padding_right, data.shape[1]), dtype=data.dtype)
+            data2[after_padding_left:data2.shape[0]-after_padding_right, :] = data
+            data = data2
         
         return data
     
