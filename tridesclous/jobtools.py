@@ -81,9 +81,12 @@ def read_process_write_one_chunk(args):
     # read chunk and pad
     sigs_chunk = dataio.get_signals_chunk(seg_num=seg_num, chan_grp=chan_grp,
                 i_start=i_start, i_stop=i_stop,  signal_type='initial', pad_width=pad_width)
-    
+    #~ print('pad_width', pad_width)
+    #~ print('read_process_write_one_chunk', i_start, i_stop, i_stop-i_start, sigs_chunk.shape)
+
     # process
     preprocessed_chunk = signalpreprocessor.process_buffer(sigs_chunk)
+    #~ exit()
     
     
     
@@ -119,7 +122,7 @@ def read_process_write_one_chunk(args):
 def run_parallel_read_process_write(cc, seg_num, length, n_jobs):
     
     chunksize = cc.info['chunksize']
-    pad_width = int(0.005 * cc.dataio.sample_rate)
+    pad_width = cc.signal_preprocessor_params['pad_width']
     
     initargs=(cc.dataio.dirname, cc.chan_grp, seg_num, 
                     cc.internal_dtype, chunksize, pad_width,

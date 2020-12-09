@@ -651,10 +651,11 @@ class CatalogueConstructor:
         duration_per_segment = self.dataio.get_duration_per_segments(duration)
         for seg_num in range(self.dataio.nb_segment):
             length = int(duration_per_segment[seg_num]*self.dataio.sample_rate)
-            print('length', length, 'seg_num', seg_num)
-            #~ run_parallel_read_process_write(self, seg_num, length, self.n_jobs)
+            
             if length > 0:
-                run_parallel_read_process_write(self, seg_num, length, 1)
+                #~ run_parallel_read_process_write(self, seg_num, length, 1)
+                run_parallel_read_process_write(self, seg_num, length, 4)
+                #~ run_parallel_read_process_write(self, seg_num, length, self.n_jobs)
         
         # flush peaks
         self.arrays.finalize_array('all_peaks')

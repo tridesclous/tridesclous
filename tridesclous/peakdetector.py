@@ -488,7 +488,6 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
         return None, None, None
     
     def get_mask_peaks_in_chunk(self, fifo_residuals):
-
         pyopencl.enqueue_copy(self.queue,  self.fifo_sigs_cl, fifo_residuals)
         #~ print(self.chunksize, self.max_wg_size)
         event = self.kern_get_mask_spatiotemporal_peaks(self.queue,  self.global_size, self.local_size,

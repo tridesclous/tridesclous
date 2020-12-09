@@ -201,9 +201,8 @@ def get_auto_params_for_catalogue(dataio=None, chan_grp=0,
         #~ params['adjacency_radius_um'] = 200.
         params['sparse_threshold'] = 1.5
 
-        if nb_chan > 32 and HAVE_PYOPENCL:
+        if nb_chan >= 32 and HAVE_PYOPENCL:
             params['preprocessor']['engine'] = 'opencl'
-
         params['peak_detector']['method'] = 'geometrical'
         params['peak_detector']['adjacency_radius_um'] = 200.
         #~ params['peak_detector']['smooth_radius_um' ] = 10

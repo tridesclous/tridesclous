@@ -167,16 +167,17 @@ class SignalPreprocessor_Numpy(SignalPreprocessor_base):
     def process_buffer(self, data):
         data = data.astype(self.output_dtype)
         processed_data = scipy.signal.sosfiltfilt(self.coefficients, data, axis=0)
-        
+        # TODO find why sosfiltfilt reverse strides!!!
+        processed_data = np.ascontiguousarray(processed_data, dtype=self.output_dtype)
         # removal ref
         if self.common_ref_removal:
             processed_data -= np.median(processed_data, axis=1)[:, None]
-        
+
         #normalize
         if self.normalize:
             processed_data -= self.signals_medians
             processed_data /= self.signals_mads
-        
+
         return processed_data
     
     def process_buffer_stream(self, pos, data):
@@ -245,7 +246,7 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base, OpenCL_Helper):
     
     def process_buffer(self, data):
         data = self._check_data(data)
-        
+        #~ print(data.shape, self.chunksize, self.chunksize_2pad, self.pad_width)
         assert data.shape[0] == self.chunksize_2pad
         
         event = pyopencl.enqueue_copy(self.queue,  self.input_2pad_cl, data)
