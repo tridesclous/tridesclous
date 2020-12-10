@@ -487,7 +487,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                 # because not done in kernel yet
                 raise NotImplemenentedError
             
-            abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
+            abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_buffer_stream(pos, sigs_chunk)
         
         # roll fifo
         gsize = self.fifo_roll_size * self.nb_channel

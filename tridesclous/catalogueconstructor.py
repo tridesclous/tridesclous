@@ -665,13 +665,13 @@ class CatalogueConstructor:
     
     def run_signalprocessor(self, duration=60., detect_peak=True):
         #~ print('new')
-        self.run_signalprocessor_NEW(duration=duration, detect_peak=detect_peak)
+        #~ self.run_signalprocessor_NEW(duration=duration, detect_peak=detect_peak)
         #~ print(self.all_peaks.size)
         #~ print(self.all_peaks[:10])
         #~ print(self.all_peaks[-10:])
 
         #~ print('old')
-        #~ self.run_signalprocessor_OLD(duration=duration, detect_peak=detect_peak)
+        self.run_signalprocessor_OLD(duration=duration, detect_peak=detect_peak)
         #~ print(self.all_peaks.size)
         #~ print(self.all_peaks[:10])
         #~ print(self.all_peaks[-10:])

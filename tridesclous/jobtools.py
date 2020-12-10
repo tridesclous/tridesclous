@@ -11,6 +11,8 @@ This is usefull mainlly when the IO are slow.
 import time
 import loky
 
+#~ import concurrent.futures.ThreadPoolExecutor
+
 import numpy as np
 
 from .dataio import DataIO
@@ -143,7 +145,12 @@ def run_parallel_read_process_write(cc, seg_num, length, n_jobs):
     if n_jobs > 1:
         executor = loky.get_reusable_executor(
             max_workers=n_jobs, initializer=signalprocessor_initializer,
-            initargs=initargs, context="loky", timeout=2)
+            initargs=initargs, context="loky", timeout=20)
+        
+        #~ concurrent.futures.ThreadPoolExecutor
+        #~ executor = 
+        
+        
         
         all_peaks = executor.map(read_process_write_one_chunk, chunk_slice)
         for peaks in all_peaks:
