@@ -383,7 +383,7 @@ class PeelerEngineGeneric(PeelerEngineBase):
         if self.already_processed:
             abs_head_index, preprocessed_chunk =  pos, sigs_chunk
         else:
-            abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_data(pos, sigs_chunk)
+            abs_head_index, preprocessed_chunk = self.signalpreprocessor.process_buffer_stream(pos, sigs_chunk)
         
         #shift residuals buffer and put the new one on right side
         fifo_roll_size = self.fifo_size-preprocessed_chunk.shape[0]
