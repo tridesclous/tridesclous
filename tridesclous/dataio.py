@@ -118,17 +118,12 @@ class DataIO:
         else:
             with open(self.info_filename, 'r', encoding='utf8') as f:
                 self.info = json.load(f)
-            #~ print('*'*50)
-            #~ print(self.info_filename)
-            #~ print(self.info)
-            #~ print('*'*50)
-            #~ try:
-            #~ if 1:
+            
             self._check_tridesclous_version()
             if len(self.info)>1:
-                #~ self._reload_info()
                 self._reload_channel_group()
                 self._reload_data_source()
+                self._reload_data_source_info()
                 self._open_processed_data()
             else:
                 self.datasource = None
@@ -140,14 +135,14 @@ class DataIO:
  
     def __repr__(self):
         t = "DataIO <id: {}> \n  workdir: {}\n".format(id(self), self.dirname)
-        if len(self.info) ==0 or self.datasource is None:
+        if len(self.info) ==0 and self.datasource is None:
             t  += "  Not datasource set yet"
             return t
         t += "  sample_rate: {}\n".format(self.sample_rate)
         t += "  total_channel: {}\n".format(self.total_channel)
         if len(self.channel_groups)==1:
             k0, cg0 = next(iter(self.channel_groups.items()))
-            ch_names = np.array(self.datasource.get_channel_names())[cg0['channels']]
+            ch_names = np.array(self.all_channel_names)[cg0['channels']]
             if len(ch_names)>8:
                 chantxt = "[{} ... {}]".format(' '.join(ch_names[:4]),' '.join(ch_names[-4:]))
             else:
@@ -158,7 +153,7 @@ class DataIO:
                                                                 for cg in self.channel_groups.keys() ]))
         t += "  nb_segment: {}\n".format(self.nb_segment)
         if self.nb_segment<5:
-            lengths = [ self.datasource.get_segment_shape(i)[0] for i in range(self.nb_segment)]
+            lengths = [ self.segment_shapes[i][0] for i in range(self.nb_segment)]
             t += '  length: '+' '.join('{}'.format(l) for l in lengths)+'\n'
             t += '  durations: '+' '.join('{:0.1f}'.format(l/self.sample_rate) for l in lengths)+' s.\n'
         if t.endswith('\n'):
@@ -194,7 +189,6 @@ class DataIO:
         """
         Set the datasource. Must be done only once otherwise raise error.
         
-        
         Parameters
         ------------------
         
@@ -216,11 +210,14 @@ class DataIO:
         self.info['datasource_type'] = type
         self.info['datasource_kargs'] = kargs
         self._reload_data_source()
+
         # be default chennel group all channels
         channel_groups = {0:{'channels':list(range(self.total_channel))}}
         self.set_channel_groups( channel_groups, probe_filename='default.prb')
-        
+
         self.flush_info()
+        
+        self._reload_data_source_info()
         
         # this create segment path
         self._open_processed_data()
@@ -228,14 +225,38 @@ class DataIO:
     def _reload_data_source(self):
         assert 'datasource_type' in self.info
         kargs = self.info['datasource_kargs']
-        
-        self.datasource = data_source_classes[self.info['datasource_type']](**kargs)
-        
-        self.total_channel = self.datasource.total_channel
-        self.nb_segment = self.datasource.nb_segment
-        self.sample_rate = self.datasource.sample_rate
-        self.source_dtype = self.datasource.dtype
+        try:
+            self.datasource = data_source_classes[self.info['datasource_type']](**kargs)
+        except:
+            print('The datatsource is not found', self.info['datasource_kargs'])
+            self.datasource = None
     
+    def _reload_data_source_info(self):
+        if 'datasource_info' in self.info:
+            # no need for datasource
+            d = self.info['datasource_info'] 
+            self.total_channel = d['total_channel']
+            self.nb_segment = d['nb_segment']
+            self.sample_rate = d['sample_rate']
+            self.source_dtype = np.dtype(d['source_dtype'])
+            self.all_channel_names =  d['all_channel_names']
+            self.segment_shapes = d['segment_shapes']
+        else:
+            assert self.datasource is not None, 'Impossible to load datasource and get info'
+            # put some info of datasource
+            print('DEBUFG put some info of datasource')
+            nb_seg = self.datasource.nb_segment
+            self.info['datasource_info'] = dict(
+                total_channel=int(self.datasource.total_channel),
+                nb_segment=int(nb_seg),
+                sample_rate=float(self.datasource.sample_rate),
+                source_dtype=str(self.datasource.dtype),
+                all_channel_names=[str(name) for name in self.datasource.get_channel_names()],
+                segment_shapes = [self.datasource.get_segment_shape(s) for s in range(nb_seg)]
+            )
+            self.flush_info()
+            self._reload_data_source_info()
+   
     def _reload_channel_group(self):
         #TODO test in prb is compatible with py3
         d = {}
@@ -426,7 +447,7 @@ class DataIO:
         label = 'chan_grp {} - '.format(chan_grp)
         
         channels = self.channel_groups[chan_grp]['channels']
-        ch_names = np.array(self.datasource.get_channel_names())[channels]
+        ch_names = np.array(self.all_channel_names)[channels]
         
         if len(ch_names)<8:
             label += ' '.join(ch_names)
@@ -467,14 +488,14 @@ class DataIO:
         """
         Segment length (in sample) for a given segment index
         """
-        full_shape =  self.datasource.get_segment_shape(seg_num)
+        full_shape =  self.segment_shapes[seg_num]
         return full_shape[0]
     
     def get_segment_shape(self, seg_num, chan_grp=0):
         """
         Segment shape for a given segment index and channel group.
         """
-        full_shape =  self.datasource.get_segment_shape(seg_num)
+        full_shape =  self.segment_shapes[seg_num]
         shape = (full_shape[0], self.nb_channel(chan_grp))
         return shape
     

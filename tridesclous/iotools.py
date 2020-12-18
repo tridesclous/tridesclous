@@ -275,23 +275,27 @@ class ArrayCollection:
             return
         
         if name in d:
-            if isinstance(d[name]['dtype'], str):
-                dtype = np.dtype(d[name]['dtype'])
+            if os.path.exists(self._fname(name)):
+                if isinstance(d[name]['dtype'], str):
+                    dtype = np.dtype(d[name]['dtype'])
+                else:
+                    dtype = np.dtype([ (k,v) for k,v in d[name]['dtype']])
+                shape = d[name]['shape']
+                if np.prod(d[name]['shape'])>0:
+                    arr = np.memmap(self._fname(name), dtype=dtype, mode='r+')
+                    arr = arr[:np.prod(shape)]
+                    arr = arr.reshape(shape)
+                else:
+                    # little hack array is empty
+                    arr = np.empty(shape, dtype=dtype)
+                self._array[name] = arr
+                self._array_attr[name] = {'state':'r', 'memory_mode':'memmap'}
+                self._array_attr[name]['annotations'] = d[name].get('annotations', {})
+                if self.parent is not None:
+                    setattr(self.parent, name, self._array[name])
             else:
-                dtype = np.dtype([ (k,v) for k,v in d[name]['dtype']])
-            shape = d[name]['shape']
-            if np.prod(d[name]['shape'])>0:
-                arr = np.memmap(self._fname(name), dtype=dtype, mode='r+')
-                arr = arr[:np.prod(shape)]
-                arr = arr.reshape(shape)
-            else:
-                # little hack array is empty
-                arr = np.empty(shape, dtype=dtype)
-            self._array[name] = arr
-            self._array_attr[name] = {'state':'r', 'memory_mode':'memmap'}
-            self._array_attr[name]['annotations'] = d[name].get('annotations', {})
-            if self.parent is not None:
-                setattr(self.parent, name, self._array[name])
+                if self.parent is not None:
+                    setattr(self.parent, name, self._array[name])
         else:
             if self.parent is not None:
                 setattr(self.parent, name, None)
