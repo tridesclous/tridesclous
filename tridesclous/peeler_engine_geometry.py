@@ -316,11 +316,36 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             #~ fig, ax = plt.subplots()
             #~ ax.plot(self.shifts, shift_scalar_product.T)
             #~ plt.show()
+            
+        
+        #~ print('ici',)
+        #~ exit()
+        
+
+        # DEBUG OMP
+        #~ from sklearn.linear_model import orthogonal_mp_gram
+        #~ from sklearn.linear_model import OrthogonalMatchingPursuit
+        #~ n_nonzero_coefs = 2
+        #~ omp = OrthogonalMatchingPursuit(n_nonzero_coefs=n_nonzero_coefs)
+        #~ X = self.catalogue['centers0'].reshape(self.catalogue['centers0'].shape[0], -1).T
+        #~ waveform = self.fifo_residuals[left_ind:left_ind+self.peak_width,:].flatten()
+        #~ y = waveform
+        #~ omp.fit(X, y)
+        #~ coef = omp.coef_
+        #~ idx_r, = coef.nonzero()
+        #~ cluster_idx_omp = np.argmin(np.abs(coef - 1))
+        
+        
+        #~ if cluster_idx_omp != cluster_idx and coef[cluster_idx_omp] > 0.5:
+        #~ if True:
+        if False:
+            
+        
         
         
         #~ if cluster_idx in (3,6):
         #~ if do_plot:
-        if False:
+        #~ if False:
         #~ if final_scalar_product is not None and np.abs(final_scalar_product) > 0.5:
             
         #~ if True:
@@ -341,6 +366,19 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             print(scalar_products[possible_idx])
             print(strict_high[possible_idx])
             
+            print('cluster_idx_omp', cluster_idx_omp)
+
+            
+            fig, ax = plt.subplots()
+            ax.plot(coef)
+            if cluster_idx is not None:
+                ax.axvline(cluster_idx)
+            ax.set_title(f'{cluster_idx} omp {cluster_idx_omp}')
+            #~ plt.show()
+
+            
+            
+            
             
             fig, ax = plt.subplots()
             shift2 = 0 if shift is None else shift
@@ -352,6 +390,12 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             
             for idx in candidates_idx:
                 ax.plot(self.catalogue['centers0'][idx, :].T.flatten(), color='m')
+            
+            ax.plot(self.catalogue['centers0'][cluster_idx_omp, :].T.flatten(), color='y')
+            
+            
+            
+                
             if cluster_idx is not None:
                 ax.plot(self.catalogue['centers0'][cluster_idx, :].T.flatten(), color='c', ls='--')
             ax.set_title(f'best {cluster_idx} shift {shift} possible_idx {possible_idx}')

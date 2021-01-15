@@ -47,7 +47,7 @@ def make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup = None, chunksize
 
 
 def start_online_window(pyacq_dev, prb_dict_or_file, workdir=None, n_process=1,
-                pyacq_manager=None, chunksize=None, peeler_params={},
+                pyacq_manager=None, chunksize=None, peeler_params={}, initial_catalogue_params={},
                 outputstream_params=None):
     
     if pyacq_manager is None and n_process>=1:
@@ -92,6 +92,7 @@ def start_online_window(pyacq_dev, prb_dict_or_file, workdir=None, n_process=1,
                     outputstream_params = outputstream_params,
                     nodegroup_friends=nodegroup_friends,
                     peeler_params=peeler_params,
+                    initial_catalogue_params=initial_catalogue_params,
                     )
     
     win.input.connect(pyacq_dev.output)
@@ -143,14 +144,14 @@ def start_online_pyacq_buffer_demo(dataset_name='olfactory_bulb'):
     #~ workdir = 'demo_onlinewindow'
     workdir = None
     
-    start_online_window(dev, channel_groups, workdir=workdir, n_process=2, pyacq_manager=man, chunksize=chunksize)
-    
     man, win = start_online_window(dev, channel_groups,
                         workdir=None,
-                        #~ n_process=2,
-                        n_process=0,
+                        n_process=2,
+                        #~ n_process=0,
                         pyacq_manager=man,
-                        chunksize=chunksize)
+                        chunksize=chunksize,
+                        #~ initial_catalogue_params={'preprocessor': {'pad_width':10}},
+                        )
 
 
     win.show()

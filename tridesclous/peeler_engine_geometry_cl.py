@@ -296,7 +296,7 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                                                                 self.nb_pending_peaks_cl)
         
         
-        if self.alien_value_threshold is None:
+        if self.alien_value_threshold is None or np.isnan(self.alien_value_threshold):
             alien_value_threshold = np.float32(-1.)
         else:
             alien_value_threshold = np.float32(self.alien_value_threshold)

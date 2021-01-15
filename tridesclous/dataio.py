@@ -209,8 +209,10 @@ class DataIO:
 
         self.info['datasource_type'] = type
         self.info['datasource_kargs'] = kargs
+        print('ici', self.info.keys())
         self._reload_data_source()
-
+        print('la', self.info.keys())
+        
         # be default chennel group all channels
         channel_groups = {0:{'channels':list(range(self.total_channel))}}
         self.set_channel_groups( channel_groups, probe_filename='default.prb')
@@ -227,9 +229,26 @@ class DataIO:
         kargs = self.info['datasource_kargs']
         try:
             self.datasource = data_source_classes[self.info['datasource_type']](**kargs)
+            self._reload_data_source_info()
         except:
             print('The datatsource is not found', self.info['datasource_kargs'])
             self.datasource = None
+    
+    def _save_datasource_info(self):
+        assert self.datasource is not None, 'Impossible to load datasource and get info'
+        # put some info of datasource
+        print('DEBUG put some info of datasource')
+        nb_seg = self.datasource.nb_segment
+        self.info['datasource_info'] = dict(
+            total_channel=int(self.datasource.total_channel),
+            nb_segment=int(nb_seg),
+            sample_rate=float(self.datasource.sample_rate),
+            source_dtype=str(self.datasource.dtype),
+            all_channel_names=[str(name) for name in self.datasource.get_channel_names()],
+            segment_shapes = [self.datasource.get_segment_shape(s) for s in range(nb_seg)]
+        )
+        self.flush_info()
+
     
     def _reload_data_source_info(self):
         if 'datasource_info' in self.info:
@@ -242,19 +261,8 @@ class DataIO:
             self.all_channel_names =  d['all_channel_names']
             self.segment_shapes = d['segment_shapes']
         else:
-            assert self.datasource is not None, 'Impossible to load datasource and get info'
-            # put some info of datasource
-            print('DEBUFG put some info of datasource')
-            nb_seg = self.datasource.nb_segment
-            self.info['datasource_info'] = dict(
-                total_channel=int(self.datasource.total_channel),
-                nb_segment=int(nb_seg),
-                sample_rate=float(self.datasource.sample_rate),
-                source_dtype=str(self.datasource.dtype),
-                all_channel_names=[str(name) for name in self.datasource.get_channel_names()],
-                segment_shapes = [self.datasource.get_segment_shape(s) for s in range(nb_seg)]
-            )
-            self.flush_info()
+            # This cas is for old directories were
+            self._save_datasource_info()
             self._reload_data_source_info()
    
     def _reload_channel_group(self):

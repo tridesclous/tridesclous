@@ -782,6 +782,8 @@ class CatalogueConstructor:
             'peak_value' use only the peak value very fast because already measured
             'full_waveform' use the full waveform for this and can be slow.
         """
+        if alien_value_threshold  < 0. or np.isnan(alien_value_threshold):
+            alien_value_threshold = None
         
         if alien_value_threshold is not None:
             peak_sign = self.info['peak_detector_params']['peak_sign']

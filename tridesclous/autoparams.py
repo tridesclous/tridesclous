@@ -2,6 +2,8 @@ import time
 import copy
 from pprint import pprint
 
+import numpy as np
+
 from .cltools import HAVE_PYOPENCL
 from .cluster import HAVE_ISOSPLIT5
 
@@ -55,14 +57,16 @@ _default_catalogue_params = {
         'wf_right_long_ms': 3.5,
     },
     'clean_peaks': {
-        'alien_value_threshold': None,
-        #~ 'alien_value_threshold':-1., # equivalent to None (no this make many make bug)
+        #~ 'alien_value_threshold': None,
+        #~ 'alien_value_threshold':-1., # equivalent to None (normally)
+        'alien_value_threshold': np.nan,
         'mode': 'extremum_amplitude',
     },
     'peak_sampler': {
         'mode': 'rand',
         'nb_max': 20000,
-        'nb_max_by_channel': None,
+        #~ 'nb_max_by_channel': None,
+        'nb_max_by_channel': 600.,
     },
     #~ 'clean_waveforms': {
         #~ 'alien_value_threshold': None,
@@ -264,7 +268,7 @@ def get_auto_params_for_peelers(dataio, chan_grp=0):
 
     
     # DEBUG force 'geometrical'
-    #~ params['engine'] = 'geometrical'
+    params['engine'] = 'geometrical'
         
 
     return params

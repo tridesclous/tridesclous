@@ -90,7 +90,10 @@ def set_group_param_from_dict(param, d, cascade=False):
             continue
         else:
             if k in d:
-                param[k] = d[k]
+                if d[k] is None and p.type() == 'float':
+                        param[k] = np.nan
+                else:
+                    param[k] = d[k]
     return d
     
 

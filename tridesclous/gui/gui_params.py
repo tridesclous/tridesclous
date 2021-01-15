@@ -179,7 +179,7 @@ waveforms_params = [
 
 
 clean_peaks_params = [
-    {'name': 'alien_value_threshold', 'type': 'float', 'value':100.},
+    {'name': 'alien_value_threshold', 'type': 'float', 'value': np.nan},
     {'name': 'mode', 'type': 'list', 'values':['extremum_amplitude', 'full_waveform']}, # 
 ]
 

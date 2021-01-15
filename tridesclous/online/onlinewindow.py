@@ -158,6 +158,7 @@ class TdcOnlineWindow(MainWindowNode):
                             outputstream_params={'protocol': 'tcp', 'interface':'127.0.0.1', 'transfermode':'plaindata'},
                             nodegroup_friends=None, 
                             peeler_params={},
+                            initial_catalogue_params={},
                             ):
         
         self.sample_rate = None
@@ -266,8 +267,12 @@ class TdcOnlineWindow(MainWindowNode):
             #~ 'argmin_method': 'opencl',
         }
         self.peeler_params.update(peeler_params)
+        
         if 'chunksize' in self.peeler_params:
             self.peeler_params.pop('chunksize')
+        
+        self.initial_catalogue_params = initial_catalogue_params
+        
 
     def after_input_connect(self, inputname):
         if inputname !='signals':
@@ -298,9 +303,22 @@ class TdcOnlineWindow(MainWindowNode):
         params = get_auto_params_for_catalogue(dataio=None, chan_grp=fisrt_chan_grp,
                                         nb_chan=n, sample_rate=self.sample_rate, context='online')
         print('get_auto_params_for_catalogue in after_input_connect ')
+        params = dict(params)
+        
+        for k,v  in self.initial_catalogue_params.items():
+            # update default with initial_catalogue_params
+            # nested at one level
+            assert k in params , f'params "{k}" in initial_catalogue_params not handled'
+
+            if isinstance(v, dict):
+                params[k].update(v)
+            else:
+                params[k] = v
+        
         d = dict(params)
         for k in ('feature_method', 'feature_kargs', 'cluster_method', 'cluster_kargs'):
             d.pop(k)
+        
         self.dialog_fullchain_params.set(d)
         self.dialog_method_features.set_method(params['feature_method'], params['feature_kargs'])
         self.dialog_method_cluster.set_method(params['cluster_method'], params['cluster_kargs'])

@@ -29,5 +29,7 @@ def test_start_online_openephys():
 
 
 if __name__ == '__main__':
-    #~ test_start_online_pyacq_buffer_demo()
-    test_start_online_openephys()
+    test_start_online_pyacq_buffer_demo()
+    #~ test_start_online_openephys()
+    #~ pass
+

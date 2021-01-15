@@ -214,8 +214,12 @@ class PeelerEngineBase(OpenCL_Helper):
         
         assert self.chunksize > (self.extra_size+1), 'chunksize is too small because of n_size'
         
-        self.alien_value_threshold = self.catalogue['clean_peaks_params']['alien_value_threshold']
-        #~ self.alien_value_threshold = None
+        alien_thresh = self.catalogue['clean_peaks_params']['alien_value_threshold']
+        if alien_thresh is not None:
+            if (alien_thresh < 0.) or np.isnan(alien_thresh):
+                # -1 is equivalent to None
+                alien_thresh = None
+        self.alien_value_threshold = alien_thresh
         
         self.total_spike = 0
         
@@ -440,7 +444,8 @@ class PeelerEngineGeneric(PeelerEngineBase):
             #~ t2 = time.perf_counter()
             #~ print('    get_waveform', (t2-t1)*1000)
             
-            if self.alien_value_threshold is not None and self.alien_value_threshold >= 0 and \
+            #~ if self.alien_value_threshold is not None and self.alien_value_threshold > 0 and \
+            if self.alien_value_threshold is not None and \
                     np.any((waveform>self.alien_value_threshold) | (waveform<-self.alien_value_threshold)) :
                 label  = LABEL_ALIEN
                 jitter = 0
