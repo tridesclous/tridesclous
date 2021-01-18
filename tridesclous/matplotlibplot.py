@@ -396,8 +396,8 @@ def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
         if units in ('uV', 'μV'):
             wf = wf * cc.signals_mads[channels][None, None, :] * dataio.datasource.bit_to_microVolt
 
-        n_left = cc.info['waveform_extractor_params']['n_left']
-        n_right = cc.info['waveform_extractor_params']['n_right']
+        n_left = cc.info['extract_waveforms']['n_left']
+        n_right = cc.info['extract_waveforms']['n_right']
     
     elif isinstance(arg0, dict) and 'clusters' in arg0:
         catalogue = arg0

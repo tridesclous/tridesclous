@@ -41,8 +41,8 @@ def _get_sparse_waveforms_flatten(cc, dense_mode, label, channel_adjacency):
         waveforms = cc.get_some_waveforms(peak_index, channel_indexes=None)
         centroid = np.median(waveforms, axis=0)
         
-        peak_sign = cc.info['peak_detector_params']['peak_sign']
-        n_left = cc.info['waveform_extractor_params']['n_left']
+        peak_sign = cc.info['peak_detector']['peak_sign']
+        n_left = cc.info['extract_waveforms']['n_left']
         
         if peak_sign == '-':
             extremum_channel = np.argmin(centroid[-n_left,:], axis=0)
@@ -67,10 +67,10 @@ def _compute_one_dip_test(cc, dirname, chan_grp, label, n_components_local_pca, 
         dataio = DataIO(dirname)
         cc = CatalogueConstructor(dataio=dataio, chan_grp=chan_grp)
 
-    peak_sign = cc.info['peak_detector_params']['peak_sign']
+    peak_sign = cc.info['peak_detector']['peak_sign']
     dense_mode = cc.info['mode'] == 'dense'
-    n_left = cc.info['waveform_extractor_params']['n_left']
-    n_right = cc.info['waveform_extractor_params']['n_right']
+    n_left = cc.info['extract_waveforms']['n_left']
+    n_right = cc.info['extract_waveforms']['n_right']
     peak_width = n_right - n_left
     nb_channel = cc.nb_channel
     
@@ -133,10 +133,10 @@ def auto_split(catalogueconstructor,
     
     assert cc.some_waveforms is not None, 'run cc.cache_some_waveforms() first'
     
-    peak_sign = cc.info['peak_detector_params']['peak_sign']
+    peak_sign = cc.info['peak_detector']['peak_sign']
     dense_mode = cc.info['mode'] == 'dense'
-    n_left = cc.info['waveform_extractor_params']['n_left']
-    n_right = cc.info['waveform_extractor_params']['n_right']
+    n_left = cc.info['extract_waveforms']['n_left']
+    n_right = cc.info['extract_waveforms']['n_right']
     peak_width = n_right - n_left
     nb_channel = cc.nb_channel
     
@@ -318,8 +318,8 @@ def check_peak_all_aligned(local_labels, waveforms, peak_sign, n_left, maximum_s
 
 
 def trash_not_aligned(cc, maximum_shift=2):
-    n_left = cc.info['waveform_extractor_params']['n_left']
-    peak_sign = cc.info['peak_detector_params']['peak_sign']
+    n_left = cc.info['extract_waveforms']['n_left']
+    peak_sign = cc.info['peak_detector']['peak_sign']
     
     to_remove = []
     for k in list(cc.positive_cluster_labels):
@@ -339,8 +339,8 @@ def trash_not_aligned(cc, maximum_shift=2):
         if np.abs(-n_left - extremum_index)>maximum_shift:
             if debug_plot:
                 import matplotlib.pyplot as plt
-                n_left = cc.info['waveform_extractor_params']['n_left']
-                n_right = cc.info['waveform_extractor_params']['n_right']
+                n_left = cc.info['extract_waveforms']['n_left']
+                n_right = cc.info['extract_waveforms']['n_right']
                 peak_width = n_right - n_left
                 
                 print('remove not aligned peak', 'k', k)
@@ -374,12 +374,12 @@ def auto_merge(catalogueconstructor,
     cc = catalogueconstructor
     assert cc.some_waveforms is not None, 'run cc.cache_some_waveforms() first'
     
-    peak_sign = cc.info['peak_detector_params']['peak_sign']
+    peak_sign = cc.info['peak_detector']['peak_sign']
     #~ dense_mode = cc.info['mode'] == 'dense'
-    n_left = cc.info['waveform_extractor_params']['n_left']
-    n_right = cc.info['waveform_extractor_params']['n_right']
+    n_left = cc.info['extract_waveforms']['n_left']
+    n_right = cc.info['extract_waveforms']['n_right']
     peak_width = n_right - n_left
-    threshold = cc.info['peak_detector_params']['relative_threshold']
+    threshold = cc.info['peak_detector']['relative_threshold']
     
     while True:
         
@@ -546,7 +546,7 @@ def auto_merge(catalogueconstructor,
 
 def trash_low_extremum(cc, min_extremum_amplitude=None):
     if min_extremum_amplitude is None:
-        threshold = cc.info['peak_detector_params']['relative_threshold']
+        threshold = cc.info['peak_detector']['relative_threshold']
         min_extremum_amplitude = threshold + 0.5
     
     to_remove = []
@@ -611,8 +611,8 @@ def remove_overlap(cc, thresh_mad=6):
     print(max_mad)
 
     
-    n_left = cc.info['waveform_extractor_params']['n_left']
-    n_right = cc.info['waveform_extractor_params']['n_right']
+    n_left = cc.info['extract_waveforms']['n_left']
+    n_right = cc.info['extract_waveforms']['n_right']
     width = n_right - n_left
     
     for i, label in enumerate(cc.positive_cluster_labels):

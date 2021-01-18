@@ -323,7 +323,7 @@ _classic_peeler_params = _common_peeler_params + [
 
 _geometrical_peeler_params = _common_peeler_params + [
     #~ {'name': 'argmin_method', 'type': 'list', 'values' : [ 'numpy', 'opencl', 'numba',]},
-    {'name':'adjacency_radius_um', 'type': 'float', 'value':100., 'suffix': 'µm', 'siPrefix': False},
+    #~ {'name':'adjacency_radius_um', 'type': 'float', 'value':100., 'suffix': 'µm', 'siPrefix': False},
 ]
 
 _geometrical_opencl_peeler_params = _common_peeler_params + [

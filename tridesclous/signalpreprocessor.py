@@ -247,7 +247,18 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base, OpenCL_Helper):
     def process_buffer(self, data):
         data = self._check_data(data)
         #~ print(data.shape, self.chunksize, self.chunksize_2pad, self.pad_width)
-        assert data.shape[0] == self.chunksize_2pad
+        #~ assert data.shape[0] == self.chunksize_2pad
+        if data.shape[0] == self.chunksize_2pad:
+            # OK
+            unpad = 0
+        elif data.shape[0] < self.chunksize_2pad:
+            # put some zero
+            unpad = self.chunksize_2pad - data.shape[0]
+            data_pad = np.zeros((self.chunksize_2pad, data.shape[1]), dtype=data.dtype)
+            #~ print('Apply a data pad')
+            data = data_pad
+        else:
+            raise ValueError(f'data have wring shape{data.shape[0]} { self.chunksize_2pad}')
         
         event = pyopencl.enqueue_copy(self.queue,  self.input_2pad_cl, data)
 
@@ -273,6 +284,9 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base, OpenCL_Helper):
                 # OpenCL for this when no common_ref_removal
                 data2 -= self.signals_medians
                 data2 /= self.signals_mads
+        
+        if unpad > 0:
+            data2 = data2[:-unpad, :]
         
         return data2
     

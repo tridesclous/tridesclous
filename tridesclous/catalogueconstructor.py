@@ -58,7 +58,7 @@ _centroids_arrays = ('centroids_median', 'centroids_median_long', 'centroids_mad
 
 
 _reset_after_peak_sampler = ('some_features', 'channel_to_features', 'some_noise_snippet',
-                'some_noise_index', 'some_noise_features',) + _persistent_metrics + _centroids_arrays
+                'some_noise_index', 'some_noise_features', 'some_waveforms', 'some_waveform_index') + _persistent_metrics + _centroids_arrays
 
 #~ _reset_after_peak_arrays = ('some_peaks_index', 'some_waveforms', 'some_features',
                         #~ 'channel_to_features', 
@@ -436,7 +436,7 @@ class CatalogueConstructor:
             assert highpass_freq is not None, 'pad_width=None needs a highpass_freq'
             pad_width = int(self.dataio.sample_rate/highpass_freq*3)
         
-        self.signal_preprocessor_params = dict(highpass_freq=highpass_freq, lowpass_freq=lowpass_freq, 
+        processor_params = dict(highpass_freq=highpass_freq, lowpass_freq=lowpass_freq, 
                         smooth_size=smooth_size, common_ref_removal=common_ref_removal,
                         pad_width=pad_width, output_dtype=self.internal_dtype,
                         engine=engine)
@@ -447,7 +447,7 @@ class CatalogueConstructor:
             self.dataio.reset_processed_signals(seg_num=i, chan_grp=self.chan_grp, dtype=self.internal_dtype)
         
         # put all params in info
-        self.info['signal_preprocessor_params'] = self.signal_preprocessor_params
+        self.info['preprocessor'] = processor_params
         self.flush_info()
     
     def set_peak_detector_params(self, 
@@ -477,7 +477,7 @@ class CatalogueConstructor:
             assert method in ('geometrical', )
             assert adjacency_radius_um is not None
 
-        self.peak_detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold,
+        detector_params = dict(peak_sign=peak_sign, relative_threshold=relative_threshold,
                     peak_span_ms=peak_span_ms, engine=engine, method=method,
                     adjacency_radius_um=adjacency_radius_um, smooth_radius_um=smooth_radius_um)
         
@@ -487,12 +487,12 @@ class CatalogueConstructor:
         self.peakdetector = PeakDetector_class(self.dataio.sample_rate, self.nb_channel,
                                                         self.chunksize, self.internal_dtype, geometry)
 
-        p = dict(self.peak_detector_params)
+        p = dict(detector_params)
         p.pop('engine')
         p.pop('method')
         self.peakdetector.change_params(**p)
 
-        self.info['peak_detector_params'] = self.peak_detector_params
+        self.info['peak_detector'] = detector_params
         self.flush_info()
     
     def estimate_signals_noise(self, seg_num=0, duration=10.):
@@ -516,11 +516,12 @@ class CatalogueConstructor:
         
         assert length<self.dataio.get_segment_length(seg_num), 'duration exeed size'
         
+        preprocessor_params = self.info['preprocessor']
         name = 'filetered_sigs_for_noise_estimation_seg_{}'.format(seg_num)
-        shape=(length - self.signal_preprocessor_params['pad_width'], self.nb_channel)
+        shape=(length - preprocessor_params['pad_width'], self.nb_channel)
         filtered_sigs = self.arrays.create_array(name, self.info['internal_dtype'], shape, 'memmap')
         
-        params2 = dict(self.signal_preprocessor_params)
+        params2 = dict(preprocessor_params)
         params2.pop('engine')
         params2['normalize'] = False
         self.signalpreprocessor.change_params(**params2)
@@ -547,17 +548,18 @@ class CatalogueConstructor:
         
         if detect_peak:
             assert 'peak_detector_params' in self.info
-            assert len(self.info['peak_detector_params'])>0
+            assert len(self.info['peak_detector'])>0
         
         length = int(duration*self.dataio.sample_rate)
         length = min(length, self.dataio.get_segment_length(seg_num))
         
-        print( 'OLD length', length, 'seg_num', seg_num)
+        #~ print( 'OLD length', length, 'seg_num', seg_num)
         
         #~ length -= length%self.chunksize
 
         #initialize engines
-        p = dict(self.signal_preprocessor_params)
+        preprocessor_params = self.info['preprocessor']
+        p = dict(preprocessor_params)
         p.pop('engine')
         p['normalize'] = True
         p['signals_medians'] = self.signals_medians
@@ -569,7 +571,7 @@ class CatalogueConstructor:
         # iterate a bit more on the rigth border
         iterator = self.dataio.iter_over_chunk(seg_num=seg_num, chan_grp=self.chan_grp,
                         chunksize=self.chunksize, i_stop=length, signal_type='initial',
-                        pad_width=self.info['signal_preprocessor_params']['pad_width'],
+                        pad_width=self.info['preprocessor']['pad_width'],
                         with_last_chunk=True)
         for pos, sigs_chunk in iterator:
             
@@ -654,8 +656,8 @@ class CatalogueConstructor:
             
             if length > 0:
                 #~ run_parallel_read_process_write(self, seg_num, length, 1)
-                run_parallel_read_process_write(self, seg_num, length, 4)
-                #~ run_parallel_read_process_write(self, seg_num, length, self.n_jobs)
+                #~ run_parallel_read_process_write(self, seg_num, length, 4)
+                run_parallel_read_process_write(self, seg_num, length, self.n_jobs)
         
         # flush peaks
         self.arrays.finalize_array('all_peaks')
@@ -665,13 +667,21 @@ class CatalogueConstructor:
     
     def run_signalprocessor(self, duration=60., detect_peak=True):
         #~ print('new')
-        #~ self.run_signalprocessor_NEW(duration=duration, detect_peak=detect_peak)
+        #~ t0 = time.perf_counter()
+        self.run_signalprocessor_NEW(duration=duration, detect_peak=detect_peak)
+        #~ t1 = time.perf_counter()
+        #~ print('   run_signalprocessor NEW', t1- t0)
+        
         #~ print(self.all_peaks.size)
         #~ print(self.all_peaks[:10])
         #~ print(self.all_peaks[-10:])
 
         #~ print('old')
-        self.run_signalprocessor_OLD(duration=duration, detect_peak=detect_peak)
+        #~ t0 = time.perf_counter()
+        #~ self.run_signalprocessor_OLD(duration=duration, detect_peak=detect_peak)
+        #~ t1 = time.perf_counter()
+        #~ print('   run_signalprocessor NEW', t1- t0)
+
         #~ print(self.all_peaks.size)
         #~ print(self.all_peaks[:10])
         #~ print(self.all_peaks[-10:])
@@ -742,9 +752,9 @@ class CatalogueConstructor:
                             wf_left_long_ms=None, wf_right_long_ms=None,
                             ):
         if n_left is None or n_right is None:
-            if 'waveform_extractor_params' in self.info:
-                n_left = self.info['waveform_extractor_params']['n_left']
-                n_right = self.info['waveform_extractor_params']['n_right']
+            if 'extract_waveforms' in self.info:
+                n_left = self.info['extract_waveforms']['n_left']
+                n_right = self.info['extract_waveforms']['n_right']
             elif wf_left_ms is not None and wf_right_ms is not None:
                 n_left = int(wf_left_ms / 1000. * self.dataio.sample_rate)
                 n_right = int(wf_right_ms / 1000. * self.dataio.sample_rate)
@@ -763,7 +773,7 @@ class CatalogueConstructor:
         assert n_left_long < n_left
         assert n_right_long > n_right
         
-        self.info['waveform_extractor_params'] = dict(n_left=n_left, n_right=n_right, n_left_long=n_left_long, n_right_long=n_right_long)
+        self.info['extract_waveforms'] = dict(n_left=n_left, n_right=n_right, n_left_long=n_left_long, n_right_long=n_right_long)
         self.flush_info()
         
         self.projector = None
@@ -786,7 +796,7 @@ class CatalogueConstructor:
             alien_value_threshold = None
         
         if alien_value_threshold is not None:
-            peak_sign = self.info['peak_detector_params']['peak_sign']
+            peak_sign = self.info['peak_detector']['peak_sign']
             
             if mode == 'extremum_amplitude':
                 if peak_sign == '+':
@@ -814,7 +824,7 @@ class CatalogueConstructor:
             
             self.all_peaks['cluster_label'][index_over] = labelcodes.LABEL_ALIEN
 
-        self.info['clean_peaks_params'] = dict(alien_value_threshold=alien_value_threshold, mode=mode)
+        self.info['clean_peaks'] = dict(alien_value_threshold=alien_value_threshold, mode=mode)
         self.flush_info()
         self._reset_arrays(_reset_after_peak_sampler)
         self.on_new_cluster()
@@ -856,11 +866,11 @@ class CatalogueConstructor:
             if np.any(~valid):
                 print('WARNING : sample_some_peaks with mode "froce" but take some alien peaks')
 
-        n_left = self.info['waveform_extractor_params']['n_left']
-        n_right = self.info['waveform_extractor_params']['n_right']
+        n_left = self.info['extract_waveforms']['n_left']
+        n_right = self.info['extract_waveforms']['n_right']
         peak_width = n_right - n_left
-        n_left_long = self.info['waveform_extractor_params']['n_left_long']
-        n_right_long = self.info['waveform_extractor_params']['n_right_long']
+        n_left_long = self.info['extract_waveforms']['n_left_long']
+        n_right_long = self.info['extract_waveforms']['n_right_long']
         peak_width_long = n_right_long - n_left_long
             
         
@@ -886,10 +896,16 @@ class CatalogueConstructor:
         self.all_peaks['cluster_label'][alien_index] = labelcodes.LABEL_ALIEN
         self.all_peaks['cluster_label'][self.some_peaks_index] = 0
         
-        self.info['peak_sampler_params'] = dict(mode=mode, nb_max=nb_max, nb_max_by_channel=nb_max_by_channel)
+        self.info['peak_sampler'] = dict(mode=mode, nb_max=nb_max, nb_max_by_channel=nb_max_by_channel)
         self.flush_info()
         
         self.on_new_cluster()
+
+        #~ if 'some_waveforms' in self.arrays.keys():
+            #~ self.arrays.delete_array('some_waveforms')
+        #~ if 'some_waveform_index' in self.arrays.keys():
+            #~ self.arrays.delete_array('some_waveform_index')
+        
         
     
     
@@ -906,9 +922,9 @@ class CatalogueConstructor:
         nb = peaks_index.size
         
         if n_left is None:
-            n_left = self.info['waveform_extractor_params']['n_left']
+            n_left = self.info['extract_waveforms']['n_left']
         if n_right is None:
-            n_right = self.info['waveform_extractor_params']['n_right']
+            n_right = self.info['extract_waveforms']['n_right']
         peak_width = n_right - n_left
         
         if channel_indexes is None:
@@ -932,8 +948,8 @@ class CatalogueConstructor:
 
 
     def cache_some_waveforms(self):
-        n_left_long = self.info['waveform_extractor_params']['n_left_long']
-        n_right_long = self.info['waveform_extractor_params']['n_right_long']
+        n_left_long = self.info['extract_waveforms']['n_left_long']
+        n_right_long = self.info['extract_waveforms']['n_right_long']
         peak_width_long = n_right_long - n_left_long
         
         if 'some_waveforms' in self.arrays.keys():
@@ -966,8 +982,8 @@ class CatalogueConstructor:
         self.some_waveform_index[:] = selected_indexes
 
     def extend_cached_waveforms(self, label):
-        n_left_long = self.info['waveform_extractor_params']['n_left_long']
-        n_right_long = self.info['waveform_extractor_params']['n_right_long']
+        n_left_long = self.info['extract_waveforms']['n_left_long']
+        n_right_long = self.info['extract_waveforms']['n_right_long']
         
         selected, = np.nonzero(self.all_peaks['cluster_label']==label)
         if selected.size>self.n_spike_for_centroid:
@@ -993,10 +1009,10 @@ class CatalogueConstructor:
         if long:
             wfs = self.some_waveforms[mask]
         else:
-            n_left = self.info['waveform_extractor_params']['n_left']
-            n_right = self.info['waveform_extractor_params']['n_right']
-            n_left_long = self.info['waveform_extractor_params']['n_left_long']
-            n_right_long = self.info['waveform_extractor_params']['n_right_long']
+            n_left = self.info['extract_waveforms']['n_left']
+            n_right = self.info['extract_waveforms']['n_right']
+            n_left_long = self.info['extract_waveforms']['n_left_long']
+            n_right_long = self.info['extract_waveforms']['n_right_long']
             i0 = n_left - n_left_long
             i1 = n_right_long - n_right
             wfs = self.some_waveforms[mask][:, i0:-i1]
@@ -1019,9 +1035,9 @@ class CatalogueConstructor:
         and see the distinction between waveforma and noise in the subspace.
         """
         #~ 'some_noise_index', 'some_noise_snippet', 
-        assert  'waveform_extractor_params' in self.info
-        n_left = self.info['waveform_extractor_params']['n_left']
-        n_right = self.info['waveform_extractor_params']['n_right']
+        assert  'extract_waveforms' in self.info
+        n_left = self.info['extract_waveforms']['n_left']
+        n_right = self.info['extract_waveforms']['n_right']
         peak_width = n_right - n_left
         
         
@@ -1076,6 +1092,11 @@ class CatalogueConstructor:
             #~ print(i_start, i_stop, self.some_noise_snippet.shape, self.dataio.get_segment_length(ind['segment']))
             self.some_noise_snippet[n, :, :] = snippet
                 #~ n +=1
+
+        self.info['noise_snippet'] = dict(nb_snippet=nb_snippet)
+        self.flush_info()
+
+
 
     def extract_some_features(self, method='global_pca',  selection=None, **params):
         """
@@ -1286,11 +1307,11 @@ class CatalogueConstructor:
         
         ind = self.index_of_label(k)
         
-        n_left = self.info['waveform_extractor_params']['n_left']
-        n_right = self.info['waveform_extractor_params']['n_right']
-        n_left_long = int(self.info['waveform_extractor_params']['n_left_long'])
-        n_right_long = int(self.info['waveform_extractor_params']['n_right_long'])
-        peak_sign = self.info['peak_detector_params']['peak_sign']
+        n_left = self.info['extract_waveforms']['n_left']
+        n_right = self.info['extract_waveforms']['n_right']
+        n_left_long = int(self.info['extract_waveforms']['n_left_long'])
+        n_right_long = int(self.info['extract_waveforms']['n_right_long'])
+        peak_sign = self.info['peak_detector']['peak_sign']
         
         
         if self.some_waveforms is None:
@@ -1357,10 +1378,10 @@ class CatalogueConstructor:
                 setattr(self, name, None)
             return
         
-        n_left = self.info['waveform_extractor_params']['n_left']
-        n_right = self.info['waveform_extractor_params']['n_right']
-        n_left_long = int(self.info['waveform_extractor_params']['n_left_long'])
-        n_right_long = int(self.info['waveform_extractor_params']['n_right_long'])
+        n_left = self.info['extract_waveforms']['n_left']
+        n_right = self.info['extract_waveforms']['n_right']
+        n_left_long = int(self.info['extract_waveforms']['n_left_long'])
+        n_right_long = int(self.info['extract_waveforms']['n_right_long'])
         
         
 
@@ -1561,7 +1582,7 @@ class CatalogueConstructor:
             chan = self.clusters['extremum_channel'][ind]
             #~ median = self.centroids[k]['median']
             median = self.centroids_median[ind, :, :]
-            n_left = int(self.info['waveform_extractor_params']['n_left'])
+            n_left = int(self.info['extract_waveforms']['n_left'])
             wf_normed.append(median/np.abs(median[-n_left, chan]))
         wf_normed = np.array(wf_normed)
         
@@ -1718,7 +1739,7 @@ class CatalogueConstructor:
         
         #~ centroids[np.abs(centroids)<0.5] = 0.
 
-        thresh = self.info['peak_detector_params']['relative_threshold']
+        thresh = self.info['peak_detector']['relative_threshold']
         sparse_mask_level1 = compute_sparse_mask(centroids, self.mode, method='thresh', thresh=sparse_thresh_level1)
         
         #~ flat_shape = centroids.shape[0], centroids.shape[1] * centroids.shape[2]
@@ -1849,11 +1870,11 @@ class CatalogueConstructor:
         t1 = time.perf_counter()
         
         
-        n_left = self.info['waveform_extractor_params']['n_left']
-        n_right = self.info['waveform_extractor_params']['n_right']
-        n_left_long = self.info['waveform_extractor_params']['n_left_long']
-        n_right_long = self.info['waveform_extractor_params']['n_right_long']
-        peak_sign = self.info['peak_detector_params']['peak_sign']
+        n_left = self.info['extract_waveforms']['n_left']
+        n_right = self.info['extract_waveforms']['n_right']
+        n_left_long = self.info['extract_waveforms']['n_left_long']
+        n_right_long = self.info['extract_waveforms']['n_right_long']
+        peak_sign = self.info['peak_detector']['peak_sign']
         
         self.catalogue = {}
         self.catalogue['chan_grp'] = self.chan_grp
@@ -1899,7 +1920,7 @@ class CatalogueConstructor:
         
         #~ n, full_width, nchan = self.some_waveforms.shape
         #~ n = self.some_peaks_index.size
-        #~ full_width = self.info['waveform_extractor_params']['n_right'] - self.info['waveform_extractor_params']['n_left']
+        #~ full_width = self.info['extract_waveforms']['n_right'] - self.info['extract_waveforms']['n_left']
         
         catalogue_width = n_right - n_left
         catalogue_width_long = n_right_long - n_left_long
@@ -1951,7 +1972,7 @@ class CatalogueConstructor:
         
         self.catalogue['sparse_mask_level1'] = compute_sparse_mask(centroids, self.mode, method='thresh', thresh=sparse_thresh_level1)
         self.catalogue['sparse_mask_level2'] = compute_sparse_mask(centroids, self.mode, method='thresh', thresh=sparse_thresh_level2)
-        thresh = self.info['peak_detector_params']['relative_threshold']
+        thresh = self.info['peak_detector']['relative_threshold']
         self.catalogue['sparse_mask_level3'] = compute_sparse_mask(centroids, self.mode, method='thresh', thresh=thresh)
         #~ self.catalogue['sparse_mask_level4'] = compute_sparse_mask(centroids, self.mode, method='nbest', nbest=5)
 
@@ -1985,7 +2006,7 @@ class CatalogueConstructor:
             #~ else:
                 #~ sparse_mask_level1 = np.any(np.abs(center0) > sparse_thresh_level1, axis=0)
                 #~ sparse_mask_level2 = np.any(np.abs(center0)>sparse_thresh_level2, axis=0)
-                #~ thresh = self.info['peak_detector_params']['relative_threshold']
+                #~ thresh = self.info['peak_detector']['relative_threshold']
                 #~ sparse_mask_level3 = np.any(np.abs(center0)>thresh, axis=0)
                 #~ sparse_mask_level3 = np.ones(self.nb_channel, dtype='bool') # DEBUG
                 #~ sparse_mask_level3 = np.any(np.abs(center0)>sparse_thresh_level2, axis=0) # DEBUG
@@ -2088,9 +2109,9 @@ class CatalogueConstructor:
         
         
         #params propagation
-        self.catalogue['signal_preprocessor_params'] = dict(self.info['signal_preprocessor_params'])
-        self.catalogue['peak_detector_params'] = dict(self.info['peak_detector_params'])
-        self.catalogue['clean_peaks_params'] = dict(self.info['clean_peaks_params'])
+        self.catalogue['signal_preprocessor_params'] = dict(self.info['preprocessor'])
+        self.catalogue['peak_detector_params'] = dict(self.info['peak_detector'])
+        self.catalogue['clean_peaks_params'] = dict(self.info['clean_peaks'])
         self.catalogue['signals_medians'] = np.array(self.signals_medians, copy=True)
         self.catalogue['signals_mads'] = np.array(self.signals_mads, copy=True)
         

@@ -58,8 +58,8 @@ _default_catalogue_params = {
     },
     'clean_peaks': {
         #~ 'alien_value_threshold': None,
-        #~ 'alien_value_threshold':-1., # equivalent to None (normally)
-        'alien_value_threshold': np.nan,
+        'alien_value_threshold':-1., # equivalent to None (normally)
+        #~ 'alien_value_threshold': np.nan,
         'mode': 'extremum_amplitude',
     },
     'peak_sampler': {

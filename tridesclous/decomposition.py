@@ -89,7 +89,7 @@ class PeakMaxOnChannel:
         # TODO something faster with only the max!!!!!
         self.waveforms = cc.get_some_waveforms()
         
-        self.ind_peak = -catalogueconstructor.info['waveform_extractor_params']['n_left']
+        self.ind_peak = -catalogueconstructor.info['extract_waveforms']['n_left']
         #~ print('PeakMaxOnChannel self.ind_peak', self.ind_peak)
         
         
@@ -134,8 +134,8 @@ class PcaByChannel:
         
         cc = catalogueconstructor
         
-        thresh = cc.info['peak_detector_params']['relative_threshold']
-        n_left = cc.info['waveform_extractor_params']['n_left']
+        thresh = cc.info['peak_detector']['relative_threshold']
+        n_left = cc.info['extract_waveforms']['n_left']
         self.dtype = cc.info['internal_dtype']
         
         
@@ -208,8 +208,8 @@ class PcaByChannel:
         some_peaks = cc.all_peaks[cc.some_peaks_index]
 
         if cc.mode == 'sparse':
-            assert cc.info['peak_detector_params']['method'] == 'geometrical'
-            #~ adjacency_radius_um = cc.info['peak_detector_params']['adjacency_radius_um']
+            assert cc.info['peak_detector']['method'] == 'geometrical'
+            #~ adjacency_radius_um = cc.info['peak_detector']['adjacency_radius_um']
             channel_adjacency = cc.dataio.get_channel_adjacency(chan_grp=cc.chan_grp, adjacency_radius_um=self.adjacency_radius_um)
         
         #~ t1 = time.perf_counter()

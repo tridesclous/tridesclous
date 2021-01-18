@@ -118,9 +118,6 @@ class FeatureTimeViewer(WidgetBase):
                 # all_features = self.controller.some_features[selected]   #<<<<slow
                 all_features = self.controller.some_features[selected_slice]
 
-        #~ d = self.controller.info['waveform_extractor_params']
-        #~ n_left, n_right = d['n_left'], d['n_right']
-        
         for k in visibles:
             #~ self.controller.some
             keep = all_labels==k

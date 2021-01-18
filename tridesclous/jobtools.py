@@ -124,13 +124,13 @@ def read_process_write_one_chunk(args):
 def run_parallel_read_process_write(cc, seg_num, length, n_jobs):
     
     chunksize = cc.info['chunksize']
-    pad_width = cc.signal_preprocessor_params['pad_width']
+    pad_width = cc.info['preprocessor']['pad_width']
     
     initargs=(cc.dataio.dirname, cc.chan_grp, seg_num, 
                     cc.internal_dtype, chunksize, pad_width,
                     cc.signals_medians, cc.signals_mads,
-                    cc.info['signal_preprocessor_params'],
-                    cc.info['peak_detector_params'],
+                    cc.info['preprocessor'],
+                    cc.info['peak_detector'],
                     )
     
     

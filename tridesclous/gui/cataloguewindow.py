@@ -233,6 +233,9 @@ class CatalogueWindow(QT.QMainWindow):
     def redetect_peak(self):
         dia = ParamDialog(gui_params.peak_detector_params)
         dia.resize(450, 500)
+        d = self.catalogueconstructor.info['peak_detector']
+        dia.set(d)
+        
         if dia.exec_():
             d = dia.get()
             self.catalogueconstructor.re_detect_peak(**d)
@@ -273,6 +276,12 @@ class CatalogueWindow(QT.QMainWindow):
         ]        
         
         dia = ParamDialog(params_)
+        d = {}
+        for k in ('extract_waveforms', 'clean_peaks', 'noise_snippet', 'peak_sampler'):
+            d[k] = self.catalogueconstructor.info[k]
+        dia.set(d)
+
+        
         dia.resize(450, 500)
         if dia.exec_():
             d = dia.get()
@@ -288,14 +297,16 @@ class CatalogueWindow(QT.QMainWindow):
             self.refresh()
 
     def new_features(self):
-        method, kargs = open_dialog_methods(gui_params.features_params_by_methods, self)
+        method, kargs = open_dialog_methods(gui_params.features_params_by_methods, self,
+                    selected_method=self.catalogueconstructor.info['feature_method'])
         if method is not None:
             self.catalogueconstructor.extract_some_features(method=method, **kargs)
             self.refresh()
 
 
     def new_cluster(self):
-        method, kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self)
+        method, kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self,
+                    selected_method=self.catalogueconstructor.info['cluster_method'])
         if method is not None:
             self.catalogueconstructor.find_clusters(method=method, **kargs)
             self.controller.check_plot_attributes()

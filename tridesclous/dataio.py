@@ -570,8 +570,8 @@ class DataIO:
                 i_start = 0
             if i_stop > self.get_segment_length(seg_num):
                 after_padding = True
-                i_stop = self.get_segment_length(seg_num)
                 after_padding_right = i_stop - self.get_segment_length(seg_num)
+                i_stop = self.get_segment_length(seg_num)
         
         if signal_type=='initial':
             data = self.datasource.get_signals_chunk(seg_num=seg_num, i_start=i_start, i_stop=i_stop)

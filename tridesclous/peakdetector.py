@@ -455,6 +455,11 @@ class PeakDetectorGeometricalNumba(PeakDetectorGeometricalNumpy):
 
 class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper):
     def process_buffer(self, sigs):
+        
+        if sigs.shape[0] <self.chunksize:
+            sigs2 = np.zeros((self.chunksize, self.nb_channel), dtype=self.dtype)
+            sigs2[:sigs.shape[0], :] = sigs
+            sigs = sigs2
     
         if self.spatial_smooth_kernel is None:
             sigs = sigs

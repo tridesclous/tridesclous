@@ -143,14 +143,14 @@ class CatalogueController(ControllerBase):
             #~ return shape
 
     def get_waveform_left_right(self):
-        if 'waveform_extractor_params' in self.cc.info:
-            d = self.cc.info['waveform_extractor_params']
+        if 'extract_waveforms' in self.cc.info:
+            d = self.cc.info['extract_waveforms']
             return d['n_left'], d['n_right']
         else:
             return None, None
     
     def get_peak_sign(self):
-        d = self.cc.info['peak_detector_params']
+        d = self.cc.info['peak_detector']
         return d['peak_sign']
     
     def get_some_waveforms(self, seg_nums, peak_sample_indexes, channel_indexes):
@@ -233,8 +233,8 @@ class CatalogueController(ControllerBase):
         self.check_plot_attributes()
         
     def get_threshold(self):
-        threshold = self.cc.info['peak_detector_params']['relative_threshold']
-        if self.cc.info['peak_detector_params']['peak_sign']=='-':
+        threshold = self.cc.info['peak_detector']['relative_threshold']
+        if self.cc.info['peak_detector']['peak_sign']=='-':
             threshold = -threshold
         return threshold
     
