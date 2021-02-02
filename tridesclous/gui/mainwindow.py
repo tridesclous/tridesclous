@@ -235,7 +235,7 @@ class MainWindow(QT.QMainWindow):
     def _refresh_recetly_opened(self):
         self.recetly_opened_menu.clear()
         for dirname in self.recently_opened():
-            act = self.recetly_opened_menu.addAction(dirname)
+            act = self.recetly_opened_menu.addAction(str(dirname))
             act.dirname = dirname
             act.triggered.connect(self.do_open_recent)
             
