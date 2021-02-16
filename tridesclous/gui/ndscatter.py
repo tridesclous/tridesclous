@@ -335,7 +335,8 @@ class NDScatter(WidgetBase):
         projection = np.random.rand(ndim,2)*2-1.
         projection[~self.selected_comp] = 0
         m = np.sqrt(np.sum(projection**2, axis=0))
-        projection /= m
+        ok = m > 0
+        projection[:, ok] /= m[ok]
         return projection
     
     def random_projection(self):

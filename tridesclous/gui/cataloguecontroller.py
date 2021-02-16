@@ -203,7 +203,11 @@ class CatalogueController(ControllerBase):
             wf_max = 0.
         return wf_min, wf_max
 
-        
+
+    @property
+    def some_noise_index(self):
+        return self.cc.some_noise_index
+
     @property
     def some_noise_snippet(self):
         return self.cc.some_noise_snippet

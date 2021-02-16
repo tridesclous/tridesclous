@@ -649,15 +649,22 @@ class CatalogueConstructor:
         
         assert detect_peak
         
+        n_jobs = self.n_jobs
+        if n_jobs == -1:
+            n_jobs = 4
+            #~ n_jobs = 1
+            #~ n_jobs = 2
+        
         self.arrays.initialize_array('all_peaks', self.memory_mode,  _dtype_peak, (-1, ))
         duration_per_segment = self.dataio.get_duration_per_segments(duration)
         for seg_num in range(self.dataio.nb_segment):
             length = int(duration_per_segment[seg_num]*self.dataio.sample_rate)
             
+            
             if length > 0:
                 #~ run_parallel_read_process_write(self, seg_num, length, 1)
                 #~ run_parallel_read_process_write(self, seg_num, length, 4)
-                run_parallel_read_process_write(self, seg_num, length, self.n_jobs)
+                run_parallel_read_process_write(self, seg_num, length, n_jobs)
         
         # flush peaks
         self.arrays.finalize_array('all_peaks')
@@ -918,7 +925,7 @@ class CatalogueConstructor:
         if peaks_index is None:
             assert self.some_peaks_index is not None
             peaks_index = self.some_peaks_index
-
+        
         nb = peaks_index.size
         
         if n_left is None:

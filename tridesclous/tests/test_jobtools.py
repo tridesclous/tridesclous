@@ -31,11 +31,12 @@ def test_run_parallel_signalprocessor():
     dirname = 'test_jobtools'
     dataio = DataIO(dirname=dirname)
     cc = CatalogueConstructor(dataio=dataio)
-    print(cc)
+    #~ print(cc)
     
     seg_num = 0
     length = 320000
-    n_jobs = 2
+    #~ n_jobs = 2
+    n_jobs = 4
     
     cc.arrays.initialize_array('all_peaks', cc.memory_mode,  _dtype_peak, (-1, ))
     

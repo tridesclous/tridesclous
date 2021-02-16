@@ -39,6 +39,7 @@ def signalprocessor_initializer(dirname, chan_grp_, seg_num_,
     global peakdetector
     
     dataio = DataIO(dirname)
+    #~ print('signalprocessor_initializer', id(dataio))
     
     chan_grp = chan_grp_
     
@@ -77,7 +78,7 @@ def read_process_write_one_chunk(args):
     global signalpreprocessor
     global peakdetector
     
-    
+    #~ print(i_start, i_stop, id(dataio))
     #~ print(dataio)
     
     # read chunk and pad
@@ -154,7 +155,7 @@ def run_parallel_read_process_write(cc, seg_num, length, n_jobs):
         
         all_peaks = executor.map(read_process_write_one_chunk, chunk_slice)
         for peaks in all_peaks:
-            #~ print(peaks)
+            #~ print('peaks', peaks.size)
             cc.arrays.append_chunk('all_peaks',  peaks)
     else:
         signalprocessor_initializer(*initargs)
