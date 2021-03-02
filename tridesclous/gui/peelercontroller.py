@@ -35,8 +35,7 @@ class PeelerController(ControllerBase):
     
     def init_plot_attributes(self):
         #concatenate all spikes for all segments
-        self.spikes = []
-        
+        all_spikes = []
         for i in range(self.dataio.nb_segment):
             local_spikes = self.dataio.get_spikes(seg_num=i, chan_grp=self.chan_grp)
             spikes = np.zeros(local_spikes.shape, dtype=_dtype_spike+_dtype_complement)
@@ -63,8 +62,8 @@ class PeelerController(ControllerBase):
             spike_cluster_index = np.searchsorted(clus['cluster_label'], spikes['cluster_label'][mask].copy())
             spikes['cell_label'][mask] = clus['cell_label'][spike_cluster_index]
             
-            self.spikes.append(spikes)
-        self.spikes = np.concatenate(self.spikes)
+            all_spikes.append(spikes)
+        self._spikes = np.concatenate(all_spikes)
         
         self.nb_spike = int(self.spikes.size)
         
@@ -118,7 +117,11 @@ class PeelerController(ControllerBase):
     @property
     def have_sparse_template(self):
         return True
-    
+
+    @property
+    def spikes(self):
+        return self._spikes
+
     @property
     def spike_selection(self):
         return self.spikes['selected']
