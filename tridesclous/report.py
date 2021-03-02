@@ -198,7 +198,7 @@ def summary_after_peeler_clusters(dataio, catalogue=None, chan_grp=None, labels=
             nb_spike += np.sum(all_spikes['cluster_label'] == label)
             
 
-        
+        import matplotlib.pyplot as plt
         fig, axs = plt.subplots(ncols=2, nrows=2)
         figs.append(fig)
         axs[0, 0].remove()
