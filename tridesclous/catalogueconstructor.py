@@ -675,7 +675,7 @@ class CatalogueConstructor:
     def run_signalprocessor(self, duration=60., detect_peak=True):
         #~ print('new')
         #~ t0 = time.perf_counter()
-        self.run_signalprocessor_NEW(duration=duration, detect_peak=detect_peak)
+        #~ self.run_signalprocessor_NEW(duration=duration, detect_peak=detect_peak)
         #~ t1 = time.perf_counter()
         #~ print('   run_signalprocessor NEW', t1- t0)
         
@@ -685,7 +685,7 @@ class CatalogueConstructor:
 
         #~ print('old')
         #~ t0 = time.perf_counter()
-        #~ self.run_signalprocessor_OLD(duration=duration, detect_peak=detect_peak)
+        self.run_signalprocessor_OLD(duration=duration, detect_peak=detect_peak)
         #~ t1 = time.perf_counter()
         #~ print('   run_signalprocessor NEW', t1- t0)
 
