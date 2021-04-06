@@ -547,7 +547,7 @@ class CatalogueConstructor:
     def run_signalprocessor_loop_one_segment(self, seg_num=0, duration=60., detect_peak=True):
         
         if detect_peak:
-            assert 'peak_detector_params' in self.info
+            assert 'peak_detector' in self.info
             assert len(self.info['peak_detector'])>0
         
         length = int(duration*self.dataio.sample_rate)
