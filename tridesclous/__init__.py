@@ -12,7 +12,12 @@
 """
 from .version import version as __version__
 
-import PyQt5 # this force pyqtgraph to deal with Qt5
+import os
+if os.getenv('TDC_IN_CONTAINER', None) == '1':
+    import matplotlib
+    matplotlib.use('agg')
+
+# import PyQt5 # this force pyqtgraph to deal with Qt5
 
 # For matplotlib to Qt5 : 
 #   * this avoid tinker problem when not installed
