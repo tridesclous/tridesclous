@@ -28,7 +28,8 @@ except:
 
 if HAVE_PYQT5:
     with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+        warnings.simplefilter("ignore")
+        try:
             matplotlib.use('Qt5Agg')
         except:
             pass
@@ -38,10 +39,11 @@ if HAVE_PYQT5:
 #~ else:
     #~ with warnings.catch_warnings():
             #~ warnings.simplefilter("ignore")
-            #~ matplotlib.use('Qt5Agg')
-        #~ except:
-            #~ # on server without screen this is not possible.
-            #~ matplotlib.use('agg')
+            #~ try:
+                #~ matplotlib.use('Qt5Agg')
+            #~ except:
+                #~ # on server without screen this is not possible.
+                #~ matplotlib.use('agg')
 
 from .datasets import download_dataset, get_dataset
 
