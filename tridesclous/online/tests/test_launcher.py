@@ -1,18 +1,27 @@
-from pyacq.devices import OpenEphysGUIRelay
+import pytest
 
-from tridesclous.online.launcher import start_online_pyacq_buffer_demo,  start_online_openephys
+from tridesclous.online import HAVE_PYACQ
+from tridesclous.tests.testingtools import ON_CI_CLOUD
+
+if HAVE_PYACQ:
+    from tridesclous.online import *
+    import pyacq
+    from pyacq.devices import OpenEphysGUIRelay
+
+    from tridesclous.online.launcher import start_online_pyacq_buffer_demo,  start_online_openephys
 
 import pyqtgraph as pg
 
 
 
-
-
+@pytest.mark.skipif(not HAVE_PYACQ, reason='no pyacq')
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_start_online_pyacq_buffer_demo():
     start_online_pyacq_buffer_demo()
 
 
-
+@pytest.mark.skipif(not HAVE_PYACQ, reason='no pyacq')
+@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_start_online_openephys():
     # with 16ch
     #~ prb_filename = 'probe_openephys_16ch.prb'

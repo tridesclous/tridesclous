@@ -263,8 +263,6 @@ class TdcOnlineWindow(MainWindowNode):
         # peeler params = 
         self.peeler_params = {
             'engine': 'geometrical',
-            #~ 'argmin_method': 'numba',
-            #~ 'argmin_method': 'opencl',
         }
         self.peeler_params.update(peeler_params)
         

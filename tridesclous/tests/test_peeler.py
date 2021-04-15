@@ -41,39 +41,17 @@ def open_catalogue_window():
     win.show()
     app.exec_()
 
-@pytest.mark.first
-def test_peeler_classic():
-    dataio = DataIO(dirname='test_peeler')
-    catalogue = dataio.load_catalogue(chan_grp=0, name='with_oversampling')
-
-    peeler = Peeler(dataio)
-    
-    peeler.change_params(engine='classic', catalogue=catalogue,chunksize=1024,
-                    argmin_method='numba')
-                    #~ argmin_method='opencl')
-    
-    t1 = time.perf_counter()
-    peeler.run(progressbar=False)
-    t2 = time.perf_counter()
-    print('peeler.run_loop', t2-t1)
-
-    
-    spikes = dataio.get_spikes(chan_grp=0).copy()
-    labels = catalogue['clusters']['cluster_label']
-    count_by_label = [np.sum(spikes['cluster_label'] == label) for label in labels]
-    print(labels)
-    print(count_by_label)
-    
 
 def test_peeler_geometry():
     dataio = DataIO(dirname='test_peeler')
     
     catalogue0 = dataio.load_catalogue(chan_grp=0)
-    catalogue1 = dataio.load_catalogue(chan_grp=0, name='with_oversampling')
+    # catalogue1 = dataio.load_catalogue(chan_grp=0, name='with_oversampling')
     
         
         
-    for catalogue in (catalogue0, catalogue1):
+    # for catalogue in (catalogue0, catalogue1):
+    for catalogue in (catalogue0, ):
         print()
         print('engine=geometrical')
         print('inter_sample_oversampling', catalogue['inter_sample_oversampling'])
@@ -81,9 +59,7 @@ def test_peeler_geometry():
 
         peeler.change_params(engine='geometrical',
                                     catalogue=catalogue,
-                                    chunksize=1024,
-                                    argmin_method='numba')
-                                    #~ argmin_method='opencl')
+                                    chunksize=1024)
                                     
                                     
 
@@ -104,9 +80,10 @@ def test_peeler_geometry_cl():
     dataio = DataIO(dirname='test_peeler')
     #~ catalogue = dataio.load_catalogue(chan_grp=0)
     catalogue0 = dataio.load_catalogue(chan_grp=0)
-    catalogue1 = dataio.load_catalogue(chan_grp=0, name='with_oversampling')
+    # catalogue1 = dataio.load_catalogue(chan_grp=0, name='with_oversampling')
     
-    for catalogue in (catalogue0, catalogue1):
+    # for catalogue in (catalogue0, catalogue1):
+    for catalogue in (catalogue0, ):
         print()
         print('engine=geometrical_opencl')
         print('inter_sample_oversampling', catalogue['inter_sample_oversampling'])
@@ -136,33 +113,6 @@ def test_peeler_geometry_cl():
         
         run_times = peeler.get_run_times(chan_grp=0, seg_num=0)
         print(run_times)
-
-
-@pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
-def test_peeler_argmin_methods():
-    dataio = DataIO(dirname='test_peeler')
-    catalogue = dataio.load_catalogue(chan_grp=0, name='with_oversampling')
-    
-    argmin_methods = ['opencl', 'numba', 'pythran']
-    #~ argmin_methods = ['opencl', 'pythran']
-    
-    for argmin_method in argmin_methods:
-        
-        peeler = Peeler(dataio)
-        
-        peeler.change_params(engine='classic',
-                                            catalogue=catalogue,
-                                            chunksize=1024,
-                                            argmin_method=argmin_method,
-                                            cl_platform_index=0,
-                                            cl_device_index=0,                                        
-                                            )
-        
-        t1 = time.perf_counter()
-        peeler.run(progressbar=False)
-        t2 = time.perf_counter()
-        print(argmin_method ,'peeler.run_loop', t2-t1)
-
 
 
     
@@ -199,7 +149,7 @@ def test_peeler_empty_catalogue():
         print('**',  chunksize, '**')
         peeler = Peeler(dataio)
         peeler.change_params(engine='geometrical', catalogue=catalogue,chunksize=chunksize, 
-                argmin_method='numba', save_bad_label=True)
+                save_bad_label=True)
         t1 = time.perf_counter()
         #~ peeler.run(progressbar=False)
         #~ peeler.run_offline_loop_one_segment(seg_num=0, progressbar=False)
@@ -258,7 +208,7 @@ def test_peeler_several_chunksize():
     for chunksize in chunksizes:
         print('**',  chunksize, '**')
         peeler = Peeler(dataio)
-        peeler.change_params(engine='geometrical', catalogue=catalogue,chunksize=chunksize, argmin_method='numba')
+        peeler.change_params(engine='geometrical', catalogue=catalogue,chunksize=chunksize)
         t1 = time.perf_counter()
         peeler.run(progressbar=False)
         t2 = time.perf_counter()
@@ -363,16 +313,13 @@ def test_export_spikes():
 
 
 def debug_compare_peeler_engines():
-
+    # this do not work because oversampling is not handle
     dataio = DataIO(dirname='test_peeler')
     print(dataio)
     
     
     engine_list = [ 
-            ('classic argmin opencl', 'classic', {'argmin_method' : 'opencl'}),
-            ('classic argmin numba', 'classic', {'argmin_method' : 'numba'}),
-            ('geometrical argmin opencl', 'geometrical', {'argmin_method' : 'opencl'}),
-            ('geometrical argmin numba', 'geometrical', {'argmin_method' : 'numba'}),
+            ('geometrical argmin opencl', 'geometrical', {}),
             ('geometrical_opencl', 'geometrical_opencl', {}),
         ]
     
@@ -380,7 +327,8 @@ def debug_compare_peeler_engines():
     for name, engine, kargs in engine_list:
         #~ print()
         #~ print(name)
-        catalogue = dataio.load_catalogue(chan_grp=0, name='with_oversampling')
+        # catalogue = dataio.load_catalogue(chan_grp=0, name='with_oversampling')
+        catalogue = dataio.load_catalogue(chan_grp=0)
 
 
         peeler = Peeler(dataio)
@@ -430,18 +378,15 @@ if __name__ =='__main__':
     
     #~ open_catalogue_window()
     
-    #~ test_peeler_classic()
     
     #~ test_peeler_geometry()
     
-    test_peeler_geometry_cl()
+    #~ test_peeler_geometry_cl()
     
-    
-    #~ test_peeler_argmin_methods()
     
     #~ test_peeler_empty_catalogue()
     
-    #~ test_peeler_several_chunksize()
+    test_peeler_several_chunksize()
     
     #~ test_peeler_with_and_without_preprocessor()
     

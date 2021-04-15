@@ -115,7 +115,6 @@ class PruningShears:
         #~ print('self.channel_adjacency', self.channel_adjacency)
         #~ print('adjacency_radius_um', adjacency_radius_um)
         
-        #~ exit()
 
 
         

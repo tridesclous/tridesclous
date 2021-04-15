@@ -177,7 +177,6 @@ class PeelerEngineBase(OpenCL_Helper):
                 p['cl_device_index'] = None
                 p['ctx'] = self.ctx
                 p['queue'] = self.queue
-                #~ exit()
             
             self.signalpreprocessor.change_params(**p)
             self.internal_dtype = self.signalpreprocessor.output_dtype
@@ -380,7 +379,6 @@ class PeelerEngineGeneric(PeelerEngineBase):
         self.total_spike += all_spikes.size
         
         #~ print(good_spikes.size, all_spikes.size)
-        #~ exit()
         return abs_head_index, preprocessed_chunk, self.total_spike, all_spikes
 
     def apply_processor(self, pos, sigs_chunk):

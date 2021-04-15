@@ -115,7 +115,7 @@ def export_catalogue_spikes(cc, export_path=None, formats=None):
     dataio = cc.dataio
     chan_grp = cc.chan_grp
     
-    sampler_mode = cc.info['peak_sampler_params']['mode']
+    sampler_mode = cc.info['peak_sampler']['mode']
     if sampler_mode != 'all':
         print('You are trying to export peak from catalogue but peak_sampler mode is not "all"')
 

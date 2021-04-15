@@ -397,7 +397,6 @@ class SignalPreprocessor_OpenCL(SignalPreprocessor_base, OpenCL_Helper):
                         pad_width=self.pad_width, nb_section=self.nb_section, nb_channel=self.nb_channel, 
                         extra_code_nomalize=extra_code_nomalize, extra_code_nomalize2=extra_code_nomalize2)
         #~ print(kernel_formated)
-        #~ exit()
         prg = pyopencl.Program(self.ctx, kernel_formated)
         self.opencl_prg = prg.build(options='-cl-mad-enable')
         

@@ -14,7 +14,7 @@ def setup_module():
     initial_catalogue = dataio.load_catalogue(chan_grp=0)
     peeler = Peeler(dataio)
     peeler.change_params(catalogue=initial_catalogue, engine='geometrical',
-                    chunksize=1024, argmin_method='numba')
+                    chunksize=1024)
     t1 = time.perf_counter()
     peeler.run(progressbar=False)
     t2 = time.perf_counter()
@@ -132,14 +132,14 @@ def test_PeelerWindow():
 if __name__ == '__main__':
     setup_module()
     
-    #~ test_Peelercontroller()
+    test_Peelercontroller()
     
-    #~ test_PeelerTraceViewer()
-    #~ test_SpikeList()
-    #~ test_ClusterSpikeList()
-    #~ test_PeelerWaveformViewer()
-    #~ test_ISIViewer()
-    #~ test_CrossCorrelogramViewer()
+    test_PeelerTraceViewer()
+    test_SpikeList()
+    test_ClusterSpikeList()
+    test_PeelerWaveformViewer()
+    test_ISIViewer()
+    test_CrossCorrelogramViewer()
     
     test_PeelerWindow()
 

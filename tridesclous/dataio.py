@@ -135,7 +135,7 @@ class DataIO:
  
     def __repr__(self):
         t = "DataIO <id: {}> \n  workdir: {}\n".format(id(self), self.dirname)
-        if len(self.info) ==0 and self.datasource is None:
+        if len(self.info) <= 1 and self.datasource is None:
             t  += "  Not datasource set yet"
             return t
         t += "  sample_rate: {}\n".format(self.sample_rate)
@@ -209,9 +209,7 @@ class DataIO:
 
         self.info['datasource_type'] = type
         self.info['datasource_kargs'] = kargs
-        print('ici', self.info.keys())
         self._reload_data_source()
-        print('la', self.info.keys())
         
         # be default chennel group all channels
         channel_groups = {0:{'channels':list(range(self.total_channel))}}
@@ -237,7 +235,6 @@ class DataIO:
     def _save_datasource_info(self):
         assert self.datasource is not None, 'Impossible to load datasource and get info'
         # put some info of datasource
-        print('DEBUG put some info of datasource')
         nb_seg = self.datasource.nb_segment
         self.info['datasource_info'] = dict(
             total_channel=int(self.datasource.total_channel),

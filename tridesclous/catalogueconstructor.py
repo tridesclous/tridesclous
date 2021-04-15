@@ -6,6 +6,10 @@
 
 """
 
+import os
+if os.getenv('TDC_IN_CONTAINER', None) == '1':
+    import matplotlib
+    matplotlib.use('agg')
 
 import os
 import json
@@ -1321,7 +1325,7 @@ class CatalogueConstructor:
         peak_sign = self.info['peak_detector']['peak_sign']
         
         
-        if self.some_waveforms is None:
+        if not hasattr(self, 'some_wavefroms') or self.some_waveforms is None:
             # waveforms not cached
             selected, = np.nonzero(self.all_peaks['cluster_label'][self.some_peaks_index]==k)
             if selected.size>n_spike_for_centroid:
@@ -1755,7 +1759,9 @@ class CatalogueConstructor:
         boundaries, scalar_products = compute_boundaries(self, centroids, sparse_mask_level1, projections, neighbors, plot_debug=False)
         
         # DEBUG
-        print('DEBUG boudaries -0.5 0.5')
+        # print('DEBUG boudaries -0.5 0.5')
+        # this is left at the moment
+        # TODO find something better
         boundaries[:, 0] = -0.5
         boundaries[:, 1] = 0.5
         boundaries[:, 2] = -0.5
@@ -1781,9 +1787,9 @@ class CatalogueConstructor:
                 colors = {i: colors_[i] for i, k in enumerate(cluster_labels)}
                 
                 
-                print()
-                print(cluster_idx0)
-                print(neighbors[cluster_idx0])
+                #~ print()
+                #~ print(cluster_idx0)
+                #~ print(neighbors[cluster_idx0])
                 bins = np.arange(-3,3, 0.01)
                 
                 

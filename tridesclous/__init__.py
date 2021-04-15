@@ -11,23 +11,25 @@
 
 """
 from .version import version as __version__
+import os
+import warnings
 
-#~ import PyQt5 # this force pyqtgraph to deal with Qt5
+# For matplotlib to Qt5 : 
+#   * this avoid tinker problem when not installed
+#   * work better with GUI
+#   * trigger a warning on notebook
 
-#~ # For matplotlib to Qt5 : 
-#~ #   * this avoid tinker problem when not installed
-#~ #   * work better with GUI
-#~ #   * trigger a warning on notebook
-#~ import matplotlib
-#~ import warnings
-#~ with warnings.catch_warnings():
-    #~ try:                                                                                                                                                                                                                                    
-        #~ warnings.simplefilter("ignore")
-        #~ matplotlib.use('Qt5Agg')                                                                                                                                                                                                            
-    #~ except:
-        #~ # on server without screen this is not possible.
-        #~ pass
-
+import matplotlib
+if os.getenv('TDC_IN_CONTAINER', None) == '1':
+    matplotlib.use('agg')
+else:
+    with warnings.catch_warnings():
+        try:                                                                                                                                                                                                                                    
+            warnings.simplefilter("ignore")
+            matplotlib.use('Qt5Agg')                                                                                                                                                                                                            
+        except:
+            # on server without screen this is not possible.
+            matplotlib.use('agg')
 
 from .datasets import download_dataset, get_dataset
 

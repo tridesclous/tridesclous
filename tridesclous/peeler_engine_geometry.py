@@ -319,7 +319,6 @@ class PeelerEngineGeometrical(PeelerEngineGeneric):
             
         
         #~ print('ici',)
-        #~ exit()
         
 
         # DEBUG OMP

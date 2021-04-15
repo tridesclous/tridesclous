@@ -146,8 +146,7 @@ def test_catalogue_constructor():
         t1 = time.perf_counter()
         cc.cache_some_waveforms()
         t2 = time.perf_counter()
-        print('auto_split_cluster', t2-t1)
-        exit()
+        print('cache_some_waveforms', t2-t1)
         
         t1 = time.perf_counter()
         cc.auto_split_cluster()
@@ -342,7 +341,7 @@ def test_feature_with_lda_selection():
 if __name__ == '__main__':
     test_catalogue_constructor()
     
-    #~ compare_nb_waveforms()
+    ## compare_nb_waveforms()
     
     #~ test_make_catalogue()
     #~ test_ratio_amplitude()

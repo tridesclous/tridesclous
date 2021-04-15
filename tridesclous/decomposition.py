@@ -59,7 +59,7 @@ class GlobalPCA:
             waveforms = cc.get_some_waveforms(peaks_index=peaks_index)
             #~ print('subset selection', waveforms.shape[0])
         
-        print(waveforms.shape)
+        #~ print(waveforms.shape)
         flatten_waveforms = waveforms.reshape(waveforms.shape[0], -1)
         #~ self.pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, **params)
         self.pca =  sklearn.decomposition.TruncatedSVD(n_components=n_components, **params)

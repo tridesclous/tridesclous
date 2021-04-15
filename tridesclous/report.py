@@ -115,7 +115,7 @@ def summary_noise(dataio, chan_grp=None):
         reduce_noise_vector = "[{}]".format(' '.join(noise_txt))
     
     
-    relative_threshold = cc.info['peak_detector_params']['relative_threshold']
+    relative_threshold = cc.info['peak_detector']['relative_threshold']
     
     d =dict(chan_grp=chan_grp,
         nb_chan=len(channels),

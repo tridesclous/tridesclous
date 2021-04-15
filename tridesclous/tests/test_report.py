@@ -62,17 +62,17 @@ def test_generate_report():
 
 if __name__ == '__main__':
     
-    #~ setup_module()
+    setup_module()
     
-    #~ test_summary_catalogue_clusters()
+    test_summary_catalogue_clusters()
     
-    #~ test_summary_noise()
+    test_summary_noise()
     
-    #~ test_summary_after_peeler_clusters()
+    test_summary_after_peeler_clusters()
     
     #~ plt.show()
     
     test_generate_report()
     
-    plt.show()
+    #~ plt.show()
 

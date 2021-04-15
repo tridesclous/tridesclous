@@ -51,7 +51,6 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
         
         assert self.internal_dtype == 'float32'
         
-        #~ if self.argmin_method == 'opencl':
         OpenCL_Helper.initialize_opencl(self, cl_platform_index=self.cl_platform_index, cl_device_index=self.cl_device_index)
         
         PeelerEngineGeneric.initialize(self, processor_engine='opencl', **kargs)
@@ -786,7 +785,6 @@ class PeelerEngineGeometricalCl(PeelerEngineGeneric):
                 #~ print('self.best_distance', self.best_distance, self.distance_limit)
                 print()
             
-            #~ exit()
             
             cluster_idx = self.next_spike[0]['cluster_idx']
             if self.next_spike[0]['cluster_idx'] >= 0:

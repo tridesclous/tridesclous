@@ -86,7 +86,7 @@ def plot_signals(dataio_or_cataloguecconstructor, chan_grp=0, seg_num=0, time_sl
                 ax.plot(times[peak_indexes], sigs[peak_indexes, i], ls='None', marker='o', color='k')
         
         if with_span:
-            d = cataloguecconstructor.info['peak_detector_params']
+            d = cataloguecconstructor.info['peak_detector']
             s = d['peak_span_ms'] / 1000.
             for ind in peak_indexes:
                 ax.axvspan(times[ind]-s, times[ind]+s, color='b', alpha = .3)
@@ -296,7 +296,7 @@ def plot_centroids(arg0, labels=[], alpha=1, neighborhood_radius=None, **kargs):
             ind = cc.index_of_label(label)
             label_inds.append(ind)
             
-        ratio_mad = cc.info['peak_detector_params']['relative_threshold']
+        ratio_mad = cc.info['peak_detector']['relative_threshold']
         
     elif isinstance(arg0, dict) and 'clusters' in arg0:
         catalogue = arg0

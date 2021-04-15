@@ -50,10 +50,10 @@ def test_auto_split():
     print(cc)
     print(cc.n_jobs)
     
-    #~ t1 = time.perf_counter()
-    #~ cc.cache_some_waveforms()
-    #~ t2 = time.perf_counter()
-    #~ print('cache_some_waveforms', t2-t1)
+    t1 = time.perf_counter()
+    cc.cache_some_waveforms()
+    t2 = time.perf_counter()
+    print('cache_some_waveforms', t2-t1)
     
     t1 = time.perf_counter()
     cc.auto_split_cluster()
@@ -149,11 +149,11 @@ def test_trash_small_cluster():
     
     
 if __name__ == '__main__':
-    #~ setup_module()
+    setup_module()
     test_auto_split()
-    #~ test_trash_not_aligned()
-    #~ test_auto_merge()
-    #~ test_trash_low_extremum()
-    #~ test_trash_small_cluster()
+    test_trash_not_aligned()
+    test_auto_merge()
+    test_trash_low_extremum()
+    test_trash_small_cluster()
     
     

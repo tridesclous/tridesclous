@@ -136,7 +136,6 @@ def test_compare_offline_online_engines():
     
     #~ pad_width = int(sample_rate/highpass_freq)*4
     #~ print('pad_width', pad_width)
-    #~ exit()
     
     params = {
                 'common_ref_removal' : False,

@@ -115,7 +115,6 @@ class PeelerEngineTesting(PeelerEngineClassic):
         #~ s = np.sum((pred_wf**2*weigth)>(residual*weigth))
         accept_template = s >np.sum(weigth) * thresh_ratio
         #~ print(s, np.sum(weigth) , np.sum(weigth)  * thresh_ratio)
-        #~ exit()
         
         
         #DEBUG

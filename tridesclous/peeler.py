@@ -19,7 +19,6 @@ from .peeler_tools import _dtype_spike
 
 from tqdm import tqdm
 
-from .peeler_engine_classic import PeelerEngineClassic
 #~ from .peeler_engine_testing import PeelerEngineTesting
 from .peeler_engine_geometry import PeelerEngineGeometrical
 from .peeler_engine_geometry_cl import PeelerEngineGeometricalCl
@@ -28,7 +27,6 @@ from .peeler_engine_geometry_cl import PeelerEngineGeometricalCl
 
 
 peeler_engines = {
-    'classic' : PeelerEngineClassic,
     #~ 'testing' : PeelerEngineTesting,
     'geometrical' : PeelerEngineGeometrical,
     'geometrical_opencl' : PeelerEngineGeometricalCl,

@@ -46,6 +46,10 @@ class ArrayCollection:
                 
             json.dump(d, f, indent=4)        
     
+    def _nb_ref(self, name):
+        nb_ref = sys.getrefcount(self._array[name]) -1 
+        return nb_ref
+    
     def _check_nb_ref(self, name):
         """Check if an array is not refrenced outside this class and aparent
         Usefull before deleting.
@@ -231,7 +235,8 @@ class ArrayCollection:
 
         memory_mode = self._array_attr[name]['memory_mode']
         if memory_mode=='ram':
-            self._array[name].append(arr)
+            # self._array[name].append(arr)
+            self._array[name] = np.append(self._array[name], arr)
         elif memory_mode=='memmap':
             old_shape = self._array[name].shape
             if len(old_shape) > 1:
@@ -249,6 +254,10 @@ class ArrayCollection:
             # reopen memmap
             self._array[name] = np.memmap(self._fname(name), dtype=arr.dtype,
                                                 mode='r+', shape=new_shape)
+
+            if self.parent is not None:
+                setattr(self.parent, name, self._array[name])
+
     
     def flush_array(self, name):
         memory_mode = self._array_attr[name]['memory_mode']

@@ -63,7 +63,7 @@ def test_export_catalogue_spikes():
     
     
 if __name__ == '__main__':
-    #~ setup_module()
-    #~ test_export()
+    setup_module()
+    test_export()
     test_export_catalogue_spikes()
 
