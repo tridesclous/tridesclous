@@ -7,8 +7,6 @@ from .catalogueconstructor import CatalogueConstructor
 from .tools import make_color_dict, get_neighborhood
 
 
-import matplotlib.pyplot as plt
-
 try:
     import matplotlib.pyplot as plt
     print('Problem import matplotlib.pyplot as plt')
