@@ -11,7 +11,7 @@ from tridesclous.cataloguetools import apply_all_catalogue_steps
 from tridesclous.autoparams import get_auto_params_for_catalogue
 
 def is_running_on_ci_cloud():
-    return True
+    
     if os.environ.get('TRAVIS') in ('true', 'True'):
         return True
     

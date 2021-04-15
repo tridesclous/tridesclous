@@ -6,9 +6,7 @@ import shutil
 from tridesclous.dataio import DataIO
 from tridesclous.catalogueconstructor import CatalogueConstructor
 
-from tridesclous import mkQApp, CatalogueWindow
 
-from matplotlib import pyplot
 
 from tridesclous.tests.testingtools import setup_catalogue
 

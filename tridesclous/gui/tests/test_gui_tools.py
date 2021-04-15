@@ -1,7 +1,16 @@
-from tridesclous.gui.tools import *
-from tridesclous.gui.gui_params import cluster_params_by_methods, fullchain_params
-
 import pytest
+
+from tridesclous.tests.testingtools import ON_CI_CLOUD
+from tridesclous.gui.tests.testingguitools import HAVE_QT5
+
+
+if not HAVE_QT5:
+    import  pyqtgraph as pg
+    from tridesclous.gui import *
+    from tridesclous.gui.tools import *
+    from tridesclous.gui.gui_params import cluster_params_by_methods, fullchain_params
+
+
 
 from pprint import pprint
 

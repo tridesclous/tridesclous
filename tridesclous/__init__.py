@@ -24,7 +24,8 @@ if os.getenv('TDC_IN_CONTAINER', None) == '1':
     matplotlib.use('agg')
 else:
     with warnings.catch_warnings():
-        try:                                                                                                                                                                                                                                    
+        try:
+            import PyQt5
             warnings.simplefilter("ignore")
             matplotlib.use('Qt5Agg')                                                                                                                                                                                                            
         except:
@@ -55,5 +56,5 @@ from .importers import import_from_spykingcircus, import_from_spike_interface
 #~ from .matplotlibplot import *
 from .report import *
 
-from .gui import *
+# from .gui import *
 

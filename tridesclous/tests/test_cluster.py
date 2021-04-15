@@ -6,7 +6,7 @@ import shutil
 from tridesclous.dataio import DataIO
 from tridesclous.catalogueconstructor import CatalogueConstructor
 
-from tridesclous import mkQApp, CatalogueWindow
+
 
 from matplotlib import pyplot
 
@@ -46,6 +46,7 @@ def test_sawchaincut():
 
 
     if __name__ == '__main__':
+        from tridesclous.gui import mkQApp, CatalogueWindow
         app = mkQApp()
         win = CatalogueWindow(cc)
         win.show()
@@ -79,6 +80,7 @@ def test_pruningshears():
     print('cluster', t1-t0)
 
     if __name__ == '__main__':
+        from tridesclous.gui import mkQApp, CatalogueWindow
         app = mkQApp()
         win = CatalogueWindow(cc)
         win.show()

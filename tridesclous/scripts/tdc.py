@@ -10,6 +10,7 @@ import argparse
 
 import pyqtgraph as pg
 import tridesclous as tdc
+import tridesclous.gui as tdcgui
 
 comand_list =[
     'mainwin',
@@ -26,7 +27,7 @@ txt_command_list = ', '.join(comand_list)
 
 def open_mainwindow():
     app = pg.mkQApp()
-    win = tdc.MainWindow()
+    win = tdcgui.MainWindow()
     win.show()
     app.exec_()
 
@@ -77,20 +78,20 @@ def main():
     elif command=='cataloguewin':
         catalogueconstructor = tdc.CatalogueConstructor(dataio=dataio, chan_grp=args.chan_grp)
         app = pg.mkQApp()
-        win = tdc.CatalogueWindow(catalogueconstructor)
+        win = tdcgui.CatalogueWindow(catalogueconstructor)
         win.show()
         app.exec_()    
         
     elif command=='peelerwin':
         initial_catalogue = dataio.load_catalogue(chan_grp=args.chan_grp)
         app = pg.mkQApp()
-        win = tdc.PeelerWindow(dataio=dataio, catalogue=initial_catalogue)
+        win = tdcgui.PeelerWindow(dataio=dataio, catalogue=initial_catalogue)
         win.show()
         app.exec_()
     
     elif command=='init':
         app = pg.mkQApp()
-        win = tdc.InitializeDatasetWindow()
+        win = tdcgui.InitializeDatasetWindow()
         win.show()
         app.exec_()
         

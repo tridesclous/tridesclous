@@ -8,8 +8,6 @@ import time
 import os
 import shutil
 
-import  pyqtgraph as pg
-
 from tridesclous.dataio import DataIO
 from tridesclous.catalogueconstructor import CatalogueConstructor
 from tridesclous import Peeler

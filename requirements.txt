@@ -8,6 +8,7 @@ seaborn
 neo
 tqdm
 numba
+cython
 hdbscan
 loky
 
