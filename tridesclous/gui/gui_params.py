@@ -317,9 +317,9 @@ _common_peeler_params = [
     
 ]
 
-_classic_peeler_params = _common_peeler_params + [
-    {'name': 'argmin_method', 'type': 'list', 'values' : [ 'numpy', 'opencl', 'numba',]},
-]
+#~ _classic_peeler_params = _common_peeler_params + [
+    #~ {'name': 'argmin_method', 'type': 'list', 'values' : [ 'numpy', 'opencl', 'numba',]},
+#~ ]
 
 _geometrical_peeler_params = _common_peeler_params + [
     #~ {'name':'adjacency_radius_um', 'type': 'float', 'value':100., 'suffix': 'µm', 'siPrefix': False},
@@ -331,7 +331,7 @@ _geometrical_opencl_peeler_params = _common_peeler_params + [
 
 
 peeler_params_by_methods = OrderedDict([
-    ('classic', _classic_peeler_params),
+    #~ ('classic', _classic_peeler_params),
     ('geometrical', _geometrical_peeler_params),
     ('geometrical_opencl', _geometrical_opencl_peeler_params),
 ])
