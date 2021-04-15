@@ -20,17 +20,28 @@ import warnings
 #   * trigger a warning on notebook
 
 import matplotlib
-if os.getenv('TDC_IN_CONTAINER', None) == '1':
-    matplotlib.use('agg')
-else:
+try:
+    import PyQt5
+    HAVE_PYQT5 = True
+except:
+    HAVE_PYQT5 = False
+
+if HAVE_PYQT5:
     with warnings.catch_warnings():
-        try:
-            import PyQt5
             warnings.simplefilter("ignore")
-            matplotlib.use('Qt5Agg')                                                                                                                                                                                                            
+            matplotlib.use('Qt5Agg')
         except:
-            # on server without screen this is not possible.
-            matplotlib.use('agg')
+            pass
+
+#~ if os.getenv('TDC_IN_CONTAINER', None) == '1':
+    #~ matplotlib.use('agg')
+#~ else:
+    #~ with warnings.catch_warnings():
+            #~ warnings.simplefilter("ignore")
+            #~ matplotlib.use('Qt5Agg')
+        #~ except:
+            #~ # on server without screen this is not possible.
+            #~ matplotlib.use('agg')
 
 from .datasets import download_dataset, get_dataset
 
