@@ -52,7 +52,7 @@ jobs:
           name: run tests
           command: |
             . venv/bin/activate
-            pytest tridesclous/tridesclous/tests
+            pytest tridesclous/tests
 
       - store_artifacts:
           path: test-reports
