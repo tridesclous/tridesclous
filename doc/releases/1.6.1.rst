@@ -1,0 +1,9 @@
+tridesclous release notes 1.6.1
+===============================
+
+**2021-04-14**
+
+  * remove classic peeler
+  * many bug fix
+  * handle matplotlib and pyqt5 import on docker
+  * various try to improve peeler
