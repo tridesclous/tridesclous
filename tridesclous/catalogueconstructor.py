@@ -7,11 +7,6 @@
 """
 
 import os
-if os.getenv('TDC_IN_CONTAINER', None) == '1':
-    import matplotlib
-    matplotlib.use('agg')
-
-import os
 import json
 from collections import OrderedDict
 import time
