@@ -8,9 +8,9 @@ from .tools import make_color_dict, get_neighborhood
 
 try:
     import matplotlib.pyplot as plt
-except:
     print('Problem import matplotlib.pyplot as plt')
-
+except:
+    pass
     
     
 def plot_probe_geometry(dataio, chan_grp=0,  margin=150, channel_number_mode='absolut'):
