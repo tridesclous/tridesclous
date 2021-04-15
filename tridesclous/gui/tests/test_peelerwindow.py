@@ -1,10 +1,17 @@
 from tridesclous import *
-import  pyqtgraph as pg
+
 from matplotlib import pyplot
 import time
 
 import pytest
 from tridesclous.tests.testingtools import ON_CI_CLOUD, setup_catalogue
+from tridesclous.gui.tests.testingguitools import HAVE_QT5
+
+
+
+if not HAVE_QT5:
+    import  pyqtgraph as pg
+    from tridesclous.gui import *
 
 def setup_module():
     dirname = 'test_peelerwindow'
@@ -14,7 +21,7 @@ def setup_module():
     initial_catalogue = dataio.load_catalogue(chan_grp=0)
     peeler = Peeler(dataio)
     peeler.change_params(catalogue=initial_catalogue, engine='geometrical',
-                    chunksize=1024, argmin_method='numba')
+                    chunksize=1024)
     t1 = time.perf_counter()
     peeler.run(progressbar=False)
     t2 = time.perf_counter()
@@ -130,16 +137,16 @@ def test_PeelerWindow():
     
     
 if __name__ == '__main__':
-    setup_module()
+    #~ setup_module()
     
-    #~ test_Peelercontroller()
+    test_Peelercontroller()
     
-    #~ test_PeelerTraceViewer()
-    #~ test_SpikeList()
-    #~ test_ClusterSpikeList()
-    #~ test_PeelerWaveformViewer()
-    #~ test_ISIViewer()
-    #~ test_CrossCorrelogramViewer()
+    test_PeelerTraceViewer()
+    test_SpikeList()
+    test_ClusterSpikeList()
+    test_PeelerWaveformViewer()
+    test_ISIViewer()
+    test_CrossCorrelogramViewer()
     
     test_PeelerWindow()
 

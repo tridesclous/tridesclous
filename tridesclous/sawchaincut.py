@@ -15,7 +15,7 @@ import scipy.stats
 from sklearn.neighbors import KernelDensity
 
 
-import matplotlib.pyplot as plt
+
 
 
 
@@ -83,6 +83,7 @@ class SawChainCut:
         ind_min,  = np.nonzero((d0>d1) & (d2>=d1))
         ind_min += 1
         
+        #~ import matplotlib.pyplot as plt
         #~ print('ind_max', ind_max)
         #~ print('ind_min', ind_min)
         #~ fig, ax = plt.subplots()
@@ -268,6 +269,7 @@ class SawChainCut:
             
             #~ if True:
             if False:
+                import matplotlib.pyplot as plt
                 if not os.path.exists('debug_sawchaincut'):
                     os.mkdir('debug_sawchaincut')
                 
@@ -275,6 +277,8 @@ class SawChainCut:
                     self.n_cut += 1
                 else:
                     self.n_cut = 0
+                    
+                    #~ import matplotlib.pyplot as plt
                     #~ fig, ax = plt.subplots()
                     #~ ax.plot(np.arange(self.smooth_kernel.size)*self.binsize, self.smooth_kernel)
                     #~ fig.savefig('debug_sawchaincut/smooth_kernel.png')

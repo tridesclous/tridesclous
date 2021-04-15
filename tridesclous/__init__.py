@@ -11,28 +11,39 @@
 
 """
 from .version import version as __version__
-
 import os
-if os.getenv('TDC_IN_CONTAINER', None) == '1':
-    import matplotlib
-    matplotlib.use('agg')
-
-# import PyQt5 # this force pyqtgraph to deal with Qt5
+import warnings
 
 # For matplotlib to Qt5 : 
 #   * this avoid tinker problem when not installed
 #   * work better with GUI
 #   * trigger a warning on notebook
-import matplotlib
-import warnings
-with warnings.catch_warnings():
-    try:                                                                                                                                                                                                                                    
-        warnings.simplefilter("ignore")
-        matplotlib.use('Qt5Agg')                                                                                                                                                                                                            
-    except:
-        # on server without screen this is not possible.
-        pass
 
+import matplotlib
+try:
+    import PyQt5
+    HAVE_PYQT5 = True
+except:
+    HAVE_PYQT5 = False
+
+if HAVE_PYQT5:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        try:
+            matplotlib.use('Qt5Agg')
+        except:
+            pass
+
+#~ if os.getenv('TDC_IN_CONTAINER', None) == '1':
+    #~ matplotlib.use('agg')
+#~ else:
+    #~ with warnings.catch_warnings():
+            #~ warnings.simplefilter("ignore")
+            #~ try:
+                #~ matplotlib.use('Qt5Agg')
+            #~ except:
+                #~ # on server without screen this is not possible.
+                #~ matplotlib.use('agg')
 
 from .datasets import download_dataset, get_dataset
 
@@ -55,8 +66,8 @@ from .autoparams import get_auto_params_for_catalogue, get_auto_params_for_peele
 
 from .importers import import_from_spykingcircus, import_from_spike_interface
 
-from .matplotlibplot import *
+#~ from .matplotlibplot import *
 from .report import *
 
-from .gui import *
+# from .gui import *
 

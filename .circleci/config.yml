@@ -7,11 +7,11 @@ workflows:
   version: 2
   test:
     jobs:
-      - test-3.7
+      - test-3.8
 jobs:
-  test-3.7:
+  test-3.8:
     docker:
-      - image: circleci/python:3.7.7-buster
+      - image: circleci/python:3.8.7-buster
 
     working_directory: ~/repo
 
@@ -30,8 +30,9 @@ jobs:
           command: |
             python3 -m venv venv
             . venv/bin/activate
-            pip install -r requirements.txt
             pip install -r .circleci/requirements_testing.txt
+            pip install -r requirements.txt
+
 
 
       - save_cache:
@@ -51,7 +52,7 @@ jobs:
           name: run tests
           command: |
             . venv/bin/activate
-            pytest tridesclous
+            pytest tridesclous/tests
 
       - store_artifacts:
           path: test-reports

@@ -235,7 +235,7 @@ class MainWindow(QT.QMainWindow):
     def _refresh_recetly_opened(self):
         self.recetly_opened_menu.clear()
         for dirname in self.recently_opened():
-            act = self.recetly_opened_menu.addAction(dirname)
+            act = self.recetly_opened_menu.addAction(str(dirname))
             act.dirname = dirname
             act.triggered.connect(self.do_open_recent)
             
@@ -306,11 +306,9 @@ class MainWindow(QT.QMainWindow):
         # set auto params catalogue
         params = get_auto_params_for_catalogue(self.dataio, chan_grp=self.chan_grps[0])
         d = dict(params)
-        
         for k in ('feature_method', 'feature_kargs', 'cluster_method', 'cluster_kargs'):
             d.pop(k)
         self.dialog_fullchain_params.set(d)
-        
         self.dialog_method_features.set_method(params['feature_method'], params['feature_kargs'])
         self.dialog_method_cluster.set_method(params['cluster_method'], params['cluster_kargs'])
         

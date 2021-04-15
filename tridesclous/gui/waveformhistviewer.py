@@ -231,6 +231,8 @@ class WaveformHistViewer(WidgetBase):
         
         cluster_visible = self.controller.cluster_visible
         
+        noise_visible = cluster_visible.get(labelcodes.LABEL_NOISE, False)
+        
         visibles = [k for k, v in cluster_visible.items() if v and k>=-1 ]
         
         sparse = self.controller.have_sparse_template and self.params['sparse_display']
@@ -238,6 +240,8 @@ class WaveformHistViewer(WidgetBase):
         if sparse:
             if len(visibles) > 0:
                 common_channels = self.controller.get_common_sparse_channels(visibles)
+            elif noise_visible:
+                common_channels = self.controller.channels
             else:
                 common_channels = np.array([], dtype='int64')
         else:
@@ -248,7 +252,7 @@ class WaveformHistViewer(WidgetBase):
             self.plot.removeItem(curve)
         self.curves = []
         
-        if len(visibles)>self.params['max_label'] or len(visibles)==0:
+        if len(visibles)>self.params['max_label'] or (len(visibles)==0 and not noise_visible):
             self.image.hide()
             return
         
@@ -266,11 +270,17 @@ class WaveformHistViewer(WidgetBase):
         ind_keep, = np.nonzero(keep)
         
         if self.params['data']=='waveforms':
-            if ind_keep.size == 0:
+            if ind_keep.size == 0 and not noise_visible:
                 self.plot.clear()
                 return
             seg_nums = self.controller.spikes['segment'][ind_keep]
             peak_sample_indexes = self.controller.spikes['index'][ind_keep]
+            
+            if noise_visible:
+                noise_index = self.controller.some_noise_index
+                seg_nums = np.concatenate([seg_nums, noise_index['segment']], axis=0)
+                peak_sample_indexes = np.concatenate([peak_sample_indexes, noise_index['index']], axis=0)
+            
             data_kept = self.controller.get_some_waveforms(seg_nums, peak_sample_indexes, channel_indexes=common_channels)
             
             if data_kept.size == 0:

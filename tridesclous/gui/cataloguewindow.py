@@ -4,6 +4,7 @@ from .myqt import QT
 import pyqtgraph as pg
 
 from ..catalogueconstructor import _default_n_spike_for_centroid
+from ..export import export_catalogue_spikes
 
 from .cataloguecontroller import CatalogueController
 from .traceviewer import CatalogueTraceViewer
@@ -174,7 +175,17 @@ class CatalogueWindow(QT.QMainWindow):
         self.toolbar.addAction(self.help_act)
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.act_savepoint)
-    
+        
+        # export peaks
+        self.toolbar.addSeparator()
+        menu = QT.QMenu()
+        toolButton = QT.QToolButton()
+        toolButton.setMenu(menu)
+        toolButton.setPopupMode(QT.QToolButton.InstantPopup)
+        self.toolbar.addWidget(toolButton)
+        do_export_peaks = QT.QAction('Export peaks', self)
+        do_export_peaks.triggered.connect(self.export_peaks)
+        menu.addAction(do_export_peaks)    
 
     def warn(self, title, text):
         mb = QT.QMessageBox.warning(self, title,text, QT.QMessageBox.Ok ,  QT.QMessageBox.NoButton)
@@ -222,6 +233,9 @@ class CatalogueWindow(QT.QMainWindow):
     def redetect_peak(self):
         dia = ParamDialog(gui_params.peak_detector_params)
         dia.resize(450, 500)
+        d = self.catalogueconstructor.info['peak_detector']
+        dia.set(d)
+        
         if dia.exec_():
             d = dia.get()
             self.catalogueconstructor.re_detect_peak(**d)
@@ -262,6 +276,12 @@ class CatalogueWindow(QT.QMainWindow):
         ]        
         
         dia = ParamDialog(params_)
+        d = {}
+        for k in ('extract_waveforms', 'clean_peaks', 'noise_snippet', 'peak_sampler'):
+            d[k] = self.catalogueconstructor.info[k]
+        dia.set(d)
+
+        
         dia.resize(450, 500)
         if dia.exec_():
             d = dia.get()
@@ -277,14 +297,16 @@ class CatalogueWindow(QT.QMainWindow):
             self.refresh()
 
     def new_features(self):
-        method, kargs = open_dialog_methods(gui_params.features_params_by_methods, self)
+        method, kargs = open_dialog_methods(gui_params.features_params_by_methods, self,
+                    selected_method=self.catalogueconstructor.info['feature_method'])
         if method is not None:
             self.catalogueconstructor.extract_some_features(method=method, **kargs)
             self.refresh()
 
 
     def new_cluster(self):
-        method, kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self)
+        method, kargs = open_dialog_methods(gui_params.cluster_params_by_methods, self,
+                    selected_method=self.catalogueconstructor.info['cluster_method'])
         if method is not None:
             self.catalogueconstructor.find_clusters(method=method, **kargs)
             self.controller.check_plot_attributes()
@@ -302,6 +324,8 @@ class CatalogueWindow(QT.QMainWindow):
             #TODO refresh only metrics concerned
             self.refresh()
         
-        
-    
+    def export_peaks(self):
+        #~ print('export_peaks')
+        cc = self.catalogueconstructor
+        export_catalogue_spikes(cc, export_path=None, formats=None)
 

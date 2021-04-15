@@ -53,7 +53,7 @@ def test_catalogue_constructor():
                     lowpass_freq=5000.,
                     common_ref_removal=False,
                     smooth_size=0,
-                    lostfront_chunksize = None)
+                    pad_width = None)
             
             
             cc.set_peak_detector_params(
@@ -142,6 +142,12 @@ def test_catalogue_constructor():
             
             print(cc)
         
+        
+        t1 = time.perf_counter()
+        cc.cache_some_waveforms()
+        t2 = time.perf_counter()
+        print('cache_some_waveforms', t2-t1)
+        
         t1 = time.perf_counter()
         cc.auto_split_cluster()
         t2 = time.perf_counter()
@@ -214,7 +220,7 @@ def compare_nb_waveforms():
             lowpass_freq=5000.,
             common_ref_removal=False,
             smooth_size=0,
-            lostfront_chunksize = None)
+            pad_width = None)
     
     
     cc.set_peak_detector_params(
@@ -335,7 +341,7 @@ def test_feature_with_lda_selection():
 if __name__ == '__main__':
     test_catalogue_constructor()
     
-    #~ compare_nb_waveforms()
+    ## compare_nb_waveforms()
     
     #~ test_make_catalogue()
     #~ test_ratio_amplitude()

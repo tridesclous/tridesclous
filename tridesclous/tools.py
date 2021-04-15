@@ -112,6 +112,7 @@ def open_prb(probe_filename):
     channel_groups = d['channel_groups']
     return channel_groups
 
+read_prb = open_prb
 
 def create_prb_file_from_dict(channel_groups, filename):
     # transform array to list
@@ -342,6 +343,20 @@ def compute_cross_correlograms(spike_indexes, spike_labels,
     return correlograms, bins
     
 
+
+def get_color_palette(n, palette='husl', output='int32'):
+    # this depend now on seaborn but seaborn will be renmoved as dependency soon
+    # because it break joblib
+    import seaborn as sns
+    
+    if output == 'rgb':
+        colors = sns.color_palette(palette, n)
+        return colors
+    elif output == 'int32':
+        colors_int32 = np.array([rgba_to_int32(r,g,b) for r,g,b in sns.color_palette(palette, n)])
+        return colors_int32
+    else:
+        raise NotImplementedError
 
 
 def int32_to_rgba(v, mode='int'):

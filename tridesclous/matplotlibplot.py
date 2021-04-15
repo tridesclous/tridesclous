@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
+
 
 from .tools import median_mad
 from .dataio import DataIO
@@ -7,6 +7,11 @@ from .catalogueconstructor import CatalogueConstructor
 from .tools import make_color_dict, get_neighborhood
 
 
+try:
+    import matplotlib.pyplot as plt
+    print('Problem import matplotlib.pyplot as plt')
+except:
+    pass
     
     
 def plot_probe_geometry(dataio, chan_grp=0,  margin=150, channel_number_mode='absolut'):
@@ -86,7 +91,7 @@ def plot_signals(dataio_or_cataloguecconstructor, chan_grp=0, seg_num=0, time_sl
                 ax.plot(times[peak_indexes], sigs[peak_indexes, i], ls='None', marker='o', color='k')
         
         if with_span:
-            d = cataloguecconstructor.info['peak_detector_params']
+            d = cataloguecconstructor.info['peak_detector']
             s = d['peak_span_ms'] / 1000.
             for ind in peak_indexes:
                 ax.axvspan(times[ind]-s, times[ind]+s, color='b', alpha = .3)
@@ -296,7 +301,7 @@ def plot_centroids(arg0, labels=[], alpha=1, neighborhood_radius=None, **kargs):
             ind = cc.index_of_label(label)
             label_inds.append(ind)
             
-        ratio_mad = cc.info['peak_detector_params']['relative_threshold']
+        ratio_mad = cc.info['peak_detector']['relative_threshold']
         
     elif isinstance(arg0, dict) and 'clusters' in arg0:
         catalogue = arg0
@@ -391,13 +396,13 @@ def plot_waveforms_histogram(arg0, label=None, ax=None, channels=None,
         spike_labels = cc.all_peaks['cluster_label'][cc.some_peaks_index]
         #~ wf = cc.some_waveforms[spike_labels==label]
         ind, = np.nonzero(cc.all_peaks['cluster_label'] == label)
-        wf = cc.get_some_waveforms(peak_index=ind)
+        wf = cc.get_some_waveforms(peaks_index=ind)
         wf = wf[:, :, channels]
         if units in ('uV', 'μV'):
             wf = wf * cc.signals_mads[channels][None, None, :] * dataio.datasource.bit_to_microVolt
 
-        n_left = cc.info['waveform_extractor_params']['n_left']
-        n_right = cc.info['waveform_extractor_params']['n_right']
+        n_left = cc.info['extract_waveforms']['n_left']
+        n_right = cc.info['extract_waveforms']['n_right']
     
     elif isinstance(arg0, dict) and 'clusters' in arg0:
         catalogue = arg0

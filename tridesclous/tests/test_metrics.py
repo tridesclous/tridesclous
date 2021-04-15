@@ -1,5 +1,5 @@
 from tridesclous import *
-import  pyqtgraph as pg
+
 import matplotlib.pyplot as plt
 
 from tridesclous.tests.testingtools import setup_catalogue

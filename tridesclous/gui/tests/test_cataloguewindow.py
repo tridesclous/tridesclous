@@ -1,5 +1,4 @@
 from tridesclous import *
-import  pyqtgraph as pg
 from matplotlib import pyplot
 
 # run test_catalogueconstructor.py before this
@@ -7,6 +6,11 @@ from matplotlib import pyplot
 
 import pytest
 from tridesclous.tests.testingtools import ON_CI_CLOUD, setup_catalogue
+from tridesclous.gui.tests.testingguitools import HAVE_QT5
+
+if not HAVE_QT5:
+    import  pyqtgraph as pg
+    from tridesclous.gui import *
 
 
 def setup_module():

@@ -49,16 +49,31 @@ class PeelerThread(ThreadPollInput):
                 self.output_streams['spikes'].send(spikes, index=total_spike)
         
     
-    def change_params(self, **kargs):
-        print('PeelerThread.change_params')
+    def change_params(self, **peeler_params):
+        #~ print('PeelerThread.change_params')
         with self.mutex:
-            self.peeler.change_params(**kargs)
+            # complicated hack pad_width can be changed on the fly
+            # because it break the index stream with advance or delay
+            # so we always forec the prvious one!!!!
+            if hasattr(self.peeler, 'peeler_engine') and hasattr(self.peeler.peeler_engine, 'signalpreprocessor'):
+                #~ print(self.peeler.peeler_engine.signalpreprocessor.pad_width)
+                prev_pad_width = self.peeler.peeler_engine.signalpreprocessor.pad_width
+                #~ if 'pad_width' in catalogue['signal_preprocessor_params']:
+                peeler_params['catalogue']['signal_preprocessor_params']['pad_width'] = prev_pad_width
+                #~ print('*'*50)
+                #~ print('Force prev_pad_width', prev_pad_width)
+                #~ print('*'*50)
+            else:
+                prev_pad_width = None
+
+            self.peeler.change_params(**peeler_params)
             
             buffer_spike_index = self.output_streams['spikes'].last_index
             #~ print('buffer_spike_index', buffer_spike_index)
             
-            # TODO check tha lostfront_chunksize have not changed bechause
+            # TODO check tha pad_width have not changed bechause
             # head index will be out
+            
             
             
             self.peeler.initialize_online_loop(sample_rate=self.sample_rate,
@@ -66,6 +81,10 @@ class PeelerThread(ThreadPollInput):
                                                 source_dtype=self.input_stream().params['dtype'],
                                                 geometry=self.geometry,
                                                 )
+            
+            #~ print('*'*50)
+            #~ print(self.peeler.peeler_engine.signalpreprocessor.pad_width)
+            #~ print('*'*50)
             
             #~ print('self.peeler.peeler_engine.total_spike', self.peeler.peeler_engine.total_spike)
             self.peeler.peeler_engine.total_spike = buffer_spike_index
@@ -88,12 +107,12 @@ class OnlinePeeler(Node):
         Node.__init__(self, **kargs)
     
     def _configure(self, in_group_channels=None, catalogue=None, chunksize=None,
-                                    internal_dtype='float32', peeler_engine='classic',
+                                    internal_dtype='float32', 
                                     geometry=None,
-                                    **peeler_engine_kargs):
+                                    **peeler_params):
         
-        if 'engine' in peeler_engine_kargs:
-            peeler_engine = peeler_engine_kargs.pop('engine')
+        #~ if 'engine' in peeler_engine_kargs:
+            #~ peeler_engine = peeler_engine_kargs.pop('engine')
         #~ print('peeler_engine', peeler_engine)
         
         assert geometry is not None
@@ -102,9 +121,9 @@ class OnlinePeeler(Node):
         self.catalogue = catalogue
         self.chunksize = chunksize
         self.internal_dtype = internal_dtype
-        self.peeler_engine = peeler_engine
+        
         self.geometry = geometry
-        self.peeler_engine_kargs = peeler_engine_kargs
+        self.peeler_params = peeler_params
         
         
 
@@ -147,13 +166,15 @@ class OnlinePeeler(Node):
         pass
     
     def change_catalogue(self, catalogue):
-        print('change_catalogue', catalogue['label_to_index'])
+        print('change_catalogue', )
+        #~ print(catalogue['label_to_index'])
+        print('self.peeler_params', self.peeler_params)
         self.catalogue = catalogue
         #~ self.thre.change_params(catalogue=self.catalogue, 
                                         #~ chunksize=self.chunksize, internal_dtype=self.internal_dtype,)
         self.thread.change_params(catalogue=catalogue, 
                                         chunksize=self.chunksize, internal_dtype=self.internal_dtype,
-                                        engine=self.peeler_engine, **self.peeler_engine_kargs)
+                                        **self.peeler_params)
                                         
                                         
         

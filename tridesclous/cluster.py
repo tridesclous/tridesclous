@@ -15,7 +15,6 @@ from . import labelcodes
 from .tools import median_mad
 
 
-import matplotlib.pyplot as plt
 from .dip import diptest
 
 from .sawchaincut import SawChainCut
@@ -117,19 +116,19 @@ def find_clusters(catalogueconstructor, method='kmeans', selection=None, **kargs
         
     elif method == 'sawchaincut':
         
-        n_left = cc.info['waveform_extractor_params']['n_left']
-        n_right = cc.info['waveform_extractor_params']['n_right']
-        peak_sign = cc.info['peak_detector_params']['peak_sign']
-        relative_threshold = cc.info['peak_detector_params']['relative_threshold']
+        n_left = cc.info['extract_waveforms']['n_left']
+        n_right = cc.info['extract_waveforms']['n_right']
+        peak_sign = cc.info['peak_detector']['peak_sign']
+        relative_threshold = cc.info['peak_detector']['relative_threshold']
         waveforms = cc.get_some_waveforms()
         sawchaincut = SawChainCut(waveforms, n_left, n_right, peak_sign, relative_threshold, **kargs)
         labels = sawchaincut.do_the_job()
         
     elif method == 'pruningshears':
-        n_left = cc.info['waveform_extractor_params']['n_left']
-        n_right = cc.info['waveform_extractor_params']['n_right']
-        peak_sign = cc.info['peak_detector_params']['peak_sign']
-        relative_threshold = cc.info['peak_detector_params']['relative_threshold']
+        n_left = cc.info['extract_waveforms']['n_left']
+        n_right = cc.info['extract_waveforms']['n_right']
+        peak_sign = cc.info['peak_detector']['peak_sign']
+        relative_threshold = cc.info['peak_detector']['relative_threshold']
         dense_mode = cc.info['mode'] == 'dense'
         
         geometry = cc.dataio.get_geometry(chan_grp=cc.chan_grp)

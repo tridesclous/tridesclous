@@ -27,6 +27,7 @@ import pytest
 from tridesclous.tests.testingtools import ON_CI_CLOUD
 
 
+
 def setup_module():
     setup_catalogue()
 
@@ -170,7 +171,6 @@ def test_OnlinePeeler_no_catalogue():
     #~ dataio.set_channel_groups(channel_group)
     #~ print(filenames)
     #~ print(sigs.shape)
-    #~ exit()
     
     
     channel_indexes = [5,6,7,8]
@@ -205,7 +205,6 @@ def test_OnlinePeeler_no_catalogue():
     
     pprint(empty_catalogue)
     #~ print(empty_catalogue['signal_preprocessor_params'])
-    #~ exit()
     
     
     
@@ -223,7 +222,6 @@ def test_OnlinePeeler_no_catalogue():
     ng0 = None
     dev = make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup=ng0, chunksize=chunksize)
     
-    #~ exit()
     
     app = pg.mkQApp()
     

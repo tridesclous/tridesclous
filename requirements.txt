@@ -2,16 +2,18 @@ numpy
 scipy
 pandas
 openpyxl
-scikit-learn>=0.22.2
+scikit-learn
 matplotlib
 seaborn
-neo>=0.6.1
+neo
 tqdm
 numba
+cython
 hdbscan
+loky
 
-PyQt5==5.14.0
-pyqtgraph
+# PyQt5
+# pyqtgraph
 
-sphinx>=1.7.5
+# sphinx
 

@@ -2,6 +2,7 @@ import os, sys
 import time
 import shutil
 import datetime
+from pprint import pprint
 
 import numpy as np
 from ..gui import QT
@@ -94,8 +95,8 @@ class TdcOnlineWindow(MainWindowNode):
         self.create_actions_and_menu()
         
         self.dialog_fullchain_params = ParamDialog(fullchain_params, parent=self)
-        self.dialog_fullchain_params.params['duration'] = 10. # for debug
-        self.dialog_fullchain_params.params['peak_detector', 'relative_threshold'] = 8
+        #~ self.dialog_fullchain_params.params['duration'] = 10. # for debug
+        #~ self.dialog_fullchain_params.params['peak_detector', 'relative_threshold'] = 8
         self.dialog_fullchain_params.resize(450, 600)
         
         
@@ -157,6 +158,7 @@ class TdcOnlineWindow(MainWindowNode):
                             outputstream_params={'protocol': 'tcp', 'interface':'127.0.0.1', 'transfermode':'plaindata'},
                             nodegroup_friends=None, 
                             peeler_params={},
+                            initial_catalogue_params={},
                             ):
         
         self.sample_rate = None
@@ -201,6 +203,7 @@ class TdcOnlineWindow(MainWindowNode):
             geometry = np.array(geometry, dtype='float64')
             self.all_geometry[chan_grp] = geometry
         
+        
         #~ print('self.dataio.datasource', self.dataio.datasource)
         # load exists catalogueconstructor
         self.catalogueconstructors = {}
@@ -231,6 +234,7 @@ class TdcOnlineWindow(MainWindowNode):
                 print('empty catalogue for', chan_grp)
             self.catalogues[chan_grp] = catalogue
 
+
         # make trace viewer in tabs
         self.traceviewers ={}
         self.waveformviewers = {}
@@ -254,15 +258,19 @@ class TdcOnlineWindow(MainWindowNode):
         
         self.cataloguewindows = {}
         
+        # TODO use autoparams
+        
         # peeler params = 
         self.peeler_params = {
             'engine': 'geometrical',
-            #~ 'argmin_method': 'numba',
-            'argmin_method': 'opencl',
         }
         self.peeler_params.update(peeler_params)
+        
         if 'chunksize' in self.peeler_params:
             self.peeler_params.pop('chunksize')
+        
+        self.initial_catalogue_params = initial_catalogue_params
+        
 
     def after_input_connect(self, inputname):
         if inputname !='signals':
@@ -284,14 +292,34 @@ class TdcOnlineWindow(MainWindowNode):
             assert np.all(channel_indexes<=self.total_channel), 'channel_indexes not compatible with total_channel'
             self.nb_channels[chan_grp] = len(channel_indexes)
             self.channel_names[chan_grp] = [ all_channel_names[c] for c in channel_indexes]
-        
-        # change default method depending the channel counts
-        if 1<= max(self.nb_channels.values()) <9:
-            feat_method = 'global_pca'
-        else: 
-            feat_method = 'pca_by_channel'
-        self.dialog_method_features.param_method['method'] = feat_method
+            
 
+
+        # make auto params
+        fisrt_chan_grp = list(self.channel_groups.keys())[0]
+        n = len(self.channel_groups[fisrt_chan_grp]['channels'])
+        params = get_auto_params_for_catalogue(dataio=None, chan_grp=fisrt_chan_grp,
+                                        nb_chan=n, sample_rate=self.sample_rate, context='online')
+        print('get_auto_params_for_catalogue in after_input_connect ')
+        params = dict(params)
+        
+        for k,v  in self.initial_catalogue_params.items():
+            # update default with initial_catalogue_params
+            # nested at one level
+            assert k in params , f'params "{k}" in initial_catalogue_params not handled'
+
+            if isinstance(v, dict):
+                params[k].update(v)
+            else:
+                params[k] = v
+        
+        d = dict(params)
+        for k in ('feature_method', 'feature_kargs', 'cluster_method', 'cluster_kargs'):
+            d.pop(k)
+        
+        self.dialog_fullchain_params.set(d)
+        self.dialog_method_features.set_method(params['feature_method'], params['feature_kargs'])
+        self.dialog_method_cluster.set_method(params['cluster_method'], params['cluster_kargs'])
 
     def _initialize(self, **kargs):
         
@@ -335,11 +363,13 @@ class TdcOnlineWindow(MainWindowNode):
             rtpeeler.outputs['spikes'].configure(**self.outputstream_params)
             rtpeeler.initialize()
             
-            
+            # TODO cleaner !!!!!
             peak_buffer_size = 100000
             sig_buffer_size = int(15.*self.sample_rate)
             
             if self.outputstream_params['transfermode'] != 'sharedmem':
+                print('create stream converter !!!!! no sharedmem')
+
                 #if outputstream_params is plaindata (because distant)
                 # create 2 StreamConverter to convert to sharedmeme so that
                 #  input buffer will shared between traceviewer and waveformviewer
@@ -728,7 +758,7 @@ class TdcOnlineWindow(MainWindowNode):
         for chan_grp, channel_group in self.channel_groups.items():
             channel_indexes = np.array(channel_group['channels'])
             params = self.get_catalogue_params()
-            params['peak_detector_params']['relative_threshold'] = np.inf
+            params['peak_detector_params']['relative_threshold'] = 10000000.0 # np.inf do not work with opencl
             catalogue = make_empty_catalogue(chan_grp=chan_grp,channel_indexes=channel_indexes,**params)
             self.change_one_catalogue(catalogue)
         
@@ -843,17 +873,15 @@ class Worker(QT.QObject):
     def compute(self):
         #~ print('compute')
         
-        for chan_grp, catalogueconstructor in self.catalogueconstructors.items():
-        
-            print(catalogueconstructor)
+        for chan_grp, cc in self.catalogueconstructors.items():
+            print('Compute catalogue for chan_grp:', chan_grp)
+            #~ print(catalogueconstructor)
             print('self.params duration', self.params['duration'])
-            
             #~ try:
             if 1:
-                apply_all_catalogue_steps(catalogueconstructor, self.params,  verbose=False)
-                
-                catalogueconstructor.make_catalogue_for_peeler()
-                print(catalogueconstructor)
+                cc.apply_all_steps(self.params,  verbose=True)
+                #~ catalogueconstructor.make_catalogue_for_peeler()
+                print(cc)
                 self.done.emit(chan_grp)
                 
             #~ except Exception as e:

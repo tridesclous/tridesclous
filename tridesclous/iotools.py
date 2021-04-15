@@ -46,6 +46,10 @@ class ArrayCollection:
                 
             json.dump(d, f, indent=4)        
     
+    def _nb_ref(self, name):
+        nb_ref = sys.getrefcount(self._array[name]) -1 
+        return nb_ref
+    
     def _check_nb_ref(self, name):
         """Check if an array is not refrenced outside this class and aparent
         Usefull before deleting.
@@ -159,11 +163,13 @@ class ArrayCollection:
     def delete_array(self, name):
         if name not in self._array:
             return
-        #~ if self._array_attr[name]['memory_mode'] == 'memmap':
-            #~ #delete file if exist
-            #~ filename = self._fname(name)
+        
+        if self._array_attr[name]['memory_mode'] == 'memmap':
+            #delete file if exist
+            filename = self._fname(name)
+            os.remove(filename)
         self.detach_array(name)
-        raise(NotimplementedError)
+        #~ raise(NotimplementedError)
         
         
     def detach_array(self, name, mmap_close=False):
@@ -221,6 +227,38 @@ class ArrayCollection:
             setattr(self.parent, name, self._array[name])
         self.flush_json()
     
+    def append_array(self, name, arr):
+        # append array when not initialize_array (mode = 'a')
+        assert self._array_attr[name]['state'] != 'a'
+        #~ print('append_array', name, self._array[name].dtype, arr.dtype)
+        assert self._array[name].dtype == arr.dtype
+
+        memory_mode = self._array_attr[name]['memory_mode']
+        if memory_mode=='ram':
+            # self._array[name].append(arr)
+            self._array[name] = np.append(self._array[name], arr)
+        elif memory_mode=='memmap':
+            old_shape = self._array[name].shape
+            if len(old_shape) > 1:
+                for i in range(1, len(old_shape)):
+                    assert old_shape[i] == arr.shape[i] 
+            new_shape = (old_shape[0] + arr.shape[0], ) + old_shape[1:]
+            
+            nbytes = self._array[name].nbytes
+            # close memmap
+            self._array[name] = None 
+            #write
+            with open(self._fname(name), mode='ab+') as f:
+                f.seek(nbytes)
+                f.write(arr.tobytes(order='C'))
+            # reopen memmap
+            self._array[name] = np.memmap(self._fname(name), dtype=arr.dtype,
+                                                mode='r+', shape=new_shape)
+
+            if self.parent is not None:
+                setattr(self.parent, name, self._array[name])
+
+    
     def flush_array(self, name):
         memory_mode = self._array_attr[name]['memory_mode']
         if memory_mode=='ram':
@@ -246,23 +284,27 @@ class ArrayCollection:
             return
         
         if name in d:
-            if isinstance(d[name]['dtype'], str):
-                dtype = np.dtype(d[name]['dtype'])
+            if os.path.exists(self._fname(name)):
+                if isinstance(d[name]['dtype'], str):
+                    dtype = np.dtype(d[name]['dtype'])
+                else:
+                    dtype = np.dtype([ (k,v) for k,v in d[name]['dtype']])
+                shape = d[name]['shape']
+                if np.prod(d[name]['shape'])>0:
+                    arr = np.memmap(self._fname(name), dtype=dtype, mode='r+')
+                    arr = arr[:np.prod(shape)]
+                    arr = arr.reshape(shape)
+                else:
+                    # little hack array is empty
+                    arr = np.empty(shape, dtype=dtype)
+                self._array[name] = arr
+                self._array_attr[name] = {'state':'r', 'memory_mode':'memmap'}
+                self._array_attr[name]['annotations'] = d[name].get('annotations', {})
+                if self.parent is not None:
+                    setattr(self.parent, name, self._array[name])
             else:
-                dtype = np.dtype([ (k,v) for k,v in d[name]['dtype']])
-            shape = d[name]['shape']
-            if np.prod(d[name]['shape'])>0:
-                arr = np.memmap(self._fname(name), dtype=dtype, mode='r+')
-                arr = arr[:np.prod(shape)]
-                arr = arr.reshape(shape)
-            else:
-                # little hack array is empty
-                arr = np.empty(shape, dtype=dtype)
-            self._array[name] = arr
-            self._array_attr[name] = {'state':'r', 'memory_mode':'memmap'}
-            self._array_attr[name]['annotations'] = d[name].get('annotations', {})
-            if self.parent is not None:
-                setattr(self.parent, name, self._array[name])
+                if self.parent is not None:
+                    setattr(self.parent, name, self._array[name])
         else:
             if self.parent is not None:
                 setattr(self.parent, name, None)

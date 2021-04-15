@@ -103,7 +103,8 @@ class SpikeSimilarityView(BaseSimilarityView):
     
     @property
     def similarity(self):
-        return self.controller.spike_waveforms_similarity
+        if self.controller.spike_waveforms_similarity is not None:
+            return self.controller.spike_waveforms_similarity.copy()
 
     def refresh(self):
         if self.similarity is None:
@@ -189,7 +190,8 @@ class ClusterSimilarityView(BaseClusterSimilarityView):
     
     @property
     def similarity(self):
-        return self.controller.cluster_similarity
+        if self.controller.cluster_similarity is not None:
+            return self.controller.cluster_similarity.copy()
 
 class ClusterRatioSimilarityView(BaseClusterSimilarityView):
     """
@@ -200,5 +202,6 @@ class ClusterRatioSimilarityView(BaseClusterSimilarityView):
     
     @property
     def similarity(self):
-        return self.controller.cluster_ratio_similarity
+        if self.controller.cluster_ratio_similarity is not None:
+            return self.controller.cluster_ratio_similarity.copy()
 

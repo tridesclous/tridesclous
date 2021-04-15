@@ -58,7 +58,8 @@ class GlobalPCA:
             peaks_index, = np.nonzero(selection)
             waveforms = cc.get_some_waveforms(peaks_index=peaks_index)
             #~ print('subset selection', waveforms.shape[0])
-            
+        
+        #~ print(waveforms.shape)
         flatten_waveforms = waveforms.reshape(waveforms.shape[0], -1)
         #~ self.pca =  sklearn.decomposition.IncrementalPCA(n_components=n_components, **params)
         self.pca =  sklearn.decomposition.TruncatedSVD(n_components=n_components, **params)
@@ -88,7 +89,7 @@ class PeakMaxOnChannel:
         # TODO something faster with only the max!!!!!
         self.waveforms = cc.get_some_waveforms()
         
-        self.ind_peak = -catalogueconstructor.info['waveform_extractor_params']['n_left']
+        self.ind_peak = -catalogueconstructor.info['extract_waveforms']['n_left']
         #~ print('PeakMaxOnChannel self.ind_peak', self.ind_peak)
         
         
@@ -133,8 +134,8 @@ class PcaByChannel:
         
         cc = catalogueconstructor
         
-        thresh = cc.info['peak_detector_params']['relative_threshold']
-        n_left = cc.info['waveform_extractor_params']['n_left']
+        thresh = cc.info['peak_detector']['relative_threshold']
+        n_left = cc.info['extract_waveforms']['n_left']
         self.dtype = cc.info['internal_dtype']
         
         
@@ -164,7 +165,17 @@ class PcaByChannel:
                 #~ pca = sklearn.decomposition.IncrementalPCA(n_components=n_components_by_channel, **params)
                 #~ print('PcaByChannel SVD')
                 pca = sklearn.decomposition.TruncatedSVD(n_components=n_components_by_channel, **params)
-                pca.fit(wf_chan)
+                #~ print(wf_chan.shape)
+                #~ print(np.sum(np.isnan(wf_chan)))
+                #~ import matplotlib.pyplot as plt
+                #~ fig, ax = plt.subplots()
+                #~ ax.plot(wf_chan.T)
+                #~ plt.show()
+                try:
+                    pca.fit(wf_chan)
+                except ValueError:
+                    pca = None
+                    print('Error in PcaByChannel for channel {} maybe too noisy (Nan, Inf,)'.format(chan))
             else:
                 pca = None
             self.pcas.append(pca)
@@ -197,8 +208,8 @@ class PcaByChannel:
         some_peaks = cc.all_peaks[cc.some_peaks_index]
 
         if cc.mode == 'sparse':
-            assert cc.info['peak_detector_params']['method'] == 'geometrical'
-            #~ adjacency_radius_um = cc.info['peak_detector_params']['adjacency_radius_um']
+            assert cc.info['peak_detector']['method'] == 'geometrical'
+            #~ adjacency_radius_um = cc.info['peak_detector']['adjacency_radius_um']
             channel_adjacency = cc.dataio.get_channel_adjacency(chan_grp=cc.chan_grp, adjacency_radius_um=self.adjacency_radius_um)
         
         #~ t1 = time.perf_counter()

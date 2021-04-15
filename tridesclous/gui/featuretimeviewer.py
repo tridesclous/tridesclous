@@ -34,8 +34,9 @@ class MyViewBox(pg.ViewBox):
 class FeatureTimeViewer(WidgetBase):
 
     _params = [
-                    {'name': 'metric', 'type': 'list', 'values' : ['max_peak_value', 'feat_0'] },
+                    {'name': 'metric', 'type': 'list', 'values' : ['extremum_amplitude', 'geometry0', 'geometry1']},
                     {'name': 'alpha', 'type': 'float', 'value' : 0.5, 'limits':(0, 1.), 'step':0.05 },
+                    {'name': 'spread', 'type': 'float', 'value' : 2.5, 'limits':(0, 50.), 'step':0.1 },
         ]
     
     
@@ -91,65 +92,65 @@ class FeatureTimeViewer(WidgetBase):
 
         seg_index =  self.combo_seg.currentIndex()
         
-        selected = self.controller.spike_segment[self.controller.some_peaks_index]==seg_index
-        all_index = self.controller.spike_index[self.controller.some_peaks_index][selected]
-        all_times = all_index.astype('float64')/self.controller.dataio.sample_rate
-        all_labels = self.controller.spike_label[self.controller.some_peaks_index][selected]
+
+        if self.controller.spikes is None:
+            return
+        
+        some_spikes = self.controller.spikes[self.controller.some_peaks_index]
+        selected = some_spikes['segment'] == seg_index
+        if len(selected)==0:
+            return
+        spikes = some_spikes[selected]
+        all_times = spikes['index'].astype('float64') / self.controller.dataio.sample_rate
+        
+        #~ selected = self.controller.spike_segment[self.controller.some_peaks_index]==seg_index
+        #~ all_index = self.controller.spike_index[self.controller.some_peaks_index][selected]
+        #~ all_times = all_index.astype('float64')/self.controller.dataio.sample_rate
+        #~ all_labels = self.controller.spike_label[self.controller.some_peaks_index][selected]
         
         #TODO if None
         # this is a hack to speedup some_waveforms[selected]
         # because boolean selection is slow here ???
-        if len(selected)==0: return
-        ind_selected, = np.nonzero(selected)
-        selected_slice = slice(np.min(ind_selected), np.max(ind_selected)+1)
+        #~ ind_selected, = np.nonzero(selected)
+        #~ selected_slice = slice(np.min(ind_selected), np.max(ind_selected)+1)
         
-        if self.params['metric'] == 'max_peak_value':
-            if self.controller.spikes is None:
-                return
-            else:
-                # all_waveforms = self.controller.some_waveforms[selected]  #<<<<slow
-                #~ all_waveforms = self.controller.some_waveforms[selected_slice]
-                extremum_amplitude = self.controller.spikes[selected_slice]['extremum_amplitude']
-                
-        if self.params['metric'] == 'feat_0':
-            if self.controller.some_features is None:
-                return
-            else:
-                # all_features = self.controller.some_features[selected]   #<<<<slow
-                all_features = self.controller.some_features[selected_slice]
+        if self.params['metric'] == 'extremum_amplitude':
+            #~ extremum_amplitude = spikes['extremum_amplitude']
+            values = spikes['extremum_amplitude']
+            
+        elif self.params['metric'] == 'geometry0':
+            geometry0 = self.controller.geometry[:, 0]
+            values = geometry0[spikes['channel']]
+            values += np.random.randn(values.size) * self.params['spread']
+        elif self.params['metric'] == 'geometry1':
+            geometry0 = self.controller.geometry[:, 1]
+            values = geometry0[spikes['channel']]
+            values += np.random.randn(values.size) * self.params['spread']
+            
+        else:
+            raise NotImplementedError
 
-        #~ d = self.controller.info['waveform_extractor_params']
-        #~ n_left, n_right = d['n_left'], d['n_right']
-        
+
         for k in visibles:
             #~ self.controller.some
-            keep = all_labels==k
+            keep = spikes['cluster_label'] == k
             
             x = all_times[keep]
-            
-            if self.params['metric'] == 'max_peak_value':
-                c = self.controller.get_extremum_channel(k)
-                if c is None:
-                    continue
-                #~ y = all_waveforms[keep, -n_left, c]
-                y = extremum_amplitude[keep]
-                
-            elif self.params['metric'] == 'feat_0':
-                y = all_features[keep, 0]
+            y = values[keep]
             
             color = QT.QColor(self.controller.qcolors.get(k, QT.QColor( 'white')))
             color.setAlpha(int(self.params['alpha']*255))
-            curve = pg.ScatterPlotItem(x=x, y=y, pen=pg.mkPen(color, width=2), brush=color)
+            curve = pg.ScatterPlotItem(x=x, y=y, pen=pg.mkPen(color, width=1), brush=color)
             
             self.plot.addItem(curve)
             #~ self.curves.append(curve)
         
         
         self.plot.setXRange(0, all_times[-1])
-        if self.params['metric'] == 'max_peak_value':
-            self.plot.setYRange(-30, 30)
-        else:
-            self.plot.setYRange(min(y), max(y))
+        #~ if self.params['metric'] == 'extremum_amplitude':
+            #~ self.plot.setYRange(-30, 30)
+        #~ else:
+        self.plot.setYRange(np.min(values), np.max(values))
 
     def on_spike_selection_changed(self):
         pass

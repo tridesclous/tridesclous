@@ -16,8 +16,8 @@ Preprocessor
        can substract it. This is as if all channels would re referenced numerically to there medians.
     * chunksize (int): the whole processing chain is applied chunk by chunk, this is the chunk size in sample. Typically 1024.
        The smaller size lead to less memory but more CPU comsuption in Peeler. For online, this will be more or less the latency.
-    * lostfront_chunksize (int): size in sample of the margin at the front edge for each chunk to avoid border effect in backward filter.
-       In you don't known put None then lostfront_chunksize will be int(sample_rate/highpass_freq)*3 which is quite robust (<5% error)
+    * pad_width (int): size in sample of the margin at the front edge for each chunk to avoid border effect in backward filter.
+       In you don't known put None then pad_width will be int(sample_rate/highpass_freq)*3 which is quite robust (<5% error)
        compared to a true offline filtfilt.
     * engine (str): 'numpy' or 'opencl'. There is a double implementation for signal preprocessor : With numpy/scipy
       flavor (and so CPU) or opencl with home made CL kernel (and so use GPU computing). If you have big fat GPU and are able to install
@@ -149,13 +149,15 @@ Several methods possible. See :ref:`important_details`.
 from collections import OrderedDict
 import numpy as np
 
+# TODO copy form .._default_catalogue_params all default value to be consistent
+
 preprocessor_params = [
-    {'name': 'highpass_freq', 'type': 'float', 'value':400., 'step': 10., 'suffix': 'Hz', 'siPrefix': True},
+    {'name': 'highpass_freq', 'type': 'float', 'value':300., 'step': 10., 'suffix': 'Hz', 'siPrefix': True},
     {'name': 'lowpass_freq', 'type': 'float', 'value':5000., 'step': 10., 'suffix': 'Hz', 'siPrefix': True},
     {'name': 'smooth_size', 'type': 'int', 'value':0},
     {'name': 'common_ref_removal', 'type': 'bool', 'value':False},
     #~ {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
-    {'name': 'lostfront_chunksize', 'type': 'int', 'value':-1, 'decimals':10, 'limits': (-1, np.inf),},
+    {'name': 'pad_width', 'type': 'int', 'value':-1, 'decimals':10, 'limits': (-1, np.inf),},
     {'name': 'engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl']},
 ]
 
@@ -169,14 +171,15 @@ peak_detector_params = [
 ]
 
 waveforms_params = [
-    {'name': 'wf_left_ms', 'type': 'float', 'value':-2.0, 'suffix': 'ms', 'step': .1,},
-    {'name': 'wf_right_ms', 'type': 'float', 'value': 3.0,  'suffix': 'ms','step': .1,},
-
+    {'name': 'wf_left_ms', 'type': 'float', 'value':-1.0, 'suffix': 'ms', 'step': .1,},
+    {'name': 'wf_right_ms', 'type': 'float', 'value': 1.5,  'suffix': 'ms','step': .1,},
+    {'name': 'wf_left_long_ms', 'type': 'float', 'value':-2.5, 'suffix': 'ms', 'step': .1,},
+    {'name': 'wf_right_long_ms', 'type': 'float', 'value': 3.5,  'suffix': 'ms','step': .1,},
 ]
 
 
 clean_peaks_params = [
-    {'name': 'alien_value_threshold', 'type': 'float', 'value':100.},
+    {'name': 'alien_value_threshold', 'type': 'float', 'value': np.nan},
     {'name': 'mode', 'type': 'list', 'values':['extremum_amplitude', 'full_waveform']}, # 
 ]
 
@@ -276,6 +279,8 @@ fullchain_params = [
     {'name' : 'mode', 'type' : 'list', 'values' : ['dense', 'sparse']},
     {'name':'sparse_threshold', 'type': 'float', 'value':1.5},
     {'name' : 'n_spike_for_centroid', 'type' : 'int', 'value' : 350},
+    {'name' : 'n_jobs', 'type' : 'int', 'value' : -1},
+    
     
     # params for each steps
     {'name':'preprocessor', 'type':'group', 'children': preprocessor_params},
@@ -312,13 +317,12 @@ _common_peeler_params = [
     
 ]
 
-_classic_peeler_params = _common_peeler_params + [
-    {'name': 'argmin_method', 'type': 'list', 'values' : [ 'numpy', 'opencl', 'numba',]},
-]
+#~ _classic_peeler_params = _common_peeler_params + [
+    #~ {'name': 'argmin_method', 'type': 'list', 'values' : [ 'numpy', 'opencl', 'numba',]},
+#~ ]
 
 _geometrical_peeler_params = _common_peeler_params + [
-    {'name': 'argmin_method', 'type': 'list', 'values' : [ 'numpy', 'opencl', 'numba',]},
-    {'name':'adjacency_radius_um', 'type': 'float', 'value':100., 'suffix': 'µm', 'siPrefix': False},
+    #~ {'name':'adjacency_radius_um', 'type': 'float', 'value':100., 'suffix': 'µm', 'siPrefix': False},
 ]
 
 _geometrical_opencl_peeler_params = _common_peeler_params + [
@@ -327,7 +331,7 @@ _geometrical_opencl_peeler_params = _common_peeler_params + [
 
 
 peeler_params_by_methods = OrderedDict([
-    ('classic', _classic_peeler_params),
+    #~ ('classic', _classic_peeler_params),
     ('geometrical', _geometrical_peeler_params),
     ('geometrical_opencl', _geometrical_opencl_peeler_params),
 ])

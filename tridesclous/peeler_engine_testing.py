@@ -53,7 +53,7 @@ except ImportError:
 
 
 
-import matplotlib.pyplot as plt
+
 
 
 class PeelerEngineTesting(PeelerEngineClassic):
@@ -115,7 +115,6 @@ class PeelerEngineTesting(PeelerEngineClassic):
         #~ s = np.sum((pred_wf**2*weigth)>(residual*weigth))
         accept_template = s >np.sum(weigth) * thresh_ratio
         #~ print(s, np.sum(weigth) , np.sum(weigth)  * thresh_ratio)
-        #~ exit()
         
         
         #DEBUG
@@ -137,7 +136,7 @@ class PeelerEngineTesting(PeelerEngineClassic):
                 #~ print(crietria_weighted)
                 #~ print()
             print(s, np.sum(weigth) , np.sum(weigth)  * thresh_ratio)
-            
+            import matplotlib.pyplot as plt
             fig, axs = plt.subplots(nrows=3, sharex=True)
             axs[0].plot(full_wf.T.flatten(), color='b')
             #~ axs[0].plot(full_wf_no_shift.T.flatten(), color='c')

@@ -7,6 +7,7 @@ except ImportError:
 
 import numpy as np
 
+# OLD
 @jit(parallel=True)
 def numba_loop_sparse_dist(waveform, centers,  mask):
     nb_clus, width, nb_chan = centers.shape
@@ -26,49 +27,77 @@ def numba_loop_sparse_dist(waveform, centers,  mask):
         waveform_distance[clus] = sum
     
     return waveform_distance
-    
-    
-@jit(parallel=True)
-def numba_loop_sparse_dist_with_geometry(waveform, centers,  possibles_cluster_idx, rms_waveform_channel,channel_adjacency):
-    
-    nb_total_clus, width, nb_chan = centers.shape
-    nb_clus = possibles_cluster_idx.size
-    
-    #rms_waveform_channel = np.sum(waveform**2, axis=0)#.astype('float32')
-    waveform_distance = np.zeros((nb_clus,), dtype=np.float32)
-    
-    for clus in prange(len(possibles_cluster_idx)):
-        cluster_idx = possibles_cluster_idx[clus]
-        sum = 0
-        for c in channel_adjacency:
-            #~ if mask[cluster_idx, c]:
-            for s in range(width):
-                d = waveform[s, c] - centers[cluster_idx, s, c]
-                sum += d*d
-            #~ else:
-                #~ sum +=rms_waveform_channel[c]
-        waveform_distance[clus] = sum
-    
-    return waveform_distance
+
 
 
 @jit(parallel=True)
-def numba_explore_shifts(long_waveform, one_center,  one_mask, maximum_jitter_shift):
-    width, nb_chan = one_center.shape
-    n = maximum_jitter_shift*2 +1
+def numba_sparse_scalar_product(fifo_residuals, left_ind, centers, projector, peak_chan_ind,
+                        sparse_mask_level1, ):
+    nb_clus, width, nb_chan = centers.shape
     
-    all_dist = np.zeros((n, ), dtype=np.float32)
+    scalar_product = np.zeros((nb_clus,), dtype=np.float32)
     
-    for shift in prange(n):
-        sum = 0
-        for c in range(nb_chan):
-            if one_mask[c]:
-                for s in range(width):
-                    d = long_waveform[shift+s, c] - one_center[s, c]
-                    sum += d*d
-        all_dist[shift] = sum
+    for clus_idx in prange(nb_clus):
+        if not sparse_mask_level1[clus_idx, peak_chan_ind]:
+            scalar_product[clus_idx] = 10. # equivalent to np.inf
+        else:
+            sum_sp = 0.
+            for chan in range(nb_chan):
+                if sparse_mask_level1[clus_idx, chan]:
+                    for s in range(width):
+                        v = fifo_residuals[left_ind+s, chan]
+                        ct = centers[clus_idx, s, chan]
+                        w = projector[clus_idx, s, chan]
+                        
+                        sum_sp += (v - ct) * w
+                    
+            scalar_product[clus_idx] = sum_sp
     
-    return all_dist
+    return scalar_product
+    
+
+
+
+
+
+@jit(parallel=True)
+def numba_explore_best_shift(fifo_residuals, left_ind, centers, projector, candidates_idx,  maximum_jitter_shift, common_mask, sparse_mask_level1):
+
+    nb_clus, width, nb_chan = centers.shape
+    
+    n_shift = maximum_jitter_shift*2 +1
+    n_clus = len(candidates_idx)
+    
+    shift_scalar_product = np.zeros((n_clus, n_shift), dtype=np.float32)
+    shift_distance = np.zeros((n_clus, n_shift), dtype=np.float32)
+    
+    for shi in prange(n_shift):
+        shift =  shi - maximum_jitter_shift
+        
+        for clus in prange(len(candidates_idx)):
+            clus_idx = candidates_idx[clus]
+            
+            sum_sp = 0.
+            sum_d = 0.
+            for chan in range(nb_chan):
+                if common_mask[chan] or sparse_mask_level1[clus_idx, chan]:
+                    for s in range(width):
+                        v = fifo_residuals[left_ind+s+shift, chan]
+                        ct = centers[clus_idx, s, chan]
+                        
+                        if sparse_mask_level1[clus_idx, chan]:
+                            sum_sp += (v - ct) * projector[clus_idx, s, chan]
+                        
+                        if common_mask[chan]:
+                            sum_d += (v - ct) * (v - ct)
+                    
+            shift_scalar_product[clus, shi] = sum_sp
+            shift_distance[clus, shi] = sum_d
+    
+    return shift_scalar_product, shift_distance
+
+
+
 
 
 @jit(parallel=True)

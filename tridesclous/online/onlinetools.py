@@ -1,10 +1,14 @@
+from pprint import pprint
+import os
+
+
 import numpy as np
 import pyqtgraph as pg
-from pyacq.devices import NumpyDeviceBuffer
+
+
 from tridesclous.gui.tools import get_dict_from_group_param
 from tridesclous.gui.gui_params import preprocessor_params, peak_detector_params, clean_peaks_params
 
-from pprint import pprint
 
 
 preprocessor_params_default = get_dict_from_group_param(
@@ -21,29 +25,14 @@ clean_peaks_params_default = get_dict_from_group_param(
                     type='group', children=clean_peaks_params))
 
 
-
-def make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup = None, chunksize=1024):
-    length, nb_channel = sigs.shape
-    length -= length%chunksize
-    sigs = sigs[:length, :]
-    dtype = sigs.dtype
-    channel_names = ['channel{}'.format(c) for c in range(sigs.shape[1])]
     
-    if nodegroup is None:
-        dev = NumpyDeviceBuffer()
-    else:
-        dev = nodegroup.create_node('NumpyDeviceBuffer')
-    dev.configure(nb_channel=nb_channel, sample_interval=1./sample_rate, chunksize=chunksize, buffer=sigs, channel_names=channel_names)
-    dev.output.configure(protocol='tcp', interface='127.0.0.1', transfermode='plaindata')
-    dev.initialize()
-    
-    return dev
-
 
 def make_empty_catalogue(chan_grp=0,
                 channel_indexes=[],
                 n_left=-20,
                 n_right=40,
+                n_left_long=-40,
+                n_right_long=80,
                 internal_dtype='float32',
                 
                 preprocessor_params={},
@@ -59,6 +48,8 @@ def make_empty_catalogue(chan_grp=0,
     catalogue['chan_grp'] = chan_grp
     catalogue['n_left'] = n_left
     catalogue['n_right'] = n_right
+    catalogue['n_left_long'] = n_left_long
+    catalogue['n_right_long'] = n_right_long
     catalogue['peak_width'] = catalogue['n_right'] - catalogue['n_left']
     
     catalogue['cluster_labels'] = np.array([], dtype='int64')
@@ -121,9 +112,9 @@ def make_empty_catalogue(chan_grp=0,
     catalogue['signals_mads'] = signals_mads
     
     catalogue['empty_catalogue'] = True # a key to detect real/fake catalogue
-    
-    
-    
+
+    catalogue['projections'] = np.zeros((0,), dtype='float32')
+    catalogue['boundaries'] = np.zeros((0,), dtype='float32')
     
     
     return catalogue

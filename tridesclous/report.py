@@ -1,6 +1,6 @@
 
 import os
-import matplotlib.pyplot as plt
+
 import numpy as np
 
 from .catalogueconstructor import CatalogueConstructor
@@ -70,6 +70,7 @@ def summary_catalogue_clusters(dataio, chan_grp=None, labels=None, label=None,
         
         print(text)
         
+        import matplotlib.pyplot as plt
         fig, axs = plt.subplots(ncols=2)
         plot_centroids(cc, labels=[label,], ax=axs[0], show_channels=show_channels, neighborhood_radius=neighborhood_radius)
         axs[0].set_title('cluster {}'.format(label))
@@ -114,7 +115,7 @@ def summary_noise(dataio, chan_grp=None):
         reduce_noise_vector = "[{}]".format(' '.join(noise_txt))
     
     
-    relative_threshold = cc.info['peak_detector_params']['relative_threshold']
+    relative_threshold = cc.info['peak_detector']['relative_threshold']
     
     d =dict(chan_grp=chan_grp,
         nb_chan=len(channels),
@@ -197,7 +198,7 @@ def summary_after_peeler_clusters(dataio, catalogue=None, chan_grp=None, labels=
             nb_spike += np.sum(all_spikes['cluster_label'] == label)
             
 
-        
+        import matplotlib.pyplot as plt
         fig, axs = plt.subplots(ncols=2, nrows=2)
         figs.append(fig)
         axs[0, 0].remove()

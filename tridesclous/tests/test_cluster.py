@@ -6,7 +6,7 @@ import shutil
 from tridesclous.dataio import DataIO
 from tridesclous.catalogueconstructor import CatalogueConstructor
 
-from tridesclous import mkQApp, CatalogueWindow
+
 
 from matplotlib import pyplot
 
@@ -41,12 +41,12 @@ def test_sawchaincut():
     cc.find_clusters(method='sawchaincut', print_debug=True)
     t1 = time.perf_counter()
     print('cluster', t1-t0)
-    #~ exit()
     
     #~ print(cc)
 
 
     if __name__ == '__main__':
+        from tridesclous.gui import mkQApp, CatalogueWindow
         app = mkQApp()
         win = CatalogueWindow(cc)
         win.show()
@@ -62,7 +62,6 @@ def test_pruningshears():
     print(dataio)
     cc = CatalogueConstructor(dataio=dataio)
     #~ print(cc.mode)
-    #~ exit()
     
     #~ cc.extract_some_features(method='pca_by_channel')
     #~ print(dataio)
@@ -81,6 +80,7 @@ def test_pruningshears():
     print('cluster', t1-t0)
 
     if __name__ == '__main__':
+        from tridesclous.gui import mkQApp, CatalogueWindow
         app = mkQApp()
         win = CatalogueWindow(cc)
         win.show()
@@ -90,7 +90,7 @@ def test_pruningshears():
 
 if __name__ == '__main__':
     setup_module()
-    #~ test_sawchaincut()
+    test_sawchaincut()
     test_pruningshears()
     
     

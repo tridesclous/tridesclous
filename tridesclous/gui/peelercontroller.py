@@ -35,8 +35,7 @@ class PeelerController(ControllerBase):
     
     def init_plot_attributes(self):
         #concatenate all spikes for all segments
-        self.spikes = []
-        
+        all_spikes = []
         for i in range(self.dataio.nb_segment):
             local_spikes = self.dataio.get_spikes(seg_num=i, chan_grp=self.chan_grp)
             spikes = np.zeros(local_spikes.shape, dtype=_dtype_spike+_dtype_complement)
@@ -63,8 +62,8 @@ class PeelerController(ControllerBase):
             spike_cluster_index = np.searchsorted(clus['cluster_label'], spikes['cluster_label'][mask].copy())
             spikes['cell_label'][mask] = clus['cell_label'][spike_cluster_index]
             
-            self.spikes.append(spikes)
-        self.spikes = np.concatenate(self.spikes)
+            all_spikes.append(spikes)
+        self._spikes = np.concatenate(all_spikes)
         
         self.nb_spike = int(self.spikes.size)
         
@@ -72,7 +71,8 @@ class PeelerController(ControllerBase):
         
         # set channel for each cluster
         for i, k in enumerate(self.cluster_labels):
-            chan = self.catalogue['extremum_channel'][i]
+            #~ chan = self.catalogue['extremum_channel'][i]
+            chan = self.catalogue['clusters']['extremum_channel'][i]
             sel = self.spikes['cluster_label'] == k
             self.spikes['channel'][sel] = chan
         
@@ -117,7 +117,11 @@ class PeelerController(ControllerBase):
     @property
     def have_sparse_template(self):
         return True
-    
+
+    @property
+    def spikes(self):
+        return self._spikes
+
     @property
     def spike_selection(self):
         return self.spikes['selected']
@@ -202,7 +206,8 @@ class PeelerController(ControllerBase):
     def get_extremum_channel(self, label):
         if label in self.catalogue['label_to_index']:
             cluster_idx = self.catalogue['label_to_index'][label]
-            c = self.catalogue['extremum_channel'][cluster_idx]
+            #~ c = self.catalogue['extremum_channel'][cluster_idx]
+            c = self.catalogue['clusters']['extremum_channel'][cluster_idx]
             return c
     
     def get_some_waveforms(self, seg_nums, peak_sample_indexes, channel_indexes):
@@ -230,7 +235,7 @@ class PeelerController(ControllerBase):
             d = np.diff(self.spikes['index'])
             labels0 = self.spikes['cluster_label'][:-1]
             labels1 = self.spikes['cluster_label'][1:]
-            mask = (d>0) & (d< self.catalogue['peak_width'] ) & (labels0>0) & (labels1>0)
+            mask = (d>0) & (d< int(self.dataio.sample_rate * 0.001) ) & (labels0>0) & (labels1>0)
             ind, = np.nonzero(mask)
             self.spikes['visible'][ind] = True
             self.spikes['visible'][ind+1] = True

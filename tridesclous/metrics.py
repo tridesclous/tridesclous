@@ -2,7 +2,6 @@ import numpy as np
 import sklearn.metrics.pairwise
 import scipy.spatial
 
-import matplotlib.pyplot as plt
 
 def compute_similarity(data, method):
     if method in ('cosine_similarity',  'linear_kernel', 'polynomial_kernel',

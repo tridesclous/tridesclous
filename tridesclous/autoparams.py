@@ -2,6 +2,8 @@ import time
 import copy
 from pprint import pprint
 
+import numpy as np
+
 from .cltools import HAVE_PYOPENCL
 from .cluster import HAVE_ISOSPLIT5
 
@@ -25,14 +27,13 @@ _default_catalogue_params = {
     'memory_mode': 'memmap',
     'n_spike_for_centroid':350,
     'n_jobs' :-1,
-    
-    
+
     'preprocessor': {
         'highpass_freq': 300.,
         'lowpass_freq': 5000.,
         'smooth_size': 0,
         
-        'lostfront_chunksize': -1,   # this auto
+        'pad_width': -1,   # this auto
         'engine': 'numpy',
         'common_ref_removal':False,
     },
@@ -50,17 +51,22 @@ _default_catalogue_params = {
         'nb_snippet': 300,
     },
     'extract_waveforms': {
-        'wf_left_ms': -1.5,
-        'wf_right_ms': 2.5,
+        'wf_left_ms': -1.,
+        'wf_right_ms': 1.5,
+        'wf_left_long_ms': -2.5,
+        'wf_right_long_ms': 3.5,
     },
     'clean_peaks': {
-        'alien_value_threshold': None,
+        #~ 'alien_value_threshold': None,
+        'alien_value_threshold':-1., # equivalent to None (normally)
+        #~ 'alien_value_threshold': np.nan,
         'mode': 'extremum_amplitude',
     },
     'peak_sampler': {
         'mode': 'rand',
         'nb_max': 20000,
-        'nb_max_by_channel': None,
+        #~ 'nb_max_by_channel': None,
+        'nb_max_by_channel': 600.,
     },
     #~ 'clean_waveforms': {
         #~ 'alien_value_threshold': None,
@@ -92,35 +98,43 @@ _default_catalogue_params = {
 
 
 
-def get_auto_params_for_catalogue(dataio, chan_grp=0):
+def get_auto_params_for_catalogue(dataio=None, chan_grp=0,
+                            nb_chan=None, sample_rate=None,
+                            context='offline'):
     """
     Automatic selection of parameters.
     This totally empiric paramerters.
     """
+    
+    assert context in ('offline', 'online')
+    
     params = copy.deepcopy(_default_catalogue_params)
-    
-    nb_chan = dataio.nb_channel(chan_grp=chan_grp)
-    
+
     # TODO make this more complicated
     #  * by detecting if dense array or not.
     #  * better method sleection
-    
-    #~ seg0_duration = dataio.get_segment_length(seg_num=0) / dataio.sample_rate
-    total_duration = sum(dataio.get_segment_length(seg_num=seg_num) / dataio.sample_rate for seg_num in range(dataio.nb_segment))
-    
-    # auto chunsize of 100 ms
-    params['chunksize'] = int(dataio.sample_rate * 0.1)
-    
-    params['duration'] = 601.
 
 
-
-    
-    
-    # segment durartion is not so big then take the whole duration
-    # to avoid double preprocessing (catalogue+peeler)
-    if params['duration'] * 2 > total_duration:
-        params['duration'] = total_duration
+    if dataio is None:
+        # case online no DataIO
+        assert nb_chan is not None
+        assert sample_rate is not None
+        # use less because chunksize is set outsied
+        params['chunksize'] = int(sample_rate * 0.05)
+        params['duration'] = 10. # debug
+    else:
+        # case offline with a DataIO
+        nb_chan = dataio.nb_channel(chan_grp=chan_grp)
+        sample_rate = dataio.sample_rate
+        total_duration = sum(dataio.get_segment_length(seg_num=seg_num) / dataio.sample_rate for seg_num in range(dataio.nb_segment))
+        # auto chunsize of 100 ms
+        params['chunksize'] = int(sample_rate * 1.0)
+        params['duration'] = 601.
+        
+        # segment durartion is not so big then take the whole duration
+        # to avoid double preprocessing (catalogue+peeler)
+        if params['duration'] * 2 > total_duration:
+            params['duration'] = total_duration
     
     #~ if nb_chan == 1:
         #~ params['mode'] = 'dense'
@@ -153,8 +167,12 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         #~ params['adjacency_radius_um'] = 0.
         params['sparse_threshold'] = 1.5
         
-        params['peak_detector']['method'] = 'global'
-        params['peak_detector']['engine'] = 'numpy'
+        #~ params['peak_detector']['method'] = 'global'
+        #~ params['peak_detector']['engine'] = 'numpy'
+
+        params['peak_detector']['method'] = 'geometrical'
+        params['peak_detector']['engine'] = 'numba'
+        
         params['peak_detector']['adjacency_radius_um'] = 200. # useless
         params['peak_detector']['smooth_radius_um' ] = None
 
@@ -187,9 +205,8 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         #~ params['adjacency_radius_um'] = 200.
         params['sparse_threshold'] = 1.5
 
-        if nb_chan > 32 and HAVE_PYOPENCL:
+        if nb_chan >= 32 and HAVE_PYOPENCL:
             params['preprocessor']['engine'] = 'opencl'
-
         params['peak_detector']['method'] = 'geometrical'
         params['peak_detector']['adjacency_radius_um'] = 200.
         #~ params['peak_detector']['smooth_radius_um' ] = 10
@@ -224,7 +241,8 @@ def get_auto_params_for_catalogue(dataio, chan_grp=0):
         params['cluster_kargs']['adjacency_radius_um'] = 50.
         params['cluster_kargs']['high_adjacency_radius_um'] = 30.
 
-    
+    if context == 'online':
+        params['n_jobs' ] = 1
     
     return params
 
@@ -234,28 +252,23 @@ def get_auto_params_for_peelers(dataio, chan_grp=0):
     nb_chan = dataio.nb_channel(chan_grp=chan_grp)
     params = {}
     
-    
+    params['chunksize'] = int(dataio.sample_rate * 1)
     #~ params['chunksize'] = int(dataio.sample_rate * 0.5)
-    params['chunksize'] = int(dataio.sample_rate * 0.1)
+    #~ params['chunksize'] = int(dataio.sample_rate * 0.1)
     #~ params['chunksize'] = int(dataio.sample_rate * 0.033)
 
     if nb_chan <= limit_dense_sparse:
         params['engine'] = 'geometrical'
-        params['argmin_method'] = 'numba'
         
     else:
         if HAVE_PYOPENCL:
-            if nb_chan <=16:
-                params['engine'] = 'geometrical'
-                params['argmin_method'] = 'opencl'
-            else:
-                params['engine'] = 'geometrical_opencl' # Still experimental
-        elif HAVE_NUMBA:
+            params['engine'] = 'geometrical_opencl'
+        else:
             params['engine'] = 'geometrical'
-            params['argmin_method'] = 'numba'
+
+    
+    # DEBUG force 'geometrical'
+    params['engine'] = 'geometrical'
         
-        #~ else:
-            #~ params['argmin_method'] = 'numpy'
-            #~ params['engine'] = 'geometrical'
 
     return params

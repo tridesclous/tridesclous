@@ -96,11 +96,16 @@ class BasePeakDetector:
         
         self.cl_platform_index = cl_platform_index
         self.cl_device_index = cl_device_index
+    
 
-    def process_data(self, pos, newbuf):
+    def process_buffer(self, data):
+        # used for offline processing when parralisation  is possible
         raise(NotImplmentedError)
     
-    def reset_fifo_index(self):
+    def process_buffer_stream(self, pos, newbuf):
+        raise(NotImplmentedError)
+    
+    def initialize_stream(self):
         # must be for each new segment when index 
         # start back
         raise(NotImplmentedError)
@@ -151,7 +156,20 @@ def detect_peaks_in_rectified(sig_rectified, n_span, thresh, peak_sign):
 
 
 class PeakDetectorGlobalNumpy(BasePeakDetector):
-    def process_data(self, pos, newbuf):
+    def process_buffer(self, data):
+        sig_rectified = make_sum_rectified(data, self.relative_threshold, self.peak_sign, self.spatial_smooth_kernel)
+        
+        mask_peaks = detect_peaks_in_rectified(sig_rectified, self.n_span, self.relative_threshold, self.peak_sign)
+        time_ind_peaks,  = np.nonzero(mask_peaks)
+        time_ind_peaks += self.n_span
+        chan_ind_peaks = None # not in this method
+        peak_val_peaks = None  # not in this method
+        
+        return time_ind_peaks, chan_ind_peaks, peak_val_peaks
+        
+
+
+    def process_buffer_stream(self, pos, newbuf):
         # this is used by catalogue constructor
         # here the fifo is only the rectified sum
         
@@ -188,11 +206,15 @@ class PeakDetectorGlobalNumpy(BasePeakDetector):
         BasePeakDetector.change_params(self,  **kargs)
         self.fifo_sum_rectified = FifoBuffer((self.chunksize*2,), self.dtype)
     
-    def reset_fifo_index(self):
+    def initialize_stream(self):
         self.fifo_sum_rectified = FifoBuffer((self.chunksize*2,), self.dtype)
 
 class PeakDetectorGlobalOpenCL(BasePeakDetector, OpenCL_Helper):
-    def process_data(self, pos, newbuf):
+    def process_buffer(self, data):
+        #TODO
+        raise(NotImplmentedError)
+    
+    def process_buffer_stream(self, pos, newbuf):
         if newbuf.shape[0] <self.chunksize:
             newbuf2 = np.zeros((self.chunksize, self.nb_channel), dtype=self.dtype)
             newbuf2[-newbuf.shape[0]:, :] = newbuf
@@ -220,7 +242,7 @@ class PeakDetectorGlobalOpenCL(BasePeakDetector, OpenCL_Helper):
         
         return None, None, None
     
-    def reset_fifo_index(self):
+    def initialize_stream(self):
         pass
     
     def change_params(self, cl_platform_index=None, cl_device_index=None, **kargs):
@@ -367,16 +389,8 @@ def get_mask_spatiotemporal_peaks(sigs, n_span, thresh, peak_sign, neighbours):
 
 
 class PeakDetectorGeometricalNumpy(BasePeakDetector):
-    def process_data(self, pos, newbuf):
-        self.fifo_sigs.new_chunk(newbuf, pos)
-        
-        #~ if pos-(newbuf.shape[0]+2*self.n_span)<0:
-            # the very first buffer is sacrified because of peak span
-            #~ return None, None
-        
-        
-        sigs = self.fifo_sigs.get_data(pos-(newbuf.shape[0]+2*self.n_span), pos)
-
+    def process_buffer(self, sigs):
+    
         if self.spatial_smooth_kernel is None:
             sigs = sigs
         else:
@@ -384,10 +398,19 @@ class PeakDetectorGeometricalNumpy(BasePeakDetector):
         
         mask_peaks = self.get_mask_peaks_in_chunk(sigs)
         time_ind_peaks, chan_ind_peaks = np.nonzero(mask_peaks)
-        peak_val_peaks = sigs[time_ind_peaks+self.n_span, chan_ind_peaks]
+        time_ind_peaks += self.n_span
+        peak_val_peaks = sigs[time_ind_peaks, chan_ind_peaks]
+        
+        return time_ind_peaks, chan_ind_peaks, peak_val_peaks
+    
+    def process_buffer_stream(self, pos, newbuf):
+        self.fifo_sigs.new_chunk(newbuf, pos)
+        sigs = self.fifo_sigs.get_data(pos-(newbuf.shape[0]+2*self.n_span), pos)
+        
+        time_ind_peaks, chan_ind_peaks, peak_val_peaks = self.process_buffer(sigs)
 
         if time_ind_peaks.size>0:
-            time_ind_peaks += (pos - newbuf.shape[0] - self.n_span)
+            time_ind_peaks += (pos - newbuf.shape[0] - 2 * self.n_span)
             return time_ind_peaks, chan_ind_peaks, peak_val_peaks
 
         return None, None, None
@@ -417,11 +440,9 @@ class PeakDetectorGeometricalNumpy(BasePeakDetector):
             neighb, = np.nonzero(neighbour_mask[c, :])
             self.neighbours[c, :neighb.size] = neighb
         
-        #~ print('self.nb_max_neighbour', self.nb_max_neighbour)
-        
         self.fifo_sigs = FifoBuffer((self.chunksize+2*self.n_span, self.nb_channel), self.dtype)
     
-    def reset_fifo_index(self):
+    def initialize_stream(self):
         self.fifo_sigs = FifoBuffer((self.chunksize+2*self.n_span, self.nb_channel), self.dtype)
     
 
@@ -433,37 +454,45 @@ class PeakDetectorGeometricalNumba(PeakDetectorGeometricalNumpy):
 
 
 class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper):
+    def process_buffer(self, sigs):
         
-    def process_data(self, pos, newbuf):
+        if sigs.shape[0] <self.chunksize:
+            sigs2 = np.zeros((self.chunksize, self.nb_channel), dtype=self.dtype)
+            sigs2[:sigs.shape[0], :] = sigs
+            sigs = sigs2
+    
+        if self.spatial_smooth_kernel is None:
+            sigs = sigs
+        else:
+            sigs = np.dot(sigs, self.spatial_smooth_kernel)
+        
+        mask_peaks = self.get_mask_peaks_in_chunk(sigs)
+        time_ind_peaks, chan_ind_peaks = np.nonzero(mask_peaks)
+        time_ind_peaks += self.n_span
+        peak_val_peaks = sigs[time_ind_peaks, chan_ind_peaks]
+        
+        return time_ind_peaks, chan_ind_peaks, peak_val_peaks
+        
+        
+    def process_buffer_stream(self, pos, newbuf):
         if newbuf.shape[0] <self.chunksize:
             newbuf2 = np.zeros((self.chunksize, self.nb_channel), dtype=self.dtype)
             newbuf2[-newbuf.shape[0]:, :] = newbuf
             newbuf = newbuf2
 
-        if self.spatial_smooth_kernel is not None:
-            newbuf = np.dot(newbuf, self.spatial_smooth_kernel)
-        
         self.fifo_sigs.new_chunk(newbuf, pos)
-        
-        #~ if pos-(newbuf.shape[0]+2*self.n_span)<0:
-            #~ # the very first buffer is sacrified because of peak span
-            #~ return None, None
-        
         sigs = self.fifo_sigs.get_data(pos-(newbuf.shape[0]+2*self.n_span), pos)
         
-        mask_peaks = self.get_mask_peaks_in_chunk(sigs)
-        time_ind_peaks, chan_ind_peaks = np.nonzero(mask_peaks)
-        peak_val_peaks = sigs[time_ind_peaks+self.n_span, chan_ind_peaks]
-
+        time_ind_peaks, chan_ind_peaks, peak_val_peaks = self.process_buffer(sigs)
+        
         if time_ind_peaks.size>0:
-            time_ind_peaks += (pos - newbuf.shape[0] - self.n_span)
+            time_ind_peaks += (pos - newbuf.shape[0] - 2 * self.n_span)
             
             return time_ind_peaks, chan_ind_peaks, peak_val_peaks
 
         return None, None, None
     
     def get_mask_peaks_in_chunk(self, fifo_residuals):
-
         pyopencl.enqueue_copy(self.queue,  self.fifo_sigs_cl, fifo_residuals)
         #~ print(self.chunksize, self.max_wg_size)
         event = self.kern_get_mask_spatiotemporal_peaks(self.queue,  self.global_size, self.local_size,
@@ -473,7 +502,7 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
         
         return self.mask_peaks
     
-    def reset_fifo_index(self):
+    def initialize_stream(self):
         self._make_gpu_buffer()
         
     def _make_gpu_buffer(self):
@@ -519,7 +548,7 @@ class PeakDetectorGeometricalOpenCL(PeakDetectorGeometricalNumpy, OpenCL_Helper)
         self.mask_peaks_cl = pyopencl.Buffer(self.ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=self.mask_peaks)
         
         kernel_ = opencl_kernel_geometrical_part1 + opencl_kernel_geometrical_part2
-
+        
         kernel = kernel_ % dict(fifo_size=self.fifo_size, nb_channel=self.nb_channel, n_span=self.n_span,
                     relative_threshold=self.relative_threshold, peak_sign={'+':1, '-':-1}[self.peak_sign], nb_neighbour=self.nb_max_neighbour)
         
@@ -534,7 +563,7 @@ opencl_kernel_geometrical_part1 =  """
 #define fifo_size %(fifo_size)d
 #define n_span %(n_span)d
 #define nb_channel %(nb_channel)d
-#define relative_threshold %(relative_threshold)d
+#define relative_threshold %(relative_threshold)f
 #define peak_sign %(peak_sign)d
 #define nb_neighbour %(nb_neighbour)d
 """

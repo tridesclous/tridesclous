@@ -52,7 +52,6 @@ def test_DataIO():
     dataio = DataIO(dirname='test_DataIO')
     print(dataio)
     
-    #~ exit()
     
     for seg_num in range(dataio.nb_segment):
         #~ print('seg_num', seg_num)
@@ -86,7 +85,7 @@ def test_DataIO_probes():
     assert probe_filename.split('/')[-1] == dataio.info['probe_filename']
     
     dataio = DataIO(dirname='test_DataIO')
-    print(dataio)
+    #~ print(dataio)
     
 
 
@@ -106,7 +105,7 @@ def test_dataio_catalogue():
     dataio.save_catalogue(catalogue, name='test')
     
     c2 = dataio.load_catalogue(name='test', chan_grp=0)
-    print(c2)
+    #~ print(c2)
     assert c2['n_left'] == -15
     assert np.all(c2['centers0']==1)
     assert catalogue['signal_preprocessor_params']['highpass_freq'] == 300.

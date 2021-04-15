@@ -11,7 +11,7 @@ from tridesclous.cataloguetools import apply_all_catalogue_steps
 from tridesclous.autoparams import get_auto_params_for_catalogue
 
 def is_running_on_ci_cloud():
-    return True
+    
     if os.environ.get('TRAVIS') in ('true', 'True'):
         return True
     
@@ -27,7 +27,8 @@ ON_CI_CLOUD = is_running_on_ci_cloud()
     
     
 
-def setup_catalogue(dirname, dataset_name='olfactory_bulb', duration=None):
+def setup_catalogue(dirname, dataset_name='olfactory_bulb', 
+                duration=None, peak_sampler_mode=None):
     if os.path.exists(dirname):
         shutil.rmtree(dirname)
         
@@ -81,13 +82,18 @@ def setup_catalogue(dirname, dataset_name='olfactory_bulb', duration=None):
     if duration is not None:
         params['duration'] = duration
     
+    if peak_sampler_mode is not None:
+        params['peak_sampler']['mode'] = peak_sampler_mode
+        
+    
     #~ pprint(params)
     cc.apply_all_steps(params, verbose=True)
     
     # already done in apply_all_catalogue_steps:
     # cc.make_catalogue_for_peeler(inter_sample_oversampling=False, catalogue_name='initial') 
     
-    cc.make_catalogue_for_peeler(inter_sample_oversampling=True, catalogue_name='with_oversampling')
+    # DEBUG
+    #~ cc.make_catalogue_for_peeler(inter_sample_oversampling=True, catalogue_name='with_oversampling')
     
     return cc, params
 
