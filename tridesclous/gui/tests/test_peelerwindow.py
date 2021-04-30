@@ -9,7 +9,7 @@ from tridesclous.gui.tests.testingguitools import HAVE_QT5
 
 
 
-if not HAVE_QT5:
+if HAVE_QT5:
     import  pyqtgraph as pg
     from tridesclous.gui import *
 

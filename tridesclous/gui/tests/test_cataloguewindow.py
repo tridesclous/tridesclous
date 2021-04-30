@@ -8,7 +8,7 @@ import pytest
 from tridesclous.tests.testingtools import ON_CI_CLOUD, setup_catalogue
 from tridesclous.gui.tests.testingguitools import HAVE_QT5
 
-if not HAVE_QT5:
+if HAVE_QT5:
     import  pyqtgraph as pg
     from tridesclous.gui import *
 
@@ -71,7 +71,6 @@ def test_ClusterPeakList():
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_NDScatter():
     controller = get_controller()
-    controller.project()
     
     app = mkQApp()
     ndscatter = NDScatter(controller=controller)
@@ -94,7 +93,7 @@ def test_WaveformViewer():
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_SpikeSimilarityView():
     controller = get_controller()
-    controller.compute_spike_waveforms_similarity()
+    #~ controller.compute_spike_waveforms_similarity()
     app = mkQApp()
     similarityview = SpikeSimilarityView(controller=controller)
     similarityview.show()
@@ -198,20 +197,20 @@ def test_CatalogueWindow():
 if __name__ == '__main__':
     setup_module()
     
-    #~ test_CatalogueController()
+    test_CatalogueController()
     
-    #~ test_CatalogueTraceViewer()
-    #~ test_PeakList()
-    #~ test_ClusterPeakList()
-    #~ test_NDScatter()
-    #~ test_WaveformViewer()
-    #~ test_SpikeSimilarityView()
-    #~ test_ClusterSimilarityView()
-    #~ test_ClusterRatioSimilarityView()
-    #~ test_PairList()
-    #~ test_Silhouette()
-    #~ test_WaveformHistViewer()
-    #~ test_FeatureTimeViewer()
+    test_CatalogueTraceViewer()
+    test_PeakList()
+    test_ClusterPeakList()
+    test_NDScatter()
+    test_WaveformViewer()
+    test_SpikeSimilarityView()
+    test_ClusterSimilarityView()
+    test_ClusterRatioSimilarityView()
+    test_PairList()
+    test_Silhouette()
+    test_WaveformHistViewer()
+    test_FeatureTimeViewer()
     
     test_CatalogueWindow()
 

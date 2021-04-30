@@ -4,7 +4,7 @@ from tridesclous.tests.testingtools import ON_CI_CLOUD
 from tridesclous.gui.tests.testingguitools import HAVE_QT5
 
 
-if not HAVE_QT5:
+if  HAVE_QT5:
     import  pyqtgraph as pg
     from tridesclous.gui import *
     from tridesclous.gui.tools import *
@@ -16,7 +16,6 @@ from pprint import pprint
 
 @pytest.mark.skip()
 def test_open_dialog_catalogue():
-    fullchain_params
     app = pg.mkQApp()
     dialog = ParamDialog(fullchain_params)
     dialog.resize(200,600)
