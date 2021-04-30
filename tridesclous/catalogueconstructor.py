@@ -23,6 +23,8 @@ import scipy.interpolate
 import sklearn
 import sklearn.metrics
 
+import joblib
+
 from . import signalpreprocessor
 from . import  peakdetector
 from . import decomposition
@@ -371,6 +373,9 @@ class CatalogueConstructor:
         #~ self.info['adjacency_radius_um'] = adjacency_radius_um
         self.info['sparse_threshold'] = sparse_threshold
         self.info['n_spike_for_centroid'] = n_spike_for_centroid
+
+        if n_jobs < 0:
+            n_jobs = joblib.cpu_count() + 1 - n_jobs
         self.info['n_jobs'] = n_jobs
 
         self.flush_info()

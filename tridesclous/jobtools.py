@@ -9,6 +9,7 @@ This is usefull mainlly when the IO are slow.
 
 """
 import time
+import os
 import loky
 
 #~ import concurrent.futures.ThreadPoolExecutor
@@ -142,8 +143,12 @@ def run_parallel_read_process_write(cc, seg_num, length, n_jobs):
     chunk_slice = [(i*chunksize, (i+1)*chunksize) for i in range(num_chunk)]
     if length % chunksize > 0:
         chunk_slice.append((num_chunk*chunksize, length))
-    
+
+    if n_jobs < 0:
+        n_jobs = os.cpu_count() + 1 - n_jobs
+
     if n_jobs > 1:
+        n_jobs = min(n_jobs, len(chunk_slice))
         executor = loky.get_reusable_executor(
             max_workers=n_jobs, initializer=signalprocessor_initializer,
             initargs=initargs, context="loky", timeout=20)

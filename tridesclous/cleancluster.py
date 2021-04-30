@@ -17,6 +17,7 @@ import sklearn.metrics
 import sklearn.decomposition
 
 from joblib import Parallel, delayed
+import joblib
 
 
 
@@ -165,6 +166,12 @@ def auto_split(catalogueconstructor,
         cc2 = cc
     else:
         cc2 = None
+    
+    if n_jobs < 0:
+        n_jobs = joblib.cpu_count() + 1 - n_jobs
+    
+    if n_jobs > 1:
+        n_jobs = min(n_jobs, len( cc.positive_cluster_labels))
     
     pvals = Parallel(n_jobs=n_jobs, backend=joblib_backend)(
                     delayed(_compute_one_dip_test)(cc2, cc.dataio.dirname, cc.chan_grp, label, n_components_local_pca, adjacency_radius_um)

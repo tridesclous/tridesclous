@@ -66,8 +66,9 @@ from .autoparams import get_auto_params_for_catalogue, get_auto_params_for_peele
 
 from .importers import import_from_spykingcircus, import_from_spike_interface
 
+# exclude because import matplotlib
 #~ from .matplotlibplot import *
-from .report import *
+#~ from .report import *
 
 # from .gui import *
 
