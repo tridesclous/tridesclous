@@ -1,0 +1,6 @@
+tridesclous release notes 1.6.2
+===============================
+
+**2021-04-30**
+
+  * small fix around n_jobs
