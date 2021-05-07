@@ -24,5 +24,5 @@ def test_get_dataset():
 
 
 if __name__ == '__main__':
-    #~ test_download_dataset()
+    test_download_dataset()
     test_get_dataset()
