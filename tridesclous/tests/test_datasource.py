@@ -9,9 +9,6 @@ from tridesclous import download_dataset
 from tridesclous.datasource import InMemoryDataSource, data_source_classes
 
 
-from neo.test.rawiotest.tools import (can_use_network, make_all_directories,
-                                   download_test_file, create_local_temp_dir)
-
 
 
 def test_InMemoryDataSource():
