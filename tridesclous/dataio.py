@@ -204,8 +204,10 @@ class DataIO:
         # force abs path name 
         if 'filenames' in kargs:
             kargs['filenames'] = [ os.path.abspath(f) for f in kargs['filenames']]
-        if 'dirnames' in kargs:
+        elif 'dirnames' in kargs:
             kargs['dirnames'] = [ os.path.abspath(f) for f in kargs['dirnames']]
+        else:
+            raise ValueError('set_data_source() must contain filenames or dirnames')
 
         self.info['datasource_type'] = type
         self.info['datasource_kargs'] = kargs
@@ -227,22 +229,25 @@ class DataIO:
         kargs = self.info['datasource_kargs']
         try:
             self.datasource = data_source_classes[self.info['datasource_type']](**kargs)
-            self._reload_data_source_info()
         except:
             print('The datatsource is not found', self.info['datasource_kargs'])
             self.datasource = None
+        self._reload_data_source_info()
     
     def _save_datasource_info(self):
         assert self.datasource is not None, 'Impossible to load datasource and get info'
         # put some info of datasource
+        
         nb_seg = self.datasource.nb_segment
+        clean_shape = lambda  shape: tuple(int(e) for e in shape)
+        segment_shapes = [clean_shape(self.datasource.get_segment_shape(s)) for s in range(nb_seg)]
         self.info['datasource_info'] = dict(
             total_channel=int(self.datasource.total_channel),
             nb_segment=int(nb_seg),
             sample_rate=float(self.datasource.sample_rate),
             source_dtype=str(self.datasource.dtype),
             all_channel_names=[str(name) for name in self.datasource.get_channel_names()],
-            segment_shapes = [self.datasource.get_segment_shape(s) for s in range(nb_seg)]
+            segment_shapes = segment_shapes,
         )
         self.flush_info()
 
