@@ -1,0 +1,8 @@
+tridesclous release notes 1.6.3
+===============================
+
+**2021-05-21**
+
+  * small fix around matplotlib
+  * small bugfix around dataio
+
