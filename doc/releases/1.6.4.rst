@@ -1,0 +1,8 @@
+tridesclous release notes 1.6.4
+===============================
+
+**2021-10-05**
+
+  * fix installation with loky in setup.py
+  * numpy<1.21 because numba do not work with numpy 1.21
+
