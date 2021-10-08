@@ -20,6 +20,7 @@ install_requires = [
                     'joblib',
                     'numba',
                     'hdbscan',
+                    'loky',
                     ]
 extras_require={
                             'online' : ['pyacq',],
