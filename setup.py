@@ -6,7 +6,7 @@ exec(open("tridesclous/version.py").read(), None, d)
 version = d['version']
 
 install_requires = [
-                    'numpy<1.21',
+                    'numpy<1.22',
                     'scipy',
                     'pandas',
                     'openpyxl',
