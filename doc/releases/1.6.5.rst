@@ -1,0 +1,8 @@
+ tridesclous release notes 1.6.5
+================================
+
+**2022-03-03**
+
+ * No change in the code only change constrain to numpy version due to numba.
+   numpy<1.22 instead of numpy < 1.21
+
