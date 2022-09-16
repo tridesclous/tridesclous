@@ -197,7 +197,7 @@ class ProbeActivityViewer(WidgetNode):
     
     _default_params = [
             {'name': 'max_rate', 'type': 'float', 'value': 10., 'step': 0.5},
-            {'name': 'colormap', 'type': 'list', 'value': 'inferno', 'values': ['inferno', 'summer', 'viridis', 'jet'] },
+            {'name': 'colormap', 'type': 'list', 'value': 'inferno', 'limits': ['inferno', 'summer', 'viridis', 'jet'] },
             {'name': 'show_channel_num', 'type': 'bool', 'value': True},
             {'name': 'spacing_factor', 'type': 'float', 'value': 20., 'step': 1.0},
     ]

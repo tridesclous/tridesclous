@@ -143,7 +143,7 @@ class MethodDialog(QT.QDialog):
             assert selected_method in methods
         self.methods = methods
         
-        params = [{'name' : 'method', 'type' : 'list', 'values' : methods}]
+        params = [{'name' : 'method', 'type' : 'list', 'limits' : methods}]
         self.param_method = pg.parametertree.Parameter.create( name=title, type='group', children = params)
         self.tree_params = pg.parametertree.ParameterTree(parent  = self)
         self.tree_params.header().hide()
