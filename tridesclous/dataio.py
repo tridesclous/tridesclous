@@ -171,8 +171,8 @@ class DataIO:
         if folder_version == 'unknown':
             w = True
         else:
-            v1 = packaging.version.pasre(tridesclous_version).version
-            v2 = packaging.version.pasre(self.info['tridesclous_version']).version
+            v1 = packaging.version.parse(tridesclous_version)
+            v2 = packaging.version.parse(self.info['tridesclous_version'])
             if (v1.major == v2.major) and (v1.minor == v2.minor):
                 w = False
             else:
