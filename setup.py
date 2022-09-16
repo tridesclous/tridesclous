@@ -6,18 +6,18 @@ exec(open("tridesclous/version.py").read(), None, d)
 version = d['version']
 
 install_requires = [
-                    'numpy<1.22',
+                    'numpy<1.23',
                     'scipy',
                     'pandas',
                     'openpyxl',
                     'scikit-learn>=0.22.2',
                     'matplotlib',
                     'seaborn',
-                    'neo>=0.8',
+                    'neo>=0.10',
                     'tqdm',
                     # 'PyQt5',  make conda buggy
                     'pyqtgraph',
-                    'joblib',
+                    'joblib=1.1',
                     'numba',
                     'hdbscan',
                     'loky',

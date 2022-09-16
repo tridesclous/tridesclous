@@ -1,0 +1,10 @@
+ tridesclous release notes 1.6.6
+================================
+
+**2022-09-16**
+
+ * remove distuils.version
+ * fix some pyqtgraph
+ * force joblib=1.1 (for hdbscan)
+
+
