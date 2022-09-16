@@ -5,10 +5,9 @@
 """
 try:
     import pyacq
-
     #test pyacq version
-    import distutils.version
-    assert distutils.version.LooseVersion(pyacq.__version__)>='0.2.0-dev'
+    import packaging.version
+    assert packaging.version.Version(pyacq.__version__)>='0.2.0-dev'
     HAVE_PYACQ = True
 except:
     HAVE_PYACQ = False
