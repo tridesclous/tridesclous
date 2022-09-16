@@ -21,7 +21,7 @@ class MyViewBox(pg.ViewBox):
 
 class BaseSimilarityView(WidgetBase):
     _params = [
-                      {'name': 'colormap', 'type': 'list', 'values' : ['viridis', 'jet', 'gray', 'hot', ] },
+                      {'name': 'colormap', 'type': 'list', 'limits' : ['viridis', 'jet', 'gray', 'hot', ] },
         ]
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)

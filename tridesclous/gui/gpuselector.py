@@ -35,7 +35,7 @@ class GpuSelector(ParamDialog):
         l = list(self.possibles_gpu.keys())
         params = [
                 {'name': 'always_use_default', 'type': 'bool', 'value': save},
-                {'name': 'OpenCL_device', 'type': 'list', 'value' : selected_cl_name, 'values': l},
+                {'name': 'OpenCL_device', 'type': 'list', 'value' : selected_cl_name, 'limits': l},
         ]
         ParamDialog.__init__(self, params, title = '', parent=parent)
 

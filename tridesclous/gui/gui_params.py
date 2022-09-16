@@ -58,7 +58,7 @@ Clean peaks
     {'name':'peak_sampler', 'type':'group', 'children' : peak_sampler_params},
 
     {'name': 'alien_value_threshold', 'type': 'float', 'value':100.},
-    {'name': 'mode', 'type': 'list', 'values':[, ]}, # full_waveform
+    {'name': 'mode', 'type': 'list', 'limits':[, ]}, # full_waveform
 ]
 
 Peak sampler
@@ -158,13 +158,13 @@ preprocessor_params = [
     {'name': 'common_ref_removal', 'type': 'bool', 'value':False},
     #~ {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
     {'name': 'pad_width', 'type': 'int', 'value':-1, 'decimals':10, 'limits': (-1, np.inf),},
-    {'name': 'engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl']},
+    {'name': 'engine', 'type': 'list', 'value' : 'numpy', 'limits':['numpy', 'opencl']},
 ]
 
 peak_detector_params = [
-    {'name': 'method', 'type': 'list', 'value' : 'global', 'values':['global', 'geometrical']},
-    {'name': 'engine', 'type': 'list', 'value' : 'numpy', 'values':['numpy', 'opencl', 'numba']},
-    {'name': 'peak_sign', 'type': 'list',  'value':'-', 'values':['-', '+']},
+    {'name': 'method', 'type': 'list', 'value' : 'global', 'limits':['global', 'geometrical']},
+    {'name': 'engine', 'type': 'list', 'value' : 'numpy', 'limits':['numpy', 'opencl', 'numba']},
+    {'name': 'peak_sign', 'type': 'list',  'value':'-', 'limits':['-', '+']},
     {'name': 'relative_threshold', 'type': 'float', 'value': 5., 'step': .1,},
     {'name': 'peak_span_ms', 'type': 'float', 'value':0.5, 'step': 0.05, 'suffix': 'ms', 'siPrefix': False},
     {'name':'adjacency_radius_um', 'type': 'float', 'value':200., 'suffix': 'µm', 'siPrefix': False},    
@@ -180,12 +180,12 @@ waveforms_params = [
 
 clean_peaks_params = [
     {'name': 'alien_value_threshold', 'type': 'float', 'value': np.nan},
-    {'name': 'mode', 'type': 'list', 'values':['extremum_amplitude', 'full_waveform']}, # 
+    {'name': 'mode', 'type': 'list', 'limits':['extremum_amplitude', 'full_waveform']}, # 
 ]
 
 
 peak_sampler_params = [
-    {'name': 'mode', 'type': 'list', 'values':['rand', 'rand_by_channel', 'all']},
+    {'name': 'mode', 'type': 'list', 'limits':['rand', 'rand_by_channel', 'all']},
     {'name': 'nb_max', 'type': 'int', 'value':20000},
     {'name': 'nb_max_by_channel', 'type': 'int', 'value':600},
 ]
@@ -223,12 +223,12 @@ cluster_params_by_methods = OrderedDict([
     ('kmeans', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5}]),
     ('onecluster', []),
     ('gmm', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5},
-                    {'name' : 'covariance_type', 'type' : 'list', 'values' : ['full']},
+                    {'name' : 'covariance_type', 'type' : 'list', 'limits' : ['full']},
                     {'name' : 'n_init', 'type' : 'int', 'value' : 10}]),
     ('agglomerative', [{'name' : 'n_clusters', 'type' : 'int', 'value' : 5}]),
     ('dbscan', [{'name' : 'eps', 'type' : 'float', 'value' : 3},
-                        {'name' : 'metric', 'type' : 'list', 'values' : ['euclidean', 'l1', 'l2']},
-                        {'name' : 'algorithm', 'type' : 'list', 'values' : ['brute', 'auto', 'ball_tree', 'kd_tree', 'brute']},
+                        {'name' : 'metric', 'type' : 'list', 'limits' : ['euclidean', 'l1', 'l2']},
+                        {'name' : 'algorithm', 'type' : 'list', 'limits' : ['brute', 'auto', 'ball_tree', 'kd_tree', 'brute']},
                     ]),
     ('optics', [{'name' : 'min_samples', 'type' : 'int', 'value' : 5}]),
     ('hdbscan', [{'name' : 'min_cluster_size', 'type' : 'int', 'value' : 20}]),
@@ -276,7 +276,7 @@ fullchain_params = [
     # global params
     {'name':'duration', 'type': 'float', 'value':300., 'suffix': 's', 'siPrefix': True},
     {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
-    {'name' : 'mode', 'type' : 'list', 'values' : ['dense', 'sparse']},
+    {'name' : 'mode', 'type' : 'list', 'limits' : ['dense', 'sparse']},
     {'name':'sparse_threshold', 'type': 'float', 'value':1.5},
     {'name' : 'n_spike_for_centroid', 'type' : 'int', 'value' : 350},
     {'name' : 'n_jobs', 'type' : 'int', 'value' : -1},
@@ -298,9 +298,9 @@ fullchain_params = [
 ]
 
 metrics_params = [
-    {'name': 'spike_waveforms_similarity', 'type': 'list', 'values' : [ 'cosine_similarity']},
-    {'name': 'cluster_similarity', 'type': 'list', 'values' : [ 'cosine_similarity_with_max']},
-    {'name': 'cluster_ratio_similarity', 'type': 'list', 'values' : [ 'cosine_similarity_with_max']},
+    {'name': 'spike_waveforms_similarity', 'type': 'list', 'limits' : [ 'cosine_similarity']},
+    {'name': 'cluster_similarity', 'type': 'list', 'limits' : [ 'cosine_similarity_with_max']},
+    {'name': 'cluster_ratio_similarity', 'type': 'list', 'limits' : [ 'cosine_similarity_with_max']},
     {'name': 'size_max', 'type': 'int', 'value':10000000},
 ]
 
@@ -318,7 +318,7 @@ _common_peeler_params = [
 ]
 
 #~ _classic_peeler_params = _common_peeler_params + [
-    #~ {'name': 'argmin_method', 'type': 'list', 'values' : [ 'numpy', 'opencl', 'numba',]},
+    #~ {'name': 'argmin_method', 'type': 'list', 'limits' : [ 'numpy', 'opencl', 'numba',]},
 #~ ]
 
 _geometrical_peeler_params = _common_peeler_params + [

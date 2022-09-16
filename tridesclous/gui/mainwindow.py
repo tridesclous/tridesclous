@@ -564,7 +564,7 @@ Catalogue do not exists, please do:
         
         possible_formats = [e.ext for e in export_list]
         params = [
-            {'name': 'format', 'type': 'list', 'values':possible_formats},
+            {'name': 'format', 'type': 'list', 'limits':possible_formats},
             {'name': 'split_by_cluster', 'type': 'bool', 'value':False},
             {'name': 'use_cell_label', 'type': 'bool', 'value':True},
         ]

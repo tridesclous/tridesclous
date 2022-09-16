@@ -45,7 +45,7 @@ class OnlineWaveformHistViewer(WidgetNode):
                                     }
     
     _params = [
-                      {'name': 'colormap', 'type': 'list', 'values' : ['hot', 'viridis', 'jet', 'gray',  ] },
+                      {'name': 'colormap', 'type': 'list', 'limits' : ['hot', 'viridis', 'jet', 'gray',  ] },
                       {'name': 'bin_min', 'type': 'float', 'value' : -20. },
                       {'name': 'bin_max', 'type': 'float', 'value' : 8. },
                       {'name': 'bin_size', 'type': 'float', 'value' : .1 },

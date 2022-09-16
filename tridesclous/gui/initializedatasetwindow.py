@@ -81,7 +81,7 @@ class InitializeDatasetWindow(QT.QDialog):
             #~ if 'RawBinarySignal' in source_types:
                 #~ source_types.remove('RawData')
             
-            params = [{'name': 'source_type', 'type': 'list', 'values':source_types},
+            params = [{'name': 'source_type', 'type': 'list', 'limits':source_types},
                             ]
             self.step_params = pg.parametertree.Parameter.create(name='Select source type', type='group', children = params)
             self.tree_params.setParameters(self.step_params, showTop=True)

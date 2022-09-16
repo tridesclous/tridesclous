@@ -383,7 +383,7 @@ class ClusterPeakList(ClusterBaseList):
         params_ = [
             {'name': 'color', 'type': 'color', 'value': color},
             {'name': 'annotations', 'type': 'str', 'value': annotations},
-            {'name': 'tag', 'type': 'list', 'value': tag, 'values':gui_params.possible_tags},
+            {'name': 'tag', 'type': 'list', 'value': tag, 'limits':gui_params.possible_tags},
         ]        
         
         dia = ParamDialog(params_, title = 'Cluster {}'.format(k), parent=self)

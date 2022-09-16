@@ -12,8 +12,7 @@ import numpy as np
 import pandas as pd
 from urllib.request import urlretrieve
 import pickle
-import distutils.version
-
+import packaging.version
 
 import sklearn.metrics
 
@@ -172,9 +171,9 @@ class DataIO:
         if folder_version == 'unknown':
             w = True
         else:
-            v1 = distutils.version.LooseVersion(tridesclous_version).version
-            v2 = distutils.version.LooseVersion(self.info['tridesclous_version']).version
-            if (v1[0] == v2[0]) and (v1[1] == v2[1]):
+            v1 = packaging.version.pasre(tridesclous_version).version
+            v2 = packaging.version.pasre(self.info['tridesclous_version']).version
+            if (v1.major == v2.major) and (v1.minor == v2.minor):
                 w = False
             else:
                 w = True
