@@ -23,7 +23,7 @@ def initialize_catalogueconstructor():
     print()
     #create a DataIO
     import os, shutil
-    
+
     if os.path.exists(dirname):
         #remove is already exists
         shutil.rmtree(dirname)    
@@ -46,22 +46,22 @@ def apply_catalogue_steps_auto():
 
     params = get_auto_params_for_catalogue(dataio, chan_grp=0)
     params['adjacency_radius_um'] = 400.
-    
+
     cc.apply_all_steps(params, verbose=True)
-    
+
     print(cc)
-    
+
 
 
 
 def open_cataloguewindow():
     dataio = DataIO(dirname=dirname)
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    
+
     app = pg.mkQApp()
     win = CatalogueWindow(catalogueconstructor)
     win.show()
-    
+
     app.exec_()    
 
 
@@ -71,17 +71,17 @@ def run_peeler():
 
     peeler_params = get_auto_params_for_peelers(dataio, chan_grp=0)
     pprint(peeler_params)    
-    
+
     peeler = Peeler(dataio)
     peeler.change_params(catalogue=catalogue, **peeler_params)
-    
+
     t1 = time.perf_counter()
     peeler.run()
     t2 = time.perf_counter()
     print('peeler.run', t2-t1)
-    
-    
-    
+
+
+
 def open_PeelerWindow():
     dataio = DataIO(dirname=dirname)
     print(dataio)
@@ -96,10 +96,10 @@ def open_PeelerWindow():
 
 if __name__ =='__main__':
     #~ initialize_catalogueconstructor()
-    
+
     #~ apply_catalogue_steps_auto()
     #~ open_cataloguewindow()
-    
+
     #~ run_peeler()
     open_PeelerWindow()
-    
+

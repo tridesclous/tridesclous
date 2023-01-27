@@ -30,10 +30,10 @@ class CrossCorrelogramViewer(WidgetBase):
         ]
     def __init__(self, controller=None, parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
-        
+
         self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
-        
+
         h = QT.QHBoxLayout()
         self.layout.addLayout(h)
 
@@ -44,17 +44,17 @@ class CrossCorrelogramViewer(WidgetBase):
         but = QT.QPushButton('compute')
         but.clicked.connect(self.compute_ccg)
         h.addWidget(but)
-        
+
         self.grid = pg.GraphicsLayoutWidget()
         self.layout.addWidget(self.grid)
-        
+
         self.ccg = None
 
 
     def on_params_changed(self):
         self.ccg = None
         self.refresh()
-    
+
     def compute_ccg(self):
         cluster_labels = self.controller.positive_cluster_labels
         spikes = self.controller.spikes
@@ -73,42 +73,42 @@ class CrossCorrelogramViewer(WidgetBase):
 
     def refresh(self):
         self.grid.clear()
-        
+
         if self.ccg is None:
             return
-        
+
         visibles = [ ]
         for k in self.controller.positive_cluster_labels:
             if self.controller.cluster_visible[k]:
                 visibles.append(k)
-        
+
         visibles = visibles[:self.params['max_visible']]
-        
+
         n = len(visibles)
-        
+
         bins = self.bins * 1000. #to ms
-        
+
         labels = self.controller.positive_cluster_labels.tolist()
-        
+
         for r in range(n):
             for c in range(r, n):
-                
+
                 i = labels.index(visibles[r])
                 j = labels.index(visibles[c])
-                
+
                 count = self.ccg[i, j, :]
-                
+
                 plot = pg.PlotItem()
                 if not self.params['display_axis']:
                     plot.hideAxis('bottom')
                     plot.hideAxis('left')
-                
+
                 if r==c:
                     k = visibles[r]
                     color = self.controller.qcolors[k]
                 else:
                     color = (120,120,120,120)
-                
+
                 curve = pg.PlotCurveItem(bins, count, stepMode=True, fillLevel=0, brush=color, pen=color)
                 plot.addItem(curve)
                 self.grid.addItem(plot, row=r, col=c)

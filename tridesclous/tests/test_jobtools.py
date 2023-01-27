@@ -27,33 +27,33 @@ def setup_module():
 
 
 def test_run_parallel_signalprocessor():
-    
+
     dirname = 'test_jobtools'
     dataio = DataIO(dirname=dirname)
     cc = CatalogueConstructor(dataio=dataio)
     #~ print(cc)
-    
+
     seg_num = 0
     length = 320000
     #~ n_jobs = 2
     n_jobs = 4
-    
+
     cc.arrays.initialize_array('all_peaks', cc.memory_mode,  _dtype_peak, (-1, ))
-    
+
     t0 = time.perf_counter()
     run_parallel_read_process_write(cc, seg_num, length, n_jobs)
     t1 = time.perf_counter()
     print(t1-t0)
-    
+
     cc.arrays.finalize_array('all_peaks')
-    
+
 
 
 
 if __name__ == '__main__':
     #~ setup_module()
     test_run_parallel_signalprocessor()
-    
+
 
 
 

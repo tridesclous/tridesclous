@@ -20,10 +20,10 @@ def test_extract_chunks_memory():
     chunks = extract_chunks(signals, indexes, width, chunks=None)
     t1 = time.perf_counter()
     print('extract_chunks no buffer', t1-t0)
-    
+
 
     chunks[:] = 0
-    
+
     t0 = time.perf_counter()
     chunks = extract_chunks(signals, indexes, width, chunks=chunks)
     t1 = time.perf_counter()
@@ -36,7 +36,7 @@ def test_extract_chunks_memmap():
     signals = np.memmap('test_extract_wf_signal', dtype='float32', mode='w+', shape=(size, nb_channel))
     indexes = np.random.randint(low=width, high=size-width, size=nb_peak)
     chunks = np.memmap('test_extract_wf_chunks', dtype='float32', mode='w+', shape=(nb_peak, width, nb_channel))
-    
+
     t0 = time.perf_counter()
     chunks = extract_chunks(signals, indexes, width, chunks=chunks)
     chunks.flush()
@@ -55,14 +55,14 @@ def test_extract_chunks_with_channel_indexes():
 
 
 
-    
+
 
 if __name__ == '__main__':
     test_extract_chunks_memory()
     test_extract_chunks_memmap()
     test_extract_chunks_with_channel_indexes()
-    
-    
-    
+
+
+
 
 

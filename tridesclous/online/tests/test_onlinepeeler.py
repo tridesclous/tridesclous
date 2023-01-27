@@ -35,7 +35,7 @@ def setup_module():
 def setup_catalogue():
     if os.path.exists('test_onlinepeeler'):
         shutil.rmtree('test_onlinepeeler')
-    
+
     dataio = DataIO(dirname='test_onlinepeeler')
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
@@ -43,60 +43,60 @@ def setup_catalogue():
     dataio.add_one_channel_group(channels=[5, 6, 7, 8, 9])
 
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    
-    
-    params = get_auto_params_for_catalogue(dataio=dataio, chan_grp=0)
-    
 
-    
+
+    params = get_auto_params_for_catalogue(dataio=dataio, chan_grp=0)
+
+
+
     apply_all_catalogue_steps(catalogueconstructor, params, verbose=True)
     catalogueconstructor.trash_small_cluster()
-    
+
     catalogueconstructor.order_clusters(by='waveforms_rms')
-    
+
     catalogueconstructor.make_catalogue_for_peeler()
 
 
     catalogueconstructor = CatalogueConstructor(dataio=dataio)
-    
+
     if __name__ =='__main__':
         app = pg.mkQApp()
         win = CatalogueWindow(catalogueconstructor)
         win.show()
         app.exec_()
 
-    
+
 @pytest.mark.skipif(not HAVE_PYACQ, reason='no pyacq')
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_OnlinePeeler():
     dataio = DataIO(dirname='test_onlinepeeler')
-    
+
     catalogue = dataio.load_catalogue(chan_grp=0)
-    
-    
-    
+
+
+
     sigs = dataio.datasource.array_sources[0]
-    
+
     sigs = sigs.astype('float32')
     sample_rate = dataio.sample_rate
     in_group_channels = dataio.channel_groups[0]['channels']
     #~ print(channel_group)
-    
+
     chunksize = 1024
     geometry = dataio.get_geometry(chan_grp=0)
-    
+
     # Device node
     #~ man = create_manager(auto_close_at_exit=True)
     #~ ng0 = man.create_nodegroup()
     ng0 = None
     dev = make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup=ng0, chunksize=chunksize)
-    
 
-    
+
+
     app = pg.mkQApp()
-    
+
     dev.start()
-    
+
     # Node QOscilloscope
     oscope = QOscilloscope()
     oscope.configure(with_user_dialog=True)
@@ -119,7 +119,7 @@ def test_OnlinePeeler():
     peeler.outputs['spikes'].configure(**stream_params)
     peeler.initialize()
     peeler.start()
-    
+
     # Node traceviewer
     tviewer = OnlineTraceViewer()
     tviewer.configure(peak_buffer_size = 1000, catalogue=lighter_catalogue(catalogue))
@@ -132,7 +132,7 @@ def test_OnlinePeeler():
     tviewer.params['decimation_method'] = 'min_max'
     tviewer.params['mode'] = 'scan'
 
-    
+
     # waveform histogram viewer
     wviewer = OnlineWaveformHistViewer()
     wviewer.configure(peak_buffer_size = 1000, catalogue=catalogue)
@@ -141,24 +141,24 @@ def test_OnlinePeeler():
     wviewer.initialize()
     wviewer.show()
     wviewer.start()    
-    
-    
+
+
     def terminate():
         dev.stop()
         oscope.stop()
         peeler.stop()
         tviewer.stop()
         app.quit()
-    
-    
+
+
     if __name__ =='__main__':
         app.exec_()
-    
+
 
 @pytest.mark.skipif(not HAVE_PYACQ, reason='no pyacq')
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_OnlinePeeler_no_catalogue():
-    
+
 
     localdir, filenames, params = download_dataset(name='olfactory_bulb')
     filename = filenames[0] #only first file
@@ -171,13 +171,13 @@ def test_OnlinePeeler_no_catalogue():
     #~ dataio.set_channel_groups(channel_group)
     #~ print(filenames)
     #~ print(sigs.shape)
-    
-    
+
+
     channel_indexes = [5,6,7,8]
-    
+
     chunksize = 1024
-    
-    
+
+
     #case 1 before medians estimation
     #~ empty_catalogue = make_empty_catalogue(
                 #~ channel_indexes=channel_indexes,
@@ -196,37 +196,37 @@ def test_OnlinePeeler_no_catalogue():
                 preprocessor_params=preprocessor_params,
                 peak_detector_params={'relative_threshold': 10},
                 #~ clean_waveforms_params={},
-                
+
                 signals_medians = signals_medians,
                 signals_mads = signals_mads,
-        
+
         )
-    
-    
+
+
     pprint(empty_catalogue)
     #~ print(empty_catalogue['signal_preprocessor_params'])
-    
-    
-    
-    
-    
+
+
+
+
+
     #~ in_group_channels = dataio.channel_groups[0]['channels']
     #~ print(channel_group)
-    
+
     chunksize = 1024
-    
-    
+
+
     # Device node
     #~ man = create_manager(auto_close_at_exit=True)
     #~ ng0 = man.create_nodegroup()
     ng0 = None
     dev = make_pyacq_device_from_buffer(sigs, sample_rate, nodegroup=ng0, chunksize=chunksize)
-    
-    
+
+
     app = pg.mkQApp()
-    
+
     dev.start()
-    
+
     # Node QOscilloscope
     oscope = QOscilloscope()
     oscope.configure(with_user_dialog=True)
@@ -247,7 +247,7 @@ def test_OnlinePeeler_no_catalogue():
     peeler.outputs['spikes'].configure(**stream_params)
     peeler.initialize()
     peeler.start()
-    
+
     # Node traceviewer
     tviewer = OnlineTraceViewer()
     tviewer.configure(peak_buffer_size = 1000, catalogue=empty_catalogue)
@@ -260,7 +260,7 @@ def test_OnlinePeeler_no_catalogue():
     tviewer.params['mode'] = 'scan'
     tviewer.params['scale_mode'] = 'same_for_all'
     tviewer.start()
-    
+
     # waveform histogram viewer
     wviewer = OnlineWaveformHistViewer()
     wviewer.configure(peak_buffer_size = 1000, catalogue=empty_catalogue)
@@ -270,34 +270,34 @@ def test_OnlinePeeler_no_catalogue():
     wviewer.show()
     wviewer.start()        
 
-    
+
     def auto_scale():
         oscope.auto_scale()
         tviewer.auto_scale()
-    
+
     def terminate():
         dev.stop()
         oscope.stop()
         peeler.stop()
         tviewer.stop()
         app.quit()
-    
+
     timer = QT.QTimer(singleShot=True, interval=500)
     timer.timeout.connect(auto_scale)
     timer.start()
-    
-    
+
+
     if __name__ =='__main__':
         app.exec_()
-    
 
-    
-    
-    
+
+
+
+
 if __name__ =='__main__':
     #~ setup_catalogue()
-    
+
     test_OnlinePeeler()
-    
+
     #~ test_OnlinePeeler_no_catalogue()
 

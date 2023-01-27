@@ -43,55 +43,55 @@ Integration with open-ephys GUI
 -------------------------------
 
   * **Step 1 ** install pyacq::
-  
+
       pip install --upgrade https://github.com/pyacq/pyacq/archive/master.zip
 
   * **Step 2**
-  
+
     Installation openephys from source (with compilation)
     `See <https://open-ephys.atlassian.net/wiki/spaces/OEW/pages/491544/Installation)>`_
 
-    
+
   * **Step 3**
-  
+
     Download and compile the `PythonPlugin <https://github.com/NeuroNetMem/PythonPlugin>`_ for openephys-GUI
-  
+
     Select the branch **cmake_build** (mai 2020)
 
-    
+
   * **Step 4**
-  
+
     Compile tridesclous python plugin.
-    
+
     Please adapt path to your isntallation
-    
+
     Copy source to PythonPlugin::
-    
+
         cp -R /home/samuel/Documents/tridesclous/utils/OpenephysTridesclousPyPlugin /home/samuel/Documents/open-ephys/PythonPlugin/python_modules
-    
+
     Select conda (or virtualenv) and compile it::
-    
+
         activate myenv
         cd /home/samuel/Documents/open-ephys/PythonPlugin/python_modules/OpenephysTridesclousPyPlugin
         python setup.py build_ext --inplace
-    
+
     You should see a file **OpenephysTridesclousPyPlugin.cpython-37m-x86_64-linux-gnu.so**
-    
-    
+
+
   * **Step 5**
-    
+
     launch openephys
-    
+
     Construct a chain with **"Python Sink"**
-    
+
     Inside the python plugin Select the compiled tridesclous plugin: **OpenephysTridesclousPyPlugin.cpython-37m-x86_64-linux-gnu.so**
-    
-    
+
+
   * **Step 6**
     run it::
-  
+
       tdc rt_openephys --prb_file=/path/to/prb_file.prb
-      
+
 
 
 

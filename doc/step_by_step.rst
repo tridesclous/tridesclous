@@ -12,7 +12,7 @@ Launch
 ------
 
 In a console (terminal)::
-    
+
     workon tdc (or activate tdc for windows)
     tdc
 

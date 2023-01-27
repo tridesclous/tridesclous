@@ -20,7 +20,7 @@ limit_dense_sparse = 4
 
 _default_catalogue_params = {
     'duration': 300.,
-    
+
     'chunksize': 1024,
     'mode': 'dense', # 'sparse'
     'sparse_threshold': None, # 1.5
@@ -32,7 +32,7 @@ _default_catalogue_params = {
         'highpass_freq': 300.,
         'lowpass_freq': 5000.,
         'smooth_size': 0,
-        
+
         'pad_width': -1,   # this auto
         'engine': 'numpy',
         'common_ref_removal':False,
@@ -45,7 +45,7 @@ _default_catalogue_params = {
         'peak_span_ms': .7,
         'adjacency_radius_um' : None,
         'smooth_radius_um' : None,
-        
+
     },
     'noise_snippet': {
         'nb_snippet': 300,
@@ -75,8 +75,8 @@ _default_catalogue_params = {
     'feature_kargs': {},
     'cluster_method': 'pruningshears',
     'cluster_kargs': {},
-    
-    
+
+
     'clean_cluster' :{
         'apply_auto_split': True,
         'apply_trash_not_aligned': True,
@@ -84,8 +84,8 @@ _default_catalogue_params = {
         'apply_trash_low_extremum': True,
         'apply_trash_small_cluster': True,
     },
-    
-    
+
+
     'make_catalogue':{
         'inter_sample_oversampling':False,
         'subsample_ratio': 'auto',
@@ -105,9 +105,9 @@ def get_auto_params_for_catalogue(dataio=None, chan_grp=0,
     Automatic selection of parameters.
     This totally empiric paramerters.
     """
-    
+
     assert context in ('offline', 'online')
-    
+
     params = copy.deepcopy(_default_catalogue_params)
 
     # TODO make this more complicated
@@ -130,17 +130,17 @@ def get_auto_params_for_catalogue(dataio=None, chan_grp=0,
         # auto chunsize of 100 ms
         params['chunksize'] = int(sample_rate * 1.0)
         params['duration'] = 601.
-        
+
         # segment durartion is not so big then take the whole duration
         # to avoid double preprocessing (catalogue+peeler)
         if params['duration'] * 2 > total_duration:
             params['duration'] = total_duration
-    
+
     #~ if nb_chan == 1:
         #~ params['mode'] = 'dense'
         #~ params['adjacency_radius_um'] = 0.
         #~ params['sparse_threshold'] = 1.5
-        
+
         #~ params['peak_detector']['method'] = 'global'
         #~ params['peak_detector']['engine'] = 'numpy'
         #~ params['peak_detector']['smooth_radius_um' ] = None
@@ -148,57 +148,57 @@ def get_auto_params_for_catalogue(dataio=None, chan_grp=0,
 
         #~ params['peak_sampler']['mode'] = 'rand'
         #~ params['peak_sampler']['nb_max'] = 20000
-        
+
         #~ params['feature_method'] = 'global_pca'
         #~ params['feature_kargs'] = {'n_components' : 4 }
-        
+
         #~ params['cluster_method'] = 'dbscan_with_noise'
         #~ params['cluster_kargs'] = {}
-        
 
-        
+
+
         #~ params['clean_cluster_kargs'] = {'too_small' : 20 }        
-    
+
     #~ elif nb_chan <=4:
     if nb_chan <= limit_dense_sparse:
     #~ if nb_chan <=8:
-    
+
         params['mode'] = 'dense'
         #~ params['adjacency_radius_um'] = 0.
         params['sparse_threshold'] = 1.5
-        
+
         #~ params['peak_detector']['method'] = 'global'
         #~ params['peak_detector']['engine'] = 'numpy'
 
         params['peak_detector']['method'] = 'geometrical'
         params['peak_detector']['engine'] = 'numba'
-        
+
         params['peak_detector']['adjacency_radius_um'] = 200. # useless
         params['peak_detector']['smooth_radius_um' ] = None
 
 
         params['peak_sampler']['mode'] = 'rand'
         params['peak_sampler']['nb_max'] = 20000
-        
+
         params['feature_method'] = 'global_pca'
         if nb_chan in (1,2):
             n_components = 5
         else:
             n_components = int(nb_chan*2)
         params['feature_kargs'] = {'n_components' : n_components }
-        
-        
+
+
         params['cluster_method'] = 'pruningshears'
         params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 10)
         params['cluster_kargs']['min_cluster_size'] = 20
         params['cluster_kargs']['adjacency_radius_um'] = 0.
         params['cluster_kargs']['high_adjacency_radius_um'] = 0.
-        
+
         # necessary for peeler classic
         #~ params['make_catalogue']['inter_sample_oversampling'] = True
 
 
-        
+
 
     else:
         params['mode'] = 'sparse'
@@ -211,8 +211,8 @@ def get_auto_params_for_catalogue(dataio=None, chan_grp=0,
         params['peak_detector']['adjacency_radius_um'] = 200.
         #~ params['peak_detector']['smooth_radius_um' ] = 10
         params['peak_detector']['smooth_radius_um' ] = None
-        
-        
+
+
         if HAVE_PYOPENCL:
             params['peak_detector']['engine'] = 'opencl'
         elif HAVE_NUMBA:
@@ -220,21 +220,21 @@ def get_auto_params_for_catalogue(dataio=None, chan_grp=0,
         else:
             print('WARNING : peakdetector will be slow install opencl or numba')
             params['peak_detector']['engine'] = 'numpy'
-        
+
         params['peak_sampler']['mode'] = 'rand_by_channel'
         #~ params['extract_waveforms']['nb_max_by_channel'] = 700
         params['peak_sampler']['nb_max_by_channel'] = 1000
         #~ params['peak_sampler']['nb_max_by_channel'] = 1500
         #~ params['peak_sampler']['nb_max_by_channel'] = 3000
-        
-        
+
+
         params['feature_method'] = 'pca_by_channel'
         # TODO change n_components_by_channel depending on channel density
         #~ params['feature_kargs'] = {'n_components_by_channel':5}
         params['feature_kargs'] = {'n_components_by_channel': 3,
                                                         'adjacency_radius_um' :50.,  # this should be greater than cluster 'adjacency_radius_um'
                                                         }
-        
+
         params['cluster_method'] = 'pruningshears'
         params['cluster_kargs']['max_loop'] = max(1000, nb_chan * 20)
         params['cluster_kargs']['min_cluster_size'] = 20
@@ -243,7 +243,7 @@ def get_auto_params_for_catalogue(dataio=None, chan_grp=0,
 
     if context == 'online':
         params['n_jobs' ] = 1
-    
+
     return params
 
 
@@ -251,7 +251,7 @@ def get_auto_params_for_catalogue(dataio=None, chan_grp=0,
 def get_auto_params_for_peelers(dataio, chan_grp=0):
     nb_chan = dataio.nb_channel(chan_grp=chan_grp)
     params = {}
-    
+
     params['chunksize'] = int(dataio.sample_rate * 1)
     #~ params['chunksize'] = int(dataio.sample_rate * 0.5)
     #~ params['chunksize'] = int(dataio.sample_rate * 0.1)
@@ -259,16 +259,16 @@ def get_auto_params_for_peelers(dataio, chan_grp=0):
 
     if nb_chan <= limit_dense_sparse:
         params['engine'] = 'geometrical'
-        
+
     else:
         if HAVE_PYOPENCL:
             params['engine'] = 'geometrical_opencl'
         else:
             params['engine'] = 'geometrical'
 
-    
+
     # DEBUG force 'geometrical'
     params['engine'] = 'geometrical'
-        
+
 
     return params

@@ -8,7 +8,7 @@ import time
 
 def test_get_median_mad():
     pass
-    
+
 
 def test_FifoBuffer():
     n = 5
@@ -56,24 +56,24 @@ def test_compute_cross_correlograms():
     bin_size=0.001
     window_size=0.2
     #~ symmetrize=True
-    
+
     spike_times = np.random.rand(n)*10000
     spike_times.sort()
     spike_indexes = (spike_times*sample_rate).astype('int64')
-    
+
     spike_labels = np.random.randint(0,6, size=n)
-    
+
     spike_segments = np.zeros(n, dtype='int64')
     spike_segments[n//2] = 1
-    
+
     cluster_labels = np.unique(spike_labels)
-    
+
 
     t0 = time.perf_counter()
     cgc, bins = compute_cross_correlograms(spike_indexes, spike_labels, spike_segments,
                 cluster_labels, sample_rate, window_size, bin_size)
     t1 = time.perf_counter()
-    
+
     print(cgc.shape)
     print('compute_cross_correlograms', t1-t0)
 
@@ -81,11 +81,11 @@ def test_compute_cross_correlograms():
 def test_int32_to_rgba():
     r, g, b, a = int32_to_rgba(2654789321)
     print(r, g, b, a)
-    
+
 def test_rgba_to_int32():
     v = rgba_to_int32(158,60,222, 201)
     print(v)
-    
+
 
 if __name__ == '__main__':
     #~ test_get_median_mad()
@@ -97,4 +97,3 @@ if __name__ == '__main__':
     #~ test_compute_cross_correlograms()
     #~ test_int32_to_rgba()
     #~ test_rgba_to_int32()
-    

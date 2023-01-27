@@ -13,7 +13,7 @@ All views can be customised by settings (often with a double in the view).
 Here some detail on each view.
 
 .. NOTE::
-  
+
     A lot of efforts have been put in making this UI as smooth as possible but for big datasets (>100 channels)
     the CatalogueWindow can be slow for some actions because it trigs a full refresh on other views
     and no computation can be done (re compute centroid for instance). So be patient and smart.
@@ -24,7 +24,7 @@ Here some detail on each view.
     For some manual actions on catalogue, CatalogueWindow can suddenly crash. While this is annoying,
     you should not lose any data. Just open again the same dataset and you should be in a previous
     situation.
-    
+
     In cases of crashes please send an issue on github `<https://github.com/tridesclous/tridesclous/issues>`_
     It takes only minutes and helps a lot to make tridesclous more stable. Please copy/paste the error
     message in the console in the issue and describe very briefly the actions that triggered the crash.

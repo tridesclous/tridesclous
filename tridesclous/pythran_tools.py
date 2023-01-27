@@ -12,11 +12,11 @@ def pythran_loop_sparse_dist(waveform, centers,  mask):
     nb_clus = centers.shape[0]
     width = centers.shape[1]
     nb_chan = centers.shape[2]
-    
+
     rms_waveform_channel = np.sum(waveform**2, axis=0)#.astype('float32')
-    
+
     waveform_distance = np.zeros((nb_clus,), dtype=np.float32)
-    
+
     for clus in range(nb_clus):
         sum = 0
         for c in range(nb_chan):
@@ -27,5 +27,5 @@ def pythran_loop_sparse_dist(waveform, centers,  mask):
             else:
                 sum +=rms_waveform_channel[c]
         waveform_distance[clus] = sum
-    
+
     return waveform_distance

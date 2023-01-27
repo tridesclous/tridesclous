@@ -33,7 +33,7 @@ install:
   # Check that we have the expected version and architecture for Python
   - "python --version"
   - "python -c \"import struct, sys; print(struct.calcsize('P') * 8); print(sys.executable)\""
-  
+
   # install hdbscan form conda forge
   - "conda install -y -c conda-forge hdbscan"
 

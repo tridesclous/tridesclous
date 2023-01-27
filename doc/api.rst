@@ -22,4 +22,4 @@ Classes API
 .. automodule:: tridesclous
 
 
- 
+

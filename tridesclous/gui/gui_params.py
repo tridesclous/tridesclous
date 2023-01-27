@@ -23,7 +23,7 @@ Preprocessor
       flavor (and so CPU) or opencl with home made CL kernel (and so use GPU computing). If you have big fat GPU and are able to install
       "opencl driver" (ICD) for your platform the opencl flavor should speedup the peeler because pre processing signal take a quite
       important amoung of time.
-    
+
 Peak detector
 ----------------------
 
@@ -33,7 +33,7 @@ Peak detector
     and positive rebounce.
   * relative_threshold (str): the threshold without sign with MAD units (robust standard deviation). See :ref:`important_details`.
   * peak_span_ms (float) : this avoid double detection of the same peak in a short span. The units is millisecond.
-  
+
 Waveform extraction
 --------------------------------
 
@@ -70,7 +70,7 @@ of cells) + the density (firing rate) fo each cluster. Since this can't be known
 extract again while changing theses parameters given dense enough clusters.
 This have a strong imptact of the CPU and RAM. So do not choose too big numbers.
 But you there are too few spikes, cluster could be not detected.
-    
+
   * mode : 'rand', 'rand_by_channel' or 'all' Startegy to select some peak to then make feature and clustering.
          'rand' take a global number of spike indepently of channels detection
          'rand_by_channel' take a random number of spike per channel
@@ -84,21 +84,21 @@ Noise snippet extraction
 --------------------------------------
 
   * nb_snippet (int):  the number of noise snippet taken in the signal in between peaks.
-  
+
 
 Features extraction
 -------------------------------
- 
+
 Several methods possible. See :ref:`important_details`.
 
 
   * **global_pca**: good option for tetrode.
-  
+
     * n_components (int): number of components of the pca for all the channel.
-    
+
 
   * **peak_max** : good options when clustering is **sawchaincut**
-  
+
   * **pca_by_channel**: good option for high channel counts
 
     * n_components_by_channel (int): number of component for each channel.
@@ -110,23 +110,23 @@ Cluster
 Several methods possible. See :ref:`important_details`.
 
   * **kmeans** : `kmeans <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_ implemented in sklearn
-    
+
     * n_clusters (int): number of cluster
-    
+
   * **onecluster** no clustering. All label set to 0.
-  
+
   * **gmm** `gaussian mixture model <http://scikit-learn.org/stable/modules/generated/sklearn.mixture.GaussianMixture.html#sklearn.mixture.GaussianMixture>`_ implemented in sklearn 
-    
+
     * n_clusters (int): number of cluster
     * covariance_type (str): 'full', 'tied', 'diag', 'spherical'
     * n_init (int) The number of initializations to perform.
-  
+
   * **agglomerative** `AgglomerativeClustering <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.AgglomerativeClustering.html>`_ implemented in sklearn 
-  
+
     * n_clusters: number of cluster
-  
+
   * **dbscan** `DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_ implemented in sklearn
-     
+
     * eps (float): The maximum distance between two samples for them to be considered as in the same neighborhood.
 
   * **hdbscan** `HDBSCAN <https://hdbscan.readthedocs.io>`_  density base clustering without the problem of the **eps**
@@ -134,9 +134,9 @@ Several methods possible. See :ref:`important_details`.
   * **isosplit** `ISOSPLIT5 <https://github.com/flatironinstitute/isosplit5>`_ develop for moutainsort (another sorter)
 
   * **optics** `OPTICS <https://scikit-learn.org/stable/modules/generated/sklearn.cluster.OPTICS.html>`_ implemented in sklearn
-     
+
     * min_samples (int): The number of samples in a neighborhood for a point to be considered as a core point.
-  
+
   * **sawchaincut** Home made automatic clustering, usefull for dense arrays. Autodetect well isolated cluster
     and put to trash ambiguous things.
 
@@ -240,24 +240,24 @@ cluster_params_by_methods = OrderedDict([
                                 {'name' : 'auto_merge_threshold', 'type' : 'float', 'value' : 2., 'step':0.1},
                                 {'name':'print_debug', 'type': 'bool', 'value':False},
                             ]),
-    
+
 ])
 
 clean_cluster_params = [
 
     {'name':'apply_auto_split', 'type': 'bool', 'value':True},
-    
-    
+
+
     {'name':'apply_trash_not_aligned', 'type': 'bool', 'value':True},
-    
+
     {'name':'apply_auto_merge_cluster', 'type': 'bool', 'value':True},
-    
-    
+
+
     {'name':'apply_trash_low_extremum', 'type': 'bool', 'value':True},
-    
-    
+
+
     {'name':'apply_trash_small_cluster', 'type': 'bool', 'value':True},
-    
+
 ]
 
 
@@ -265,8 +265,8 @@ make_catalogue_params = [
     {'name':'inter_sample_oversampling', 'type': 'bool', 'value':False},
     {'name' : 'sparse_thresh_level1', 'type' : 'float', 'value' : 1.5, 'step':0.1},
     {'name' : 'sparse_thresh_level2', 'type' : 'float', 'value' : 3., 'step':0.1},
-    
-    
+
+
 ]
 
 
@@ -280,8 +280,8 @@ fullchain_params = [
     {'name':'sparse_threshold', 'type': 'float', 'value':1.5},
     {'name' : 'n_spike_for_centroid', 'type' : 'int', 'value' : 350},
     {'name' : 'n_jobs', 'type' : 'int', 'value' : -1},
-    
-    
+
+
     # params for each steps
     {'name':'preprocessor', 'type':'group', 'children': preprocessor_params},
     {'name':'peak_detector', 'type':'group', 'children': peak_detector_params},
@@ -289,12 +289,12 @@ fullchain_params = [
     {'name':'extract_waveforms', 'type':'group', 'children' : waveforms_params},
     {'name':'clean_peaks', 'type':'group', 'children' : clean_peaks_params},
     {'name':'peak_sampler', 'type':'group', 'children' : peak_sampler_params},
-    
+
     #~ {'name':'clean_cluster', 'type': 'bool', 'value':True},
     {'name':'clean_cluster', 'type':'group', 'children' : clean_cluster_params},
-    
+
     {'name':'make_catalogue', 'type':'group', 'children' : make_catalogue_params},
-    
+
 ]
 
 metrics_params = [
@@ -309,12 +309,12 @@ _common_peeler_params = [
     #~ {'name':'limit_duration', 'type': 'bool', 'value': False},
     {'name': 'chunksize', 'type': 'int', 'value':1024, 'decimals':10},
     {'name':'duration', 'type': 'float', 'value':60., 'suffix': 's', 'siPrefix': True},
-    
-    
-    
+
+
+
     {'name': 'maximum_jitter_shift', 'type': 'int', 'value':4, 'decimals':10},
     {'name':'save_bad_label', 'type': 'bool', 'value':False},
-    
+
 ]
 
 #~ _classic_peeler_params = _common_peeler_params + [

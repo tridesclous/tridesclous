@@ -111,20 +111,20 @@ def export_catalogue_spikes(cc, export_path=None, formats=None):
     Usefull when when catalogue peak sampler mode is all.
     This avoid the peeler.
     """
-    
+
     dataio = cc.dataio
     chan_grp = cc.chan_grp
-    
+
     sampler_mode = cc.info['peak_sampler']['mode']
     if sampler_mode != 'all':
         print('You are trying to export peak from catalogue but peak_sampler mode is not "all"')
 
     if export_path is None:
         export_path = os.path.join(dataio.dirname, 'export_catalogue_chan_grp_{}'.format(chan_grp))
-    
+
     catalogue = {}
     catalogue['clusters'] = cc.clusters.copy()
-    
+
     if formats is None:
         exporters = export_list
     elif isinstance(formats, str):
@@ -134,14 +134,14 @@ def export_catalogue_spikes(cc, export_path=None, formats=None):
         exporters = [ export_dict[format] for format in formats]
     else:
         raise ValueError()
-        
+
     for seg_num in range(dataio.nb_segment):
         in_segment = (cc.all_peaks['segment'] == seg_num)
         pos_label = (cc.all_peaks['cluster_label'] >= 0)
         spikes = cc.all_peaks[in_segment & pos_label]
-        
+
         if spikes is None: continue
-        
+
         args = (spikes, catalogue, seg_num, chan_grp, export_path,)
         kargs = dict(split_by_cluster=False, use_cell_label=False)
         for exporter in exporters:

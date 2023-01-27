@@ -22,18 +22,18 @@ class DataSourceBase:
         self.nb_segment = None
         self.dtype = None
         self.bit_to_microVolt = None
-    
+
     def get_segment_shape(self, seg_num):
         raise NotImplementedError
-    
+
     def get_channel_names(self):
         raise NotImplementedError
-    
+
     def get_signals_chunk(self, seg_num=0, i_start=None, i_stop=None):
         raise NotImplementedError
-    
 
-    
+
+
 class InMemoryDataSource(DataSourceBase):
     """
     DataSource in memory numpy array.
@@ -42,21 +42,21 @@ class InMemoryDataSource(DataSourceBase):
     mode = 'other'
     def __init__(self, nparrays=[], sample_rate=None):
         DataSourceBase.__init__(self)
-        
+
         self.nparrays = nparrays
         self.nb_segment = len(self.nparrays)
         self.total_channel = self.nparrays[0].shape[1]
         self.sample_rate = sample_rate
         self.dtype = self.nparrays[0].dtype
-    
+
     def get_segment_shape(self, seg_num):
         full_shape = self.nparrays[seg_num].shape
         return full_shape
-    
+
     def get_signals_chunk(self, seg_num=0, i_start=None, i_stop=None):
             data = self.nparrays[seg_num][i_start:i_stop, :]
             return data
-            
+
     def get_channel_names(self):
         return ['ch{}'.format(i) for i in range(self.total_channel)]
 
@@ -78,11 +78,11 @@ class RawDataSource(DataSourceBase):
         {'name': 'offset', 'type': 'int', 'value':0},
         {'name': 'bit_to_microVolt', 'type': 'float', 'value':0.5 },        
     ]
-    
+
     def __init__(self, filenames=[], dtype='int16', total_channel=0,
                         sample_rate=0., offset=0, bit_to_microVolt=None, channel_names=None):
         DataSourceBase.__init__(self)
-        
+
         self.filenames = filenames
         if isinstance(self.filenames, str):
             self.filenames = [self.filenames]
@@ -92,15 +92,15 @@ class RawDataSource(DataSourceBase):
         self.total_channel = total_channel
         self.sample_rate = sample_rate
         self.dtype = np.dtype(dtype)
-        
+
         if bit_to_microVolt == 0.:
             bit_to_microVolt = None
         self.bit_to_microVolt = bit_to_microVolt
-        
+
         if channel_names is None:
             channel_names = ['ch{}'.format(i) for i in range(self.total_channel)]
         self.channel_names = channel_names
-        
+
 
         self.array_sources = []
         for filename in self.filenames:
@@ -108,11 +108,11 @@ class RawDataSource(DataSourceBase):
             #~ data = data[:-(data.size%self.total_channel)]
             data = data.reshape(-1, self.total_channel)
             self.array_sources.append(data)
-    
+
     def get_segment_shape(self, seg_num):
         full_shape = self.array_sources[seg_num].shape
         return full_shape
-    
+
     def get_signals_chunk(self, seg_num=0, i_start=None, i_stop=None):
             data = self.array_sources[seg_num][i_start:i_stop, :]
             return data
@@ -170,7 +170,7 @@ class NeoRawIOAggregator(DataSourceBase):
     rawio_class = None
     def __init__(self, **kargs):
         DataSourceBase.__init__(self)
-        
+
         self.rawios = []
         if  'filenames' in kargs:
             filenames= kargs.pop('filenames') 
@@ -180,8 +180,8 @@ class NeoRawIOAggregator(DataSourceBase):
             self.rawios = [self.rawio_class(dirname=d, **kargs) for d in dirnames]
         else:
             raise(ValueError('Must have filenames or dirnames'))
-            
-        
+
+
         self.sample_rate = None
         self.total_channel = None
         self.sig_channels = None
@@ -195,21 +195,21 @@ class NeoRawIOAggregator(DataSourceBase):
                 #nb_seg = absolut seg index and s= local seg index
                 self.segments[nb_seg] = (rawio, s)
                 nb_seg += 1
-            
+
             if self.sample_rate is None:
                 self.sample_rate = rawio.get_signal_sampling_rate()
             else:
                 assert self.sample_rate == rawio.get_signal_sampling_rate(), 'bad joke different sample rate!!'
-            
+
             sig_channels = rawio.header['signal_channels']
             if self.sig_channels is None:
                 self.sig_channels = sig_channels
                 self.total_channel = len(sig_channels)
             else:
                 assert np.all(sig_channels==self.sig_channels), 'bad joke different channels!'
-            
+
         self.nb_segment = len(self.segments)
-        
+
         self.dtype = np.dtype(self.sig_channels['dtype'][0])
         units = sig_channels['units'][0]
         #~ assert 'V' in units, 'Units are not V, mV or uV'
@@ -221,15 +221,15 @@ class NeoRawIOAggregator(DataSourceBase):
             self.bit_to_microVolt = self.sig_channels['gain'][0]
         else:
             self.bit_to_microVolt = None
-        
+
     def get_segment_shape(self, seg_num):
         rawio, s = self.segments[seg_num]
         l = rawio.get_signal_size(0, s)
         return l, self.total_channel
-    
+
     def get_channel_names(self):
         return self.sig_channels['name'].tolist()
-    
+
     def get_signals_chunk(self, seg_num=0, i_start=None, i_stop=None):
         rawio, s = self.segments[seg_num]
         return rawio.get_analogsignal_chunk(block_index=0, seg_index=s, 
@@ -260,16 +260,16 @@ for rawio_class in rawiolist:
         datasource_class.mode = 'multi-dir'
     else:
         continue
-    
+
     #gui stuffs
     if name in io_gui_params:
         datasource_class.gui_params = io_gui_params[name]
-        
+
     data_source_classes[name] = datasource_class
     #~ print(datasource_class, datasource_class.mode )
 
 
-    
+
 #TODO implement KWIK and OpenEphys
 #https://open-ephys.atlassian.net/wiki/display/OEW/Data+format
 # https://github.com/open-ephys/analysis-tools/tree/master/Python3
