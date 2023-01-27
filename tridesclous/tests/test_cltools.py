@@ -8,7 +8,7 @@ if HAVE_PYOPENCL:
 
 @pytest.mark.skipif(not HAVE_PYOPENCL, reason='need OpenCL')
 def test_get_cl_device_list():
-        
+
         device_indexes = get_cl_device_list()
         print(device_indexes)
 
@@ -18,6 +18,5 @@ def test_get_cl_device_list():
 
 if __name__ == '__main__':
     test_get_cl_device_list()
-    
-    
-    
+
+

@@ -43,7 +43,7 @@ if QT_MODE == 'PyQt5':
 elif QT_MODE == 'PyQt4':
     #~ from PyQt4 import QtCore, QtGui
     QT = ModuleProxy(['', 'Q', 'Qt'], [QtCore.Qt, QtCore, QtGui])
-    
+
 
 
 from pyqtgraph import mkQApp

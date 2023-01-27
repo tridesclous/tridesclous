@@ -45,22 +45,22 @@ def make_prediction_one_spike(spike_index, cluster_idx, spike_jitter, dtype, cat
         pos = pos + shift
         int_jitter = int((spike_jitter+shift)*r) + r//2
         pred = catalogue['interp_centers0'][cluster_idx, int_jitter::r, :]
-    
+
     return pos, pred
 
 
 def make_prediction_signals(spikes, dtype, shape, catalogue, safe=True):
     #~ n_left, peak_width, 
-    
+
     prediction = np.zeros(shape, dtype=dtype)
     for i in range(spikes.size):
         k = spikes[i]['cluster_label']
         if k<0: continue
-        
+
         pos, pred = make_prediction_on_spike_with_label(spikes[i]['index'], spikes[i]['cluster_label'], spikes[i]['jitter'], dtype, catalogue)
-        
+
         peak_width_long = catalogue['centers0_long'].shape[1]
-        
+
         if pos>=0 and  pos+peak_width_long<shape[0]:
             prediction[pos:pos+peak_width_long, :] += pred
         else:
@@ -74,12 +74,12 @@ def make_prediction_signals(spikes, dtype, shape, catalogue, safe=True):
                 print('LEFT', (local_pos<0))
                 #~ spikes['cluster_label'][(local_pos+width)>=shape[0]] = LABEL_RIGHT_LIMIT
                 print('LABEL_RIGHT_LIMIT', (local_pos+width)>=shape[0])
-                
+
                 print('i', i)
                 print(dtype, shape, catalogue['n_left'], catalogue['peak_width'], pred.shape)
                 raise(ValueError('Border error {} {} {} {} {}'.format(pos, catalogue['peak_width'], shape, jitter, spikes[i])))
-                
-        
+
+
     return prediction
 
 

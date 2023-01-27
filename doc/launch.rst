@@ -7,7 +7,7 @@ There are several ways to launch **tridesclous**:
   * Inside python script, if you construct automatic pipeline
   * With a Graphical User Interface (GUI): the least frightening for beginners
 
-  
+
 Please read carrefully, the how and the why for each methods.
 
 
@@ -30,11 +30,11 @@ So for this method:
 
     * `this notebook <https://github.com/tridesclous/tridesclous/blob/master/example/example_locust_dataset.ipynb>`_
     * `or this one <https://github.com/tridesclous/tridesclous/blob/master/example/example_olfactory_bulb_dataset.ipynb>`_
-    
+
   3. Read it carrefully.
   4. Modify it and do your spike sorting.
-  
-  
+
+
 Please also explore the [examples folder](https://github.com/tridesclous/tridesclous/tree/master/example) that contains
 some example on some dataset.
 
@@ -51,10 +51,10 @@ For demagogical reasons, we wrote a GUI in Qt for launching tridesclous.
 
 Do:
   * open a terminal::
-  
+
       workon tdc  (or source activate tdc for windows)
       tdc
-  
+
   * In the GUI you must:
       1. File>Initialize example_locust_dataset
       2. Select a channel group in **chan_grp**

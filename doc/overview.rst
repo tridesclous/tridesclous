@@ -15,7 +15,7 @@ Tridesclous is both:
   * an offline spike sorter tools able to read many file format
   * a realtime spike sorting combined with `pyacq <https://github.com/pyacq/pyacq>`_
 
-  
+
 Main features
 -------------
 

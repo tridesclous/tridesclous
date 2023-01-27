@@ -14,20 +14,20 @@ from matplotlib import pyplot as plt
 def test_get_auto_params():
     if os.path.exists('test_autoparams'):
         shutil.rmtree('test_autoparams')
-        
+
     dataio = DataIO(dirname='test_autoparams')
     #~ localdir, filenames, params = download_dataset(name='olfactory_bulb')
     localdir, filenames, params = download_dataset(name='locust')
     dataio.set_data_source(type='RawData', filenames=filenames, **params)
-    
+
     params = get_auto_params_for_catalogue(dataio)
     pprint(params)
-    
-    
+
+
     params = get_auto_params_for_peelers(dataio)
     pprint(params)
-    
-    
+
+
     #~ print(params['cluster_method'])
     #~ print(params['cluster_kargs'])
 

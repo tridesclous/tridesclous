@@ -16,7 +16,7 @@ if HAVE_QT5:
 def setup_module():
     dirname = 'test_peelerwindow'
     setup_catalogue(dirname, dataset_name='olfactory_bulb')
-    
+
     dataio = DataIO(dirname=dirname)
     initial_catalogue = dataio.load_catalogue(chan_grp=0)
     peeler = Peeler(dataio)
@@ -41,52 +41,52 @@ def test_Peelercontroller():
     controller = get_controller()
     assert controller.cluster_labels is not None
 
-    
+
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_PeelerTraceViewer():
     controller = get_controller()
-    
+
     app = pg.mkQApp()
     traceviewer = PeelerTraceViewer(controller=controller)
     traceviewer.show()
     traceviewer.resize(800,600)
-    
+
     if __name__ == '__main__':
         app.exec_()
 
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_SpikeList():
     controller = get_controller()
-    
+
     app = pg.mkQApp()
     traceviewer = SpikeList(controller)
     traceviewer.show()
     traceviewer.resize(800,600)
-    
+
     if __name__ == '__main__':
         app.exec_()
 
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_ClusterSpikeList():
     controller = get_controller()
-    
+
     app = pg.mkQApp()
     traceviewer = ClusterSpikeList(controller)
     traceviewer.show()
     traceviewer.resize(800,600)
-    
+
     if __name__ == '__main__':
         app.exec_()
 
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_PeelerWaveformViewer():
     controller = get_controller()
-    
+
     app = pg.mkQApp()
     traceviewer = PeelerWaveformViewer(controller)
     traceviewer.show()
     traceviewer.resize(800,600)
-    
+
     if __name__ == '__main__':
         app.exec_()
 
@@ -98,7 +98,7 @@ def test_ISIViewer():
     for k in controller.cluster_labels[3:6]:
         controller.cluster_visible[k] = True
     #~ print(controller.cluster_visible)
-    
+
     app = pg.mkQApp()
     isiviewer = ISIViewer(controller)
     isiviewer.show()
@@ -114,7 +114,7 @@ def test_CrossCorrelogramViewer():
     for k in controller.cluster_labels[3:6]:
         controller.cluster_visible[k] = True
     #~ print(controller.cluster_visible)
-    
+
     app = pg.mkQApp()
     ccgviewer = CrossCorrelogramViewer(controller)
     ccgviewer.show()
@@ -122,7 +122,7 @@ def test_CrossCorrelogramViewer():
     if __name__ == '__main__':
         app.exec_()    
 
-    
+
 @pytest.mark.skipif(ON_CI_CLOUD, reason='ON_CI_CLOUD')
 def test_PeelerWindow():
     dataio = DataIO(dirname='test_peelerwindow')
@@ -134,20 +134,20 @@ def test_PeelerWindow():
     if __name__ == '__main__':
         app.exec_()
 
-    
-    
+
+
 if __name__ == '__main__':
     #~ setup_module()
-    
+
     test_Peelercontroller()
-    
+
     test_PeelerTraceViewer()
     test_SpikeList()
     test_ClusterSpikeList()
     test_PeelerWaveformViewer()
     test_ISIViewer()
     test_CrossCorrelogramViewer()
-    
+
     test_PeelerWindow()
 
 

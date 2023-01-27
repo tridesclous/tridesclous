@@ -34,19 +34,19 @@ Do:
   4. Go on the tab **environements**, click on **base** context menu.
   5. **Open Terminal**
   6. For the basic::
-    
+
        conda install scipy numpy pandas scikit-learn matplotlib seaborn tqdm openpyxl numba
        conda install -c conda-forge hdbscan
-     
-  
+
+
   7. For GUI and running example::
-  
+
        conda install pyqt=5 jupyter
        pip install pyqtgraph==0.10 quantities neo
-     
-     
+
+
   8. And finally install tridesclous from github::
-  
+
        pip install https://github.com/tridesclous/tridesclous/archive/master.zip
 
 
@@ -58,8 +58,8 @@ Optional if you're up for a fight and you really want fast computing with OpenCL
   2. Download PyOpenCl here for windows : http://www.lfd.uci.edu/~gohlke/pythonlibs/
   3. cd C:/users/...../Downloads
   4. pip install pyopencl‑2019.1.2+cl12‑cp37‑cp37m‑win_amd64.whl
- 
-  
+
+
 
 .. WARNING::
 
@@ -88,8 +88,8 @@ Open a terminal and do:
   6. pip install https://github.com/tridesclous/tridesclous/archive/master.zip
 
 
-  
-   
+
+
 Big GPU, big dataset OpenCL, and CO.
 ------------------------------------
 
@@ -107,7 +107,7 @@ Now, it is more easy (except on OSX, it is becoming more difficult, grrrr.)
 
 
 Here the solution on linux ubuntu 18.04 / debian  :
-   
+
    1. workon tdc
    2. For intel GPU: sudo apt-get install beignet
       For nvidia GPU: sudo apt-get install nvidia-opencl-XXX
@@ -120,9 +120,9 @@ To have more recent nvidia driver:
   2. sudo apt-get install nvidia-headless-440
   3. sudo apt-get install nvidia-utils-440
 
-   
+
 If you have a recent laptop you can also try the new neo-icd for intel GPU.
-   
+
 If you don't have GPU but a multi core CPU you can use POCL on linux:
 
    sudo apt-get install pocl
@@ -138,14 +138,14 @@ Here on windows a solution:
 
 
 
-   
+
 Ephyviewer (optional)
 ---------------------
 
 
 
 With neo (>=0.8) installed, if you want to view signals you can optionally install ephyviewer with::
-    
+
     pip install ephyviewer
 
 

@@ -25,22 +25,22 @@ DEFAULT_PORT = 20000
 class ThreadConfig(threading.Thread):
     def __init__(self, parent=None, port=DEFAULT_PORT, stream_params={},**kargs):
         threading.Thread.__init__(self, **kargs)
-        
+
         self.parent = parent
         self.port = port
         self.stream_params = stream_params
         print('*'*20)
         pprint(self.stream_params)
         print('*'*20)
-        
+
         url = 'tcp://127.0.0.1:{}'.format(self.port)
-        
+
         context = zmq.Context.instance()
         self.socket_info = context.socket(zmq.REP)
         self.socket_info.linger = 1000  # don't let socket deadlock when exiting
         self.socket_info.bind(url)
 
-        
+
     def run(self):
         #~ print('ThreadConfig.run')
         self.is_listening = True
@@ -48,7 +48,7 @@ class ThreadConfig(threading.Thread):
             if self.socket_info.poll(timeout=200) > 0:   # 200ms
                 request = self.socket_info.recv().decode()
                 print('request', request)
-                
+
                 #~ print('recv', msg)
                 if request == 'config':
                     msg = json.dumps(self.stream_params)
@@ -61,11 +61,11 @@ class ThreadConfig(threading.Thread):
                 else:
                     msg = 'what??'
                 self.socket_info.send(msg.encode())
-                
+
             else:
                 #~ print('sleep ThreadConfig')
                 time.sleep(0.5)
-    
+
     def stop(self):
         self.is_listening = False
 
@@ -74,15 +74,15 @@ class OpenephysTridesclousPyPlugin(object):
     def __init__(self, port=DEFAULT_PORT):
         """initialize object data"""
         self.port = port
-        
+
         self.Enabled = 1
         self.samplingRate = 0.
         self.chan_enabled = []
-        
+
         print('*'*20)
         print('Plugin pyacq tridesclous')
         print('*'*20)
-    
+
     def __del__(self):
         print('__del__')
         if hasattr(self, 'thread_config'):
@@ -94,11 +94,11 @@ class OpenephysTridesclousPyPlugin(object):
         print('*'*20)
         print('startup pyacq oe')
         print('*'*20)
-        
-        
+
+
         self.mutex = threading.Lock()
         self.is_running= False
-        
+
         # create stream 'sharedmem' with 4s of buffer
         p = dict(
             protocol='tcp',
@@ -121,16 +121,16 @@ class OpenephysTridesclousPyPlugin(object):
         self.output = pyacq.OutputStream()
         self.output.configure(**p)
         #~ pprint(self.output.params)
-        
-        
+
+
         self.thread_config = ThreadConfig(parent=self, port=self.port, stream_params=dict(self.output.params))
         self.thread_config.start()
-        
+
         self.update_settings(nchans, srate)
         for chan in range(nchans):
             if not states[chan]:
                 self.channel_changed(chan, False)
-    
+
     def plugin_name(self):
         """tells OE the name of the program"""
         return "OpenephysTridesclousPyPlugin"
@@ -170,7 +170,7 @@ class OpenephysTridesclousPyPlugin(object):
             #~ print('self.is_running', self.is_running)
             if self.is_running:
                 self.output.send(n_arr.T)
-        
+
         events = []
         return events
 
@@ -181,13 +181,13 @@ class OpenephysTridesclousPyPlugin(object):
     def handleSpike(self, electrode, sortedID, n_arr):
         """handle spikes passed from OE"""
         print('handleSpike')
-    
+
     def start_stream(self):
         print('start_stream')
-        
+
         with self.mutex:
             self.is_running= True
-    
+
     def stop_stream(self):
         print('stop_stream')
         with self.mutex:

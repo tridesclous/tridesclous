@@ -4,7 +4,7 @@ tridesclous release notes 1.3.0
 **2019-11-21**
 
 Major improvement:
-  
+
   * new peak detector taking in account geometry
   * CatalogueConstructor have a sparse mode to improve performance on high channel count (>64)
   * Peeler have several implementation

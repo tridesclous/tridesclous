@@ -64,7 +64,7 @@ app = pg.mkQApp()
 
 
 windows = []
-    
+
 # OnelinePeeler will occur in backgroun in a diffrent process
 # and possibly on other machine to split up the workload
 nodegroup_friends = [man.create_nodegroup() for _ in range(2)]

@@ -11,10 +11,10 @@ import numpy as np
 @jit(parallel=True)
 def numba_loop_sparse_dist(waveform, centers,  mask):
     nb_clus, width, nb_chan = centers.shape
-    
+
     rms_waveform_channel = np.sum(waveform**2, axis=0)#.astype('float32')
     waveform_distance = np.zeros((nb_clus,), dtype=np.float32)
-    
+
     for clus in range(nb_clus):
         sum = 0
         for c in range(nb_chan):
@@ -25,7 +25,7 @@ def numba_loop_sparse_dist(waveform, centers,  mask):
             else:
                 sum +=rms_waveform_channel[c]
         waveform_distance[clus] = sum
-    
+
     return waveform_distance
 
 
@@ -34,9 +34,9 @@ def numba_loop_sparse_dist(waveform, centers,  mask):
 def numba_sparse_scalar_product(fifo_residuals, left_ind, centers, projector, peak_chan_ind,
                         sparse_mask_level1, ):
     nb_clus, width, nb_chan = centers.shape
-    
+
     scalar_product = np.zeros((nb_clus,), dtype=np.float32)
-    
+
     for clus_idx in prange(nb_clus):
         if not sparse_mask_level1[clus_idx, peak_chan_ind]:
             scalar_product[clus_idx] = 10. # equivalent to np.inf
@@ -48,13 +48,13 @@ def numba_sparse_scalar_product(fifo_residuals, left_ind, centers, projector, pe
                         v = fifo_residuals[left_ind+s, chan]
                         ct = centers[clus_idx, s, chan]
                         w = projector[clus_idx, s, chan]
-                        
+
                         sum_sp += (v - ct) * w
-                    
+
             scalar_product[clus_idx] = sum_sp
-    
+
     return scalar_product
-    
+
 
 
 
@@ -64,19 +64,19 @@ def numba_sparse_scalar_product(fifo_residuals, left_ind, centers, projector, pe
 def numba_explore_best_shift(fifo_residuals, left_ind, centers, projector, candidates_idx,  maximum_jitter_shift, common_mask, sparse_mask_level1):
 
     nb_clus, width, nb_chan = centers.shape
-    
+
     n_shift = maximum_jitter_shift*2 +1
     n_clus = len(candidates_idx)
-    
+
     shift_scalar_product = np.zeros((n_clus, n_shift), dtype=np.float32)
     shift_distance = np.zeros((n_clus, n_shift), dtype=np.float32)
-    
+
     for shi in prange(n_shift):
         shift =  shi - maximum_jitter_shift
-        
+
         for clus in prange(len(candidates_idx)):
             clus_idx = candidates_idx[clus]
-            
+
             sum_sp = 0.
             sum_d = 0.
             for chan in range(nb_chan):
@@ -84,16 +84,16 @@ def numba_explore_best_shift(fifo_residuals, left_ind, centers, projector, candi
                     for s in range(width):
                         v = fifo_residuals[left_ind+s+shift, chan]
                         ct = centers[clus_idx, s, chan]
-                        
+
                         if sparse_mask_level1[clus_idx, chan]:
                             sum_sp += (v - ct) * projector[clus_idx, s, chan]
-                        
+
                         if common_mask[chan]:
                             sum_d += (v - ct) * (v - ct)
-                    
+
             shift_scalar_product[clus, shi] = sum_sp
             shift_distance[clus, shi] = sum_d
-    
+
     return shift_scalar_product, shift_distance
 
 

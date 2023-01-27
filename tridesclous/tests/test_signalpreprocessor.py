@@ -15,7 +15,7 @@ from matplotlib import pyplot
 
 def run_online(engine, sigs, sample_rate, chunksize, **params):
     nb_channel = sigs.shape[1]
-    
+
     # precompute medians and mads
     params2 = dict(params)
     params2['normalize'] = False
@@ -28,9 +28,9 @@ def run_online(engine, sigs, sample_rate, chunksize, **params):
     SignalPreprocessorClass = signalpreprocessor_engines[engine]
     signalpreprocessor = SignalPreprocessorClass(sample_rate, nb_channel, chunksize,'float32')
     signalpreprocessor.change_params(**params)
-    
+
     nloop = sigs.shape[0]//chunksize
-    
+
     all_online_sigs = []
     t1 = time.perf_counter()
     for i in range(nloop):
@@ -44,14 +44,14 @@ def run_online(engine, sigs, sample_rate, chunksize, **params):
     t2 = time.perf_counter()
     print(engine, ' online process time', t2-t1)
     final_sig = np.concatenate(all_online_sigs)
-    
+
     return final_sig
 
 
 def run_by_buffer(engine, sigs, sample_rate, chunksize, **params):
     nb_channel = sigs.shape[1]
     pad_width = params['pad_width']
-    
+
     # precompute medians and mads
     params2 = dict(params)
     params2['normalize'] = False
@@ -64,9 +64,9 @@ def run_by_buffer(engine, sigs, sample_rate, chunksize, **params):
     SignalPreprocessorClass = signalpreprocessor_engines[engine]
     signalpreprocessor = SignalPreprocessorClass(sample_rate, nb_channel, chunksize, 'float32')
     signalpreprocessor.change_params(**params)
-    
+
     nloop = sigs.shape[0]//chunksize
-    
+
     all_chunk_sigs = []
     t1 = time.perf_counter()
     for i in range(nloop):
@@ -80,21 +80,21 @@ def run_by_buffer(engine, sigs, sample_rate, chunksize, **params):
             chunk_2pad[:-pad_width, :] = sigs[i0-pad_width:i1,:]
         else:
             chunk_2pad = sigs[i0-pad_width:i1+pad_width,:].astype('float32')
-        
+
         preprocessed_chunk = signalpreprocessor.process_buffer(chunk_2pad)
         #~ print(preprocessed_chunk)
-        
+
         all_chunk_sigs.append(preprocessed_chunk[pad_width:-pad_width, :])
-    
+
     t2 = time.perf_counter()
     print(engine, 'by buffer process time', t2-t1)
     final_sig = np.concatenate(all_chunk_sigs)
-    
-    return final_sig
-    
 
-    
-    
+    return final_sig
+
+
+
+
 
 
 
@@ -113,17 +113,17 @@ def test_compare_offline_online_engines():
     sigs, sample_rate = get_dataset(name='olfactory_bulb')
     print(sample_rate)
     sigs = np.tile(sigs, (1, 20)) #for testing large channels num
-    
+
     nb_channel = sigs.shape[1]
     print('nb_channel', nb_channel)
-    
+
     #params
     chunksize = 1024
     nloop = sigs.shape[0]//chunksize
     sigs = sigs[:chunksize*nloop]
-    
+
     print('sig duration', sigs.shape[0]/sample_rate)
-    
+
     highpass_freq = 500.
     #~ highpass_freq = 300.
     #~ highpass_freq = 100.
@@ -132,11 +132,11 @@ def test_compare_offline_online_engines():
     #~ lowpass_freq = None
     #~ smooth_kernel = True
     smooth_size = 0
-    
-    
+
+
     #~ pad_width = int(sample_rate/highpass_freq)*4
     #~ print('pad_width', pad_width)
-    
+
     params = {
                 'common_ref_removal' : False,
                 'highpass_freq': highpass_freq,
@@ -146,13 +146,13 @@ def test_compare_offline_online_engines():
                 'normalize' : True,
                 'pad_width': 150
                 }
-    
+
     t1 = time.perf_counter()
     offline_sig = offline_signal_preprocessor(sigs, sample_rate, **params)
-    
+
     t2 = time.perf_counter()
     print('offline', 'process time', t2-t1)
-    
+
     online_sigs = {}
     by_buffer_sigs = {}
     for engine in engines:
@@ -161,14 +161,14 @@ def test_compare_offline_online_engines():
             params['cl_device_index'] = 0
         online_sigs[engine] = run_online(engine, sigs, sample_rate, chunksize, **params)
         by_buffer_sigs[engine] = run_by_buffer(engine, sigs, sample_rate, chunksize, **params)
-        
-    
+
+
     # remove border for comparison
     min_size = min([online_sigs[engine].shape[0] for engine in engines]) 
     offline_sig = offline_sig[chunksize:min_size]
     for engine in engines:
         online_sigs[engine] = online_sigs[engine][chunksize:min_size]
-        
+
         by_buffer_sigs[engine] = by_buffer_sigs[engine][chunksize:min_size]
 
     # compare
@@ -218,7 +218,7 @@ def explore_pad_width():
     chunksize = 1024
     nloop = sigs.shape[0]//chunksize
     sigs = sigs[:chunksize*nloop]
-    
+
     params = {
                 'common_ref_removal' : False,
                 'highpass_freq': 300.,
@@ -228,11 +228,11 @@ def explore_pad_width():
                 'normalize' : True,
                 #~ 'pad_width': 150
                 }
-    
+
     offline_sig = offline_signal_preprocessor(sigs, sample_rate, **params)
-    
+
     pad_widths = [ int(sample_rate/params['highpass_freq'])*i for i in range(1, 5)]
-    
+
     online_sigs = {}
     for pad_width in pad_widths:
         print('pad_width', pad_width)
@@ -250,17 +250,17 @@ def explore_pad_width():
 
     for pad_width in pad_widths:
         print('pad_width', pad_width)
-        
+
         online_sig = online_sigs[pad_width]
         residual = np.abs(online_sig.astype('float64')-offline_sig.astype('float64'))
-        
+
         residual_normed = residual/np.mean(np.abs(offline_sig.astype('float64')))
         print('   max residual_normed', np.max(residual_normed))
 
 
 
-        
-    
+
+
 
 def test_auto_pad_width():
     sigs, sample_rate = get_dataset(name='olfactory_bulb')
@@ -269,7 +269,7 @@ def test_auto_pad_width():
     chunksize = 1024
     nloop = sigs.shape[0]//chunksize
     sigs = sigs[:chunksize*nloop]
-    
+
     params = {
                 'common_ref_removal' : False,
                 'highpass_freq': 300.,
@@ -279,21 +279,21 @@ def test_auto_pad_width():
                 'normalize' : True,
                 'pad_width': None,
                 }
-    
+
     offline_sig = offline_signal_preprocessor(sigs, sample_rate, **params)
-    
+
     online_sig = run_online('numpy', sigs, sample_rate, chunksize, **params)
     min_size = online_sig.shape[0]
     offline_sig = offline_sig[chunksize:min_size]
     online_sig = online_sig[chunksize:min_size]
-    
+
     residual = np.abs(online_sig.astype('float64')-offline_sig.astype('float64'))
-    
+
     residual_normed = residual/np.mean(np.abs(offline_sig.astype('float64')))
     print('   max residual_normed', np.max(residual_normed))
-    
-    
-    
+
+
+
     # remove border for comparison
 
 
@@ -303,7 +303,7 @@ def test_smooth_with_filtfilt():
     sigs[50] = 1
     #~ sigs[51] = 5
     #~ sigs += np.random.randn(*sigs.shape)
-    
+
     # smooth with box kernel
     box_size = 3
     kernel = np.ones(box_size)/box_size
@@ -325,13 +325,13 @@ def test_smooth_with_filtfilt():
     print(coeff)
     coeff = np.tile(coeff, (5, 1))
     sigs_smooth2 = scipy.signal.sosfiltfilt(coeff, sigs, axis=0)
-    
+
     # smooth with LP filter
     coeff = scipy.signal.iirfilter(5, 0.3, analog=False,
                                     btype = 'lowpass', ftype = 'butter', output = 'sos')
     sigs_smooth3 = scipy.signal.sosfiltfilt(coeff, sigs, axis=0)
-    
-    
+
+
     if __name__ == '__main__':
         print(sigs_smooth2.sum())
         print(sigs_smooth2[40:60])
@@ -340,21 +340,21 @@ def test_smooth_with_filtfilt():
         ax.plot(sigs_smooth, color='g', label='box smooth')
         ax.plot(sigs_smooth2, color='r', label='filfilt smooth')
         ax.plot(sigs_smooth3, color='m', label='lp filter')
-        
+
         ax.legend()
-        
+
         pyplot.show()
 
-    
-    
 
 
-    
+
+
+
 if __name__ == '__main__':
     test_compare_offline_online_engines()
     #~ test_smooth_with_filtfilt()
-    
+
     #~ explore_pad_width()
-    
+
     #~ test_auto_pad_width()
 

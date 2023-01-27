@@ -38,26 +38,26 @@ class MyViewBox(pg.ViewBox):
 
 
 class BaseTraceViewer(WidgetBase):
-    
+
     _params = [{'name': 'auto_zoom_on_select', 'type': 'bool', 'value': True },
                        {'name': 'zoom_size', 'type': 'float', 'value':  0.08, 'step' : 0.001 },
                       {'name': 'plot_threshold', 'type': 'bool', 'value':  True },
                       {'name': 'alpha', 'type': 'float', 'value' : 0.8, 'limits':(0, 1.), 'step':0.05 },
                       {'name': 'xsize_max', 'type': 'float', 'value': 4.0, 'step': 1.0, 'limits':(1.0, np.inf)},
                       ]
-    
+
     def __init__(self,controller=None, signal_type='initial', parent=None):
         WidgetBase.__init__(self, parent=parent, controller=controller)
-    
+
         self.dataio = controller.dataio
         self.signal_type = signal_type
-        
+
         self.layout = QT.QVBoxLayout()
         self.setLayout(self.layout)
-        
+
         self.create_toolbar()
-        
-        
+
+
         # create graphic view and 2 scroll bar
         g = QT.QGridLayout()
         self.layout.addLayout(g)
@@ -70,18 +70,18 @@ class BaseTraceViewer(WidgetBase):
         self.scroll_time = QT.QScrollBar(orientation=QT.Qt.Horizontal)
         g.addWidget(self.scroll_time, 1,1)
         self.scroll_time.valueChanged.connect(self.on_scroll_time)
-        
+
         #handle time by segments
         self.time_by_seg = np.array([0.]*self.dataio.nb_segment, dtype='float64')
-        
+
         self.change_segment(0)
         self.refresh()
-    
+
     _default_color = QT.QColor( 'white')
-    
+
     def create_toolbar(self):
         tb = self.toolbar = QT.QToolBar()
-        
+
         #Segment selection
         self.combo_seg = QT.QComboBox()
         tb.addWidget(self.combo_seg)
@@ -90,7 +90,7 @@ class BaseTraceViewer(WidgetBase):
         self.seg_num = self._seg_pos
         self.combo_seg.currentIndexChanged.connect(self.on_combo_seg_changed)
         tb.addSeparator()
-        
+
         self.combo_type = QT.QComboBox()
         tb.addWidget(self.combo_type)
         self.combo_type.addItems([ signal_type for signal_type in _signal_types ])
@@ -101,7 +101,7 @@ class BaseTraceViewer(WidgetBase):
         self.timeseeker = TimeSeeker(show_slider=False)
         tb.addWidget(self.timeseeker)
         self.timeseeker.time_changed.connect(self.seek)
-        
+
         # winsize
         self.xsize = .5
         tb.addWidget(QT.QLabel(u'X size (s)'))
@@ -110,7 +110,7 @@ class BaseTraceViewer(WidgetBase):
         tb.addWidget(self.spinbox_xsize)
         tb.addSeparator()
         self.spinbox_xsize.sigValueChanged.connect(self.refresh)
-        
+
         #
         but = QT.QPushButton('auto scale')
         but.clicked.connect(self.auto_scale)
@@ -120,12 +120,12 @@ class BaseTraceViewer(WidgetBase):
         tb.addWidget(but)
         self.select_button = QT.QPushButton('select', checkable = True)
         tb.addWidget(self.select_button)
-        
-        
+
+
         self.layout.addWidget(self.toolbar)
-        
+
         self._create_other_toolbar()
-    
+
 
     def initialize_plot(self):
         self.viewBox = MyViewBox()
@@ -133,10 +133,10 @@ class BaseTraceViewer(WidgetBase):
         self.graphicsview.setCentralItem(self.plot)
         self.plot.hideButtons()
         self.plot.showAxis('left', False)
-        
+
         self.viewBox.gain_zoom.connect(self.gain_zoom)
         self.viewBox.xsize_zoom.connect(self.xsize_zoom)
-        
+
         self.visible_channels = np.zeros(self.controller.nb_channel, dtype='bool')
         self.max_channel = min(16, self.controller.nb_channel)
         #~ self.max_channel = min(5, self.controller.nb_channel)
@@ -149,14 +149,14 @@ class BaseTraceViewer(WidgetBase):
         else:
             self.visible_channels[:] = True
             self.scroll_chan.hide()
-            
+
         self.signals_curve = pg.PlotCurveItem(pen='#7FFF00', connect='finite')
         self.plot.addItem(self.signals_curve)
 
         self.scatter = pg.ScatterPlotItem(size=10, pxMode = True)
         self.plot.addItem(self.scatter)
         self.scatter.sigClicked.connect(self.scatter_item_clicked)
-        
+
         self.channel_labels = []
         self.threshold_lines =[]
         for i, chan_name in enumerate(self.controller.channel_names):
@@ -164,28 +164,28 @@ class BaseTraceViewer(WidgetBase):
             label = pg.TextItem('{}: {}'.format(i, chan_name), color='#FFFFFF', anchor=(0, 0.5), border=None, fill=pg.mkColor((128,128,128, 180)))
             self.plot.addItem(label)
             self.channel_labels.append(label)
-        
-        
+
+
         for i in range(self.max_channel):
             tc = pg.InfiniteLine(angle = 0., movable = False, pen = pg.mkPen(color=(128,128,128, 120)))
             tc.setPos(0.)
             self.threshold_lines.append(tc)
             self.plot.addItem(tc)
             tc.hide()
-        
+
         pen = pg.mkPen(color=(128,0,128, 120), width=3, style=QT.Qt.DashLine)
         self.selection_line = pg.InfiniteLine(pos = 0., angle=90, movable=False, pen = pen)
         self.plot.addItem(self.selection_line)
         self.selection_line.hide()
-        
+
         self._initialize_plot()
-        
+
         self.gains = None
         self.offsets = None
 
     def prev_segment(self):
         self.change_segment(self._seg_pos - 1)
-        
+
     def next_segment(self):
         self.change_segment(self._seg_pos + 1)
 
@@ -198,7 +198,7 @@ class BaseTraceViewer(WidgetBase):
             self._seg_pos = 0
         self.seg_num = self._seg_pos
         self.combo_seg.setCurrentIndex(self._seg_pos)
-        
+
         length = self.dataio.get_segment_length(self.seg_num)
         t_start=0.
         t_stop = length/self.dataio.sample_rate
@@ -206,12 +206,12 @@ class BaseTraceViewer(WidgetBase):
 
         self.scroll_time.setMinimum(0)
         self.scroll_time.setMaximum(length)
-        
+
         if self.isVisible():
             self.refresh()
-    
+
     def on_params_changed(self):
-        
+
         # adjust xsize spinbox bounds, and adjust xsize if out of bounds
         self.spinbox_xsize.opts['bounds'] = [0.001, self.params['xsize_max']]
         if self.xsize > self.params['xsize_max']:
@@ -219,26 +219,26 @@ class BaseTraceViewer(WidgetBase):
             self.spinbox_xsize.setValue(self.params['xsize_max'])
             self.xsize = self.params['xsize_max']
             self.spinbox_xsize.sigValueChanged.connect(self.on_xsize_changed)
-        
+
         self.refresh()
-    
+
     def on_combo_seg_changed(self):
         s =  self.combo_seg.currentIndex()
         self.change_segment(s)
-    
+
     def on_combo_type_changed(self):
         s =  self.combo_type.currentIndex()
         self.signal_type = _signal_types[s]
         self.estimate_auto_scale()
         self.change_segment(self._seg_pos)
-    
 
-    
+
+
     def on_xsize_changed(self):
         self.xsize = self.spinbox_xsize.value()
         if self.isVisible():
             self.refresh()
-    
+
     def refresh(self):
         self.seek(self.time_by_seg[self.seg_num])
 
@@ -248,11 +248,11 @@ class BaseTraceViewer(WidgetBase):
         limits = self.spinbox_xsize.opts['bounds']
         if newsize>0. and newsize<limits[1]:
             self.spinbox_xsize.setValue(newsize)
-    
+
     def auto_scale(self):
         self.estimate_auto_scale()
         self.refresh()
-    
+
     def estimate_auto_scale(self):
 
         if self.signal_type=='initial':
@@ -265,10 +265,10 @@ class BaseTraceViewer(WidgetBase):
             #in that case it should be already normalize
             self.med = np.zeros(self.controller.nb_channel, dtype='float32')
             self.mad = np.ones(self.controller.nb_channel, dtype='float32')
-        
+
         self.factor = 1.
         self.gain_zoom(15.)
-    
+
     def gain_zoom(self, factor_ratio):
         self.factor *= factor_ratio
         self.gains = np.zeros(self.controller.nb_channel, dtype='float32')
@@ -281,39 +281,39 @@ class BaseTraceViewer(WidgetBase):
     def on_scroll_time(self, val):
         sr = self.controller.dataio.sample_rate
         self.timeseeker.seek(val/sr)
-    
+
     def on_scroll_chan(self, val):
         self.visible_channels[:] = False
         self.visible_channels[val:val+self.max_channel] = True
         self.gain_zoom(1)
         self.refresh()
-    
+
     def center_scrollbar_on_channel(self, c):
         c = c - self.max_channel//2
         c = min(max(c, 0), self.controller.nb_channel-self.max_channel)
         self.scroll_chan.valueChanged.disconnect(self.on_scroll_chan)
         self.scroll_chan.setValue(c)
         self.scroll_chan.valueChanged.connect(self.on_scroll_chan)
-        
+
         self.visible_channels[:] = False
         self.visible_channels[c:c+self.max_channel] = True
         self.gain_zoom(1)
-    
+
     def scatter_item_clicked(self, plot, points):
         if self.select_button.isChecked()and len(points)==1:
             x = points[0].pos().x()
             self.controller.spike_selection[:] = False
-            
+
             pos_click = int(x*self.dataio.sample_rate )
             mask = self.controller.spikes['segment']==self.seg_num
             ind_nearest = np.argmin(np.abs(self.controller.spikes[mask]['index'] - pos_click))
-            
+
             ind_clicked = np.nonzero(mask)[0][ind_nearest]
             self.controller.spike_selection[ind_clicked] = True
-            
+
             self.spike_selection_changed.emit()
             self.refresh()
-    
+
     def on_spike_selection_changed(self):
         ind_selected, = np.nonzero(self.controller.spike_selection)
         n_selected = ind_selected.size
@@ -323,37 +323,37 @@ class BaseTraceViewer(WidgetBase):
             peak_ind = self.controller.spikes[ind]['index']
             seg_num = self.controller.spikes[ind]['segment']
             peak_time = peak_ind/self.dataio.sample_rate
-            
+
             if seg_num != self.seg_num:
                 self.combo_seg.setCurrentIndex(seg_num)
-            
+
             self.spinbox_xsize.sigValueChanged.disconnect(self.on_xsize_changed)
             self.spinbox_xsize.setValue(self.params['zoom_size'])
             self.xsize = self.params['zoom_size']
             self.spinbox_xsize.sigValueChanged.connect(self.on_xsize_changed)
-            
+
             label = self.controller.spikes[ind]['cluster_label']
             c = self.controller.get_extremum_channel(label)
-            
+
             if c  is None:
                 wf = self.controller.dataio.get_signals_chunk(seg_num=seg_num, chan_grp=self.controller.chan_grp,
                         i_start=peak_ind, i_stop=peak_ind+1,
                         signal_type='processed')
                 c = np.argmax(np.abs(wf))
-            
+
             self.center_scrollbar_on_channel(c)
-            
+
             self.seek(peak_time)
-            
+
         else:
             self.refresh()
-    
+
     def seek(self, t):
         #~ tp1 = time.perf_counter()
-        
+
         if self.sender() is not self.timeseeker:
             self.timeseeker.seek(t, emit = False)
-        
+
         self.time_by_seg[self.seg_num] = t
         t1,t2 = t-self.xsize/3. , t+self.xsize*2/3.
         t_start = 0.
@@ -363,38 +363,38 @@ class BaseTraceViewer(WidgetBase):
         self.scroll_time.setValue(int(sr*t))
         self.scroll_time.setPageStep(int(sr*self.xsize))
         self.scroll_time.valueChanged.connect(self.on_scroll_time)
-        
+
         ind1 = max(0, int((t1-t_start)*sr))
         ind2 = int((t2-t_start)*sr)
 
         sigs_chunk = self.dataio.get_signals_chunk(seg_num=self.seg_num, chan_grp=self.controller.chan_grp,
                 i_start=ind1, i_stop=ind2, signal_type=self.signal_type)
-        
+
         if sigs_chunk is None: 
             return
-        
+
         if self.gains is None:
             self.estimate_auto_scale()
 
-        
+
         nb_visible = np.sum(self.visible_channels)
-        
+
         data_curves = sigs_chunk[:, self.visible_channels].T.copy()
         if data_curves.dtype!='float32':
             data_curves = data_curves.astype('float32')
-        
+
         data_curves *= self.gains[self.visible_channels, None]
         data_curves += self.offsets[self.visible_channels, None]
         #~ data_curves[:,0] = np.nan
-        
+
         connect = np.ones(data_curves.shape, dtype='bool')
         connect[:, -1] = 0
-        
+
         times_chunk = np.arange(sigs_chunk.shape[0], dtype='float64')/self.dataio.sample_rate+max(t1, 0)
         times_chunk_tile = np.tile(times_chunk, nb_visible)
         self.signals_curve.setData(times_chunk_tile, data_curves.flatten(), connect=connect.flatten())
-        
-        
+
+
         #channel labels
         i = 1
         for c in range(self.controller.nb_channel):
@@ -414,8 +414,8 @@ class BaseTraceViewer(WidgetBase):
                 self.threshold_lines[i].show()
             else:
                 self.threshold_lines[i].hide()        
-        
-        
+
+
         # plot peak on signal
         all_spikes = self.controller.spikes
         if len(all_spikes)>0:
@@ -438,10 +438,10 @@ class BaseTraceViewer(WidgetBase):
                 if not self.controller.cluster_visible[k]: continue
                 mask = inwindow_label==k
                 if np.sum(mask)==0: continue
-                
+
                 color = QT.QColor(self.controller.qcolors.get(k, self._default_color))
                 color.setAlpha(int(self.params['alpha']*255))
-                
+
                 x = times_chunk[inwindow_ind[mask]]
                 sigs_chunk_in = sigs_chunk[inwindow_ind[mask], :]
                 chan_inds = None
@@ -456,11 +456,11 @@ class BaseTraceViewer(WidgetBase):
                         chan_inds = inwindow_chan[mask]
                 mask_visible = self.visible_channels[chan_inds]
                 if np.sum(mask_visible)==0: continue
-                
+
                 chan_inds = chan_inds[mask_visible]
                 x = x[mask_visible]
                 y = sigs_chunk_in[mask_visible, :][np.arange(chan_inds.size), chan_inds]*self.gains[chan_inds]+self.offsets[chan_inds]
-                
+
                 all_x.append(x)
                 all_y.append(y)
                 all_brush.append(np.array([pg.mkBrush(color)]*len(x)))
@@ -472,8 +472,8 @@ class BaseTraceViewer(WidgetBase):
                 all_y = np.concatenate(all_y)
                 all_brush = np.concatenate(all_brush)
                 self.scatter.setData(x=all_x, y=all_y, brush=all_brush)
-            
-            
+
+
             if np.sum(inwindow_selected)==1:
                 self.selection_line.setPos(times_chunk[inwindow_ind[inwindow_selected]])
                 self.selection_line.show()
@@ -481,32 +481,32 @@ class BaseTraceViewer(WidgetBase):
                 self.selection_line.hide()            
         else:
             spikes_chunk = None
-        
+
         # plot prediction or residuals ...
         self._plot_specific_items(sigs_chunk, times_chunk, spikes_chunk)
-        
+
         #ranges
         self.plot.setXRange( t1, t2, padding = 0.0)
         self.plot.setYRange(-.5, nb_visible-.5, padding = 0.0)
-        
+
         #TODO : do some thing here
         #~ self.graphicsview.repaint()
 
         #~ tp2 = time.perf_counter()
         #~ print('seek', tp2-tp1)
-        
+
 
 
 class CatalogueTraceViewer(BaseTraceViewer):
     """
     **Trace viewer** allow to browser raw signal and preprocess signals.
-    
+
     Note that this viewer do not load the entire signals in memory but load
     chunk on demand from HD, that is why depending on the drive it can be
     quite slow. All zoom and scale factor for signals are computed on CPU and
     not on GPU (it is not vispy!!), so this is not the fastest veiwer but many tips
     help user to navigate very efficiently.
-    
+
     What you can do:
       * On the bottom there is a slider over time
       * On the left there is a slider over channels (if nb_channel>16)
@@ -520,21 +520,21 @@ class CatalogueTraceViewer(BaseTraceViewer):
         * "auto_zoom_on_select" : auto zoom when select on ndscatter on peak list
         * "zoom_size" in s
         * disable plot threshold
-    
+
     Important:
       * Ths "preprocessed" signal are normalized (robust Z-score) so that the noise variance is 1.
         So the apparent noise **must be** inbetween  [-3, 3]
-    
+
     """
     def __init__(self, controller=None, signal_type = 'processed', parent=None):
         BaseTraceViewer.__init__(self, controller=controller, signal_type=signal_type, parent=parent)
-    
+
     def _create_other_toolbar(self):
         pass
-        
+
     def _initialize_plot(self):
         pass
-    
+
     def _plot_specific_items(self, sigs_chunk, times_chunk, spikes_chunk):
         pass
 
@@ -542,52 +542,52 @@ class CatalogueTraceViewer(BaseTraceViewer):
 class PeelerTraceViewer(BaseTraceViewer):
     def __init__(self, controller=None, signal_type = 'processed', parent=None):
         BaseTraceViewer.__init__(self, controller=controller, signal_type=signal_type, parent=parent)
-    
+
     def _create_other_toolbar(self):
-        
+
         self.toolbar2 = QT.QToolBar()
         self.layout.insertWidget(1, self.toolbar2)
         #~ addToolBarBreak
-        
+
         self.plot_buttons = {}
         for name in ['signals', 'prediction', 'residual']:
             self.plot_buttons[name] = but = QT.QPushButton(name,  checkable = True)
             but.clicked.connect(self.refresh)
             self.toolbar2.addWidget(but)
-            
+
             if name in ['signals', 'prediction']:
                 but.setChecked(True)
-    
+
     def _initialize_plot(self):
         self.curve_predictions = pg.PlotCurveItem(pen='#FF00FF', connect='finite')
         self.plot.addItem(self.curve_predictions)
         self.curve_residuals = pg.PlotCurveItem(pen='#FFFF00', connect='finite')
         self.plot.addItem(self.curve_residuals)
-   
+
     def _plot_specific_items(self, sigs_chunk, times_chunk, spikes_chunk):
         if spikes_chunk is None: return
-        
+
         #prediction
         #TODO make prediction only on visible!!!! 
         if self.signal_type == 'processed':
             prediction = make_prediction_signals(spikes_chunk, sigs_chunk.dtype, sigs_chunk.shape, self.controller.catalogue)
             residuals = sigs_chunk - prediction
-        
+
         # plots
         nb_visible = np.sum(self.visible_channels)
         times_chunk_tile = np.tile(times_chunk, nb_visible)
-        
+
         def plot_curves(curve, data):
             data = data[:, self.visible_channels].T.copy()
             data *= self.gains[self.visible_channels, None]
             data += self.offsets[self.visible_channels, None]
             #~ data[:,0] = np.nan
-            
+
             connect = np.ones(data.shape, dtype='bool')
             connect[:, -1] = 0
-            
+
             curve.setData(times_chunk_tile, data.flatten(), connect=connect.flatten())
-        
+
         if self.plot_buttons['prediction'].isChecked() and self.signal_type == 'processed':
             plot_curves(self.curve_predictions, prediction)
         else:
@@ -597,7 +597,7 @@ class PeelerTraceViewer(BaseTraceViewer):
             plot_curves(self.curve_residuals, residuals)
         else:
             self.curve_residuals.setData([], [])
-        
+
         if not self.plot_buttons['signals'].isChecked():
             self.signals_curve.setData([], [])
 

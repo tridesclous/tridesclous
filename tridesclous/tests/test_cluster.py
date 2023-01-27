@@ -31,17 +31,17 @@ def teardown_module():
 
 def test_sawchaincut():
     dirname = 'test_cluster'
-    
+
     dataio = DataIO(dirname=dirname)
     cc = CatalogueConstructor(dataio=dataio)
     #~ print(dataio)
     #~ print(cc)
-    
+
     t0 = time.perf_counter()
     cc.find_clusters(method='sawchaincut', print_debug=True)
     t1 = time.perf_counter()
     print('cluster', t1-t0)
-    
+
     #~ print(cc)
 
 
@@ -56,22 +56,22 @@ def test_sawchaincut():
 def test_pruningshears():
 
     dirname = 'test_cluster'
-    
-    
+
+
     dataio = DataIO(dirname=dirname)
     print(dataio)
     cc = CatalogueConstructor(dataio=dataio)
     #~ print(cc.mode)
-    
+
     #~ cc.extract_some_features(method='pca_by_channel')
     #~ print(dataio)
     #~ print(cc)
-    
+
     if dataset_name == 'olfactory_bulb':
         kargs = dict(adjacency_radius_um = 420)
     else:
         kargs = {}
-    
+
     t0 = time.perf_counter()
     #~ cc.find_clusters(method='pruningshears', print_debug=True)
     #~ cc.find_clusters(method='pruningshears', print_debug=True, debug_plot=True, **kargs)
@@ -85,12 +85,12 @@ def test_pruningshears():
         win = CatalogueWindow(cc)
         win.show()
         app.exec_()
-    
+
 
 
 if __name__ == '__main__':
     setup_module()
     test_sawchaincut()
     test_pruningshears()
-    
-    
+
+

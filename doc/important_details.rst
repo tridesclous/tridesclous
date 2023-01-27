@@ -86,7 +86,7 @@ A typical PRB file look like this, here 8 channels (2 tetrodes)::
                 7 : [0, -50],
         },
     }
-    
+
 
 
 If some of the channels were dead or picked up excessive noise, they can be skipped::
@@ -119,7 +119,7 @@ tridesclous can automatically download them with the DataIO::
     dataio.download_probe('1x32_buzsaki', origin='kwikteam')
 
 
-    
+
 Pre-processing
 ----------------
 
@@ -130,7 +130,7 @@ The pre-processing chain is done as follows:
      can substract it. This is as if all channels would re referenced numerically to there medians.
   3. **Normalisisation**:  this is more or less a robust z-score channel by channel
 
-  
+
 Important:
   * For spike sorting it is important to compute the filter with forward-backward method.
     This is filtfilt in `matlab <https://fr.mathworks.com/help/signal/ref/filtfilt.html?requestedDomain=www.mathworks.com>`_
@@ -147,21 +147,21 @@ Important:
   * The normalisation is a robust z-score. This means that for each channel **sig_normed = (sig - median) / mad.**
     Mad is `median absolute deviation <https://en.wikipedia.org/wiki/Median_absolute_deviation>`_
     So after pre processing chain, the units of each is **signal to noise ratio**. So as the Gaussian low:
-    
+
       * magnitude 1 = 1 mad = 1 robust sd = 68% of the noise
       * magnitude 2 = 2 mad = 2 robust sd = 95% of the noise
       * magnitude 3 = 3 mad = 3 robust sd = 99.7% of the noise
-    
+
     This is crucial to have this in minds for settings the good threshold.
   * Many software also include a `whitening <https://en.wikipedia.org/wiki/Whitening_transformation>`_ stage.
     Basically this consists of applying to signals the factorized and inversed covariance matrix.
     This is intentionally not done in tridesclous for theses reasons:
-    
+
       * Contrary to what some user think: this does not denoise signals.
       * This must be computed on chunks where there are no spikes. This is hard to do it cleanly.
       * Matrix inversion can lead to numerical error and so some pathological tricks are often added.
-  
-  
+
+
 Peak detection and threshold
 ----------------------------
 
@@ -203,7 +203,7 @@ peak. The feature and cluster will be based on this array.
     there will be too much noise for clustering. If it is too short, the Peeler (template 
     matching) will fail when substracting leading to noisy residual due to borders.
     A good rule is:
-    
+
        * the median of each cluster need to be back to 0 on each side
        * AND the mad of a cluster need to be back to 1 (noise) on each side.
 
@@ -257,7 +257,7 @@ To not upset anybody we implement several methods, so the user can choose and co
   * **pca_by_channel** the most widespread method. Apply a PCA by channel and concatenate them after.
   * **neighborhood_pca** the most sofisticated. For each channel we concatenate the waveforms of the
     neighborhood and apply a PCA on it.
-  
+
 
 
 Clustering

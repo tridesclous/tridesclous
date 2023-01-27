@@ -10,7 +10,7 @@ https://github.com/BenjaminDoran/unidip
 BenjaminDoran
 
 
-    
+
 The dip statistic measures unimodality of a sample from a random process.
 See: 
 Hartigan, J. A.; Hartigan, P. M. The Dip Test of Unimodality. The Annals 
@@ -59,7 +59,7 @@ def diptest(dat, is_hist=False, numt=1000):
     pval = None \
       if unif_dips.sum() == 0 else \
         (np.less(d, unif_dips).sum() + 1) / (np.float(numt) + 1)
-    
+
     return pval
     #~ return (d, pval, # dip, pvalue
             #~ (len(left)-1, len(idxs)-len(right)) # indices

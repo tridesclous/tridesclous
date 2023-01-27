@@ -4,4 +4,3 @@ try:
 except:
     HAVE_QT5 = False
 
-    
