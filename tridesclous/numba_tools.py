@@ -8,7 +8,7 @@ except ImportError:
 import numpy as np
 
 # OLD
-@jit(parallel=True)
+@jit(nopython=True, parallel=True)
 def numba_loop_sparse_dist(waveform, centers,  mask):
     nb_clus, width, nb_chan = centers.shape
     
@@ -30,7 +30,7 @@ def numba_loop_sparse_dist(waveform, centers,  mask):
 
 
 
-@jit(parallel=True)
+@jit(nopython=True, parallel=True)
 def numba_sparse_scalar_product(fifo_residuals, left_ind, centers, projector, peak_chan_ind,
                         sparse_mask_level1, ):
     nb_clus, width, nb_chan = centers.shape
@@ -60,7 +60,7 @@ def numba_sparse_scalar_product(fifo_residuals, left_ind, centers, projector, pe
 
 
 
-@jit(parallel=True)
+@jit(nopython=True, parallel=True)
 def numba_explore_best_shift(fifo_residuals, left_ind, centers, projector, candidates_idx,  maximum_jitter_shift, common_mask, sparse_mask_level1):
 
     nb_clus, width, nb_chan = centers.shape
@@ -100,7 +100,7 @@ def numba_explore_best_shift(fifo_residuals, left_ind, centers, projector, candi
 
 
 
-@jit(parallel=True)
+@jit(nopython=True, parallel=True)
 def peak_loop_plus(sigs, sig_center, mask_peaks, n_span, thresh, peak_sign, neighbours):
     for chan in prange(sig_center.shape[1]):
         for s in range(mask_peaks.shape[0]):
@@ -121,7 +121,7 @@ def peak_loop_plus(sigs, sig_center, mask_peaks, n_span, thresh, peak_sign, neig
     return mask_peaks
 
 
-@jit(parallel=True)
+@jit(nopython=True, parallel=True)
 def peak_loop_minus(sigs, sig_center, mask_peaks, n_span, thresh, peak_sign, neighbours):
     for chan in prange(sig_center.shape[1]):
         for s in range(mask_peaks.shape[0]):
