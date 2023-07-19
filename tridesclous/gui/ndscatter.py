@@ -411,7 +411,7 @@ class NDScatter(WidgetBase):
     def start_stop_tour(self, checked):
         if checked:
             self.tour_step = 0
-            self.timer_tour.setInterval(self.params['refresh_interval'])
+            self.timer_tour.setInterval(int(self.params['refresh_interval']))
             self.timer_tour.start()
         else:
             self.timer_tour.stop()

@@ -137,16 +137,16 @@ def test_PeelerWindow():
     
     
 if __name__ == '__main__':
-    #~ setup_module()
+    setup_module()
     
-    test_Peelercontroller()
+    #~ test_Peelercontroller()
     
-    test_PeelerTraceViewer()
-    test_SpikeList()
-    test_ClusterSpikeList()
-    test_PeelerWaveformViewer()
-    test_ISIViewer()
-    test_CrossCorrelogramViewer()
+    #~ test_PeelerTraceViewer()
+    #~ test_SpikeList()
+    #~ test_ClusterSpikeList()
+    #~ test_PeelerWaveformViewer()
+    #~ test_ISIViewer()
+    #~ test_CrossCorrelogramViewer()
     
     test_PeelerWindow()
 

@@ -99,7 +99,7 @@ class PeelerController(ControllerBase):
         self.qcolors = {}
         for k, color in self.colors.items():
             r, g, b = color
-            self.qcolors[k] = QT.QColor(r*255, g*255, b*255)
+            self.qcolors[k] = QT.QColor(int(r*255), int(g*255), int(b*255))
         
         self.spike_visible_mode = spike_visible_modes[0]
     

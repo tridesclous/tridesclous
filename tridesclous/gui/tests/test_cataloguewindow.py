@@ -197,20 +197,20 @@ def test_CatalogueWindow():
 if __name__ == '__main__':
     setup_module()
     
-    test_CatalogueController()
+    #~ test_CatalogueController()
     
-    test_CatalogueTraceViewer()
-    test_PeakList()
-    test_ClusterPeakList()
-    test_NDScatter()
-    test_WaveformViewer()
-    test_SpikeSimilarityView()
-    test_ClusterSimilarityView()
-    test_ClusterRatioSimilarityView()
-    test_PairList()
-    test_Silhouette()
-    test_WaveformHistViewer()
-    test_FeatureTimeViewer()
+    #~ test_CatalogueTraceViewer()
+    #~ test_PeakList()
+    #~ test_ClusterPeakList()
+    #~ test_NDScatter()
+    #~ test_WaveformViewer()
+    #~ test_SpikeSimilarityView()
+    #~ test_ClusterSimilarityView()
+    #~ test_ClusterRatioSimilarityView()
+    #~ test_PairList()
+    #~ test_Silhouette()
+    #~ test_WaveformHistViewer()
+    #~ test_FeatureTimeViewer()
     
     test_CatalogueWindow()
 
