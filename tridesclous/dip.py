@@ -58,7 +58,7 @@ def diptest(dat, is_hist=False, numt=1000):
     # count dips greater or equal to d, add 1/1 to prevent a pvalue of 0
     pval = None \
       if unif_dips.sum() == 0 else \
-        (np.less(d, unif_dips).sum() + 1) / (np.float(numt) + 1)
+        (np.less(d, unif_dips).sum() + 1) / (np.float64(numt) + 1)
     
     return pval
     #~ return (d, pval, # dip, pvalue

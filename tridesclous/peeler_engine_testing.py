@@ -27,7 +27,7 @@ try:
     from numba import jit
 
 
-    @jit(parallel=True)
+    @jit(nopython=True, parallel=True)
     def numba_loop_sparse_weigthed_dist(waveform, centers,  mask):
         nb_clus, width, nb_chan = centers.shape
         
