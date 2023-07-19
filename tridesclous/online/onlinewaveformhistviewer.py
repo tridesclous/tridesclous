@@ -188,7 +188,7 @@ class OnlineWaveformHistViewer(WidgetNode):
             self.qcolors = {}
             for k, color in colors.items():
                 r, g, b = color
-                self.qcolors[k] = QT.QColor(r*255, g*255, b*255)
+                self.qcolors[k] = QT.QColor(int(r*255), int(g*255), int(b*255))
 
             self.all_plotted_labels = self.catalogue['cluster_labels'].tolist() + [LABEL_UNCLASSIFIED]
             

@@ -290,7 +290,7 @@ class CatalogueController(ControllerBase):
         self.qcolors = {}
         for k, color in self.cc.colors.items():
             r, g, b = color
-            self.qcolors[k] = QT.QColor(r*255, g*255, b*255)
+            self.qcolors[k] = QT.QColor(int(r*255), int(g*255), int(b*255))
 
     def set_cluster_attributes(self, label, color=None, annotations=None, tag=None):
         if label not in self.cc.clusters['cluster_label']:
