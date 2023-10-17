@@ -331,7 +331,7 @@ def test_feature_with_lda_selection():
     cc = CatalogueConstructor(dataio=dataio)
     print(cc)
     
-    selection = np.in1d(cc.all_peaks['cluster_label'], [1, 2, 3, 4])
+    selection = np.isin(cc.all_peaks['cluster_label'], [1, 2, 3, 4])
     print(np.sum(selection), '/', cc.all_peaks.size)
     
     cc.extract_some_features(method='global_lda',  selection=selection)

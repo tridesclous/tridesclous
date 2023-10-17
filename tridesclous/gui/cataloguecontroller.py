@@ -332,7 +332,7 @@ class CatalogueController(ControllerBase):
     
     def update_visible_spikes(self):
         visibles = np.array([k for k, v in self.cluster_visible.items() if v ])
-        self.spike_visible[:] = np.in1d(self.spike_label, visibles)
+        self.spike_visible[:] = np.isin(self.spike_label, visibles)
 
     def on_cluster_visibility_changed(self):
         self.update_visible_spikes()

@@ -271,7 +271,7 @@ def compute_cross_correlograms(spike_indexes, spike_labels,
         shift = 1
 
         
-        keep = (spike_segments==seg_num) & np.in1d(spike_labels, cluster_labels)
+        keep = (spike_segments==seg_num) & np.isin(spike_labels, cluster_labels)
         sp_indexes = spike_indexes[keep]
         sp_labels = spike_labels[keep]
         sp_segments = spike_segments[keep]
