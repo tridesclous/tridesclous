@@ -225,7 +225,7 @@ class PcaByChannel:
                 #~ print('dense', wf_chan.shape)
                 features[:, chan*n:(chan+1)*n] = pca.transform(wf_chan)
             elif cc.mode == 'sparse':
-                sel = np.in1d(some_peaks['channel'], channel_adjacency[chan])
+                sel = np.isin(some_peaks['channel'], channel_adjacency[chan])
                 #~ print(chan, np.sum(sel))
                 wf_chan = cc.get_some_waveforms(peaks_index=cc.some_peaks_index[sel], channel_indexes=[chan])
                 wf_chan = wf_chan[:, :, 0]

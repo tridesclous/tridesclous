@@ -187,7 +187,7 @@ class PruningShears:
         order_visit = np.argsort(percentiles)[::-1]
         percentiles = percentiles[order_visit]
         
-        mask = (percentiles > 0) & ~np.in1d(order_visit, chan_visited)
+        mask = (percentiles > 0) & ~np.isin(order_visit, chan_visited)
         
         order_visit = order_visit[mask]
         percentiles = percentiles[mask]

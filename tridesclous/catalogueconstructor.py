@@ -1658,7 +1658,7 @@ class CatalogueConstructor:
         This is a manual action.
         
         """
-        inds, = np.nonzero(np.in1d(self.clusters['cluster_label'], labels_to_group))
+        inds, = np.nonzero(np.isin(self.clusters['cluster_label'], labels_to_group))
         self.clusters['cell_label'][inds] = min(labels_to_group)
     
 

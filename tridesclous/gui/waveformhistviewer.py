@@ -295,7 +295,7 @@ class WaveformHistViewer(WidgetBase):
                 return
 
             labels = self.controller.spike_label[self.controller.some_peaks_index]
-            keep = np.in1d(labels, visibles)
+            keep = np.isin(labels, visibles)
             ind_keep,  = np.nonzero(keep)
             
             nb_feature_by_channel = data.shape[1] // self.controller.nb_channel

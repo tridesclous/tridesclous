@@ -248,7 +248,7 @@ class SawChainCut:
             #~ self.log(percentiles[order_visit])
             
             
-            order_visit = order_visit[~np.in1d(order_visit, chan_visited)]
+            order_visit = order_visit[~np.isin(order_visit, chan_visited)]
             
             if len(order_visit)==0:
                 self.log('len(order_visit)==0')

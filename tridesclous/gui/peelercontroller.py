@@ -227,7 +227,7 @@ class PeelerController(ControllerBase):
         #~ ['selected', 'all',  'collision']
         if self.spike_visible_mode=='selected':
             visibles = np.array([k for k, v in self.cluster_visible.items() if v ])
-            self.spikes['visible'][:] = np.in1d(self.spikes['cluster_label'], visibles)
+            self.spikes['visible'][:] = np.isin(self.spikes['cluster_label'], visibles)
         elif self.spike_visible_mode=='all':
             self.spikes['visible'][:] = True
         elif self.spike_visible_mode=='collision':

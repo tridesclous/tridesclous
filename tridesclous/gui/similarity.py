@@ -117,7 +117,7 @@ class SpikeSimilarityView(BaseSimilarityView):
         visibles = [c for c, v in self.controller.cluster_visible.items() if v and c>=0]
         
         labels = self.controller.spike_label[self.controller.some_peaks_index]
-        keep_ind,  = np.nonzero(np.in1d(labels, visibles))
+        keep_ind,  = np.nonzero(np.isin(labels, visibles))
         keep_label = labels[keep_ind]
         order = np.argsort(keep_label)
         keep_ind = keep_ind[order]
