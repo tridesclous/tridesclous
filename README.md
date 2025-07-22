@@ -1,5 +1,10 @@
 # trisdesclous: spike sorting with a [French touch](https://fr.wikipedia.org/wiki/French_touch_(informatique)).
 
+
+**trisdesclous is not maintenaned anymore, please user spikeinterface and treidesclous2 instead**
+
+
+
 ![icon](tridesclous/gui/icons/png/main_icon.png)
 
 Authors: Christophe Pouzat and Samuel Garcia
