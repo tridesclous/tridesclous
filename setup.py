@@ -44,7 +44,9 @@ setup(
           'console_scripts': ['tdc=tridesclous.scripts.tdc:main'],
           #~ 'gui_scripts': ['tdcgui=tridesclous.scripts.tdc:open_mainwindow'],
         },
-     license = "MIT",
+    license = "MIT",
+    # license_files = ['LICENSE',],
+    license_files = 'LICENSE',
     url='https://github.com/tridesclous/trisdesclous',
     classifiers = [
         'Development Status :: 4 - Beta',
