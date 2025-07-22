@@ -287,7 +287,7 @@ def compute_cross_correlograms(spike_indexes, spike_labels,
 
         # At a given shift, the mask precises which spikes have matching spikes
         # within the correlogram time window.
-        mask = np.ones_like(sp_indexes, dtype=np.bool)
+        mask = np.ones_like(sp_indexes, dtype="bool")
 
         # The loop continues as long as there is at least one spike with
         # a matching spike.
