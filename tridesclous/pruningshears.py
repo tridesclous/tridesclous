@@ -476,7 +476,7 @@ class PruningShears:
             else:
                 #~ peak_max = self.all_peak_max[mask_loop, :]
                 #~ mask_thresh[mask_loop] = peak_max[:, actual_chan] > self.threshold
-                mask_thresh[mask_loop] = np.in1d(self.peaks['channel'][mask_loop], high_adjacency)
+                mask_thresh[mask_loop] = np.isin(self.peaks['channel'][mask_loop], high_adjacency)
                 
             self.log('mask_loop.size', mask_loop.size, 'mask_loop.sum', mask_loop.sum(), 'mask_thresh.sum', mask_thresh.sum())
             
