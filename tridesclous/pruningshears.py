@@ -694,7 +694,7 @@ class PruningShears:
                 #~ bad_labels = possible_labels_l0[~peak_is_aligned & peak_is_on_chan]
                 # put aligned False
                 bad_labels = possible_labels_l0[~peak_is_aligned]
-                ind_trash_label = ind_l0[np.in1d(labels_l0, bad_labels)]
+                ind_trash_label = ind_l0[np.isin(labels_l0, bad_labels)]
                 self.log('trash bad_labels for trash', bad_labels, 'n=', ind_trash_label.size)
                 cluster_labels[ind_trash_label] = -1
                 
