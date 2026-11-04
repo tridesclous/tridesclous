@@ -1,0 +1,63 @@
+[project]
+name = "tridesclous"
+version = "1.7.0"
+authors = [
+  { name="Samuel Garcia", email="sam.garcia.die@gmail.com" },
+  { name="Christophe Pouzat"},
+]
+description = "offline/online spike sorting with french touch that light the barbecue"
+readme = "README.md"
+requires-python = ">=3.10,<4.0"
+classifiers = [
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Science/Research",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: OS Independent"
+]
+
+
+dependencies = [
+    "numpy",
+    "scipy",
+    "pandas",
+    "openpyxl",
+    "scikit-learn",
+    "matplotlib",
+    "seaborn",
+    "neo",
+    "tqdm",
+    "pyqtgraph",
+    "joblib",
+    "numba",
+    "hdbscan",
+    "loky",
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tridesclous*"]
+namespaces = false
+exclude = ["tridesclous.*.tests"]
+
+
+[project.urls]
+repository = "https://github.com/tridesclous/tridesclous"
+
+[project.optional-dependencies]
+online = ["pyacq"]
+opencl = ["pyopencl"]
+gui = ["PyQt5", "pyqtgraph"]
+
+
+
+[project.scripts]
+tdc = "tridesclous.scripts.tdc:main"
+
